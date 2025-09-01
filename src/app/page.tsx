@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   SidebarProvider,
   Sidebar,
@@ -15,12 +15,11 @@ import {
 } from '@/components/ui/sidebar';
 import {
   LayoutDashboard,
-  FileText,
   FilePlus,
   Bot,
   MailQuestion,
   History,
-  User,
+  LogOut,
 } from 'lucide-react';
 import { Icons } from '@/components/icons';
 import { Dashboard } from '@/components/dashboard';
@@ -32,6 +31,9 @@ import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useRole } from '@/contexts/role-context';
 import { RoleSwitcher } from '@/components/role-switcher';
+import { useAuth } from '@/contexts/auth-context';
+import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/button';
 
 type View =
   | 'dashboard'
@@ -43,6 +45,15 @@ type View =
 export default function ProcurCtrlPage() {
   const [view, setView] = useState<View>('dashboard');
   const { role } = useRole();
+  const { user, logout, loading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push('/login');
+    }
+  }, [user, loading, router]);
+
 
   const handleMenuClick = (selectedView: View) => {
     setView(selectedView);
@@ -81,6 +92,14 @@ export default function ProcurCtrlPage() {
         return <Dashboard setActiveView={setView} />;
     }
   };
+  
+  if (loading || !user) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center">
+        <p>Loading...</p>
+      </div>
+    );
+  }
 
   return (
     <SidebarProvider>
@@ -160,6 +179,11 @@ export default function ProcurCtrlPage() {
         </SidebarContent>
         <SidebarFooter>
           <RoleSwitcher />
+          <Separator className="my-2" />
+          <Button variant="ghost" className="w-full justify-start" onClick={logout}>
+            <LogOut className="mr-2 h-4 w-4" />
+            <span>Logout</span>
+          </Button>
         </SidebarFooter>
       </Sidebar>
       <SidebarInset>
@@ -168,10 +192,13 @@ export default function ProcurCtrlPage() {
             <SidebarTrigger className="md:hidden" />
             <h1 className="text-xl font-semibold">{pageTitle}</h1>
           </div>
-          <Avatar>
-            <AvatarImage src="https://picsum.photos/40/40" data-ai-hint="profile picture" />
-            <AvatarFallback>{role.charAt(0)}</AvatarFallback>
-          </Avatar>
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-muted-foreground">{user.name}</span>
+            <Avatar>
+              <AvatarImage src="https://picsum.photos/40/40" data-ai-hint="profile picture" />
+              <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+            </Avatar>
+          </div>
         </header>
         <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
           {renderView()}

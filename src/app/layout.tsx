@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { RoleProvider } from '@/contexts/role-context';
+import { AuthProvider } from '@/contexts/auth-context';
 
 export const metadata: Metadata = {
   title: 'ProcurCtrl',
@@ -28,10 +29,12 @@ export default function RootLayout({
         />
       </head>
       <body className="font-body antialiased">
-        <RoleProvider>
-          {children}
-          <Toaster />
-        </RoleProvider>
+        <AuthProvider>
+          <RoleProvider>
+            {children}
+            <Toaster />
+          </RoleProvider>
+        </AuthProvider>
       </body>
     </html>
   );
