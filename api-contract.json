@@ -1,0 +1,292 @@
+
+{
+  "info": {
+    "title": "ProcurCtrl API",
+    "version": "1.0.0",
+    "description": "A simple API contract for the ProcurCtrl procurement management system. This document outlines the available endpoints and the JSON shapes for data models."
+  },
+  "endpoints": [
+    {
+      "path": "/api/audit-log",
+      "method": "GET",
+      "description": "Retrieves the global list of all audit log entries."
+    },
+    {
+      "path": "/api/dashboard",
+      "method": "GET",
+      "description": "Retrieves aggregated statistics for the main dashboard."
+    },
+    {
+      "path": "/api/invoices",
+      "method": "GET",
+      "description": "Retrieves a list of all invoices."
+    },
+    {
+      "path": "/api/invoices",
+      "method": "POST",
+      "description": "Creates a new invoice."
+    },
+    {
+      "path": "/api/invoices/{id}/status",
+      "method": "PATCH",
+      "description": "Updates the status of an invoice (e.g., 'Approved for Payment', 'Disputed')."
+    },
+    {
+      "path": "/api/matching",
+      "method": "GET",
+      "description": "Performs a three-way match on all relevant POs and returns the results."
+    },
+    {
+      "path": "/api/matching",
+      "method": "POST",
+      "description": "Manually resolves a mismatched PO."
+    },
+    {
+      "path": "/api/payments",
+      "method": "POST",
+      "description": "Simulates processing a payment for an invoice."
+    },
+    {
+      "path": "/api/purchase-orders",
+      "method": "GET",
+      "description": "Retrieves a list of all purchase orders."
+    },
+    {
+      "path": "/api/purchase-orders",
+      "method": "POST",
+      "description": "Creates a new purchase order from an awarded quotation."
+    },
+    {
+      "path": "/api/quotations",
+      "method": "GET",
+      "description": "Retrieves quotations for a specific requisition ID (requires requisitionId query param)."
+    },
+    {
+      "path": "/api/quotations",
+      "method": "POST",
+      "description": "Submits a new quotation for a requisition."
+    },
+    {
+      "path": "/api/quotations/{id}/status",
+      "method": "PATCH",
+      "description": "Updates the status of a quotation (e.g., 'Awarded', 'Rejected')."
+    },
+    {
+      "path": "/api/receipts",
+      "method": "POST",
+      "description": "Creates a new Goods Receipt Note (GRN)."
+    },
+    {
+      "path": "/api/records",
+      "method": "GET",
+      "description": "Retrieves a consolidated list of all documents (requisitions, POs, invoices, etc.)."
+    },
+    {
+      "path": "/api/requisitions",
+      "method": "GET",
+      "description": "Retrieves a list of all purchase requisitions."
+    },
+    {
+      "path": "/api/requisitions",
+      "method": "POST",
+      "description": "Creates a new purchase requisition."
+    },
+    {
+      "path": "/api/requisitions/{id}",
+      "method": "PATCH",
+      "description": "Updates the status of a purchase requisition (e.g., submitting for approval, approving, rejecting)."
+    },
+    {
+      "path": "/api/requisitions/{id}/contract",
+      "method": "POST",
+      "description": "Attaches contract details and negotiation notes to a requisition."
+    },
+    {
+      "path": "/api/vendors",
+      "method": "GET",
+      "description": "Retrieves a list of all vendors."
+    },
+    {
+      "path": "/api/vendors",
+      "method": "POST",
+      "description": "Creates a new vendor."
+    }
+  ],
+  "schemas": {
+    "User": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "example": "1" },
+        "name": { "type": "string", "example": "Alice" },
+        "email": { "type": "string", "format": "email", "example": "alice@example.com" },
+        "role": { "type": "string", "enum": ["Requester", "Approver", "Procurement Officer", "Finance", "Admin", "Receiving"] }
+      }
+    },
+    "PurchaseRequisition": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "example": "REQ-1672531200" },
+        "requesterId": { "type": "string", "example": "1" },
+        "requesterName": { "type": "string", "example": "Alice" },
+        "title": { "type": "string", "example": "New Laptops for Design Team" },
+        "department": { "type": "string", "example": "Design" },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string", "example": "ITEM-1" },
+              "name": { "type": "string", "example": "MacBook Pro 16-inch" },
+              "description": { "type": "string" },
+              "quantity": { "type": "integer", "example": 5 },
+              "unitPrice": { "type": "number", "example": 2499 }
+            }
+          }
+        },
+        "totalPrice": { "type": "number", "example": 16490 },
+        "justification": { "type": "string" },
+        "status": { "type": "string", "enum": ["Draft", "Pending Approval", "Approved", "Rejected", "RFQ In Progress", "PO Created", "Fulfilled", "Closed"] },
+        "budgetStatus": { "type": "string", "enum": ["Pending", "OK", "Exceeded"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "approverId": { "type": "string", "example": "2" },
+        "approverComment": { "type": "string" },
+        "contract": {
+          "type": "object",
+          "properties": {
+            "fileName": { "type": "string", "example": "contract.pdf" },
+            "uploadDate": { "type": "string", "format": "date-time" }
+          }
+        },
+        "negotiationNotes": { "type": "string" },
+        "purchaseOrderId": { "type": "string", "example": "PO-12345" }
+      }
+    },
+    "RFQ": {
+        "type": "object",
+        "description": "Request for Quotation. This is a document generated by an AI flow, not a stored data model. The flow input is shown here.",
+        "properties": {
+            "requisitionDetails": { "type": "string", "description": "Text description of the requisition." },
+            "vendorList": { "type": "array", "items": { "type": "string", "format": "email" } },
+            "additionalInstructions": { "type": "string" }
+        }
+    },
+    "Quotation": {
+        "type": "object",
+        "properties": {
+            "id": { "type": "string", "example": "QUO-12345" },
+            "requisitionId": { "type": "string", "example": "REQ-1672531200" },
+            "vendorId": { "type": "string", "example": "VENDOR-001" },
+            "vendorName": { "type": "string", "example": "Apple Inc." },
+            "items": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "requisitionItemId": { "type": "string", "example": "ITEM-1" },
+                        "name": { "type": "string", "example": "MacBook Pro 16-inch" },
+                        "quantity": { "type": "integer", "example": 5 },
+                        "unitPrice": { "type": "number", "example": 2450 },
+                        "leadTimeDays": { "type": "integer", "example": 14 }
+                    }
+                }
+            },
+            "totalPrice": { "type": "number", "example": 16250 },
+            "deliveryDate": { "type": "string", "format": "date-time" },
+            "createdAt": { "type": "string", "format": "date-time" },
+            "status": { "type": "string", "enum": ["Submitted", "Awarded", "Rejected"] },
+            "notes": { "type": "string" }
+        }
+    },
+    "PurchaseOrder": {
+        "type": "object",
+        "properties": {
+            "id": { "type": "string", "example": "PO-12345" },
+            "requisitionId": { "type": "string", "example": "REQ-1672531200" },
+            "requisitionTitle": { "type": "string" },
+            "vendor": { "$ref": "#/schemas/Vendor" },
+            "items": {
+                "type": "array",
+                "items": { "type": "object", "properties": {
+                    "id": { "type": "string", "example": "ITEM-1" },
+                    "name": { "type": "string" },
+                    "quantity": { "type": "integer" },
+                    "unitPrice": { "type": "number" },
+                    "totalPrice": { "type": "number" },
+                    "receivedQuantity": { "type": "integer" }
+                }}
+            },
+            "totalAmount": { "type": "number" },
+            "status": { "type": "string", "enum": ["Issued", "Acknowledged", "Shipped", "Partially Delivered", "Delivered", "Cancelled", "Matched", "Mismatched"] },
+            "createdAt": { "type": "string", "format": "date-time" }
+        }
+    },
+    "GoodsReceiptNote": {
+        "type": "object",
+        "properties": {
+            "id": { "type": "string", "example": "GRN-12345" },
+            "purchaseOrderId": { "type": "string", "example": "PO-12345" },
+            "receivedBy": { "type": "string", "example": "David" },
+            "receivedById": { "type": "string", "example": "4" },
+            "receivedDate": { "type": "string", "format": "date-time" },
+            "items": {
+                "type": "array",
+                "items": { "type": "object", "properties": {
+                    "poItemId": { "type": "string", "example": "ITEM-1" },
+                    "quantityReceived": { "type": "integer" },
+                    "condition": { "type": "string", "enum": ["Good", "Damaged", "Incorrect"] },
+                    "notes": { "type": "string" }
+                }}
+            }
+        }
+    },
+    "Invoice": {
+        "type": "object",
+        "properties": {
+            "id": { "type": "string", "example": "INV-12345" },
+            "purchaseOrderId": { "type": "string", "example": "PO-12345" },
+            "vendorId": { "type": "string", "example": "VENDOR-001" },
+            "invoiceDate": { "type": "string", "format": "date-time" },
+            "items": {
+                "type": "array",
+                "items": { "type": "object", "properties": {
+                    "id": { "type": "string" },
+                    "name": { "type": "string" },
+                    "quantity": { "type": "integer" },
+                    "unitPrice": { "type": "number" },
+                    "totalPrice": { "type": "number" }
+                }}
+            },
+            "totalAmount": { "type": "number" },
+            "status": { "type": "string", "enum": ["Pending", "Approved for Payment", "Paid", "Disputed"] },
+            "documentUrl": { "type": "string", "format": "uri" },
+            "paymentDate": { "type": "string", "format": "date-time" },
+            "paymentReference": { "type": "string", "example": "PAY-98765" }
+        }
+    },
+    "Vendor": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "example": "VENDOR-001" },
+        "name": { "type": "string", "example": "Apple Inc." },
+        "contactPerson": { "type": "string", "example": "Tim Cook" },
+        "email": { "type": "string", "format": "email", "example": "sales@apple.com" },
+        "phone": { "type": "string", "example": "1-800-MY-APPLE" },
+        "address": { "type": "string", "example": "1 Apple Park Way, Cupertino, CA 95014" }
+      }
+    },
+    "AuditLog": {
+        "type": "object",
+        "properties": {
+            "id": { "type": "string", "example": "log-001" },
+            "timestamp": { "type": "string", "format": "date-time" },
+            "user": { "type": "string", "example": "Alice" },
+            "role": { "type": "string", "enum": ["Requester", "Approver", "Procurement Officer", "Finance", "Admin", "Receiving"] },
+            "action": { "type": "string", "example": "CREATE" },
+            "entity": { "type": "string", "example": "Requisition" },
+            "entityId": { "type": "string", "example": "REQ-2023-08-001" },
+            "details": { "type": "string" }
+        }
+    }
+  }
+}
