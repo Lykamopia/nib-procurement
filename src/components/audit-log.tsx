@@ -37,18 +37,11 @@ export function AuditLog() {
 
 
   const getActionVariant = (action: string) => {
-    switch (action) {
-      case 'CREATE':
-        return 'default';
-      case 'APPROVE':
-        return 'default';
-      case 'UPDATE_STATUS':
-        return 'secondary';
-      case 'POLICY_CHECK':
-        return 'secondary';
-      default:
-        return 'outline';
-    }
+    const lowerAction = action.toLowerCase();
+    if (lowerAction.includes('create') || lowerAction.includes('approve') || lowerAction.includes('award')) return 'default';
+    if (lowerAction.includes('update') || lowerAction.includes('submit')) return 'secondary';
+    if (lowerAction.includes('reject') || lowerAction.includes('dispute')) return 'destructive';
+    return 'outline';
   }
 
   if (loading) {
@@ -64,36 +57,38 @@ export function AuditLog() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[150px]">Timestamp</TableHead>
-              <TableHead>User</TableHead>
-              <TableHead>Role</TableHead>
-              <TableHead>Action</TableHead>
-              <TableHead>Entity</TableHead>
-              <TableHead className="w-[40%]">Details</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {logs.map((log) => (
-              <TableRow key={log.id}>
-                <TableCell className="text-muted-foreground text-xs">
-                  {formatDistanceToNow(new Date(log.timestamp), { addSuffix: true })}
-                </TableCell>
-                <TableCell className="font-medium">{log.user}</TableCell>
-                <TableCell>{log.role}</TableCell>
-                <TableCell>
-                  <Badge variant={getActionVariant(log.action)}>{log.action}</Badge>
-                </TableCell>
-                <TableCell>
-                  {log.entity}: <span className="text-muted-foreground">{log.entityId}</span>
-                </TableCell>
-                <TableCell className="text-muted-foreground">{log.details}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <div className="border rounded-md">
+            <Table>
+            <TableHeader>
+                <TableRow>
+                <TableHead className="w-[150px]">Timestamp</TableHead>
+                <TableHead>User</TableHead>
+                <TableHead>Role</TableHead>
+                <TableHead>Action</TableHead>
+                <TableHead>Entity</TableHead>
+                <TableHead className="w-[40%]">Details</TableHead>
+                </TableRow>
+            </TableHeader>
+            <TableBody>
+                {logs.map((log) => (
+                <TableRow key={log.id}>
+                    <TableCell className="text-muted-foreground text-xs">
+                    {formatDistanceToNow(new Date(log.timestamp), { addSuffix: true })}
+                    </TableCell>
+                    <TableCell className="font-medium">{log.user}</TableCell>
+                    <TableCell>{log.role}</TableCell>
+                    <TableCell>
+                    <Badge variant={getActionVariant(log.action)}>{log.action}</Badge>
+                    </TableCell>
+                    <TableCell>
+                    {log.entity}: <span className="text-muted-foreground">{log.entityId}</span>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">{log.details}</TableCell>
+                </TableRow>
+                ))}
+            </TableBody>
+            </Table>>
+        </div>
       </CardContent>
     </Card>
   );
