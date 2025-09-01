@@ -30,6 +30,7 @@ import {
   FileSignature,
   FileStack,
   PackageCheck,
+  Wallet,
 } from 'lucide-react';
 import { Icons } from '@/components/icons';
 import { Separator } from '@/components/ui/separator';
@@ -76,6 +77,8 @@ export default function AppLayout({
         return 'Purchase Orders'
       case '/receive-goods':
         return 'Receive Goods';
+       case '/invoice-matching':
+        return 'Invoice Matching';
       case '/policy-check':
         return 'Automated Policy Check';
       case '/rfq-generator':
@@ -196,6 +199,17 @@ export default function AppLayout({
                     >
                       <FileStack />
                       <span>Purchase Orders</span>
+                    </SidebarMenuButton>
+                  </Link>
+                </SidebarMenuItem>
+                 <SidebarMenuItem>
+                  <Link href="/invoice-matching">
+                    <SidebarMenuButton
+                      isActive={pathname === '/invoice-matching'}
+                      tooltip="Invoice Matching"
+                    >
+                      <Wallet />
+                      <span>Invoice Matching</span>
                     </SidebarMenuButton>
                   </Link>
                 </SidebarMenuItem>

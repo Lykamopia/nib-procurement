@@ -1,6 +1,7 @@
 
 
 
+
 export type UserRole =
   | 'Requester'
   | 'Approver'
@@ -120,7 +121,7 @@ export type POItem = {
     receivedQuantity: number;
 };
 
-export type PurchaseOrderStatus = 'Issued' | 'Acknowledged' | 'Shipped' | 'Partially Delivered' | 'Delivered' | 'Cancelled';
+export type PurchaseOrderStatus = 'Issued' | 'Acknowledged' | 'Shipped' | 'Partially Delivered' | 'Delivered' | 'Cancelled' | 'Matched' | 'Mismatched';
 
 export type PurchaseOrder = {
     id: string;
@@ -134,6 +135,7 @@ export type PurchaseOrder = {
     contract?: ContractDetails;
     notes?: string;
     receipts?: GoodsReceiptNote[];
+    invoices?: Invoice[];
 };
 
 
@@ -155,3 +157,47 @@ export type GoodsReceiptNote = {
     items: ReceiptItem[];
     photos?: { name: string; url: string }[];
 }
+
+export type InvoiceItem = {
+  id: string;
+  name: string;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+};
+
+export type Invoice = {
+  id: string;
+  purchaseOrderId: string;
+  vendorId: string;
+  invoiceDate: Date;
+  items: InvoiceItem[];
+  totalAmount: number;
+  status: 'Pending' | 'Paid' | 'Disputed';
+};
+
+
+export type MatchingStatus = 'Matched' | 'Mismatched' | 'Pending';
+
+export type MatchingResult = {
+  poId: string;
+  status: MatchingStatus;
+  quantityMatch: boolean;
+  priceMatch: boolean;
+  details: {
+    poTotal: number;
+    grnTotalQuantity: number;
+    invoiceTotal: number;
+    invoiceTotalQuantity: number;
+    items: {
+      itemId: string;
+      itemName: string;
+      poQuantity: number;
+      grnQuantity: number;
+      poUnitPrice: number;
+      invoiceUnitPrice: number;
+      quantityMatch: boolean;
+      priceMatch: boolean;
+    }[];
+  };
+};
