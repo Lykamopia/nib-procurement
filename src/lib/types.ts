@@ -67,3 +67,13 @@ export type DepartmentBudget = {
   totalBudget: number;
   spentBudget: number;
 }
+
+export type Vendor = {
+  id: string;
+  name: string;
+  contactPerson: string;
+  email: string;
+  phone: string;
+  address: string;
+  documents?: { name: string; url: string }[];
+};
