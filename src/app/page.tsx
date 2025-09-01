@@ -35,7 +35,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 
-type View =
+export type View =
   | 'dashboard'
   | 'new-requisition'
   | 'policy-check'
