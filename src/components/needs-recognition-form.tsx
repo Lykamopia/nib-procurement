@@ -36,6 +36,8 @@ import {
   SelectValue,
 } from './ui/select';
 import { useState } from 'react';
+import { useAuth } from '@/contexts/auth-context';
+import { cn } from '@/lib/utils';
 
 const formSchema = z.object({
   requesterName: z.string().min(2, 'Name must be at least 2 characters.'),
@@ -63,10 +65,12 @@ const formSchema = z.object({
 export function NeedsRecognitionForm() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const { user, role } = useAuth();
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      requesterName: '',
+      requesterName: user?.name || '',
       department: '',
       title: '',
       justification: '',
@@ -187,7 +191,14 @@ export function NeedsRecognitionForm() {
                     key={field.id}
                     className="flex gap-4 items-end p-4 border rounded-lg relative"
                   >
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 flex-1">
+                    <div
+                      className={cn(
+                        'grid grid-cols-1 gap-4 flex-1',
+                        role === 'Procurement Officer'
+                          ? 'md:grid-cols-3'
+                          : 'md:grid-cols-2'
+                      )}
+                    >
                       <FormField
                         control={form.control}
                         name={`items.${index}.name`}
@@ -217,19 +228,26 @@ export function NeedsRecognitionForm() {
                           </FormItem>
                         )}
                       />
-                      <FormField
-                        control={form.control}
-                        name={`items.${index}.unitPrice`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Unit Price ($) (Optional)</FormLabel>
-                            <FormControl>
-                              <Input type="number" step="0.01" {...field} value={field.value ?? ''} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                      {role === 'Procurement Officer' && (
+                        <FormField
+                          control={form.control}
+                          name={`items.${index}.unitPrice`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Unit Price ($)</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  {...field}
+                                  value={field.value ?? ''}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      )}
                     </div>
                     <Button
                       type="button"
@@ -247,7 +265,9 @@ export function NeedsRecognitionForm() {
                 variant="outline"
                 size="sm"
                 className="mt-4"
-                onClick={() => append({ name: '', quantity: 1, unitPrice: undefined })}
+                onClick={() =>
+                  append({ name: '', quantity: 1, unitPrice: undefined })
+                }
               >
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Add Item
