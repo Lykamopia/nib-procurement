@@ -22,6 +22,7 @@ import {
   History,
   LogOut,
   User as UserIcon,
+  FileText,
 } from 'lucide-react';
 import { Icons } from '@/components/icons';
 import { Separator } from '@/components/ui/separator';
@@ -53,6 +54,8 @@ export default function AppLayout({
         return 'Dashboard';
       case '/new-requisition':
         return 'Create Purchase Requisition';
+      case '/requisitions':
+        return 'View Requisitions';
       case '/policy-check':
         return 'Automated Policy Check';
       case '/rfq-generator':
@@ -102,6 +105,17 @@ export default function AppLayout({
                 >
                   <FilePlus />
                   <span>New Requisition</span>
+                </SidebarMenuButton>
+              </Link>
+            </SidebarMenuItem>
+             <SidebarMenuItem>
+              <Link href="/requisitions">
+                <SidebarMenuButton
+                  isActive={pathname === '/requisitions'}
+                  tooltip="View Requisitions"
+                >
+                  <FileText />
+                  <span>Requisitions</span>
                 </SidebarMenuButton>
               </Link>
             </SidebarMenuItem>
