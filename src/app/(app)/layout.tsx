@@ -24,6 +24,7 @@ import {
   User as UserIcon,
   FileText,
   GanttChartSquare,
+  Building2,
 } from 'lucide-react';
 import { Icons } from '@/components/icons';
 import { Separator } from '@/components/ui/separator';
@@ -59,6 +60,8 @@ export default function AppLayout({
         return 'View Requisitions';
       case '/approvals':
         return 'Approvals';
+      case '/vendors':
+        return 'Vendors';
       case '/policy-check':
         return 'Automated Policy Check';
       case '/rfq-generator':
@@ -131,6 +134,19 @@ export default function AppLayout({
                   >
                     <GanttChartSquare />
                     <span>Approvals</span>
+                  </SidebarMenuButton>
+                </Link>
+              </SidebarMenuItem>
+            )}
+             {role === 'Procurement Officer' && (
+              <SidebarMenuItem>
+                <Link href="/vendors">
+                  <SidebarMenuButton
+                    isActive={pathname === '/vendors'}
+                    tooltip="Vendors"
+                  >
+                    <Building2 />
+                    <span>Vendors</span>
                   </SidebarMenuButton>
                 </Link>
               </SidebarMenuItem>

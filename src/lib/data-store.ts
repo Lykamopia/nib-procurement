@@ -1,11 +1,38 @@
 
-import type { PurchaseRequisition, AuditLog, DepartmentBudget } from './types';
+import type { PurchaseRequisition, AuditLog, DepartmentBudget, Vendor } from './types';
 
 export const departmentBudgets: DepartmentBudget[] = [
     { department: 'Design', totalBudget: 50000, spentBudget: 25000 },
     { department: 'Operations', totalBudget: 20000, spentBudget: 5000 },
     { department: 'IT', totalBudget: 100000, spentBudget: 75000 },
     { department: 'Marketing', totalBudget: 30000, spentBudget: 10000 },
+];
+
+export const vendors: Vendor[] = [
+    {
+        id: 'VENDOR-001',
+        name: 'Apple Inc.',
+        contactPerson: 'Tim Cook',
+        email: 'sales@apple.com',
+        phone: '1-800-MY-APPLE',
+        address: '1 Apple Park Way, Cupertino, CA 95014'
+    },
+    {
+        id: 'VENDOR-002',
+        name: 'Dell Technologies',
+        contactPerson: 'Michael Dell',
+        email: 'sales@dell.com',
+        phone: '1-877-275-3355',
+        address: '1 Dell Way, Round Rock, TX 78682'
+    },
+    {
+        id: 'VENDOR-003',
+        name: 'Office Depot',
+        contactPerson: 'Sales Team',
+        email: 'support@officedepot.com',
+        phone: '1-800-GO-DEPOT',
+        address: '6600 N Military Trl, Boca Raton, FL 33496'
+    }
 ];
 
 
