@@ -25,6 +25,7 @@ import {
   FileText,
   GanttChartSquare,
   Building2,
+  FileBadge
 } from 'lucide-react';
 import { Icons } from '@/components/icons';
 import { Separator } from '@/components/ui/separator';
@@ -62,6 +63,8 @@ export default function AppLayout({
         return 'Approvals';
       case '/vendors':
         return 'Vendors';
+       case '/quotations':
+        return 'Quotations';
       case '/policy-check':
         return 'Automated Policy Check';
       case '/rfq-generator':
@@ -139,17 +142,30 @@ export default function AppLayout({
               </SidebarMenuItem>
             )}
              {role === 'Procurement Officer' && (
-              <SidebarMenuItem>
-                <Link href="/vendors">
-                  <SidebarMenuButton
-                    isActive={pathname === '/vendors'}
-                    tooltip="Vendors"
-                  >
-                    <Building2 />
-                    <span>Vendors</span>
-                  </SidebarMenuButton>
-                </Link>
-              </SidebarMenuItem>
+              <>
+                <SidebarMenuItem>
+                  <Link href="/vendors">
+                    <SidebarMenuButton
+                      isActive={pathname === '/vendors'}
+                      tooltip="Vendors"
+                    >
+                      <Building2 />
+                      <span>Vendors</span>
+                    </SidebarMenuButton>
+                  </Link>
+                </SidebarMenuItem>
+                 <SidebarMenuItem>
+                  <Link href="/quotations">
+                    <SidebarMenuButton
+                      isActive={pathname === '/quotations'}
+                      tooltip="Quotations"
+                    >
+                      <FileBadge />
+                      <span>Quotations</span>
+                    </SidebarMenuButton>
+                  </Link>
+                </SidebarMenuItem>
+              </>
             )}
           </SidebarMenu>
 

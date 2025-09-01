@@ -49,6 +49,7 @@ export type PurchaseRequisition = {
   updatedAt: Date;
   approverId?: string;
   approverComment?: string;
+  quotations?: Quotation[];
 };
 
 export type AuditLog = {
@@ -76,4 +77,24 @@ export type Vendor = {
   phone: string;
   address: string;
   documents?: { name: string; url: string }[];
+};
+
+export type QuoteItem = {
+    requisitionItemId: string;
+    name: string;
+    quantity: number;
+    unitPrice: number;
+    leadTimeDays: number;
+};
+
+export type Quotation = {
+    id: string;
+    requisitionId: string;
+    vendorId: string;
+    vendorName: string;
+    items: QuoteItem[];
+    totalPrice: number;
+    deliveryDate: Date;
+    createdAt: Date;
+    status: 'Submitted' | 'Awarded' | 'Rejected';
 };
