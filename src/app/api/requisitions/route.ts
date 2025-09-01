@@ -1,7 +1,7 @@
 
 import { NextResponse } from 'next/server';
 import type { PurchaseRequisition } from '@/lib/types';
-import { requisitions, auditLogs } from '@/lib/data-store';
+import { requisitions, auditLogs, departmentBudgets } from '@/lib/data-store';
 import { users } from '@/lib/auth-store';
 
 
@@ -29,6 +29,7 @@ export async function POST(request: Request) {
       totalPrice: total,
       justification: body.justification,
       status: 'Draft',
+      budgetStatus: 'Pending',
       createdAt: new Date(),
       updatedAt: new Date(),
     };

@@ -26,7 +26,7 @@ import {
   SelectValue,
 } from './ui/select';
 import { Button } from './ui/button';
-import { PurchaseRequisition, RequisitionStatus } from '@/lib/types';
+import { PurchaseRequisition, RequisitionStatus, BudgetStatus } from '@/lib/types';
 import { format } from 'date-fns';
 import { Badge } from './ui/badge';
 import {
@@ -36,11 +36,15 @@ import {
   ChevronsRight,
   Search,
   Send,
+  CircleAlert,
+  CircleCheck,
 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Calendar } from './ui/calendar';
 import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/hooks/use-toast';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
+
 
 const PAGE_SIZE = 10;
 
@@ -101,7 +105,7 @@ export function RequisitionsTable() {
 
   const uniqueRequesters = useMemo(() => {
     const requesters = new Set(requisitions.map(r => r.requesterName).filter(Boolean));
-    return ['all', ...Array.from(requesters)];
+    return ['all', ...Array.from(requesters as string[])];
   }, [requisitions]);
 
   const filteredRequisitions = useMemo(() => {
@@ -140,6 +144,35 @@ export function RequisitionsTable() {
         return 'outline';
     }
   };
+
+  const BudgetStatusBadge = ({ status }: { status: BudgetStatus }) => {
+    switch(status) {
+      case 'OK':
+        return (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger>
+                <CircleCheck className="h-5 w-5 text-green-500" />
+              </TooltipTrigger>
+              <TooltipContent>Budget OK</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )
+      case 'Exceeded':
+        return (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger>
+                <CircleAlert className="h-5 w-5 text-destructive" />
+              </TooltipTrigger>
+              <TooltipContent>Budget Exceeded</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )
+      default:
+        return null;
+    }
+  }
 
   if (loading) return <div>Loading requisitions...</div>;
   if (error) return <div className="text-destructive">Error: {error}</div>;
@@ -213,6 +246,7 @@ export function RequisitionsTable() {
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Total Price</TableHead>
                 <TableHead>Created At</TableHead>
+                <TableHead>Budget</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -229,6 +263,9 @@ export function RequisitionsTable() {
                     <TableCell className="text-right">${req.totalPrice.toLocaleString()}</TableCell>
                     <TableCell>{format(new Date(req.createdAt), 'PP')}</TableCell>
                     <TableCell>
+                      <BudgetStatusBadge status={req.budgetStatus}/>
+                    </TableCell>
+                    <TableCell>
                       {req.status === 'Draft' && (
                         <Button variant="outline" size="sm" onClick={() => handleSubmitForApproval(req.id)}>
                           <Send className="mr-2 h-4 w-4" />
@@ -240,7 +277,7 @@ export function RequisitionsTable() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={7} className="h-24 text-center">
+                  <TableCell colSpan={8} className="h-24 text-center">
                     No results found.
                   </TableCell>
                 </TableRow>

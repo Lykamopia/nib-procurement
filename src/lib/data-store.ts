@@ -1,5 +1,13 @@
 
-import type { PurchaseRequisition, AuditLog } from './types';
+import type { PurchaseRequisition, AuditLog, DepartmentBudget } from './types';
+
+export const departmentBudgets: DepartmentBudget[] = [
+    { department: 'Design', totalBudget: 50000, spentBudget: 25000 },
+    { department: 'Operations', totalBudget: 20000, spentBudget: 5000 },
+    { department: 'IT', totalBudget: 100000, spentBudget: 75000 },
+    { department: 'Marketing', totalBudget: 30000, spentBudget: 10000 },
+];
+
 
 export const requisitions: PurchaseRequisition[] = [
     {
@@ -15,6 +23,7 @@ export const requisitions: PurchaseRequisition[] = [
     totalPrice: 16490,
     justification: 'Current laptops are over 5 years old and struggling with new design software.',
     status: 'Approved',
+    budgetStatus: 'OK',
     createdAt: new Date('2023-10-01T10:00:00Z'),
     updatedAt: new Date('2023-10-05T11:30:00Z'),
     },
@@ -31,6 +40,7 @@ export const requisitions: PurchaseRequisition[] = [
     totalPrice: 1050,
     justification: 'Standard quarterly replenishment of office supplies.',
     status: 'Pending Approval',
+    budgetStatus: 'OK',
     createdAt: new Date('2023-10-02T14:00:00Z'),
     updatedAt: new Date('2023-10-02T14:00:00Z'),
   },
@@ -46,6 +56,7 @@ export const requisitions: PurchaseRequisition[] = [
     totalPrice: 4800,
     justification: 'Annual renewal for critical project management software.',
     status: 'PO Created',
+    budgetStatus: 'OK',
     createdAt: new Date('2023-09-15T09:20:00Z'),
     updatedAt: new Date('2023-09-25T16:00:00Z'),
   },

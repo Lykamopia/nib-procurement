@@ -1,8 +1,15 @@
 
 import { NextResponse } from 'next/server';
-import { requisitions, auditLogs } from '@/lib/data-store';
+import { requisitions, auditLogs, departmentBudgets } from '@/lib/data-store';
 import type { RequisitionStatus } from '@/lib/types';
 import { users } from '@/lib/auth-store';
+
+function checkBudget(department: string, amount: number) {
+    const budget = departmentBudgets.find(b => b.department === department);
+    if (!budget) return 'OK'; // Default to OK if no budget is defined
+    return (budget.spentBudget + amount) > budget.totalBudget ? 'Exceeded' : 'OK';
+}
+
 
 export async function PATCH(
   request: Request,
@@ -11,7 +18,7 @@ export async function PATCH(
   try {
     const { id } = params;
     const body = await request.json();
-    const { status, userId, comment } = body;
+    const { status, userId, comment, overrideBudget } = body;
 
     const requisitionIndex = requisitions.findIndex((r) => r.id === id);
     if (requisitionIndex === -1) {
@@ -23,16 +30,35 @@ export async function PATCH(
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    const oldStatus = requisitions[requisitionIndex].status;
-    requisitions[requisitionIndex].status = status as RequisitionStatus;
-    requisitions[requisitionIndex].updatedAt = new Date();
+    const requisition = requisitions[requisitionIndex];
+    const oldStatus = requisition.status;
+    requisition.status = status as RequisitionStatus;
+    requisition.updatedAt = new Date();
     
     let auditDetails = `Changed status from "${oldStatus}" to "${status}"`;
 
+    // Budget check logic on submission for approval
+    if (status === 'Pending Approval') {
+        requisition.budgetStatus = checkBudget(requisition.department, requisition.totalPrice);
+        auditDetails = `Submitted for approval. Budget status: ${requisition.budgetStatus}`
+    }
+
     if (status === 'Approved' || status === 'Rejected') {
-        requisitions[requisitionIndex].approverId = userId;
-        requisitions[requisitionIndex].approverComment = comment;
-        auditDetails = `${status} requisition. Comment: "${comment}"`
+        requisition.approverId = userId;
+        requisition.approverComment = comment;
+
+        if (status === 'Approved') {
+            const budget = departmentBudgets.find(b => b.department === requisition.department);
+            if (budget) {
+                budget.spentBudget += requisition.totalPrice;
+            }
+            auditDetails = `Approved requisition. Comment: "${comment}"`
+            if (overrideBudget) {
+              auditDetails += ` (Budget Overridden)`
+            }
+        } else {
+            auditDetails = `Rejected requisition. Comment: "${comment}"`
+        }
     }
     
     // Add to audit log
@@ -47,7 +73,7 @@ export async function PATCH(
         details: auditDetails,
     });
 
-    return NextResponse.json(requisitions[requisitionIndex]);
+    return NextResponse.json(requisition);
   } catch (error) {
     console.error('Failed to update requisition:', error);
     if (error instanceof Error) {

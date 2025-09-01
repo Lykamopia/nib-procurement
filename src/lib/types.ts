@@ -24,6 +24,8 @@ export type RequisitionStatus =
   | 'Fulfilled'
   | 'Closed';
 
+export type BudgetStatus = 'Pending' | 'OK' | 'Exceeded';
+
 export type RequisitionItem = {
   id: string; // Will be UUID
   name: string;
@@ -42,6 +44,7 @@ export type PurchaseRequisition = {
   totalPrice: number;
   justification: string;
   status: RequisitionStatus;
+  budgetStatus: BudgetStatus;
   createdAt: Date;
   updatedAt: Date;
   approverId?: string;
@@ -58,3 +61,9 @@ export type AuditLog = {
   entityId: string;
   details: string;
 };
+
+export type DepartmentBudget = {
+  department: string;
+  totalBudget: number;
+  spentBudget: number;
+}
