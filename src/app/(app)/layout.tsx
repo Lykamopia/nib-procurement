@@ -84,7 +84,7 @@ export default function AppLayout({
         <SidebarContent>
           <SidebarMenu>
             <SidebarMenuItem>
-              <Link href="/dashboard" legacyBehavior passHref>
+              <Link href="/dashboard">
                 <SidebarMenuButton
                   isActive={pathname === '/dashboard'}
                   tooltip="Dashboard"
@@ -95,7 +95,7 @@ export default function AppLayout({
               </Link>
             </SidebarMenuItem>
             <SidebarMenuItem>
-              <Link href="/new-requisition" legacyBehavior passHref>
+              <Link href="/new-requisition">
                 <SidebarMenuButton
                   isActive={pathname === '/new-requisition'}
                   tooltip="New Requisition"
@@ -114,7 +114,7 @@ export default function AppLayout({
               AI Tools
             </SidebarMenuItem>
             <SidebarMenuItem>
-              <Link href="/policy-check" legacyBehavior passHref>
+              <Link href="/policy-check">
                 <SidebarMenuButton
                   isActive={pathname === '/policy-check'}
                   tooltip="Policy Check"
@@ -125,7 +125,7 @@ export default function AppLayout({
               </Link>
             </SidebarMenuItem>
             <SidebarMenuItem>
-              <Link href="/rfq-generator" legacyBehavior passHref>
+              <Link href="/rfq-generator">
                 <SidebarMenuButton
                   isActive={pathname === '/rfq-generator'}
                   tooltip="RFQ Generator"
@@ -141,7 +141,7 @@ export default function AppLayout({
 
           <SidebarMenu>
             <SidebarMenuItem>
-              <Link href="/audit-log" legacyBehavior passHref>
+              <Link href="/audit-log">
                 <SidebarMenuButton
                   isActive={pathname === '/audit-log'}
                   tooltip="Audit Log"
