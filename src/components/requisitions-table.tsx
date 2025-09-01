@@ -244,7 +244,6 @@ export function RequisitionsTable() {
                 <TableHead>Title</TableHead>
                 <TableHead>Requester</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead className="text-right">Total Price</TableHead>
                 <TableHead>Created At</TableHead>
                 <TableHead>Budget</TableHead>
                 <TableHead>Actions</TableHead>
@@ -260,7 +259,6 @@ export function RequisitionsTable() {
                     <TableCell>
                       <Badge variant={getStatusVariant(req.status)}>{req.status}</Badge>
                     </TableCell>
-                    <TableCell className="text-right">${req.totalPrice.toLocaleString()}</TableCell>
                     <TableCell>{format(new Date(req.createdAt), 'PP')}</TableCell>
                     <TableCell>
                       <BudgetStatusBadge status={req.budgetStatus}/>
@@ -277,7 +275,7 @@ export function RequisitionsTable() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={8} className="h-24 text-center">
+                  <TableCell colSpan={7} className="h-24 text-center">
                     No results found.
                   </TableCell>
                 </TableRow>
