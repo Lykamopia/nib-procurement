@@ -18,7 +18,7 @@ import {
   CardDescription,
 } from './ui/card';
 import { Button } from './ui/button';
-import { PurchaseRequisition } from '@/lib/types';
+import { PurchaseRequisition, BudgetStatus } from '@/lib/types';
 import { format } from 'date-fns';
 import { Badge } from './ui/badge';
 import {
@@ -27,7 +27,8 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
-  MoreHorizontal,
+  CircleAlert,
+  CircleCheck,
   X,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
@@ -39,10 +40,12 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from './ui/dialog';
 import { Textarea } from './ui/textarea';
 import { Label } from './ui/label';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
+import { Checkbox } from './ui/checkbox';
+
 
 const PAGE_SIZE = 10;
 
@@ -58,6 +61,7 @@ export function ApprovalsTable() {
   const [comment, setComment] = useState('');
   const [isDialogOpen, setDialogOpen] = useState(false);
   const [actionType, setActionType] = useState<'approve' | 'reject' | null>(null);
+  const [overrideBudget, setOverrideBudget] = useState(false);
 
 
   const fetchRequisitions = async () => {
@@ -85,6 +89,7 @@ export function ApprovalsTable() {
     setSelectedRequisition(req);
     setActionType(type);
     setDialogOpen(true);
+    setOverrideBudget(false);
   }
   
   const submitAction = async () => {
@@ -96,7 +101,7 @@ export function ApprovalsTable() {
       const response = await fetch(`/api/requisitions/${selectedRequisition.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus, userId: user.id, comment }),
+        body: JSON.stringify({ status: newStatus, userId: user.id, comment, overrideBudget }),
       });
       if (!response.ok) throw new Error(`Failed to ${actionType} requisition`);
       toast({
@@ -115,6 +120,35 @@ export function ApprovalsTable() {
         setComment('');
         setSelectedRequisition(null);
         setActionType(null);
+    }
+  }
+
+  const BudgetStatusBadge = ({ status }: { status: BudgetStatus }) => {
+    switch(status) {
+      case 'OK':
+        return (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger>
+                <CircleCheck className="h-5 w-5 text-green-500" />
+              </TooltipTrigger>
+              <TooltipContent>Budget OK</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )
+      case 'Exceeded':
+        return (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger>
+                <CircleAlert className="h-5 w-5 text-destructive" />
+              </TooltipTrigger>
+              <TooltipContent>Budget Exceeded</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )
+      default:
+        return null;
     }
   }
 
@@ -145,6 +179,7 @@ export function ApprovalsTable() {
                 <TableHead>Req. ID</TableHead>
                 <TableHead>Title</TableHead>
                 <TableHead>Requester</TableHead>
+                <TableHead>Budget</TableHead>
                 <TableHead className="text-right">Total Price</TableHead>
                 <TableHead>Created At</TableHead>
                 <TableHead>Actions</TableHead>
@@ -157,6 +192,9 @@ export function ApprovalsTable() {
                     <TableCell className="font-medium text-primary">{req.id}</TableCell>
                     <TableCell>{req.title}</TableCell>
                     <TableCell>{req.requesterName}</TableCell>
+                    <TableCell>
+                      <BudgetStatusBadge status={req.budgetStatus}/>
+                    </TableCell>
                     <TableCell className="text-right">${req.totalPrice.toLocaleString()}</TableCell>
                     <TableCell>{format(new Date(req.createdAt), 'PP')}</TableCell>
                     <TableCell>
@@ -175,7 +213,7 @@ export function ApprovalsTable() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={6} className="h-24 text-center">
+                  <TableCell colSpan={7} className="h-24 text-center">
                     No requisitions pending approval.
                   </TableCell>
                 </TableRow>
@@ -236,7 +274,7 @@ export function ApprovalsTable() {
                 You are about to {actionType} this requisition. Please provide a comment for this action.
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4">
+          <div className="py-4 space-y-4">
             <div className="grid gap-2">
               <Label htmlFor="comment">Comment</Label>
               <Textarea 
@@ -246,12 +284,21 @@ export function ApprovalsTable() {
                 placeholder="Type your comment here..."
               />
             </div>
+            {selectedRequisition?.budgetStatus === 'Exceeded' && actionType === 'approve' && (
+                <div className="flex items-center space-x-2 rounded-md border border-destructive/50 bg-destructive/10 p-4">
+                    <Checkbox id="override" checked={overrideBudget} onCheckedChange={(checked) => setOverrideBudget(!!checked)} />
+                    <Label htmlFor="override" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                        Override budget warning
+                    </Label>
+                </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setDialogOpen(false)}>Cancel</Button>
             <Button 
                 onClick={submitAction} 
                 variant={actionType === 'approve' ? 'default' : 'destructive'}
+                disabled={actionType === 'approve' && selectedRequisition?.budgetStatus === 'Exceeded' && !overrideBudget}
             >
                 Submit {actionType === 'approve' ? 'Approval' : 'Rejection'}
             </Button>
