@@ -1,11 +1,13 @@
 
 
+
 export type UserRole =
   | 'Requester'
   | 'Approver'
   | 'Procurement Officer'
   | 'Finance'
-  | 'Admin';
+  | 'Admin'
+  | 'Receiving';
 
 export type User = {
   id: string;
@@ -115,7 +117,10 @@ export type POItem = {
     quantity: number;
     unitPrice: number;
     totalPrice: number;
+    receivedQuantity: number;
 };
+
+export type PurchaseOrderStatus = 'Issued' | 'Acknowledged' | 'Shipped' | 'Partially Delivered' | 'Delivered' | 'Cancelled';
 
 export type PurchaseOrder = {
     id: string;
@@ -124,8 +129,29 @@ export type PurchaseOrder = {
     vendor: Vendor;
     items: POItem[];
     totalAmount: number;
-    status: 'Issued' | 'Acknowledged' | 'Shipped' | 'Delivered' | 'Cancelled';
+    status: PurchaseOrderStatus;
     createdAt: Date;
     contract?: ContractDetails;
     notes?: string;
+    receipts?: GoodsReceiptNote[];
+};
+
+
+export type ReceiptItem = {
+    poItemId: string;
+    name: string;
+    quantityOrdered: number;
+    quantityReceived: number;
+    condition: 'Good' | 'Damaged' | 'Incorrect';
+    notes?: string;
+}
+
+export type GoodsReceiptNote = {
+    id: string;
+    purchaseOrderId: string;
+    receivedBy: string; // User's name
+    receivedById: string; // User's ID
+    receivedDate: Date;
+    items: ReceiptItem[];
+    photos?: { name: string; url: string }[];
 }
