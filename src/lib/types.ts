@@ -97,4 +97,5 @@ export type Quotation = {
     deliveryDate: Date;
     createdAt: Date;
     status: 'Submitted' | 'Awarded' | 'Rejected';
+    notes?: string;
 };
