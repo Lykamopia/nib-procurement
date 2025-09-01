@@ -1,4 +1,5 @@
 
+
 export type UserRole =
   | 'Requester'
   | 'Approver'
@@ -57,6 +58,7 @@ export type PurchaseRequisition = {
   quotations?: Quotation[];
   contract?: ContractDetails;
   negotiationNotes?: string;
+  purchaseOrderId?: string;
 };
 
 export type AuditLog = {
@@ -81,7 +83,7 @@ export type Vendor = {
   name: string;
   contactPerson: string;
   email: string;
-  phone: string;
+phone: string;
   address: string;
   documents?: { name: string; url: string }[];
 };
@@ -106,3 +108,24 @@ export type Quotation = {
     status: 'Submitted' | 'Awarded' | 'Rejected';
     notes?: string;
 };
+
+export type POItem = {
+    id: string;
+    name: string;
+    quantity: number;
+    unitPrice: number;
+    totalPrice: number;
+};
+
+export type PurchaseOrder = {
+    id: string;
+    requisitionId: string;
+    requisitionTitle: string;
+    vendor: Vendor;
+    items: POItem[];
+    totalAmount: number;
+    status: 'Issued' | 'Acknowledged' | 'Shipped' | 'Delivered' | 'Cancelled';
+    createdAt: Date;
+    contract?: ContractDetails;
+    notes?: string;
+}

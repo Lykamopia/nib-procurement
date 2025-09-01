@@ -1,5 +1,6 @@
 
-import type { PurchaseRequisition, AuditLog, DepartmentBudget, Vendor, Quotation } from './types';
+
+import type { PurchaseRequisition, AuditLog, DepartmentBudget, Vendor, Quotation, PurchaseOrder } from './types';
 
 export const departmentBudgets: DepartmentBudget[] = [
     { department: 'Design', totalBudget: 50000, spentBudget: 25000 },
@@ -145,3 +146,5 @@ export const auditLogs: AuditLog[] = [
 
 
 export const quotations: Quotation[] = [];
+
+export const purchaseOrders: PurchaseOrder[] = [];

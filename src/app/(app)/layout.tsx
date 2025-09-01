@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -26,7 +27,8 @@ import {
   GanttChartSquare,
   Building2,
   FileBadge,
-  FileSignature
+  FileSignature,
+  FileStack,
 } from 'lucide-react';
 import { Icons } from '@/components/icons';
 import { Separator } from '@/components/ui/separator';
@@ -69,6 +71,8 @@ export default function AppLayout({
         return 'Quotations';
        case '/contracts':
         return 'Contracts';
+      case '/purchase-orders':
+        return 'Purchase Orders'
       case '/policy-check':
         return 'Automated Policy Check';
       case '/rfq-generator':
@@ -76,6 +80,7 @@ export default function AppLayout({
       case '/audit-log':
         return 'Audit Log';
       default:
+        if (pathname?.startsWith('/purchase-orders/')) return 'Purchase Order';
         return 'ProcurCtrl';
     }
   }, [pathname]);
@@ -177,6 +182,17 @@ export default function AppLayout({
                     >
                       <FileSignature />
                       <span>Contracts</span>
+                    </SidebarMenuButton>
+                  </Link>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <Link href="/purchase-orders">
+                    <SidebarMenuButton
+                      isActive={pathname === '/purchase-orders'}
+                      tooltip="Purchase Orders"
+                    >
+                      <FileStack />
+                      <span>Purchase Orders</span>
                     </SidebarMenuButton>
                   </Link>
                 </SidebarMenuItem>
