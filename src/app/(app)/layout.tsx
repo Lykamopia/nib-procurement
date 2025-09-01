@@ -23,6 +23,7 @@ import {
   LogOut,
   User as UserIcon,
   FileText,
+  GanttChartSquare,
 } from 'lucide-react';
 import { Icons } from '@/components/icons';
 import { Separator } from '@/components/ui/separator';
@@ -56,6 +57,8 @@ export default function AppLayout({
         return 'Create Purchase Requisition';
       case '/requisitions':
         return 'View Requisitions';
+      case '/approvals':
+        return 'Approvals';
       case '/policy-check':
         return 'Automated Policy Check';
       case '/rfq-generator':
@@ -119,6 +122,19 @@ export default function AppLayout({
                 </SidebarMenuButton>
               </Link>
             </SidebarMenuItem>
+            {role === 'Approver' && (
+              <SidebarMenuItem>
+                <Link href="/approvals">
+                  <SidebarMenuButton
+                    isActive={pathname === '/approvals'}
+                    tooltip="Approvals"
+                  >
+                    <GanttChartSquare />
+                    <span>Approvals</span>
+                  </SidebarMenuButton>
+                </Link>
+              </SidebarMenuItem>
+            )}
           </SidebarMenu>
 
           <Separator className="my-2" />

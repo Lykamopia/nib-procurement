@@ -11,7 +11,7 @@ export async function PATCH(
   try {
     const { id } = params;
     const body = await request.json();
-    const { status, userId } = body;
+    const { status, userId, comment } = body;
 
     const requisitionIndex = requisitions.findIndex((r) => r.id === id);
     if (requisitionIndex === -1) {
@@ -26,7 +26,15 @@ export async function PATCH(
     const oldStatus = requisitions[requisitionIndex].status;
     requisitions[requisitionIndex].status = status as RequisitionStatus;
     requisitions[requisitionIndex].updatedAt = new Date();
+    
+    let auditDetails = `Changed status from "${oldStatus}" to "${status}"`;
 
+    if (status === 'Approved' || status === 'Rejected') {
+        requisitions[requisitionIndex].approverId = userId;
+        requisitions[requisitionIndex].approverComment = comment;
+        auditDetails = `${status} requisition. Comment: "${comment}"`
+    }
+    
     // Add to audit log
     auditLogs.unshift({
         id: `log-${Date.now()}`,
@@ -36,7 +44,7 @@ export async function PATCH(
         action: 'UPDATE_STATUS',
         entity: 'Requisition',
         entityId: id,
-        details: `Changed status from "${oldStatus}" to "${status}"`,
+        details: auditDetails,
     });
 
     return NextResponse.json(requisitions[requisitionIndex]);
