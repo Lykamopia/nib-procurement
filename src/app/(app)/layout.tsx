@@ -25,7 +25,8 @@ import {
   FileText,
   GanttChartSquare,
   Building2,
-  FileBadge
+  FileBadge,
+  FileSignature
 } from 'lucide-react';
 import { Icons } from '@/components/icons';
 import { Separator } from '@/components/ui/separator';
@@ -65,6 +66,8 @@ export default function AppLayout({
         return 'Vendors';
        case '/quotations':
         return 'Quotations';
+       case '/contracts':
+        return 'Contracts';
       case '/policy-check':
         return 'Automated Policy Check';
       case '/rfq-generator':
@@ -162,6 +165,17 @@ export default function AppLayout({
                     >
                       <FileBadge />
                       <span>Quotations</span>
+                    </SidebarMenuButton>
+                  </Link>
+                </SidebarMenuItem>
+                 <SidebarMenuItem>
+                  <Link href="/contracts">
+                    <SidebarMenuButton
+                      isActive={pathname === '/contracts'}
+                      tooltip="Contracts"
+                    >
+                      <FileSignature />
+                      <span>Contracts</span>
                     </SidebarMenuButton>
                   </Link>
                 </SidebarMenuItem>
