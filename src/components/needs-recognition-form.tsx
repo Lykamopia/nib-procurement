@@ -339,9 +339,11 @@ export function NeedsRecognitionForm() {
             />
 
             <div className="flex justify-end items-center gap-4">
-              <span className="text-xl font-semibold">
-                Total: ${total.toFixed(2)}
-              </span>
+              {role === 'Procurement Officer' && (
+                <span className="text-xl font-semibold">
+                  Total: ${total.toFixed(2)}
+                </span>
+              )}
               <Button type="submit" disabled={loading}>
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Submit Requisition
