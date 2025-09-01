@@ -42,6 +42,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { RoleSwitcher } from '@/components/role-switcher';
+import { ThemeSwitcher } from '@/components/theme-switcher';
 
 export default function AppLayout({
   children,
@@ -321,6 +322,7 @@ export default function AppLayout({
             <h1 className="text-xl font-semibold">{pageTitle}</h1>
           </div>
           <div className="flex items-center gap-4">
+            <ThemeSwitcher />
             <span className="text-sm text-muted-foreground">{user.name}</span>
             <Avatar>
               <AvatarImage
