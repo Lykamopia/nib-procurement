@@ -36,13 +36,14 @@ import { useRouter, usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
+import { RoleSwitcher } from '@/components/role-switcher';
 
 export default function AppLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { user, logout, loading, role } = useAuth();
+  const { user, logout, loading, role, setRole } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -230,18 +231,7 @@ export default function AppLayout({
           </SidebarMenu>
         </SidebarContent>
         <SidebarFooter>
-          <div className="flex flex-col p-2 gap-1">
-            <span className="text-xs text-muted-foreground ml-1">
-              Current Role
-            </span>
-            <Badge
-              variant="outline"
-              className="flex items-center gap-2 w-full justify-start py-1.5 px-3"
-            >
-              <UserIcon className="h-4 w-4" />
-              <span>{role}</span>
-            </Badge>
-          </div>
+         <RoleSwitcher />
           <Separator className="my-2" />
           <Button variant="ghost" className="w-full justify-start" onClick={logout}>
             <LogOut className="mr-2 h-4 w-4" />
