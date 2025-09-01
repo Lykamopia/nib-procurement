@@ -2,6 +2,7 @@
 
 
 
+
 export type UserRole =
   | 'Requester'
   | 'Approver'
@@ -166,6 +167,8 @@ export type InvoiceItem = {
   totalPrice: number;
 };
 
+export type InvoiceStatus = 'Pending' | 'Paid' | 'Disputed';
+
 export type Invoice = {
   id: string;
   purchaseOrderId: string;
@@ -173,7 +176,8 @@ export type Invoice = {
   invoiceDate: Date;
   items: InvoiceItem[];
   totalAmount: number;
-  status: 'Pending' | 'Paid' | 'Disputed';
+  status: InvoiceStatus;
+  documentUrl?: string;
 };
 
 
@@ -194,6 +198,8 @@ export type MatchingResult = {
       itemName: string;
       poQuantity: number;
       grnQuantity: number;
+      poQuantity: number;
+      invoiceQuantity: number;
       poUnitPrice: number;
       invoiceUnitPrice: number;
       quantityMatch: boolean;

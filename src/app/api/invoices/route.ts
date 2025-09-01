@@ -1,13 +1,18 @@
 
+
 import { NextResponse } from 'next/server';
 import { purchaseOrders, invoices as invoiceStore, auditLogs } from '@/lib/data-store';
 import { Invoice } from '@/lib/types';
 import { users } from '@/lib/auth-store';
 
+export async function GET() {
+  return NextResponse.json(invoiceStore);
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { purchaseOrderId, vendorId, invoiceDate, items, totalAmount, userId } = body;
+    const { purchaseOrderId, vendorId, invoiceDate, items, totalAmount, documentUrl, userId } = body;
 
     const user = users.find(u => u.id === userId);
     if (!user) {
@@ -30,6 +35,7 @@ export async function POST(request: Request) {
       })),
       totalAmount,
       status: 'Pending',
+      documentUrl,
     };
 
     invoiceStore.unshift(newInvoice);
