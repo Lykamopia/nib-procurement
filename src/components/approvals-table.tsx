@@ -197,10 +197,11 @@ export function ApprovalsTable() {
             <TableBody>
               {paginatedRequisitions.length > 0 ? (
                 paginatedRequisitions.map(req => (
-                  <React.Fragment key={req.id}>
+                  <Collapsible key={req.id} asChild onOpenChange={(isOpen) => setOpenRequisitionId(isOpen ? req.id : null)} open={openRequisitionId === req.id}>
+                  <React.Fragment>
                     <TableRow>
                       <TableCell>
-                        <CollapsibleTrigger asChild onClick={() => setOpenRequisitionId(openRequisitionId === req.id ? null : req.id)}>
+                        <CollapsibleTrigger asChild>
                           <Button variant="ghost" size="sm" className="w-9 p-0">
                             <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", openRequisitionId === req.id && "rotate-180")} />
                             <span className="sr-only">Toggle details</span>
@@ -228,8 +229,8 @@ export function ApprovalsTable() {
                         </div>
                       </TableCell>
                     </TableRow>
-                    {openRequisitionId === req.id && (
-                       <TableRow className="bg-muted/50 hover:bg-muted/50">
+                    <CollapsibleContent asChild>
+                       <tr className="bg-muted/50 hover:bg-muted/50">
                         <TableCell colSpan={8} className="p-0">
                               <div className="p-4">
                                 <h4 className="font-semibold mb-2">Requisition Details:</h4>
@@ -251,9 +252,10 @@ export function ApprovalsTable() {
                                 </div>
                               </div>
                         </TableCell>
-                      </TableRow>
-                    )}
+                      </tr>
+                    </CollapsibleContent>
                   </React.Fragment>
+                  </Collapsible>
                 ))
               ) : (
                 <TableRow>
