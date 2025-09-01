@@ -31,6 +31,7 @@ import {
   PackageCheck,
   Wallet,
   Landmark,
+  Archive,
 } from 'lucide-react';
 import { Icons } from '@/components/icons';
 import { Separator } from '@/components/ui/separator';
@@ -81,6 +82,8 @@ export default function AppLayout({
         return 'Invoice Matching';
        case '/invoices':
         return 'Invoices';
+       case '/records':
+        return 'Document Records';
       case '/policy-check':
         return 'Automated Policy Check';
       case '/rfq-generator':
@@ -278,6 +281,17 @@ export default function AppLayout({
           <Separator className="my-2" />
 
           <SidebarMenu>
+             <SidebarMenuItem>
+              <Link href="/records">
+                <SidebarMenuButton
+                  isActive={pathname === '/records'}
+                  tooltip="Records"
+                >
+                  <Archive />
+                  <span>Records</span>
+                </SidebarMenuButton>
+              </Link>
+            </SidebarMenuItem>
             <SidebarMenuItem>
               <Link href="/audit-log">
                 <SidebarMenuButton

@@ -1,9 +1,4 @@
 
-
-
-
-
-
 export type UserRole =
   | 'Requester'
   | 'Approver'
@@ -209,3 +204,15 @@ export type MatchingResult = {
     }[];
   };
 };
+
+export type DocumentRecord = {
+    id: string;
+    type: 'Requisition' | 'Purchase Order' | 'Invoice' | 'Quotation' | 'Goods Receipt' | 'Contract';
+    title: string;
+    status: string;
+    date: Date;
+    amount: number;
+    user: string;
+    relatedTo: string[];
+    auditTrail?: AuditLog[];
+}
