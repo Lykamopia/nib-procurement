@@ -5,6 +5,13 @@ export type UserRole =
   | 'Finance'
   | 'Admin';
 
+export type User = {
+  id: string;
+  name: string;
+  email: string;
+  password?: string; // Should not be sent to client
+};
+
 export type RequisitionStatus =
   | 'Draft'
   | 'Pending Approval'
