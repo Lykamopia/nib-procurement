@@ -198,7 +198,7 @@ export function ApprovalsTable() {
               {paginatedRequisitions.length > 0 ? (
                 paginatedRequisitions.map(req => (
                   <Collapsible key={req.id} asChild onOpenChange={(isOpen) => setOpenRequisitionId(isOpen ? req.id : null)} open={openRequisitionId === req.id}>
-                  <React.Fragment>
+                  <>
                     <TableRow>
                       <TableCell>
                         <CollapsibleTrigger asChild>
@@ -254,7 +254,7 @@ export function ApprovalsTable() {
                         </TableCell>
                       </tr>
                     </CollapsibleContent>
-                  </React.Fragment>
+                  </>
                   </Collapsible>
                 ))
               ) : (
@@ -354,3 +354,5 @@ export function ApprovalsTable() {
     </Card>
   );
 }
+
+    
