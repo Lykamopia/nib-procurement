@@ -29,6 +29,7 @@ import {
   FileBadge,
   FileSignature,
   FileStack,
+  PackageCheck,
 } from 'lucide-react';
 import { Icons } from '@/components/icons';
 import { Separator } from '@/components/ui/separator';
@@ -73,6 +74,8 @@ export default function AppLayout({
         return 'Contracts';
       case '/purchase-orders':
         return 'Purchase Orders'
+      case '/receive-goods':
+        return 'Receive Goods';
       case '/policy-check':
         return 'Automated Policy Check';
       case '/rfq-generator':
@@ -197,6 +200,19 @@ export default function AppLayout({
                   </Link>
                 </SidebarMenuItem>
               </>
+            )}
+            {role === 'Receiving' && (
+               <SidebarMenuItem>
+                  <Link href="/receive-goods">
+                    <SidebarMenuButton
+                      isActive={pathname === '/receive-goods'}
+                      tooltip="Receive Goods"
+                    >
+                      <PackageCheck />
+                      <span>Receive Goods</span>
+                    </SidebarMenuButton>
+                  </Link>
+                </SidebarMenuItem>
             )}
           </SidebarMenu>
 
