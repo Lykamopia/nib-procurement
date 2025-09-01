@@ -21,7 +21,6 @@ import {
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -30,17 +29,17 @@ import {
 } from './ui/dialog';
 import { Input } from './ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, PlusCircle, Award, XCircle, CheckCircle2, ShieldX } from 'lucide-react';
+import { Loader2, PlusCircle, Award, XCircle, FileSignature } from 'lucide-react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from './ui/form';
 import { PurchaseRequisition, Quotation, Vendor } from '@/lib/types';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { format, formatDistanceToNow } from 'date-fns';
 import { Badge } from './ui/badge';
 import { Textarea } from './ui/textarea';
 import { useAuth } from '@/contexts/auth-context';
+import { Separator } from './ui/separator';
 
 const quoteFormSchema = z.object({
   vendorId: z.string().min(1, "Vendor is required."),
@@ -53,6 +52,11 @@ const quoteFormSchema = z.object({
     leadTimeDays: z.coerce.number().min(0, "Lead time is required."),
   })),
 });
+
+const contractFormSchema = z.object({
+    fileName: z.string().min(3, "File name is required."),
+    notes: z.string().min(10, "Negotiation notes are required.")
+})
 
 function AddQuoteForm({ requisition, vendors, onQuoteAdded }: { requisition: PurchaseRequisition; vendors: Vendor[], onQuoteAdded: () => void }) {
     const [isSubmitting, setSubmitting] = useState(false);
@@ -111,9 +115,9 @@ function AddQuoteForm({ requisition, vendors, onQuoteAdded }: { requisition: Pur
         <DialogContent className="sm:max-w-[625px]">
             <DialogHeader>
                 <DialogTitle>Add New Quotation</DialogTitle>
-                <DialogDescription>
+                <FormMessage>
                     For requisition: <span className="font-semibold text-primary">{requisition.title}</span>
-                </DialogDescription>
+                </FormMessage>
             </DialogHeader>
             <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -267,6 +271,109 @@ const QuoteComparison = ({ quotes, onAction }: { quotes: Quotation[], onAction: 
     )
 }
 
+const ContractManagement = ({ requisition, onContractFinalized }: { requisition: PurchaseRequisition, onContractFinalized: () => void }) => {
+    const [isSubmitting, setSubmitting] = useState(false);
+    const { toast } = useToast();
+    const { user } = useAuth();
+    const [fileName, setFileName] = useState('');
+
+    const form = useForm<z.infer<typeof contractFormSchema>>({
+        resolver: zodResolver(contractFormSchema),
+        defaultValues: {
+            fileName: requisition.contract?.fileName || "",
+            notes: requisition.negotiationNotes || "",
+        }
+    });
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files.length > 0) {
+            const file = e.target.files[0];
+            setFileName(file.name);
+            form.setValue('fileName', file.name);
+        }
+    }
+
+    const onSubmit = async (values: z.infer<typeof contractFormSchema>) => {
+        if (!user) return;
+        setSubmitting(true);
+        try {
+            const response = await fetch(`/api/requisitions/${requisition.id}/contract`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...values, userId: user.id }),
+            });
+            if (!response.ok) throw new Error("Failed to finalize contract.");
+            toast({ title: "Contract Finalized!", description: "The contract has been attached and notes saved." });
+            onContractFinalized();
+        } catch (error) {
+             toast({
+                variant: 'destructive',
+                title: 'Error',
+                description: error instanceof Error ? error.message : 'An unknown error occurred.',
+            });
+        } finally {
+            setSubmitting(false);
+        }
+    }
+
+    const awardedQuote = requisition.quotations?.find(q => q.status === 'Awarded');
+
+    return (
+        <Card className="mt-6 border-primary/50">
+            <CardHeader>
+                <CardTitle>Contract Finalization</CardTitle>
+                <CardDescription>
+                    Finalize the contract for {requisition.id} with <span className="font-semibold">{awardedQuote?.vendorName}</span>.
+                </CardDescription>
+            </CardHeader>
+            <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)}>
+                    <CardContent className="space-y-4">
+                        <FormField
+                            control={form.control}
+                            name="fileName"
+                            render={({ field }) => (
+                                <FormItem>
+                                <FormLabel>Contract Document</FormLabel>
+                                 <FormControl>
+                                    <Input id="contract-file" type="file" onChange={handleFileChange} className="hidden" />
+                                 </FormControl>
+                                 <div className="flex items-center gap-2">
+                                    <Button asChild variant="outline">
+                                        <label htmlFor="contract-file">Upload File</label>
+                                    </Button>
+                                    {fileName && <span className="text-sm text-muted-foreground">{fileName}</span>}
+                                 </div>
+                                <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="notes"
+                            render={({ field }) => (
+                                <FormItem>
+                                <FormLabel>Negotiation &amp; Finalization Notes</FormLabel>
+                                <FormControl>
+                                    <Textarea rows={5} placeholder="Record key negotiation points, final terms, and any other relevant contract details..." {...field} />
+                                </FormControl>
+                                <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                    </CardContent>
+                    <CardFooter>
+                         <Button type="submit" disabled={isSubmitting}>
+                            {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileSignature className="mr-2 h-4 w-4" />}
+                            Finalize and Create PO
+                        </Button>
+                    </CardFooter>
+                </form>
+            </Form>
+        </Card>
+    )
+}
+
 
 export function QuotationsPage() {
   const [requisitions, setRequisitions] = useState<PurchaseRequisition[]>([]);
@@ -280,13 +387,14 @@ export function QuotationsPage() {
 
 
   const selectedRequisition = requisitions.find(r => r.id === selectedReqId);
+  const isAwarded = quotations.some(q => q.status === 'Awarded');
 
-  const fetchRequisitions = async () => {
+  const fetchAllRequisitions = async () => {
     try {
       const response = await fetch('/api/requisitions');
       const data = await response.json();
       // We only care about approved requisitions for quotations
-      setRequisitions(data.filter((r: PurchaseRequisition) => r.status === 'Approved' || r.status === 'RFQ In Progress' || r.status === 'PO Created'));
+      setRequisitions(data);
     } catch (error) {
       console.error("Failed to fetch requisitions", error);
     }
@@ -317,7 +425,7 @@ export function QuotationsPage() {
   };
 
   useEffect(() => {
-    fetchRequisitions();
+    fetchAllRequisitions();
     fetchVendors();
   }, []);
 
@@ -334,12 +442,18 @@ export function QuotationsPage() {
     if(selectedReqId) fetchQuotations(selectedReqId);
   }
   
+  const handleContractFinalized = () => {
+    fetchAllRequisitions(); // To get the updated requisition status
+    if(selectedReqId) fetchQuotations(selectedReqId);
+  }
+
   const handleQuoteAction = async (quoteId: string, status: 'Awarded' | 'Rejected') => {
+    if (!user || !selectedReqId) return;
     try {
         const response = await fetch(`/api/quotations/${quoteId}/status`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status, userId: user?.id, requisitionId: selectedReqId }),
+            body: JSON.stringify({ status, userId: user.id, requisitionId: selectedReqId }),
         });
 
         if (!response.ok) {
@@ -351,6 +465,7 @@ export function QuotationsPage() {
             description: `The quotation has been successfully ${status.toLowerCase()}.`
         });
         if(selectedReqId) fetchQuotations(selectedReqId);
+        fetchAllRequisitions(); // to get updated req status and details
     } catch (error) {
         toast({
             variant: 'destructive',
@@ -359,6 +474,10 @@ export function QuotationsPage() {
         });
     }
   }
+  
+  const availableRequisitions = requisitions.filter(r => 
+      (r.status === 'Approved' || r.status === 'RFQ In Progress' || r.status === 'PO Created')
+  );
 
 
   return (
@@ -366,7 +485,7 @@ export function QuotationsPage() {
         <Card>
             <CardHeader>
                 <CardTitle>Select Requisition</CardTitle>
-                <CardDescription>Choose a requisition to view and compare quotations.</CardDescription>
+                <CardDescription>Choose a requisition to manage quotations and contracts.</CardDescription>
             </CardHeader>
             <CardContent>
                 <Select onValueChange={setSelectedReqId} value={selectedReqId}>
@@ -374,9 +493,9 @@ export function QuotationsPage() {
                         <SelectValue placeholder="Select an approved requisition..." />
                     </SelectTrigger>
                     <SelectContent>
-                        {requisitions.map(req => (
+                        {availableRequisitions.length > 0 ? availableRequisitions.map(req => (
                             <SelectItem key={req.id} value={req.id}>{req.id} - {req.title}</SelectItem>
-                        ))}
+                        )) : <div className="p-4 text-sm text-muted-foreground">No requisitions ready for quotation.</div>}
                     </SelectContent>
                 </Select>
             </CardContent>
@@ -393,7 +512,7 @@ export function QuotationsPage() {
                     </div>
                      <Dialog open={isFormOpen} onOpenChange={setFormOpen}>
                         <DialogTrigger asChild>
-                            <Button><PlusCircle className="mr-2 h-4 w-4"/>Add Quotation</Button>
+                            <Button disabled={isAwarded}><PlusCircle className="mr-2 h-4 w-4"/>Add Quotation</Button>
                         </DialogTrigger>
                         <AddQuoteForm requisition={selectedRequisition} vendors={vendors} onQuoteAdded={handleQuoteAdded} />
                     </Dialog>
@@ -407,6 +526,13 @@ export function QuotationsPage() {
                        <QuoteComparison quotes={quotations} onAction={handleQuoteAction} />
                    )}
                 </CardContent>
+
+                {isAwarded && selectedRequisition.status !== 'PO Created' && (
+                    <>
+                        <Separator className="my-6"/>
+                        <ContractManagement requisition={selectedRequisition} onContractFinalized={handleContractFinalized}/>
+                    </>
+                )}
             </Card>
         )}
     </div>

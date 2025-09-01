@@ -34,6 +34,11 @@ export type RequisitionItem = {
   unitPrice: number;
 };
 
+export type ContractDetails = {
+    fileName: string;
+    uploadDate: Date;
+}
+
 export type PurchaseRequisition = {
   id:string; // Will be UUID
   requesterId: string; // User ID
@@ -50,6 +55,8 @@ export type PurchaseRequisition = {
   approverId?: string;
   approverComment?: string;
   quotations?: Quotation[];
+  contract?: ContractDetails;
+  negotiationNotes?: string;
 };
 
 export type AuditLog = {
