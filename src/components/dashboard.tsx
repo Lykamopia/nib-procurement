@@ -21,11 +21,10 @@ import {
   CircleDollarSign,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
-import { View } from '@/app/page';
 import { Progress } from './ui/progress';
 
 interface DashboardProps {
-  setActiveView: (view: View) => void;
+  setActiveView: (view: string) => void;
 }
 
 interface DashboardStats {
