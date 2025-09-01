@@ -34,6 +34,7 @@ export type RequisitionItem = {
 export type PurchaseRequisition = {
   id: string; // Will be UUID
   requesterId: string; // User ID
+  requesterName?: string;
   title: string;
   department: string;
   items: RequisitionItem[];
