@@ -25,8 +25,16 @@ import {
   CardHeader,
   CardTitle,
 } from './ui/card';
-import { PlusCircle, Trash2 } from 'lucide-react';
+import { PlusCircle, Trash2, Loader2 } from 'lucide-react';
 import { Separator } from './ui/separator';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from './ui/select';
+import { useState } from 'react';
 
 const formSchema = z.object({
   requesterName: z.string().min(2, 'Name must be at least 2 characters.'),
@@ -35,6 +43,8 @@ const formSchema = z.object({
   justification: z
     .string()
     .min(10, 'Justification must be at least 10 characters.'),
+  urgency: z.enum(['Low', 'Medium', 'High']),
+  attachments: z.any().optional(),
   items: z
     .array(
       z.object({
@@ -42,7 +52,8 @@ const formSchema = z.object({
         quantity: z.coerce.number().min(1, 'Quantity must be at least 1.'),
         unitPrice: z.coerce
           .number()
-          .min(0.01, 'Price must be greater than 0.'),
+          .min(0.01, 'Price must be greater than 0.')
+          .optional(),
       })
     )
     .min(1, 'At least one item is required.'),
@@ -50,6 +61,7 @@ const formSchema = z.object({
 
 export function NeedsRecognitionForm() {
   const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -57,7 +69,8 @@ export function NeedsRecognitionForm() {
       department: '',
       title: '',
       justification: '',
-      items: [{ name: '', quantity: 1, unitPrice: 0 }],
+      urgency: 'Low',
+      items: [{ name: '', quantity: 1 }],
     },
   });
 
@@ -66,13 +79,38 @@ export function NeedsRecognitionForm() {
     name: 'items',
   });
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    console.log(values);
-    toast({
-      title: 'Requisition Submitted',
-      description: 'Your purchase requisition has been successfully submitted.',
-    });
-    form.reset();
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    setLoading(true);
+    try {
+      const response = await fetch('/api/requisitions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(values),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to submit requisition');
+      }
+
+      const result = await response.json();
+      console.log(result);
+      toast({
+        title: 'Requisition Submitted',
+        description: `Your purchase requisition "${result.title}" has been successfully submitted as a draft.`,
+      });
+      form.reset();
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Submission Failed',
+        description:
+          error instanceof Error ? error.message : 'An unknown error occurred.',
+      });
+    } finally {
+      setLoading(false);
+    }
   }
 
   const total = form.watch('items').reduce((acc, item) => {
@@ -125,7 +163,10 @@ export function NeedsRecognitionForm() {
                 <FormItem>
                   <FormLabel>Requisition Title</FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g. New Laptops for Design Team" {...field} />
+                    <Input
+                      placeholder="e.g. New Laptops for Design Team"
+                      {...field}
+                    />
                   </FormControl>
                   <FormDescription>
                     A short, descriptive title for your request.
@@ -134,14 +175,17 @@ export function NeedsRecognitionForm() {
                 </FormItem>
               )}
             />
-            
+
             <Separator />
 
             <div>
               <h3 className="text-lg font-medium mb-4">Items</h3>
               <div className="space-y-6">
                 {fields.map((field, index) => (
-                  <div key={field.id} className="flex gap-4 items-end p-4 border rounded-lg relative">
+                  <div
+                    key={field.id}
+                    className="flex gap-4 items-end p-4 border rounded-lg relative"
+                  >
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 flex-1">
                       <FormField
                         control={form.control}
@@ -150,7 +194,10 @@ export function NeedsRecognitionForm() {
                           <FormItem>
                             <FormLabel>Item Name</FormLabel>
                             <FormControl>
-                              <Input placeholder="e.g. MacBook Pro 16-inch" {...field} />
+                              <Input
+                                placeholder="e.g. MacBook Pro 16-inch"
+                                {...field}
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -174,7 +221,7 @@ export function NeedsRecognitionForm() {
                         name={`items.${index}.unitPrice`}
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Unit Price ($)</FormLabel>
+                            <FormLabel>Unit Price ($) (Optional)</FormLabel>
                             <FormControl>
                               <Input type="number" step="0.01" {...field} />
                             </FormControl>
@@ -183,7 +230,12 @@ export function NeedsRecognitionForm() {
                         )}
                       />
                     </div>
-                    <Button type="button" variant="destructive" size="icon" onClick={() => remove(index)}>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="icon"
+                      onClick={() => remove(index)}
+                    >
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
@@ -194,15 +246,59 @@ export function NeedsRecognitionForm() {
                 variant="outline"
                 size="sm"
                 className="mt-4"
-                onClick={() => append({ name: '', quantity: 1, unitPrice: 0 })}
+                onClick={() => append({ name: '', quantity: 1 })}
               >
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Add Item
               </Button>
             </div>
-            
+
             <Separator />
-            
+
+            <div className="grid md:grid-cols-2 gap-8">
+              <FormField
+                control={form.control}
+                name="urgency"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Urgency</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      defaultValue={field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select urgency level" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="Low">Low</SelectItem>
+                        <SelectItem value="Medium">Medium</SelectItem>
+                        <SelectItem value="High">High</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="attachments"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>File Attachments</FormLabel>
+                    <FormControl>
+                      <Input type="file" {...form.register('attachments')} />
+                    </FormControl>
+                    <FormDescription>
+                      Attach any relevant documents (quotes, specs, etc.).
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
             <FormField
               control={form.control}
               name="justification"
@@ -225,7 +321,10 @@ export function NeedsRecognitionForm() {
               <span className="text-xl font-semibold">
                 Total: ${total.toFixed(2)}
               </span>
-              <Button type="submit">Submit Requisition</Button>
+              <Button type="submit" disabled={loading}>
+                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Submit Requisition
+              </Button>
             </div>
           </form>
         </Form>
