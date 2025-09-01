@@ -23,6 +23,7 @@ import { format } from 'date-fns';
 import { Badge } from './ui/badge';
 import {
   Check,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
@@ -45,6 +46,12 @@ import { Textarea } from './ui/textarea';
 import { Label } from './ui/label';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 import { Checkbox } from './ui/checkbox';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from './ui/collapsible';
+import { cn } from '@/lib/utils';
 
 
 const PAGE_SIZE = 10;
@@ -62,6 +69,7 @@ export function ApprovalsTable() {
   const [isDialogOpen, setDialogOpen] = useState(false);
   const [actionType, setActionType] = useState<'approve' | 'reject' | null>(null);
   const [overrideBudget, setOverrideBudget] = useState(false);
+  const [openRequisitionId, setOpenRequisitionId] = useState<string | null>(null);
 
 
   const fetchRequisitions = async () => {
@@ -176,6 +184,7 @@ export function ApprovalsTable() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-12"></TableHead>
                 <TableHead>Req. ID</TableHead>
                 <TableHead>Title</TableHead>
                 <TableHead>Requester</TableHead>
@@ -188,32 +197,69 @@ export function ApprovalsTable() {
             <TableBody>
               {paginatedRequisitions.length > 0 ? (
                 paginatedRequisitions.map(req => (
-                  <TableRow key={req.id}>
-                    <TableCell className="font-medium text-primary">{req.id}</TableCell>
-                    <TableCell>{req.title}</TableCell>
-                    <TableCell>{req.requesterName}</TableCell>
-                    <TableCell>
-                      <BudgetStatusBadge status={req.budgetStatus}/>
-                    </TableCell>
-                    <TableCell className="text-right">${req.totalPrice.toLocaleString()}</TableCell>
-                    <TableCell>{format(new Date(req.createdAt), 'PP')}</TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
-                        <Button variant="outline" size="sm" onClick={() => handleAction(req, 'approve')}>
-                          <Check className="mr-2 h-4 w-4" />
-                          Approve
-                        </Button>
-                         <Button variant="destructive" size="sm" onClick={() => handleAction(req, 'reject')}>
-                          <X className="mr-2 h-4 w-4" />
-                          Reject
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
+                  <Collapsible asChild key={req.id} open={openRequisitionId === req.id} onOpenChange={() => setOpenRequisitionId(openRequisitionId === req.id ? null : req.id)}>
+                    <>
+                      <TableRow>
+                        <TableCell>
+                          <CollapsibleTrigger asChild>
+                            <Button variant="ghost" size="sm" className="w-9 p-0">
+                              <ChevronDown className="h-4 w-4 transition-transform duration-200 data-[state=open]:rotate-180" />
+                              <span className="sr-only">Toggle details</span>
+                            </Button>
+                          </CollapsibleTrigger>
+                        </TableCell>
+                        <TableCell className="font-medium text-primary">{req.id}</TableCell>
+                        <TableCell>{req.title}</TableCell>
+                        <TableCell>{req.requesterName}</TableCell>
+                        <TableCell>
+                          <BudgetStatusBadge status={req.budgetStatus}/>
+                        </TableCell>
+                        <TableCell className="text-right">${req.totalPrice.toLocaleString()}</TableCell>
+                        <TableCell>{format(new Date(req.createdAt), 'PP')}</TableCell>
+                        <TableCell>
+                          <div className="flex gap-2">
+                            <Button variant="outline" size="sm" onClick={() => handleAction(req, 'approve')}>
+                              <Check className="mr-2 h-4 w-4" />
+                              Approve
+                            </Button>
+                            <Button variant="destructive" size="sm" onClick={() => handleAction(req, 'reject')}>
+                              <X className="mr-2 h-4 w-4" />
+                              Reject
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                       <CollapsibleContent asChild>
+                        <tr className="bg-muted/50 hover:bg-muted/50">
+                          <td colSpan={8} className="p-0">
+                            <div className="p-4">
+                              <h4 className="font-semibold mb-2">Requisition Details:</h4>
+                               <div className="grid md:grid-cols-2 gap-4 text-sm">
+                                <div>
+                                  <p className="font-medium">Justification:</p>
+                                  <p className="text-muted-foreground">{req.justification}</p>
+                                </div>
+                                <div>
+                                  <p className="font-medium">Items:</p>
+                                  <ul className="list-disc pl-5 text-muted-foreground">
+                                    {req.items.map(item => (
+                                      <li key={item.id}>
+                                        {item.quantity} x {item.name} @ ${item.unitPrice.toLocaleString()} each
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      </CollapsibleContent>
+                    </>
+                  </Collapsible>
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={7} className="h-24 text-center">
+                  <TableCell colSpan={8} className="h-24 text-center">
                     No requisitions pending approval.
                   </TableCell>
                 </TableRow>
