@@ -197,65 +197,63 @@ export function ApprovalsTable() {
             <TableBody>
               {paginatedRequisitions.length > 0 ? (
                 paginatedRequisitions.map(req => (
-                  <Collapsible asChild key={req.id} open={openRequisitionId === req.id} onOpenChange={() => setOpenRequisitionId(openRequisitionId === req.id ? null : req.id)}>
-                    <>
-                      <TableRow>
-                        <TableCell>
-                          <CollapsibleTrigger asChild>
-                            <Button variant="ghost" size="sm" className="w-9 p-0">
-                              <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", openRequisitionId === req.id && "rotate-180")} />
-                              <span className="sr-only">Toggle details</span>
-                            </Button>
-                          </CollapsibleTrigger>
-                        </TableCell>
-                        <TableCell className="font-medium text-primary">{req.id}</TableCell>
-                        <TableCell>{req.title}</TableCell>
-                        <TableCell>{req.requesterName}</TableCell>
-                        <TableCell>
-                          <BudgetStatusBadge status={req.budgetStatus}/>
-                        </TableCell>
-                        <TableCell className="text-right">${req.totalPrice.toLocaleString()}</TableCell>
-                        <TableCell>{format(new Date(req.createdAt), 'PP')}</TableCell>
-                        <TableCell>
-                          <div className="flex gap-2">
-                            <Button variant="outline" size="sm" onClick={() => handleAction(req, 'approve')}>
-                              <Check className="mr-2 h-4 w-4" />
-                              Approve
-                            </Button>
-                            <Button variant="destructive" size="sm" onClick={() => handleAction(req, 'reject')}>
-                              <X className="mr-2 h-4 w-4" />
-                              Reject
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                      <CollapsibleContent asChild>
-                        <TableRow className="bg-muted/50 hover:bg-muted/50">
-                          <TableCell colSpan={8} className="p-0">
-                                <div className="p-4">
-                                  <h4 className="font-semibold mb-2">Requisition Details:</h4>
-                                  <div className="grid md:grid-cols-2 gap-4 text-sm">
-                                    <div>
-                                      <p className="font-medium">Justification:</p>
-                                      <p className="text-muted-foreground">{req.justification}</p>
-                                    </div>
-                                    <div>
-                                      <p className="font-medium">Items:</p>
-                                      <ul className="list-disc pl-5 text-muted-foreground">
-                                        {req.items.map(item => (
-                                          <li key={item.id}>
-                                            {item.quantity} x {item.name} @ ${item.unitPrice.toLocaleString()} each
-                                          </li>
-                                        ))}
-                                      </ul>
-                                    </div>
+                  <React.Fragment key={req.id}>
+                    <TableRow>
+                      <TableCell>
+                        <CollapsibleTrigger asChild onClick={() => setOpenRequisitionId(openRequisitionId === req.id ? null : req.id)}>
+                          <Button variant="ghost" size="sm" className="w-9 p-0">
+                            <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", openRequisitionId === req.id && "rotate-180")} />
+                            <span className="sr-only">Toggle details</span>
+                          </Button>
+                        </CollapsibleTrigger>
+                      </TableCell>
+                      <TableCell className="font-medium text-primary">{req.id}</TableCell>
+                      <TableCell>{req.title}</TableCell>
+                      <TableCell>{req.requesterName}</TableCell>
+                      <TableCell>
+                        <BudgetStatusBadge status={req.budgetStatus}/>
+                      </TableCell>
+                      <TableCell className="text-right">${req.totalPrice.toLocaleString()}</TableCell>
+                      <TableCell>{format(new Date(req.createdAt), 'PP')}</TableCell>
+                      <TableCell>
+                        <div className="flex gap-2">
+                          <Button variant="outline" size="sm" onClick={() => handleAction(req, 'approve')}>
+                            <Check className="mr-2 h-4 w-4" />
+                            Approve
+                          </Button>
+                          <Button variant="destructive" size="sm" onClick={() => handleAction(req, 'reject')}>
+                            <X className="mr-2 h-4 w-4" />
+                            Reject
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                    {openRequisitionId === req.id && (
+                       <TableRow className="bg-muted/50 hover:bg-muted/50">
+                        <TableCell colSpan={8} className="p-0">
+                              <div className="p-4">
+                                <h4 className="font-semibold mb-2">Requisition Details:</h4>
+                                <div className="grid md:grid-cols-2 gap-4 text-sm">
+                                  <div>
+                                    <p className="font-medium">Justification:</p>
+                                    <p className="text-muted-foreground">{req.justification}</p>
+                                  </div>
+                                  <div>
+                                    <p className="font-medium">Items:</p>
+                                    <ul className="list-disc pl-5 text-muted-foreground">
+                                      {req.items.map(item => (
+                                        <li key={item.id}>
+                                          {item.quantity} x {item.name} @ ${item.unitPrice.toLocaleString()} each
+                                        </li>
+                                      ))}
+                                    </ul>
                                   </div>
                                 </div>
-                          </TableCell>
-                        </TableRow>
-                      </CollapsibleContent>
-                    </>
-                  </Collapsible>
+                              </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </React.Fragment>
                 ))
               ) : (
                 <TableRow>
@@ -354,5 +352,3 @@ export function ApprovalsTable() {
     </Card>
   );
 }
-
-    
