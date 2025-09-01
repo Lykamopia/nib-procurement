@@ -1,11 +1,6 @@
-import type { User, UserRole } from './types';
 
-// In-memory user store
-const users: (User & { role: UserRole })[] = [
-  { id: '1', name: 'Alice', email: 'alice@example.com', password: 'password123', role: 'Requester' },
-  { id: '2', name: 'Bob', email: 'bob@example.com', password: 'password123', role: 'Approver' },
-  { id: '3', name: 'Charlie', email: 'charlie@example.com', password: 'password123', role: 'Procurement Officer' },
-];
+import type { User, UserRole } from './types';
+import { users } from './auth-store';
 
 export async function login(email: string, password: string): Promise<{ user: User; token: string; role: UserRole } | null> {
   const user = users.find((u) => u.email === email && u.password === password);
