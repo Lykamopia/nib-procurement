@@ -7,4 +7,5 @@ export const users: User[] = [
   { id: '2', name: 'Bob', email: 'bob@example.com', password: 'password123', role: 'Approver' },
   { id: '3', name: 'Charlie', email: 'charlie@example.com', password: 'password123', role: 'Procurement Officer' },
   { id: '4', name: 'David', email: 'david@example.com', password: 'password123', role: 'Receiving' },
+  { id: '5', name: 'Eve', email: 'eve@example.com', password: 'password123', role: 'Finance' },
 ];

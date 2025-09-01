@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -31,6 +30,7 @@ import {
   FileStack,
   PackageCheck,
   Wallet,
+  Landmark,
 } from 'lucide-react';
 import { Icons } from '@/components/icons';
 import { Separator } from '@/components/ui/separator';
@@ -79,6 +79,8 @@ export default function AppLayout({
         return 'Receive Goods';
        case '/invoice-matching':
         return 'Invoice Matching';
+       case '/invoices':
+        return 'Invoices';
       case '/policy-check':
         return 'Automated Policy Check';
       case '/rfq-generator':
@@ -215,6 +217,19 @@ export default function AppLayout({
                 </SidebarMenuItem>
               </>
             )}
+             {role === 'Finance' && (
+                <SidebarMenuItem>
+                  <Link href="/invoices">
+                    <SidebarMenuButton
+                      isActive={pathname === '/invoices'}
+                      tooltip="Invoices"
+                    >
+                      <Landmark />
+                      <span>Invoices</span>
+                    </SidebarMenuButton>
+                  </Link>
+                </SidebarMenuItem>
+             )}
             {role === 'Receiving' && (
                <SidebarMenuItem>
                   <Link href="/receive-goods">
