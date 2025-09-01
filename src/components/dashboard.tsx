@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -19,9 +20,12 @@ import {
   MailQuestion,
   Banknote,
   CircleDollarSign,
+  RefreshCw,
+  Loader2,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import { Progress } from './ui/progress';
+import { useToast } from '@/hooks/use-toast';
 
 interface DashboardProps {
   setActiveView: (view: string) => void;
@@ -75,22 +79,53 @@ export function Dashboard({ setActiveView }: DashboardProps) {
   const { role, user } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isResetting, setIsResetting] = useState(false);
+  const { toast } = useToast();
+
+  const fetchStats = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch('/api/dashboard');
+      const data = await response.json();
+      setStats(data);
+    } catch (error) {
+      console.error('Failed to fetch dashboard stats:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchStats = async () => {
-      setLoading(true);
-      try {
-        const response = await fetch('/api/dashboard');
-        const data = await response.json();
-        setStats(data);
-      } catch (error) {
-        console.error('Failed to fetch dashboard stats:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchStats();
   }, []);
+
+  const handleResetData = async () => {
+    setIsResetting(true);
+    try {
+      const response = await fetch('/api/reset-data', {
+        method: 'POST',
+      });
+      if (!response.ok) throw new Error('Failed to reset data');
+      toast({
+        title: 'Demo Data Reset',
+        description: 'The application data has been reset to its initial state.',
+      });
+      // Optionally, refresh dashboard stats or reload the page
+      fetchStats();
+      // Or simply window.location.reload();
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description:
+          error instanceof Error
+            ? error.message
+            : 'Could not reset demo data.',
+      });
+    } finally {
+      setIsResetting(false);
+    }
+  };
 
   const budgetPercentage = stats
     ? (stats.budgetStatus.spent / stats.budgetStatus.total) * 100
@@ -144,9 +179,7 @@ export function Dashboard({ setActiveView }: DashboardProps) {
                 <GanttChartSquare className="h-4 w-4 text-muted-foreground" />
               }
               cta="Review Now"
-              onClick={() => {
-                /* Navigate to approvals list */
-              }}
+              onClick={() => setActiveView('approvals')}
             />
           </div>
         );
@@ -199,12 +232,22 @@ export function Dashboard({ setActiveView }: DashboardProps) {
 
   return (
     <div className="flex flex-col gap-8">
-      <div>
-        <h1 className="text-3xl font-bold">Welcome back, {user?.name}!</h1>
-        <p className="text-muted-foreground">
-          Here's a summary of procurement activities for your role as a{' '}
-          <strong>{role}</strong>.
-        </p>
+      <div className="flex justify-between items-start">
+        <div>
+            <h1 className="text-3xl font-bold">Welcome back, {user?.name}!</h1>
+            <p className="text-muted-foreground">
+            Here's a summary of procurement activities for your role as a{' '}
+            <strong>{role}</strong>.
+            </p>
+        </div>
+        <Button variant="outline" onClick={handleResetData} disabled={isResetting}>
+            {isResetting ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+                <RefreshCw className="mr-2 h-4 w-4" />
+            )}
+            Reset Demo Data
+        </Button>
       </div>
       {renderDashboard()}
     </div>
