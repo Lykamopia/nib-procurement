@@ -20,7 +20,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { requisitionId, vendorId, items } = body;
+    const { requisitionId, vendorId, items, notes } = body;
 
     const requisition = requisitions.find(r => r.id === requisitionId);
     if (!requisition) {
@@ -58,6 +58,7 @@ export async function POST(request: Request) {
       deliveryDate: addDays(new Date(), maxLeadTime),
       createdAt: new Date(),
       status: 'Submitted',
+      notes: notes,
     };
 
     quotations.unshift(newQuotation);

@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -7,6 +8,7 @@ import {
   CardHeader,
   CardTitle,
   CardDescription,
+  CardFooter,
 } from './ui/card';
 import { Button } from './ui/button';
 import {
@@ -27,21 +29,22 @@ import {
   DialogClose,
 } from './ui/dialog';
 import { Input } from './ui/input';
-import { Label } from './ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, PlusCircle, Award, XCircle } from 'lucide-react';
+import { Loader2, PlusCircle, Award, XCircle, CheckCircle2, ShieldX } from 'lucide-react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from './ui/form';
 import { PurchaseRequisition, Quotation, Vendor } from '@/lib/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
-import { format } from 'date-fns';
+import { format, formatDistanceToNow } from 'date-fns';
 import { Badge } from './ui/badge';
-import { Separator } from './ui/separator';
+import { Textarea } from './ui/textarea';
+import { useAuth } from '@/contexts/auth-context';
 
 const quoteFormSchema = z.object({
   vendorId: z.string().min(1, "Vendor is required."),
+  notes: z.string().optional(),
   items: z.array(z.object({
     requisitionItemId: z.string(),
     name: z.string(),
@@ -58,6 +61,7 @@ function AddQuoteForm({ requisition, vendors, onQuoteAdded }: { requisition: Pur
         resolver: zodResolver(quoteFormSchema),
         defaultValues: {
             vendorId: "",
+            notes: "",
             items: requisition.items.map(item => ({
                 requisitionItemId: item.id,
                 name: item.name,
@@ -133,6 +137,19 @@ function AddQuoteForm({ requisition, vendors, onQuoteAdded }: { requisition: Pur
                             </FormItem>
                         )}
                         />
+                     <FormField
+                        control={form.control}
+                        name="notes"
+                        render={({ field }) => (
+                            <FormItem>
+                            <FormLabel>Overall Notes</FormLabel>
+                            <FormControl>
+                                <Textarea placeholder="Any overall notes for this quote..." {...field} />
+                            </FormControl>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                        />
                     <div className="space-y-4 max-h-64 overflow-y-auto pr-2">
                         {fields.map((field, index) => (
                             <Card key={field.id} className="p-4">
@@ -177,15 +194,90 @@ function AddQuoteForm({ requisition, vendors, onQuoteAdded }: { requisition: Pur
     );
 }
 
+const QuoteComparison = ({ quotes, onAction }: { quotes: Quotation[], onAction: (quoteId: string, status: 'Awarded' | 'Rejected') => void }) => {
+    if (quotes.length === 0) {
+        return (
+            <div className="h-24 flex items-center justify-center text-muted-foreground">
+                No quotations submitted for this requisition yet.
+            </div>
+        );
+    }
+    
+    const isAnyAwarded = quotes.some(q => q.status === 'Awarded');
+    
+    const getStatusVariant = (status: 'Submitted' | 'Awarded' | 'Rejected') => {
+        switch (status) {
+            case 'Awarded': return 'default';
+            case 'Submitted': return 'secondary';
+            case 'Rejected': return 'destructive';
+        }
+    }
+
+    return (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {quotes.map(quote => (
+                <Card key={quote.id} className="flex flex-col">
+                    <CardHeader>
+                        <CardTitle className="flex justify-between items-start">
+                           <span>{quote.vendorName}</span>
+                           <Badge variant={getStatusVariant(quote.status)}>{quote.status}</Badge>
+                        </CardTitle>
+                        <CardDescription>Submitted {formatDistanceToNow(new Date(quote.createdAt), { addSuffix: true })}</CardDescription>
+                    </CardHeader>
+                    <CardContent className="flex-grow space-y-4">
+                        <div className="text-3xl font-bold text-center">${quote.totalPrice.toLocaleString()}</div>
+                        <div className="text-center text-muted-foreground">Est. Delivery: {format(new Date(quote.deliveryDate), 'PP')}</div>
+                        
+                        <div className="text-sm space-y-2">
+                           <h4 className="font-semibold">Items:</h4>
+                            {quote.items.map(item => (
+                                <div key={item.requisitionItemId} className="flex justify-between items-center text-muted-foreground">
+                                    <span>{item.name} x {item.quantity}</span>
+                                    <span className="font-mono">${item.unitPrice.toFixed(2)} ea.</span>
+                                </div>
+                            ))}
+                        </div>
+                        {quote.notes && (
+                            <div className="text-sm space-y-1 pt-2 border-t">
+                                <h4 className="font-semibold">Notes:</h4>
+                                <p className="text-muted-foreground text-xs italic">{quote.notes}</p>
+                            </div>
+                        )}
+                    </CardContent>
+                    <CardFooter className="flex gap-2">
+                        <Button 
+                            className="w-full"
+                            onClick={() => onAction(quote.id, 'Awarded')}
+                            disabled={isAnyAwarded || quote.status !== 'Submitted'}>
+                            <Award className="mr-2 h-4 w-4"/>
+                            {quote.status === 'Awarded' ? 'Awarded' : 'Award'}
+                        </Button>
+                        <Button 
+                            className="w-full"
+                            variant="outline"
+                             onClick={() => onAction(quote.id, 'Rejected')}
+                            disabled={isAnyAwarded || quote.status !== 'Submitted'}>
+                            <XCircle className="mr-2 h-4 w-4"/>
+                            Reject
+                        </Button>
+                    </CardFooter>
+                </Card>
+            ))}
+        </div>
+    )
+}
+
 
 export function QuotationsPage() {
   const [requisitions, setRequisitions] = useState<PurchaseRequisition[]>([]);
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [selectedReqId, setSelectedReqId] = useState<string>('');
   const [quotations, setQuotations] = useState<Quotation[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [isFormOpen, setFormOpen] = useState(false);
   const { toast } = useToast();
+  const { user } = useAuth();
+
 
   const selectedRequisition = requisitions.find(r => r.id === selectedReqId);
 
@@ -194,7 +286,7 @@ export function QuotationsPage() {
       const response = await fetch('/api/requisitions');
       const data = await response.json();
       // We only care about approved requisitions for quotations
-      setRequisitions(data.filter((r: PurchaseRequisition) => r.status === 'Approved' || r.status === 'RFQ In Progress'));
+      setRequisitions(data.filter((r: PurchaseRequisition) => r.status === 'Approved' || r.status === 'RFQ In Progress' || r.status === 'PO Created'));
     } catch (error) {
       console.error("Failed to fetch requisitions", error);
     }
@@ -241,21 +333,40 @@ export function QuotationsPage() {
     setFormOpen(false);
     if(selectedReqId) fetchQuotations(selectedReqId);
   }
+  
+  const handleQuoteAction = async (quoteId: string, status: 'Awarded' | 'Rejected') => {
+    try {
+        const response = await fetch(`/api/quotations/${quoteId}/status`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status, userId: user?.id, requisitionId: selectedReqId }),
+        });
 
-  const getStatusVariant = (status: 'Submitted' | 'Awarded' | 'Rejected') => {
-    switch (status) {
-      case 'Awarded': return 'default';
-      case 'Submitted': return 'secondary';
-      case 'Rejected': return 'destructive';
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to update quote status.');
+        }
+        toast({
+            title: `Quote ${status}`,
+            description: `The quotation has been successfully ${status.toLowerCase()}.`
+        });
+        if(selectedReqId) fetchQuotations(selectedReqId);
+    } catch (error) {
+        toast({
+            variant: 'destructive',
+            title: 'Error',
+            description: error instanceof Error ? error.message : 'An unknown error occurred.',
+        });
     }
   }
+
 
   return (
     <div className="space-y-6">
         <Card>
             <CardHeader>
                 <CardTitle>Select Requisition</CardTitle>
-                <CardDescription>Choose a requisition to view or add quotations.</CardDescription>
+                <CardDescription>Choose a requisition to view and compare quotations.</CardDescription>
             </CardHeader>
             <CardContent>
                 <Select onValueChange={setSelectedReqId} value={selectedReqId}>
@@ -273,11 +384,11 @@ export function QuotationsPage() {
     
         {selectedRequisition && (
             <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
+                <CardHeader className="flex flex-row items-start sm:items-center justify-between">
                     <div>
                         <CardTitle>Quotations for {selectedRequisition.id}</CardTitle>
                         <CardDescription>
-                            Compare submitted quotes or add a new one.
+                            Compare submitted quotes side-by-side or add a new one.
                         </CardDescription>
                     </div>
                      <Dialog open={isFormOpen} onOpenChange={setFormOpen}>
@@ -288,53 +399,13 @@ export function QuotationsPage() {
                     </Dialog>
                 </CardHeader>
                 <CardContent>
-                    <div className="border rounded-md">
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Vendor</TableHead>
-                                    <TableHead>Status</TableHead>
-                                    <TableHead className="text-right">Total Price</TableHead>
-                                    <TableHead>Est. Delivery</TableHead>
-                                    <TableHead>Submitted At</TableHead>
-                                    <TableHead className="text-right">Actions</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                            {loading ? (
-                                <TableRow><TableCell colSpan={6} className="h-24 text-center">Loading quotations...</TableCell></TableRow>
-                            ) : quotations.length > 0 ? (
-                                quotations.map(quote => (
-                                <TableRow key={quote.id}>
-                                    <TableCell className="font-medium text-primary">{quote.vendorName}</TableCell>
-                                    <TableCell><Badge variant={getStatusVariant(quote.status)}>{quote.status}</Badge></TableCell>
-                                    <TableCell className="text-right">${quote.totalPrice.toLocaleString()}</TableCell>
-                                    <TableCell>{format(new Date(quote.deliveryDate), 'PP')}</TableCell>
-                                    <TableCell>{format(new Date(quote.createdAt), 'PPp')}</TableCell>
-                                    <TableCell className="text-right">
-                                        <div className="flex gap-2 justify-end">
-                                            <Button variant="outline" size="sm" disabled={quote.status !== 'Submitted'}>
-                                                <Award className="mr-2 h-4 w-4" />
-                                                Award
-                                            </Button>
-                                            <Button variant="destructive" size="sm" disabled={quote.status !== 'Submitted'}>
-                                                <XCircle className="mr-2 h-4 w-4" />
-                                                Reject
-                                            </Button>
-                                        </div>
-                                    </TableCell>
-                                </TableRow>
-                                ))
-                            ) : (
-                                <TableRow>
-                                    <TableCell colSpan={6} className="h-24 text-center">
-                                        No quotations submitted for this requisition yet.
-                                    </TableCell>
-                                </TableRow>
-                            )}
-                            </TableBody>
-                        </Table>
-                    </div>
+                   {loading ? (
+                       <div className="h-24 flex items-center justify-center">
+                           <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                       </div>
+                   ) : (
+                       <QuoteComparison quotes={quotations} onAction={handleQuoteAction} />
+                   )}
                 </CardContent>
             </Card>
         )}
