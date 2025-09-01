@@ -198,7 +198,7 @@ export function ApprovalsTable() {
               {paginatedRequisitions.length > 0 ? (
                 paginatedRequisitions.map(req => (
                   <Collapsible asChild key={req.id} open={openRequisitionId === req.id} onOpenChange={() => setOpenRequisitionId(openRequisitionId === req.id ? null : req.id)}>
-                    <>
+                    <tbody className="w-full">
                       <TableRow>
                         <TableCell>
                           <CollapsibleTrigger asChild>
@@ -254,7 +254,7 @@ export function ApprovalsTable() {
                           </td>
                         </tr>
                       </CollapsibleContent>
-                    </>
+                    </tbody>
                   </Collapsible>
                 ))
               ) : (
