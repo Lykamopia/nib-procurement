@@ -1,6 +1,6 @@
+
 'use client';
 
-import { useRole, UserRole } from '@/contexts/role-context';
 import {
   Select,
   SelectContent,
@@ -10,15 +10,17 @@ import {
 } from '@/components/ui/select';
 import { User } from 'lucide-react';
 import { Label } from './ui/label';
+import { useAuth } from '@/contexts/auth-context';
+import { UserRole } from '@/lib/types';
 
 export function RoleSwitcher() {
-  const { role, setRole } = useRole();
+  const { role, setRole } = useAuth();
 
   return (
     <div className="flex w-full flex-col gap-2 p-2">
       <Label className="text-xs font-medium text-muted-foreground">Current Role</Label>
       <Select
-        value={role}
+        value={role || ''}
         onValueChange={(value) => setRole(value as UserRole)}
       >
         <SelectTrigger className="w-full h-9">
