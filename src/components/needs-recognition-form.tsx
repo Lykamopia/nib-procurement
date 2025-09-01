@@ -1,3 +1,4 @@
+
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -70,7 +71,7 @@ export function NeedsRecognitionForm() {
       title: '',
       justification: '',
       urgency: 'Low',
-      items: [{ name: '', quantity: 1 }],
+      items: [{ name: '', quantity: 1, unitPrice: undefined }],
     },
   });
 
@@ -223,7 +224,7 @@ export function NeedsRecognitionForm() {
                           <FormItem>
                             <FormLabel>Unit Price ($) (Optional)</FormLabel>
                             <FormControl>
-                              <Input type="number" step="0.01" {...field} />
+                              <Input type="number" step="0.01" {...field} value={field.value ?? ''} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -246,7 +247,7 @@ export function NeedsRecognitionForm() {
                 variant="outline"
                 size="sm"
                 className="mt-4"
-                onClick={() => append({ name: '', quantity: 1 })}
+                onClick={() => append({ name: '', quantity: 1, unitPrice: undefined })}
               >
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Add Item
