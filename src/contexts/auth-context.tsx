@@ -1,13 +1,14 @@
 'use client';
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import { User } from '@/lib/types';
+import { User, UserRole } from '@/lib/types';
 import { getUserByToken } from '@/lib/auth';
 
 interface AuthContextType {
   user: User | null;
   token: string | null;
-  login: (token: string, user: User) => void;
+  role: UserRole | null;
+  login: (token: string, user: User, role: UserRole) => void;
   logout: () => void;
   loading: boolean;
 }
@@ -17,15 +18,17 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  const [role, setRole] = useState<UserRole | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const storedToken = localStorage.getItem('authToken');
     if (storedToken) {
-      getUserByToken(storedToken).then(user => {
-        if(user) {
+      getUserByToken(storedToken).then(userData => {
+        if(userData) {
           setToken(storedToken);
-          setUser(user);
+          setUser(userData.user);
+          setRole(userData.role);
         } else {
           localStorage.removeItem('authToken');
         }
@@ -36,20 +39,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const login = (newToken: string, loggedInUser: User) => {
+  const login = (newToken: string, loggedInUser: User, loggedInRole: UserRole) => {
     localStorage.setItem('authToken', newToken);
     setToken(newToken);
     setUser(loggedInUser);
+    setRole(loggedInRole);
   };
 
   const logout = () => {
     localStorage.removeItem('authToken');
     setToken(null);
     setUser(null);
+    setRole(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, loading }}>
+    <AuthContext.Provider value={{ user, token, role, login, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );

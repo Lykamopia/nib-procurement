@@ -32,7 +32,7 @@ export default function LoginPage() {
     setLoading(true);
     const result = await login(email, password);
     if (result) {
-      authLogin(result.token, result.user);
+      authLogin(result.token, result.user, result.role);
       toast({
         title: 'Login Successful',
         description: `Welcome back, ${result.user.name}!`,

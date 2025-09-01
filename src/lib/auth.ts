@@ -1,44 +1,54 @@
-import type { User } from './types';
+import type { User, UserRole } from './types';
 
 // In-memory user store
-const users: User[] = [
-  { id: '1', name: 'Alice (Requester)', email: 'alice@example.com', password: 'password123' },
-  { id: '2', name: 'Bob (Approver)', email: 'bob@example.com', password: 'password123' },
-  { id: '3', name: 'Charlie (Procurement)', email: 'charlie@example.com', password: 'password123' },
+const users: (User & { role: UserRole })[] = [
+  { id: '1', name: 'Alice', email: 'alice@example.com', password: 'password123', role: 'Requester' },
+  { id: '2', name: 'Bob', email: 'bob@example.com', password: 'password123', role: 'Approver' },
+  { id: '3', name: 'Charlie', email: 'charlie@example.com', password: 'password123', role: 'Procurement Officer' },
 ];
 
-export async function login(email: string, password: string): Promise<{ user: User; token: string } | null> {
+export async function login(email: string, password: string): Promise<{ user: User; token: string; role: UserRole } | null> {
   const user = users.find((u) => u.email === email && u.password === password);
   if (user) {
     // In a real app, generate a proper JWT.
     // Here, we just create a mock token.
-    const mockToken = `mock-token-for-${user.id}-${Date.now()}`;
-    return { user, token: mockToken };
+    const mockToken = `mock-token-for-${user.id}-${user.role}-${Date.now()}`;
+    const { password, ...userWithoutPassword } = user;
+    return { user: userWithoutPassword, token: mockToken, role: user.role };
   }
   return null;
 }
 
-export async function register(name: string, email: string, password: string): Promise<{ user: User; token: string } | null> {
+export async function register(name: string, email: string, password: string, role: UserRole): Promise<{ user: User; token: string; role: UserRole } | null> {
   if (users.some((u) => u.email === email)) {
     return null; // User already exists
   }
-  const newUser: User = {
+  const newUser = {
     id: String(users.length + 1),
     name,
     email,
     password,
+    role,
   };
   users.push(newUser);
-  const mockToken = `mock-token-for-${newUser.id}-${Date.now()}`;
-  return { user: newUser, token: mockToken };
+  const mockToken = `mock-token-for-${newUser.id}-${newUser.role}-${Date.now()}`;
+  const { password: _, ...userWithoutPassword } = newUser;
+  return { user: userWithoutPassword, token: mockToken, role: newUser.role };
 }
 
-export async function getUserByToken(token: string): Promise<User | null> {
+export async function getUserByToken(token: string): Promise<{ user: User, role: UserRole } | null> {
     if (!token.startsWith('mock-token-for-')) return null;
 
     const parts = token.split('-');
     const userId = parts[3];
+    const userRole = parts[4] as UserRole;
+    
     const user = users.find(u => u.id === userId);
 
-    return user || null;
+    if (user && user.role === userRole) {
+      const { password, ...userWithoutPassword } = user;
+      return { user: userWithoutPassword, role: user.role };
+    }
+
+    return null;
 }
