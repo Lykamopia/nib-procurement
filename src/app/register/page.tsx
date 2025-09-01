@@ -18,11 +18,14 @@ import { register } from '@/lib/auth';
 import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
+import { UserRole } from '@/lib/types';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 export default function RegisterPage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [role, setRole] = useState<UserRole>('Requester');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const { login: authLogin } = useAuth();
@@ -31,9 +34,9 @@ export default function RegisterPage() {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const result = await register(name, email, password);
+    const result = await register(name, email, password, role);
     if (result) {
-      authLogin(result.token, result.user);
+      authLogin(result.token, result.user, result.role);
       toast({
         title: 'Registration Successful',
         description: `Welcome, ${result.user.name}!`,
@@ -90,6 +93,27 @@ export default function RegisterPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
+            </div>
+            <div className="grid gap-2">
+              <Label>Role</Label>
+              <RadioGroup
+                value={role}
+                onValueChange={(value) => setRole(value as UserRole)}
+                className="flex gap-4"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="Requester" id="r1" />
+                  <Label htmlFor="r1">Requester</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="Approver" id="r2" />
+                  <Label htmlFor="r2">Approver</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="Procurement Officer" id="r3" />
+                  <Label htmlFor="r3">Procurement Officer</Label>
+                </div>
+              </RadioGroup>
             </div>
           </CardContent>
           <CardFooter className="flex flex-col gap-4">

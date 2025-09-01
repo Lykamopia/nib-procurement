@@ -20,6 +20,7 @@ import {
   MailQuestion,
   History,
   LogOut,
+  User as UserIcon,
 } from 'lucide-react';
 import { Icons } from '@/components/icons';
 import { Dashboard } from '@/components/dashboard';
@@ -29,11 +30,10 @@ import { RfqGeneratorTool } from '@/components/rfq-generator-tool';
 import { AuditLog } from '@/components/audit-log';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { useRole } from '@/contexts/role-context';
-import { RoleSwitcher } from '@/components/role-switcher';
 import { useAuth } from '@/contexts/auth-context';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 
 type View =
   | 'dashboard'
@@ -44,8 +44,7 @@ type View =
 
 export default function ProcurCtrlPage() {
   const [view, setView] = useState<View>('dashboard');
-  const { role } = useRole();
-  const { user, logout, loading } = useAuth();
+  const { user, logout, loading, role } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
@@ -178,7 +177,13 @@ export default function ProcurCtrlPage() {
           </SidebarMenu>
         </SidebarContent>
         <SidebarFooter>
-          <RoleSwitcher />
+          <div className="flex flex-col p-2 gap-1">
+             <span className="text-xs text-muted-foreground ml-1">Current Role</span>
+             <Badge variant="outline" className="flex items-center gap-2 w-full justify-start py-1.5 px-3">
+                <UserIcon className="h-4 w-4" />
+                <span>{role}</span>
+             </Badge>
+          </div>
           <Separator className="my-2" />
           <Button variant="ghost" className="w-full justify-start" onClick={logout}>
             <LogOut className="mr-2 h-4 w-4" />

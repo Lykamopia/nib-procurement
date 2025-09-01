@@ -18,8 +18,8 @@ import {
   History,
   MailQuestion,
 } from 'lucide-react';
-import { useRole } from '@/contexts/role-context';
 import { Badge } from './ui/badge';
+import { useAuth } from '@/contexts/auth-context';
 
 type View =
   | 'dashboard'
@@ -217,7 +217,7 @@ const ProcurementDashboard = () => (
 );
 
 export function Dashboard({ setActiveView }: DashboardProps) {
-  const { role } = useRole();
+  const { role, user } = useAuth();
 
   const renderDashboard = () => {
     switch (role) {
@@ -235,9 +235,10 @@ export function Dashboard({ setActiveView }: DashboardProps) {
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <h1 className="text-3xl font-bold">Welcome back, {role}!</h1>
+        <h1 className="text-3xl font-bold">Welcome back, {user?.name}!</h1>
         <p className="text-muted-foreground">
-          Here's a summary of procurement activities.
+          Here's a summary of procurement activities for your role as a{' '}
+          <strong>{role}</strong>.
         </p>
       </div>
       {renderDashboard()}
