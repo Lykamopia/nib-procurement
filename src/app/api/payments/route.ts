@@ -4,21 +4,14 @@
 import { NextResponse } from 'next/server';
 import { auditLogs, invoices } from '@/lib/data-store';
 import { users } from '@/lib/auth-store';
-import { InvoiceStatus } from '@/lib/types';
 
-export async function PATCH(
-  request: Request,
-  { params }: { params: { id: string } }
+export async function POST(
+  request: Request
 ) {
   try {
-    const invoiceId = params.id;
     const body = await request.json();
-    const { status, userId } = body;
+    const { invoiceId, userId } = body;
 
-    if (!['Approved for Payment', 'Disputed'].includes(status)) {
-      return NextResponse.json({ error: 'Invalid status provided.' }, { status: 400 });
-    }
-    
     const user = users.find(u => u.id === userId);
     if (!user) {
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
@@ -28,25 +21,30 @@ export async function PATCH(
     if (!invoiceToUpdate) {
         return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
     }
+    
+    if (invoiceToUpdate.status !== 'Approved for Payment') {
+        return NextResponse.json({ error: 'Invoice must be approved before payment.' }, { status: 400 });
+    }
 
-    const oldStatus = invoiceToUpdate.status;
-    invoiceToUpdate.status = status as InvoiceStatus;
+    const paymentReference = `PAY-${Date.now()}`;
+    invoiceToUpdate.status = 'Paid';
+    invoiceToUpdate.paymentDate = new Date();
+    invoiceToUpdate.paymentReference = paymentReference;
     
     auditLogs.unshift({
         id: `log-${Date.now()}`,
         timestamp: new Date(),
         user: user.name,
         role: user.role,
-        action: 'UPDATE_INVOICE_STATUS',
+        action: 'PROCESS_PAYMENT',
         entity: 'Invoice',
         entityId: invoiceId,
-        details: `Updated invoice status from "${oldStatus}" to "${status}".`,
+        details: `Processed payment for invoice ${invoiceId}. Ref: ${paymentReference}.`,
     });
-
 
     return NextResponse.json(invoiceToUpdate);
   } catch (error) {
-    console.error('Failed to update invoice status:', error);
+    console.error('Failed to process payment:', error);
     if (error instanceof Error) {
         return NextResponse.json({ error: 'Failed to process request', details: error.message }, { status: 400 });
     }
