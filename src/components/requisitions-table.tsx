@@ -35,9 +35,12 @@ import {
   ChevronsLeft,
   ChevronsRight,
   Search,
+  Send,
 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Calendar } from './ui/calendar';
+import { useAuth } from '@/contexts/auth-context';
+import { useToast } from '@/hooks/use-toast';
 
 const PAGE_SIZE = 10;
 
@@ -45,6 +48,8 @@ export function RequisitionsTable() {
   const [requisitions, setRequisitions] = useState<PurchaseRequisition[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { user } = useAuth();
+  const { toast } = useToast();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<RequisitionStatus | 'all'>('all');
@@ -52,24 +57,47 @@ export function RequisitionsTable() {
   const [dateFilter, setDateFilter] = useState<Date | undefined>(undefined);
   const [currentPage, setCurrentPage] = useState(1);
 
-  useEffect(() => {
-    const fetchRequisitions = async () => {
-      try {
-        setLoading(true);
-        const response = await fetch('/api/requisitions');
-        if (!response.ok) {
-          throw new Error('Failed to fetch requisitions');
-        }
-        const data = await response.json();
-        setRequisitions(data);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : 'An unknown error occurred');
-      } finally {
-        setLoading(false);
+  const fetchRequisitions = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch('/api/requisitions');
+      if (!response.ok) {
+        throw new Error('Failed to fetch requisitions');
       }
-    };
+      const data = await response.json();
+      setRequisitions(data);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'An unknown error occurred');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchRequisitions();
   }, []);
+  
+  const handleSubmitForApproval = async (id: string) => {
+    try {
+      const response = await fetch(`/api/requisitions/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'Pending Approval', userId: user?.id }),
+      });
+      if (!response.ok) throw new Error('Failed to submit for approval');
+      toast({
+        title: "Success",
+        description: `Requisition ${id} submitted for approval.`,
+      });
+      fetchRequisitions(); // Re-fetch data to update the table
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: "Error",
+        description: error instanceof Error ? error.message : "An unknown error occurred.",
+      });
+    }
+  };
 
   const uniqueRequesters = useMemo(() => {
     const requesters = new Set(requisitions.map(r => r.requesterName).filter(Boolean));
@@ -185,7 +213,7 @@ export function RequisitionsTable() {
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Total Price</TableHead>
                 <TableHead>Created At</TableHead>
-                <TableHead>Last Updated</TableHead>
+                <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -200,7 +228,14 @@ export function RequisitionsTable() {
                     </TableCell>
                     <TableCell className="text-right">${req.totalPrice.toLocaleString()}</TableCell>
                     <TableCell>{format(new Date(req.createdAt), 'PP')}</TableCell>
-                    <TableCell>{format(new Date(req.updatedAt), 'PP')}</TableCell>
+                    <TableCell>
+                      {req.status === 'Draft' && (
+                        <Button variant="outline" size="sm" onClick={() => handleSubmitForApproval(req.id)}>
+                          <Send className="mr-2 h-4 w-4" />
+                          Submit for Approval
+                        </Button>
+                      )}
+                    </TableCell>
                   </TableRow>
                 ))
               ) : (

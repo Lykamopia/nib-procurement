@@ -1,5 +1,7 @@
+
 'use client';
 
+import React, { useState, useEffect } from 'react';
 import {
   Table,
   TableBody,
@@ -9,25 +11,48 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
-import { mockAuditLogs } from '@/lib/data';
 import { Badge } from './ui/badge';
 import { formatDistanceToNow } from 'date-fns';
+import { AuditLog as AuditLogType } from '@/lib/types';
 
 export function AuditLog() {
+  const [logs, setLogs] = useState<AuditLogType[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchLogs = async () => {
+      setLoading(true);
+      try {
+        const response = await fetch('/api/audit-log');
+        const data = await response.json();
+        setLogs(data);
+      } catch (error) {
+        console.error("Failed to fetch audit logs", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchLogs();
+  }, []);
+
 
   const getActionVariant = (action: string) => {
     switch (action) {
       case 'CREATE':
-      case 'CREATE_PO':
-      case 'GENERATE_RFQ':
         return 'default';
       case 'APPROVE':
         return 'default';
+      case 'UPDATE_STATUS':
+        return 'secondary';
       case 'POLICY_CHECK':
         return 'secondary';
       default:
         return 'outline';
     }
+  }
+
+  if (loading) {
+    return <p>Loading audit log...</p>
   }
 
   return (
@@ -51,10 +76,10 @@ export function AuditLog() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {mockAuditLogs.map((log) => (
+            {logs.map((log) => (
               <TableRow key={log.id}>
                 <TableCell className="text-muted-foreground text-xs">
-                  {formatDistanceToNow(log.timestamp, { addSuffix: true })}
+                  {formatDistanceToNow(new Date(log.timestamp), { addSuffix: true })}
                 </TableCell>
                 <TableCell className="font-medium">{log.user}</TableCell>
                 <TableCell>{log.role}</TableCell>

@@ -1,3 +1,4 @@
+
 export type UserRole =
   | 'Requester'
   | 'Approver'
@@ -10,7 +11,7 @@ export type User = {
   name: string;
   email: string;
   password?: string; // Should not be sent to client
-  role?: UserRole;
+  role: UserRole;
 };
 
 export type RequisitionStatus =
