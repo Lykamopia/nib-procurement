@@ -33,7 +33,7 @@ export type RequisitionItem = {
 };
 
 export type PurchaseRequisition = {
-  id: string; // Will be UUID
+  id:string; // Will be UUID
   requesterId: string; // User ID
   requesterName?: string;
   title: string;
@@ -44,6 +44,8 @@ export type PurchaseRequisition = {
   status: RequisitionStatus;
   createdAt: Date;
   updatedAt: Date;
+  approverId?: string;
+  approverComment?: string;
 };
 
 export type AuditLog = {
