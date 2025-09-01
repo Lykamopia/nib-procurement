@@ -33,7 +33,7 @@ import {
 } from './ui/dialog';
 import { Input } from './ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, PlusCircle, ThumbsUp, ThumbsDown, FileUp, FileText } from 'lucide-react';
+import { Loader2, PlusCircle, ThumbsUp, ThumbsDown, FileUp, FileText, Banknote, CheckCircle } from 'lucide-react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -42,6 +42,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Badge } from './ui/badge';
 import { cn } from '@/lib/utils';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from './ui/alert-dialog';
 
 
 const invoiceSchema = z.object({
@@ -273,7 +274,7 @@ export function InvoicesPage() {
     fetchInvoices();
   }
   
-  const handleAction = async (invoiceId: string, status: 'Paid' | 'Disputed') => {
+  const handleAction = async (invoiceId: string, status: 'Approved for Payment' | 'Disputed') => {
       if (!user) return;
       try {
           const response = await fetch(`/api/invoices/${invoiceId}/status`, {
@@ -293,10 +294,34 @@ export function InvoicesPage() {
       }
   }
 
+  const handlePayment = async (invoiceId: string) => {
+    if (!user) return;
+     try {
+        const response = await fetch(`/api/payments`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ invoiceId, userId: user.id })
+        });
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to process payment.');
+        }
+        toast({ title: "Payment Processed", description: `Invoice ${invoiceId} has been paid.`});
+        fetchInvoices();
+    } catch (error) {
+        toast({
+            variant: 'destructive',
+            title: 'Error',
+            description: error instanceof Error ? error.message : 'An unknown error occurred.',
+        });
+    }
+  }
+
   const getStatusVariant = (status: InvoiceStatus) => {
     switch (status) {
       case 'Paid': return 'default';
       case 'Pending': return 'secondary';
+      case 'Approved for Payment': return 'secondary';
       case 'Disputed': return 'destructive';
       default: return 'outline';
     }
@@ -346,26 +371,63 @@ export function InvoicesPage() {
                     <TableCell className="font-medium text-primary">{invoice.id}</TableCell>
                     <TableCell>{invoice.purchaseOrderId}</TableCell>
                     <TableCell>{format(new Date(invoice.invoiceDate), 'PP')}</TableCell>
-                    <TableCell><Badge variant={getStatusVariant(invoice.status)}>{invoice.status}</Badge></TableCell>
+                    <TableCell>
+                      <div className="flex flex-col gap-1">
+                        <Badge variant={getStatusVariant(invoice.status)}>{invoice.status}</Badge>
+                         {invoice.status === 'Paid' && invoice.paymentReference && (
+                           <span className="text-xs text-muted-foreground">{invoice.paymentReference}</span>
+                         )}
+                      </div>
+                    </TableCell>
                     <TableCell className="text-right">${invoice.totalAmount.toLocaleString()}</TableCell>
                     <TableCell>
                       <div className="flex gap-2">
-                        <Button 
-                            variant="outline" 
-                            size="sm" 
-                            onClick={() => handleAction(invoice.id, 'Paid')}
-                            disabled={invoice.status !== 'Pending'}
-                        >
-                          <ThumbsUp className="mr-2 h-4 w-4" /> Approve for Payment
-                        </Button>
-                         <Button 
-                            variant="destructive" 
-                            size="sm"
-                            onClick={() => handleAction(invoice.id, 'Disputed')}
-                            disabled={invoice.status !== 'Pending'}
-                         >
-                          <ThumbsDown className="mr-2 h-4 w-4" /> Dispute
-                        </Button>
+                        {invoice.status === 'Pending' && (
+                            <>
+                                <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    onClick={() => handleAction(invoice.id, 'Approved for Payment')}
+                                >
+                                <ThumbsUp className="mr-2 h-4 w-4" /> Approve
+                                </Button>
+                                <Button 
+                                    variant="destructive" 
+                                    size="sm"
+                                    onClick={() => handleAction(invoice.id, 'Disputed')}
+                                >
+                                <ThumbsDown className="mr-2 h-4 w-4" /> Dispute
+                                </Button>
+                            </>
+                        )}
+                        {invoice.status === 'Approved for Payment' && (
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <Button size="sm">
+                                        <Banknote className="mr-2 h-4 w-4" /> Pay Invoice
+                                    </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>Confirm Payment</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            This will simulate a payment for ${invoice.totalAmount.toLocaleString()} for invoice {invoice.id}. This action cannot be undone.
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogAction onClick={() => handlePayment(invoice.id)}>
+                                            Confirm Payment
+                                        </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
+                        )}
+                         {invoice.status === 'Paid' && (
+                             <div className="flex items-center text-sm text-green-600">
+                                 <CheckCircle className="mr-2 h-4 w-4"/> Paid on {format(new Date(invoice.paymentDate!), 'PP')}
+                             </div>
+                         )}
                       </div>
                     </TableCell>
                   </TableRow>
