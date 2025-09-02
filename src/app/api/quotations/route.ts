@@ -1,10 +1,9 @@
 
 
 import { NextResponse } from 'next/server';
-import { quotations, requisitions, vendors, auditLogs } from '@/lib/data-store';
+import { quotations, requisitions, vendors, auditLogs, users } from '@/lib/data-store';
 import { Quotation } from '@/lib/types';
 import { addDays } from 'date-fns';
-import { users } from '@/lib/auth-store';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
