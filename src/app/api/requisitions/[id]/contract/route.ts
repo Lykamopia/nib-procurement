@@ -34,7 +34,7 @@ export async function POST(
     requisition.updatedAt = new Date();
 
     auditLogs.unshift({
-        id: `log-${Date.now()}`,
+        id: `log-${Date.now()}-${Math.random()}`,
         timestamp: new Date(),
         user: user.name,
         role: user.role,

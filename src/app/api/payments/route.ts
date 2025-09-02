@@ -32,7 +32,7 @@ export async function POST(
     invoiceToUpdate.paymentReference = paymentReference;
     
     auditLogs.unshift({
-        id: `log-${Date.now()}`,
+        id: `log-${Date.now()}-${Math.random()}`,
         timestamp: new Date(),
         user: user.name,
         role: user.role,

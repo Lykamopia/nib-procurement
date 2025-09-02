@@ -50,7 +50,7 @@ export async function POST(request: Request) {
     po.status = allItemsDelivered ? 'Delivered' : 'Partially Delivered';
 
     auditLogs.unshift({
-        id: `log-${Date.now()}`,
+        id: `log-${Date.now()}-${Math.random()}`,
         timestamp: new Date(),
         user: user.name,
         role: user.role,

@@ -33,7 +33,7 @@ export async function POST(request: Request) {
     requisitions.unshift(newRequisition);
 
     auditLogs.unshift({
-      id: `log-${Date.now()}`,
+      id: `log-${Date.now()}-${Math.random()}`,
       timestamp: new Date(),
       user: newRequisition.requesterName || 'Unknown',
       role: user?.role || 'Requester',
