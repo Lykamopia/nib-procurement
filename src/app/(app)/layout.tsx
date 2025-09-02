@@ -49,7 +49,7 @@ export default function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { user, logout, loading, role, setRole } = useAuth();
+  const { user, logout, loading, role } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -309,10 +309,12 @@ export default function AppLayout({
         <SidebarFooter>
          <RoleSwitcher />
           <Separator className="my-2" />
-          <Button variant="ghost" className="w-full justify-start" onClick={logout}>
-            <LogOut className="mr-2 h-4 w-4" />
-            <span>Logout</span>
-          </Button>
+          <div className="p-2">
+            <Button variant="ghost" className="w-full justify-start" onClick={logout}>
+                <LogOut className="mr-2 h-4 w-4" />
+                <span>Logout</span>
+            </Button>
+          </div>
         </SidebarFooter>
       </Sidebar>
       <SidebarInset>

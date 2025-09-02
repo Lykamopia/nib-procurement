@@ -3,13 +3,15 @@
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { User, UserRole } from '@/lib/types';
-import { getUserByToken } from '@/lib/auth';
+import { getUserByToken, login as authLoginHelper } from '@/lib/auth';
+import { users } from '@/lib/auth-store';
 
 interface AuthContextType {
   user: User | null;
   token: string | null;
   role: UserRole | null;
-  setRole: (role: UserRole) => void;
+  allUsers: User[];
+  switchUser: (userId: string) => void;
   login: (token: string, user: User, role: UserRole) => void;
   logout: () => void;
   loading: boolean;
@@ -22,6 +24,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [role, setRole] = useState<UserRole | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const allTestUsers = users.map(({ password, ...user }) => user);
+
 
   useEffect(() => {
     const storedToken = localStorage.getItem('authToken');
@@ -47,16 +52,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(loggedInUser);
     setRole(loggedInRole);
   };
+  
+  const switchUser = async (userId: string) => {
+    const targetUser = users.find(u => u.id === userId);
+    if (targetUser && targetUser.password) {
+        const loginResult = await authLoginHelper(targetUser.email, targetUser.password);
+        if (loginResult) {
+            login(loginResult.token, loginResult.user, loginResult.role);
+            // Force a reload to ensure all state is correctly reset for the new user
+            window.location.href = '/';
+        }
+    }
+  };
 
   const logout = () => {
     localStorage.removeItem('authToken');
     setToken(null);
     setUser(null);
     setRole(null);
+    window.location.href = '/login';
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, role, setRole, login, logout, loading }}>
+    <AuthContext.Provider value={{ user, token, role, allUsers: allTestUsers, switchUser, login, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );

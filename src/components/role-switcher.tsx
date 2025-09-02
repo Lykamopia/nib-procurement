@@ -11,31 +11,32 @@ import {
 import { User } from 'lucide-react';
 import { Label } from './ui/label';
 import { useAuth } from '@/contexts/auth-context';
-import { UserRole } from '@/lib/types';
 
 export function RoleSwitcher() {
-  const { role, setRole } = useAuth();
+  const { user, allUsers, switchUser } = useAuth();
 
   return (
     <div className="flex w-full flex-col gap-2 p-2">
-      <Label className="text-xs font-medium text-muted-foreground">Current Role</Label>
+      <Label className="text-xs font-medium text-muted-foreground">Switch User</Label>
       <Select
-        value={role || ''}
-        onValueChange={(value) => setRole(value as UserRole)}
+        value={user?.id || ''}
+        onValueChange={(userId) => switchUser(userId)}
       >
         <SelectTrigger className="w-full h-9">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 truncate">
             <User className="h-4 w-4" />
-            <SelectValue placeholder="Select role" />
+            <SelectValue placeholder="Select a user to test" />
           </div>
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="Requester">Requester</SelectItem>
-          <SelectItem value="Approver">Approver</SelectItem>
-          <SelectItem value="Procurement Officer">Procurement Officer</SelectItem>
-          <SelectItem value="Receiving">Receiving</SelectItem>
-          <SelectItem value="Finance">Finance</SelectItem>
-          <SelectItem value="Vendor">Vendor</SelectItem>
+            {allUsers.map((u) => (
+                 <SelectItem key={u.id} value={u.id}>
+                    <div className="flex flex-col text-left">
+                        <span className="font-medium">{u.name}</span>
+                        <span className="text-xs text-muted-foreground">{u.role}</span>
+                    </div>
+                </SelectItem>
+            ))}
         </SelectContent>
       </Select>
     </div>
