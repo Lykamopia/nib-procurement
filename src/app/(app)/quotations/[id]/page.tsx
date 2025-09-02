@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -592,11 +593,40 @@ export default function QuotationDetailsPage() {
     setQuoteToAward(quote);
   }
 
-  const handleQuoteAction = async (quoteId: string, status: 'Awarded' | 'Rejected' | 'ChangeAward') => {
+  const handleResetAward = async () => {
+    if (!user || !id) return;
+    setIsChangingAward(true);
+    try {
+        const response = await fetch(`/api/requisitions/${id}/reset-award`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: user.id }),
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ error: 'Failed to reset award.' }));
+            throw new Error(errorData.error);
+        }
+
+        toast({
+            title: `Award Reset`,
+            description: 'The award has been reset. You can now select a new quote.'
+        });
+        fetchRequisitionAndQuotes();
+    } catch (error) {
+        toast({
+            variant: 'destructive',
+            title: 'Error',
+            description: error instanceof Error ? error.message : 'An unknown error occurred.',
+        });
+    } finally {
+        setIsChangingAward(false);
+    }
+  }
+  
+  const handleQuoteAction = async (quoteId: string, status: 'Awarded' | 'Rejected') => {
     if (!user || !id) return;
     
-    if (status === 'ChangeAward') setIsChangingAward(true);
-
     try {
         const response = await fetch(`/api/quotations/${quoteId}/status`, {
             method: 'PATCH',
@@ -610,9 +640,7 @@ export default function QuotationDetailsPage() {
         }
 
         let toastDescription = `The quotation has been successfully ${status.toLowerCase()}.`;
-        if (status === 'ChangeAward') {
-            toastDescription = 'The award has been reset. You can now select a new quote.'
-        } else if (status === 'Awarded') {
+        if (status === 'Awarded') {
              toastDescription = `The quotation has been successfully awarded.`
         }
 
@@ -628,8 +656,6 @@ export default function QuotationDetailsPage() {
             title: 'Error',
             description: error instanceof Error ? error.message : 'An unknown error occurred.',
         });
-    } finally {
-         if (status === 'ChangeAward') setIsChangingAward(false);
     }
   }
 
@@ -664,7 +690,7 @@ export default function QuotationDetailsPage() {
                 </div>
                 <div className="flex items-center gap-2">
                      {isAwarded && (
-                        <Button variant="outline" onClick={() => handleQuoteAction('', 'ChangeAward')} disabled={isChangingAward}>
+                        <Button variant="outline" onClick={handleResetAward} disabled={isChangingAward}>
                             {isChangingAward ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Undo className="mr-2 h-4 w-4"/>}
                             Change Award Decision
                         </Button>
