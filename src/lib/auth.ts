@@ -7,7 +7,7 @@ export async function login(email: string, password: string): Promise<{ user: Us
   if (user) {
     // In a real app, generate a proper JWT.
     // Here, we just create a mock token.
-    const mockToken = `mock-token-for-${user.id}-${user.role}-${Date.now()}`;
+    const mockToken = `mock-token-for-${user.id}__ROLE__${user.role}__TS__${Date.now()}`;
     const { password, ...userWithoutPassword } = user;
     return { user: userWithoutPassword, token: mockToken, role: user.role };
   }
@@ -19,14 +19,14 @@ export async function register(name: string, email: string, password: string, ro
     return null; // User already exists
   }
   const newUser = {
-    id: String(users.length + 1),
+    id: role === 'Vendor' ? `VENDOR-${Date.now()}` : String(users.length + 1),
     name,
     email,
     password,
     role,
   };
   users.push(newUser);
-  const mockToken = `mock-token-for-${newUser.id}-${newUser.role}-${Date.now()}`;
+  const mockToken = `mock-token-for-${newUser.id}__ROLE__${newUser.role}__TS__${Date.now()}`;
   const { password: _, ...userWithoutPassword } = newUser;
   return { user: userWithoutPassword, token: mockToken, role: newUser.role };
 }
@@ -34,16 +34,22 @@ export async function register(name: string, email: string, password: string, ro
 export async function getUserByToken(token: string): Promise<{ user: User, role: UserRole } | null> {
     if (!token.startsWith('mock-token-for-')) return null;
 
-    const parts = token.split('-');
-    const userId = parts[3];
-    const userRole = parts[4] as UserRole;
-    
-    const user = users.find(u => u.id === userId);
+    try {
+        const tokenContent = token.substring('mock-token-for-'.length);
+        const [userId, rolePart] = tokenContent.split('__ROLE__');
+        const [userRole] = rolePart.split('__TS__');
+        
+        const user = users.find(u => u.id === userId);
 
-    if (user && user.role === userRole) {
-      const { password, ...userWithoutPassword } = user;
-      return { user: userWithoutPassword, role: user.role };
+        if (user && user.role === userRole) {
+          const { password, ...userWithoutPassword } = user;
+          return { user: userWithoutPassword, role: user.role as UserRole };
+        }
+    } catch(e) {
+        console.error("Failed to parse token:", e);
+        return null;
     }
+
 
     return null;
 }

@@ -5,6 +5,7 @@ import type { RequisitionStatus } from '@/lib/types';
 import { users } from '@/lib/auth-store';
 
 function checkBudget(department: string, amount: number) {
+    if (amount === 0) return 'OK'; // No price yet, so budget is OK.
     const budget = departmentBudgets.find(b => b.department === department);
     if (!budget) return 'OK'; // Default to OK if no budget is defined
     return (budget.spentBudget + amount) > budget.totalBudget ? 'Exceeded' : 'OK';

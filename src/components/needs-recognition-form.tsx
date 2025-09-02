@@ -194,7 +194,7 @@ export function NeedsRecognitionForm() {
                     <div
                       className={cn(
                         'grid grid-cols-1 gap-4 flex-1',
-                        role === 'Procurement Officer'
+                        (role === 'Procurement Officer' || role === 'Vendor')
                           ? 'md:grid-cols-3'
                           : 'md:grid-cols-2'
                       )}
@@ -228,7 +228,7 @@ export function NeedsRecognitionForm() {
                           </FormItem>
                         )}
                       />
-                      {role === 'Procurement Officer' && (
+                      {(role === 'Procurement Officer' || role === 'Vendor') && (
                         <FormField
                           control={form.control}
                           name={`items.${index}.unitPrice`}
@@ -339,7 +339,7 @@ export function NeedsRecognitionForm() {
             />
 
             <div className="flex justify-end items-center gap-4">
-              {role === 'Procurement Officer' && (
+              {(role === 'Procurement Officer' || role === 'Vendor') && (
                 <span className="text-xl font-semibold">
                   Total: ${total.toFixed(2)}
                 </span>

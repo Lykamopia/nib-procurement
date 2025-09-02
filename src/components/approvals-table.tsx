@@ -96,7 +96,9 @@ function CollapsibleTableRow({ req, onAction, isOpen, onToggle }: { req: Purchas
                 <TableCell>
                 <BudgetStatusBadge status={req.budgetStatus}/>
                 </TableCell>
-                <TableCell className="text-right">${req.totalPrice.toLocaleString()}</TableCell>
+                <TableCell className="text-right">
+                  {req.totalPrice > 0 ? `$${req.totalPrice.toLocaleString()}` : 'N/A'}
+                </TableCell>
                 <TableCell>{format(new Date(req.createdAt), 'PP')}</TableCell>
                 <TableCell>
                 <div className="flex gap-2">
@@ -126,7 +128,8 @@ function CollapsibleTableRow({ req, onAction, isOpen, onToggle }: { req: Purchas
                                 <ul className="list-disc pl-5 text-muted-foreground">
                                     {req.items.map(item => (
                                     <li key={item.id}>
-                                        {item.quantity} x {item.name} @ ${item.unitPrice.toLocaleString()} each
+                                        {item.quantity} x {item.name} 
+                                        {item.unitPrice && ` @ $${item.unitPrice.toLocaleString()} each`}
                                     </li>
                                     ))}
                                 </ul>
