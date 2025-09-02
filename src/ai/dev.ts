@@ -3,3 +3,4 @@ config();
 
 import '@/ai/flows/rfq-generation.ts';
 import '@/ai/flows/automated-policy-check.ts';
+import '@/ai/flows/quote-analysis.ts';
