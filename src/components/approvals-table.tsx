@@ -194,10 +194,10 @@ export function ApprovalsTable() {
     const newStatus = actionType === 'approve' ? 'Approved' : 'Rejected';
 
     try {
-      const response = await fetch(`/api/requisitions/${selectedRequisition.id}`, {
+      const response = await fetch(`/api/requisitions`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus, userId: user.id, comment, overrideBudget }),
+        body: JSON.stringify({ id: selectedRequisition.id, status: newStatus, userId: user.id, comment, overrideBudget }),
       });
       if (!response.ok) throw new Error(`Failed to ${actionType} requisition`);
       toast({
