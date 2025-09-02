@@ -1,0 +1,247 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ENUMS
+
+enum UserRole {
+  Requester
+  Approver
+  ProcurementOfficer
+  Finance
+  Admin
+  Receiving
+  Vendor
+}
+
+enum RequisitionStatus {
+  Draft
+  PendingApproval
+  Approved
+  Rejected
+  RFQInProgress
+  POCreated
+  Fulfilled
+  Closed
+}
+
+enum BudgetStatus {
+  Pending
+  OK
+  Exceeded
+}
+
+enum QuotationStatus {
+  Submitted
+  Awarded
+  Rejected
+}
+
+enum PurchaseOrderStatus {
+  Issued
+  Acknowledged
+  Shipped
+  PartiallyDelivered
+  Delivered
+  Cancelled
+  Matched
+  Mismatched
+}
+
+enum ReceiptItemCondition {
+  Good
+  Damaged
+  Incorrect
+}
+
+enum InvoiceStatus {
+  Pending
+  ApprovedForPayment
+  Paid
+  Disputed
+}
+
+
+// MODELS
+
+model User {
+  id                 String                @id @default(cuid())
+  name               String
+  email              String                @unique
+  password           String
+  role               UserRole
+
+  createdRequisitions PurchaseRequisition[] @relation("RequisitionRequester")
+  approvedRequisitions PurchaseRequisition[] @relation("RequisitionApprover")
+  goodsReceipts      GoodsReceiptNote[]    @relation("GoodsReceiptReceiver")
+  auditLogs          AuditLog[]
+}
+
+model Vendor {
+  id            String      @id @default(cuid())
+  name          String
+  contactPerson String
+  email         String      @unique
+  phone         String
+  address       String
+  quotations    Quotation[]
+  invoices      Invoice[]
+  purchaseOrders PurchaseOrder[]
+}
+
+model DepartmentBudget {
+  id          String @id @default(cuid())
+  department  String @unique
+  totalBudget Decimal
+  spentBudget Decimal
+}
+
+model PurchaseRequisition {
+  id                String            @id @default(cuid())
+  requesterId       String
+  requester         User              @relation("RequisitionRequester", fields: [requesterId], references: [id])
+  title             String
+  department        String
+  items             RequisitionItem[]
+  totalPrice        Decimal
+  justification     String
+  status            RequisitionStatus
+  budgetStatus      BudgetStatus
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  approverId        String?
+  approver          User?             @relation("RequisitionApprover", fields: [approverId], references: [id])
+  approverComment   String?
+  quotations        Quotation[]
+  contractFileName  String?
+  contractUploadDate DateTime?
+  negotiationNotes  String?
+  purchaseOrder     PurchaseOrder?
+}
+
+model RequisitionItem {
+  id                  String              @id @default(cuid())
+  name                String
+  description         String?
+  quantity            Int
+  unitPrice           Decimal?
+  requisitionId       String
+  purchaseRequisition PurchaseRequisition @relation(fields: [requisitionId], references: [id], onDelete: Cascade)
+  quoteItems          QuoteItem[]
+}
+
+model Quotation {
+  id            String          @id @default(cuid())
+  requisitionId String
+  requisition   PurchaseRequisition @relation(fields: [requisitionId], references: [id])
+  vendorId      String
+  vendor        Vendor          @relation(fields: [vendorId], references: [id])
+  items         QuoteItem[]
+  totalPrice    Decimal
+  deliveryDate  DateTime
+  createdAt     DateTime        @default(now())
+  status        QuotationStatus
+  notes         String?
+}
+
+model QuoteItem {
+  id                String          @id @default(cuid())
+  requisitionItemId String
+  requisitionItem   RequisitionItem @relation(fields: [requisitionItemId], references: [id])
+  quantity          Int
+  unitPrice         Decimal
+  leadTimeDays      Int
+  quotationId       String
+  quotation         Quotation       @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+}
+
+model PurchaseOrder {
+  id              String             @id @default(cuid())
+  requisitionId   String             @unique
+  requisition     PurchaseRequisition @relation(fields: [requisitionId], references: [id])
+  vendorId        String
+  vendor          Vendor             @relation(fields: [vendorId], references: [id])
+  items           POItem[]
+  totalAmount     Decimal
+  status          PurchaseOrderStatus
+  createdAt       DateTime           @default(now())
+  contractFileName String?
+  contractUploadDate DateTime?
+  notes           String?
+  receipts        GoodsReceiptNote[]
+  invoices        Invoice[]
+}
+
+model POItem {
+  id               String        @id @default(cuid())
+  name             String
+  quantity         Int
+  unitPrice        Decimal
+  totalPrice       Decimal
+  receivedQuantity Int           @default(0)
+  purchaseOrderId  String
+  purchaseOrder    PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  receiptItems     ReceiptItem[]
+}
+
+model GoodsReceiptNote {
+  id              String        @id @default(cuid())
+  purchaseOrderId String
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id])
+  receivedById    String
+  receivedBy      User          @relation("GoodsReceiptReceiver", fields: [receivedById], references: [id])
+  receivedDate    DateTime      @default(now())
+  items           ReceiptItem[]
+}
+
+model ReceiptItem {
+  id               String             @id @default(cuid())
+  poItemId         String
+  poItem           POItem             @relation(fields: [poItemId], references: [id])
+  quantityReceived Int
+  condition        ReceiptItemCondition
+  notes            String?
+  receiptId        String
+  goodsReceiptNote GoodsReceiptNote   @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+}
+
+model Invoice {
+  id                String        @id @default(cuid())
+  purchaseOrderId   String
+  purchaseOrder     PurchaseOrder @relation(fields: [purchaseOrderId], references: [id])
+  vendorId          String
+  vendor            Vendor        @relation(fields: [vendorId], references: [id])
+  invoiceDate       DateTime
+  items             InvoiceItem[]
+  totalAmount       Decimal
+  status            InvoiceStatus
+  documentUrl       String?
+  paymentDate       DateTime?
+  paymentReference  String?
+}
+
+model InvoiceItem {
+  id          String  @id @default(cuid())
+  name        String
+  quantity    Int
+  unitPrice   Decimal
+  totalPrice  Decimal
+  invoiceId   String
+  invoice     Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  timestamp DateTime @default(now())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  action    String
+  entity    String
+  entityId  String
+  details   String
+}
