@@ -35,6 +35,7 @@ export function RoleSwitcher() {
           <SelectItem value="Procurement Officer">Procurement Officer</SelectItem>
           <SelectItem value="Receiving">Receiving</SelectItem>
           <SelectItem value="Finance">Finance</SelectItem>
+          <SelectItem value="Vendor">Vendor</SelectItem>
         </SelectContent>
       </Select>
     </div>
