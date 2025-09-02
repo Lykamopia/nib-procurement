@@ -291,14 +291,11 @@ const AIQuoteAdvisor = ({ requisition, quotes, onRecommendation }: { requisition
     const handleAnalysis = async () => {
         setLoading(true);
         try {
-            // Re-map quotes to ensure date objects are correctly handled by the AI flow
             const analysisInput: QuoteAnalysisInput = {
-                // The JSON serialization will convert dates to strings, which is fine for the prompt.
-                // But we need to ensure the schema expects Date objects for type safety here.
                 quotations: quotes.map(q => ({
                     ...q,
-                    createdAt: new Date(q.createdAt),
-                    deliveryDate: new Date(q.deliveryDate),
+                    createdAt: new Date(q.createdAt).toISOString(),
+                    deliveryDate: new Date(q.deliveryDate).toISOString(),
                 })),
                 decisionMetric: metric,
                 requisitionDetails: `${requisition.title} - ${requisition.justification}`,
