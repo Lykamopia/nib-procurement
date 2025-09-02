@@ -41,7 +41,10 @@ export async function PATCH(
       // Update the main requisition status
       const requisition = requisitions.find(r => r.id === requisitionId);
       if (requisition) {
-        requisition.status = 'PO Created';
+        // The status should now move to a state where a PO can be created.
+        // Let's use 'Approved' as the status that signals readiness for PO creation.
+        // In a more complex workflow, this might be 'RFQ Complete' or similar.
+        requisition.status = 'Approved'; 
         requisition.updatedAt = new Date();
       }
     }
