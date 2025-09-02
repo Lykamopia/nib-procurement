@@ -33,9 +33,7 @@ export async function POST(request: Request) {
       console.error('Vendor not found for ID:', vendorId);
       return NextResponse.json({ error: 'Vendor not found' }, { status: 404 });
     }
-
-    const actor = users.find(u => u.vendorId === vendorId);
-
+    
     const requisition = requisitions.find(r => r.id === requisitionId);
     if (!requisition) {
       console.error('Requisition not found for ID:', requisitionId);
@@ -82,8 +80,8 @@ export async function POST(request: Request) {
     const auditLogEntry = {
         id: `log-${Date.now()}-${Math.random()}`,
         timestamp: new Date(),
-        user: actor?.name || vendor.name, // Use actor name if exists, otherwise fallback to vendor name
-        role: actor?.role || 'Vendor' as const,
+        user: vendor.name, 
+        role: 'Vendor' as const,
         action: 'SUBMIT_QUOTATION',
         entity: 'Quotation',
         entityId: newQuotation.id,
