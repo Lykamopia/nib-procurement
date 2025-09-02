@@ -1,7 +1,7 @@
 
 
 import { NextResponse } from 'next/server';
-import { quotations, requisitions, vendors, auditLogs, users } from '@/lib/data-store';
+import { quotations, requisitions, vendors, auditLogs } from '@/lib/data-store';
 import { Quotation } from '@/lib/types';
 import { addDays } from 'date-fns';
 
@@ -33,12 +33,14 @@ export async function POST(request: Request) {
       console.error('Vendor not found for ID:', vendorId);
       return NextResponse.json({ error: 'Vendor not found' }, { status: 404 });
     }
+    console.log('Found vendor:', vendor);
     
     const requisition = requisitions.find(r => r.id === requisitionId);
     if (!requisition) {
       console.error('Requisition not found for ID:', requisitionId);
       return NextResponse.json({ error: 'Requisition not found' }, { status: 404 });
     }
+    console.log('Found requisition:', requisition);
 
     let totalPrice = 0;
     let maxLeadTime = 0;

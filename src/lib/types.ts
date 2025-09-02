@@ -14,7 +14,7 @@ export type User = {
   email: string;
   password?: string; // Should not be sent to client
   role: UserRole;
-  vendorId?: string;
+  vendorId?: string; // Added this line
 };
 
 export type RequisitionStatus =
@@ -34,6 +34,7 @@ export type RequisitionItem = {
   name: string;
   description: string;
   quantity: number;
+  unitPrice?: number;
 };
 
 export type ContractDetails = {

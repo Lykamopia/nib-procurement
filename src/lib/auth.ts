@@ -1,7 +1,7 @@
 
 
 import type { User, UserRole, Vendor } from './types';
-import { users } from './auth-store';
+import { users } from './data-store';
 import { vendors } from './data-store';
 
 type VendorDetails = {
