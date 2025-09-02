@@ -55,7 +55,7 @@ const formSchema = z.object({
         quantity: z.coerce.number().min(1, 'Quantity must be at least 1.'),
         unitPrice: z.coerce
           .number()
-          .min(0.01, 'Price must be greater than 0.')
+          .min(0, 'Price must be a positive number.')
           .optional(),
       })
     )
@@ -191,12 +191,12 @@ export function NeedsRecognitionForm() {
                     key={field.id}
                     className="flex gap-4 items-end p-4 border rounded-lg relative"
                   >
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 flex-1">
                       <FormField
                         control={form.control}
                         name={`items.${index}.name`}
                         render={({ field }) => (
-                          <FormItem>
+                          <FormItem className="md:col-span-2">
                             <FormLabel>Item Name</FormLabel>
                             <FormControl>
                               <Input
@@ -221,6 +221,19 @@ export function NeedsRecognitionForm() {
                           </FormItem>
                         )}
                       />
+                        <FormField
+                        control={form.control}
+                        name={`items.${index}.unitPrice`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Est. Unit Price (ETB)</FormLabel>
+                            <FormControl>
+                              <Input type="number" step="0.01" placeholder="0.00" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                     </div>
                     <Button
                       type="button"
@@ -233,18 +246,23 @@ export function NeedsRecognitionForm() {
                   </div>
                 ))}
               </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="mt-4"
-                onClick={() =>
-                  append({ name: '', quantity: 1, unitPrice: 0 })
-                }
-              >
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Add Item
-              </Button>
+               <div className="flex justify-between items-center mt-4">
+                 <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                    append({ name: '', quantity: 1, unitPrice: 0 })
+                    }
+                >
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Add Item
+                </Button>
+                <div className="text-right">
+                    <p className="text-muted-foreground">Estimated Total</p>
+                    <p className="font-bold text-lg">{total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETB</p>
+                </div>
+              </div>
             </div>
 
             <Separator />

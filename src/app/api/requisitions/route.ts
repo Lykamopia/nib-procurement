@@ -15,14 +15,18 @@ export async function POST(request: Request) {
     
     const user = users.find(u => u.name === body.requesterName);
 
+    const itemsWithIds = body.items.map((item: any, index: number) => ({...item, id: `ITEM-${Date.now()}-${index}`}));
+    const totalPrice = itemsWithIds.reduce((acc: number, item: any) => acc + (item.quantity * (item.unitPrice || 0)), 0);
+
+
     const newRequisition: PurchaseRequisition = {
       id: `REQ-${Date.now()}`,
       requesterId: user?.id || 'temp-user-id',
       requesterName: body.requesterName,
       title: body.title,
       department: body.department,
-      items: body.items.map((item: any, index: number) => ({...item, id: `ITEM-${Date.now()}-${index}`})),
-      totalPrice: 0,
+      items: itemsWithIds,
+      totalPrice: totalPrice,
       justification: body.justification,
       status: 'Draft',
       budgetStatus: 'Pending',
