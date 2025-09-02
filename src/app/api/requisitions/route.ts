@@ -1,9 +1,10 @@
 
+'use server';
 
 import { NextResponse } from 'next/server';
 import type { PurchaseRequisition, RequisitionStatus } from '@/lib/types';
 import { requisitions, auditLogs, departmentBudgets } from '@/lib/data-store';
-import { users } from '@/lib/auth-store';
+import { users } from '@/lib/data-store';
 
 function checkBudget(department: string, amount: number) {
     if (amount === 0) return 'OK'; // No price yet, so budget is OK.
@@ -41,6 +42,7 @@ export async function POST(request: Request) {
       budgetStatus: 'Pending',
       createdAt: new Date(),
       updatedAt: new Date(),
+      quotations: [], // Initialize quotations array
     };
 
     requisitions.unshift(newRequisition);
