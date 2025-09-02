@@ -39,7 +39,8 @@ export async function POST(request: Request) {
           name: item.name,
           quantity: item.quantity,
           unitPrice: item.unitPrice,
-          totalPrice: item.quantity * item.unitPrice
+          totalPrice: item.quantity * item.unitPrice,
+          receivedQuantity: 0,
       })),
       totalAmount: awardedQuote.totalPrice,
       status: 'Issued',
@@ -81,4 +82,3 @@ export async function POST(request: Request) {
 export async function GET() {
   return NextResponse.json(purchaseOrders);
 }
-
