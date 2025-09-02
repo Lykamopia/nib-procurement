@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -62,28 +61,28 @@ export default function VendorRequisitionPage() {
 
         const fetchRequisition = async () => {
             setLoading(true);
+            setError(null);
             try {
-                 const response = await fetch(`/api/requisitions`);
-                 if (!response.ok) throw new Error('Failed to fetch requisitions list.');
-                 const allReqs: PurchaseRequisition[] = await response.json();
-                 console.log(`Fetched ${allReqs.length} total requisitions.`);
-                 const foundReq = allReqs.find(r => r.id === id);
-
-                if (foundReq) {
-                    console.log("Found requisition:", foundReq);
-                    setRequisition(foundReq);
-                    const formItems = foundReq.items.map(item => ({
-                        requisitionItemId: item.id,
-                        name: item.name,
-                        quantity: item.quantity,
-                        unitPrice: 0,
-                        leadTimeDays: 0,
-                    }));
-                    replace(formItems);
-                } else {
-                    console.error('Requisition not found or not available for quoting for ID:', id);
-                    setError('Requisition not found or not available for quoting.');
-                }
+                 const response = await fetch(`/api/requisitions/${id}`);
+                 if (!response.ok) {
+                    if (response.status === 404) {
+                        throw new Error('Requisition not found or not available for quoting.');
+                    }
+                    throw new Error('Failed to fetch requisition data.');
+                 }
+                 const foundReq: PurchaseRequisition = await response.json();
+                 console.log("Found requisition:", foundReq);
+                 setRequisition(foundReq);
+                 
+                 const formItems = foundReq.items.map(item => ({
+                    requisitionItemId: item.id,
+                    name: item.name,
+                    quantity: item.quantity,
+                    unitPrice: 0,
+                    leadTimeDays: 0,
+                 }));
+                 replace(formItems);
+                 
             } catch (e) {
                 console.error("Error fetching requisition:", e);
                 setError(e instanceof Error ? e.message : 'An unknown error occurred');
@@ -120,12 +119,12 @@ export default function VendorRequisitionPage() {
                 body: JSON.stringify({ 
                     ...values, 
                     requisitionId: requisition.id,
-                    vendorId: user.vendorId, // Pass vendorId directly
+                    vendorId: user.vendorId,
                 }),
             });
 
             if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));;
+                const errorData = await response.json().catch(() => ({}));
                 console.error("Failed to submit quote:", errorData);
                 throw new Error(errorData.error || 'Failed to submit quote.');
             }
