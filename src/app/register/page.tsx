@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -99,7 +100,7 @@ export default function RegisterPage() {
               <RadioGroup
                 value={role}
                 onValueChange={(value) => setRole(value as UserRole)}
-                className="flex gap-4"
+                className="flex flex-wrap gap-4"
               >
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="Requester" id="r1" />
@@ -111,7 +112,11 @@ export default function RegisterPage() {
                 </div>
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="Procurement Officer" id="r3" />
-                  <Label htmlFor="r3">Procurement Officer</Label>
+                  <Label htmlFor="r3">Procurement</Label>
+                </div>
+                 <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="Vendor" id="r4" />
+                  <Label htmlFor="r4">Vendor</Label>
                 </div>
               </RadioGroup>
             </div>

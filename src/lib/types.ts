@@ -1,4 +1,5 @@
 
+
 export type UserRole =
   | 'Requester'
   | 'Approver'
@@ -33,7 +34,7 @@ export type RequisitionItem = {
   name: string;
   description: string;
   quantity: number;
-  unitPrice: number;
+  unitPrice?: number;
 };
 
 export type ContractDetails = {
