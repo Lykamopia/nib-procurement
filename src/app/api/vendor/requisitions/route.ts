@@ -13,11 +13,12 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     
-    // For now, we will just validate that a token exists, but not restrict by vendor.
-    // This allows any vendor to see all open requisitions for testing purposes.
     const token = authHeader.substring(7);
-    if (!token) {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    const userData = await getUserByToken(token);
+
+    // We check if the user is a vendor, but don't filter requisitions by vendor.
+    if (!userData || userData.role !== 'Vendor') {
+         return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     // Return all requisitions that are in a state ready for quotation.
