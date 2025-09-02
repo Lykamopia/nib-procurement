@@ -1,4 +1,6 @@
 
+'use server';
+
 import { NextResponse } from 'next/server';
 import { requisitions } from '@/lib/data-store';
 import { getUserByToken } from '@/lib/auth';
