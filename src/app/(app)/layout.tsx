@@ -88,10 +88,6 @@ export default function AppLayout({
         return 'Invoices';
        case '/records':
         return 'Document Records';
-      case '/policy-check':
-        return 'Automated Policy Check';
-      case '/rfq-generator':
-        return 'RFQ Generator';
       case '/audit-log':
         return 'Audit Log';
       default:
@@ -261,36 +257,6 @@ export default function AppLayout({
                   </Link>
                 </SidebarMenuItem>
             )}
-          </SidebarMenu>
-
-          <Separator className="my-2" />
-
-          <SidebarMenu>
-            <SidebarMenuItem className="px-2 text-xs font-medium text-muted-foreground">
-              AI Tools
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <Link href="/policy-check">
-                <SidebarMenuButton
-                  isActive={pathname === '/policy-check'}
-                  tooltip="Policy Check"
-                >
-                  <Bot />
-                  <span>Policy Check</span>
-                </SidebarMenuButton>
-              </Link>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <Link href="/rfq-generator">
-                <SidebarMenuButton
-                  isActive={pathname === '/rfq-generator'}
-                  tooltip="RFQ Generator"
-                >
-                  <MailQuestion />
-                  <span>RFQ Generator</span>
-                </SidebarMenuButton>
-              </Link>
-            </SidebarMenuItem>
           </SidebarMenu>
 
           <Separator className="my-2" />
