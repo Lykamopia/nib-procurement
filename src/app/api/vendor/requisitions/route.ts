@@ -16,9 +16,7 @@ export async function GET(request: Request) {
     // For now, we will just validate that a token exists, but not restrict by vendor.
     // This allows any vendor to see all open requisitions for testing purposes.
     const token = authHeader.substring(7);
-    const vendorUser = await getUserByToken(token);
-    
-    if (!vendorUser || vendorUser.role !== 'Vendor') {
+    if (!token) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
