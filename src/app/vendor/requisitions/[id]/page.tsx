@@ -61,11 +61,12 @@ export default function VendorRequisitionPage() {
         const fetchRequisition = async () => {
             setLoading(true);
             try {
-                const response = await fetch(`/api/requisitions/${id}`, {
+                 const response = await fetch(`/api/requisitions`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
-                if (!response.ok) throw new Error('Failed to fetch requisition data.');
-                const foundReq: PurchaseRequisition = await response.json();
+                if (!response.ok) throw new Error('Failed to fetch requisitions list.');
+                const allReqs: PurchaseRequisition[] = await response.json();
+                const foundReq = allReqs.find(r => r.id === id);
 
                 if (foundReq) {
                     setRequisition(foundReq);
