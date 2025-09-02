@@ -5,6 +5,9 @@ import { NextResponse } from 'next/server';
 import { requisitions } from '@/lib/data-store';
 import { getUserByToken } from '@/lib/auth';
 
+// This is a dynamic route handler, so we should not cache the response.
+export const dynamic = 'force-dynamic';
+
 // This endpoint is for vendors to see requisitions they can quote on.
 export async function GET(request: Request) {
   try {
