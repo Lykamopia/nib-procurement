@@ -3,9 +3,6 @@ import { NextResponse } from 'next/server';
 import { requisitions } from '@/lib/data-store';
 import { getUserByToken } from '@/lib/auth';
 
-// This is a dynamic route handler, so we should not cache the response.
-export const dynamic = 'force-dynamic';
-
 // This endpoint is for vendors to see requisitions they can quote on.
 export async function GET(request: Request) {
   try {
@@ -27,7 +24,11 @@ export async function GET(request: Request) {
         (r) => r.status === 'Approved' || r.status === 'RFQ In Progress'
     );
     
-    return NextResponse.json(openRequisitions);
+    return NextResponse.json(openRequisitions, {
+        headers: {
+            'Cache-Control': 'no-store',
+        }
+    });
 
   } catch (error) {
     console.error('Failed to fetch vendor requisitions:', error);
