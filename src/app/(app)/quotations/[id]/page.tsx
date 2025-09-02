@@ -31,7 +31,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, PlusCircle, Award, XCircle, FileSignature, FileText, Bot, Lightbulb, ArrowLeft } from 'lucide-react';
+import { Loader2, PlusCircle, Award, XCircle, FileSignature, FileText, Bot, Lightbulb, ArrowLeft, Star } from 'lucide-react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -47,6 +47,7 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 import { analyzeQuotes } from '@/ai/flows/quote-analysis';
 import type { QuoteAnalysisInput, QuoteAnalysisOutput } from '@/ai/flows/quote-analysis.types';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
 
 const quoteFormSchema = z.object({
@@ -206,7 +207,7 @@ function AddQuoteForm({ requisition, vendors, onQuoteAdded }: { requisition: Pur
     );
 }
 
-const QuoteComparison = ({ quotes, onAction, recommendationId }: { quotes: Quotation[], onAction: (quoteId: string, status: 'Awarded' | 'Rejected') => void, recommendationId?: string | null }) => {
+const QuoteComparison = ({ quotes, onAction, onConfirmAward, recommendation, onReject }: { quotes: Quotation[], onAction: (quoteId: string, status: 'Awarded' | 'Rejected') => void, onConfirmAward: (quote: Quotation) => void, recommendation?: QuoteAnalysisOutput | null, onReject: (quoteId: string) => void }) => {
     if (quotes.length === 0) {
         return (
             <div className="h-24 flex items-center justify-center text-muted-foreground">
@@ -225,61 +226,69 @@ const QuoteComparison = ({ quotes, onAction, recommendationId }: { quotes: Quota
         }
     }
 
+    const getRecommendationRank = (quoteId: string) => {
+        return recommendation?.recommendations.findIndex(r => r.quoteId === quoteId);
+    }
+
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {quotes.map(quote => (
-                <Card key={quote.id} className={cn("flex flex-col", quote.status === 'Awarded' && 'border-primary ring-2 ring-primary', quote.id === recommendationId && 'border-green-500 ring-2 ring-green-500')}>
-                     {quote.id === recommendationId && (
-                        <div className="flex items-center gap-2 p-2 bg-green-500 text-white text-xs font-bold rounded-t-lg">
-                           <Lightbulb className="h-4 w-4"/> AI Recommended
-                        </div>
-                    )}
-                    <CardHeader>
-                        <CardTitle className="flex justify-between items-start">
-                           <span>{quote.vendorName}</span>
-                           <Badge variant={getStatusVariant(quote.status)}>{quote.status}</Badge>
-                        </CardTitle>
-                        <CardDescription>Submitted {formatDistanceToNow(new Date(quote.createdAt), { addSuffix: true })}</CardDescription>
-                    </CardHeader>
-                    <CardContent className="flex-grow space-y-4">
-                        <div className="text-3xl font-bold text-center">{quote.totalPrice.toLocaleString()} ETB</div>
-                        <div className="text-center text-muted-foreground">Est. Delivery: {format(new Date(quote.deliveryDate), 'PP')}</div>
-                        
-                        <div className="text-sm space-y-2">
-                           <h4 className="font-semibold">Items:</h4>
-                            {quote.items.map(item => (
-                                <div key={item.requisitionItemId} className="flex justify-between items-center text-muted-foreground">
-                                    <span>{item.name} x {item.quantity}</span>
-                                    <span className="font-mono">{item.unitPrice.toFixed(2)} ETB ea.</span>
-                                </div>
-                            ))}
-                        </div>
-                        {quote.notes && (
-                            <div className="text-sm space-y-1 pt-2 border-t">
-                                <h4 className="font-semibold">Notes:</h4>
-                                <p className="text-muted-foreground text-xs italic">{quote.notes}</p>
+            {quotes.map(quote => {
+                const rank = getRecommendationRank(quote.id);
+                const isRecommended = rank !== undefined && rank > -1;
+                return (
+                    <Card key={quote.id} className={cn("flex flex-col", quote.status === 'Awarded' && 'border-primary ring-2 ring-primary', isRecommended && 'border-green-500 ring-2 ring-green-500')}>
+                        {isRecommended && (
+                            <div className="flex items-center gap-2 p-2 bg-green-500 text-white text-xs font-bold rounded-t-lg">
+                               <Star className="h-4 w-4 fill-white"/> AI Recommendation #{rank! + 1}
                             </div>
                         )}
-                    </CardContent>
-                    <CardFooter className="flex gap-2">
-                        <Button 
-                            className="w-full"
-                            onClick={() => onAction(quote.id, 'Awarded')}
-                            disabled={isAnyAwarded || quote.status !== 'Submitted'}>
-                            <Award className="mr-2 h-4 w-4"/>
-                            {quote.status === 'Awarded' ? 'Awarded' : 'Award'}
-                        </Button>
-                        <Button 
-                            className="w-full"
-                            variant="outline"
-                             onClick={() => onAction(quote.id, 'Rejected')}
-                            disabled={isAnyAwarded || quote.status !== 'Submitted'}>
-                            <XCircle className="mr-2 h-4 w-4"/>
-                            Reject
-                        </Button>
-                    </CardFooter>
-                </Card>
-            ))}
+                        <CardHeader>
+                            <CardTitle className="flex justify-between items-start">
+                            <span>{quote.vendorName}</span>
+                            <Badge variant={getStatusVariant(quote.status)}>{quote.status}</Badge>
+                            </CardTitle>
+                            <CardDescription>Submitted {formatDistanceToNow(new Date(quote.createdAt), { addSuffix: true })}</CardDescription>
+                        </CardHeader>
+                        <CardContent className="flex-grow space-y-4">
+                            <div className="text-3xl font-bold text-center">{quote.totalPrice.toLocaleString()} ETB</div>
+                            <div className="text-center text-muted-foreground">Est. Delivery: {format(new Date(quote.deliveryDate), 'PP')}</div>
+                            
+                            <div className="text-sm space-y-2">
+                            <h4 className="font-semibold">Items:</h4>
+                                {quote.items.map(item => (
+                                    <div key={item.requisitionItemId} className="flex justify-between items-center text-muted-foreground">
+                                        <span>{item.name} x {item.quantity}</span>
+                                        <span className="font-mono">{item.unitPrice.toFixed(2)} ETB ea.</span>
+                                    </div>
+                                ))}
+                            </div>
+                            {quote.notes && (
+                                <div className="text-sm space-y-1 pt-2 border-t">
+                                    <h4 className="font-semibold">Notes:</h4>
+                                    <p className="text-muted-foreground text-xs italic">{quote.notes}</p>
+                                </div>
+                            )}
+                        </CardContent>
+                        <CardFooter className="flex gap-2">
+                            <Button 
+                                className="w-full"
+                                onClick={() => onConfirmAward(quote)}
+                                disabled={isAnyAwarded || quote.status !== 'Submitted'}>
+                                <Award className="mr-2 h-4 w-4"/>
+                                {quote.status === 'Awarded' ? 'Awarded' : 'Award'}
+                            </Button>
+                            <Button 
+                                className="w-full"
+                                variant="outline"
+                                onClick={() => onReject(quote.id)}
+                                disabled={isAnyAwarded || quote.status !== 'Submitted'}>
+                                <XCircle className="mr-2 h-4 w-4"/>
+                                Reject
+                            </Button>
+                        </CardFooter>
+                    </Card>
+                )
+            })}
         </div>
     )
 }
@@ -332,7 +341,7 @@ const AIQuoteAdvisor = ({ requisition, quotes, onRecommendation }: { requisition
                         <SelectItem value="Fastest Delivery">Fastest Delivery</SelectItem>
                     </SelectContent>
                 </Select>
-                <Button onClick={handleAnalysis} disabled={loading}>
+                <Button onClick={handleAnalysis} disabled={loading || quotes.length < 2}>
                     {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Get AI Recommendation
                 </Button>
@@ -498,6 +507,7 @@ export default function QuotationDetailsPage() {
   const [isFormOpen, setFormOpen] = useState(false);
   const [lastPOCreated, setLastPOCreated] = useState<PurchaseOrder | null>(null);
   const [aiRecommendation, setAiRecommendation] = useState<QuoteAnalysisOutput | null>(null);
+  const [quoteToAward, setQuoteToAward] = useState<Quotation | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
   const params = useParams();
@@ -558,6 +568,10 @@ export default function QuotationDetailsPage() {
     fetchRequisitionAndQuotes();
     setLastPOCreated(po);
   }
+  
+  const handleAwardConfirmation = (quote: Quotation) => {
+    setQuoteToAward(quote);
+  }
 
   const handleQuoteAction = async (quoteId: string, status: 'Awarded' | 'Rejected') => {
     if (!user || !id) return;
@@ -576,6 +590,7 @@ export default function QuotationDetailsPage() {
             title: `Quote ${status}`,
             description: `The quotation has been successfully ${status.toLowerCase()}.`
         });
+        setQuoteToAward(null);
         fetchRequisitionAndQuotes();
     } catch (error) {
         toast({
@@ -617,7 +632,7 @@ export default function QuotationDetailsPage() {
                 </Dialog>
             </CardHeader>
              <CardContent>
-                {quotations.length > 0 && !isAwarded && (
+                {quotations.length > 1 && !isAwarded && (
                     <AIQuoteAdvisor 
                         requisition={requisition} 
                         quotes={quotations} 
@@ -642,7 +657,13 @@ export default function QuotationDetailsPage() {
                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
                    </div>
                ) : (
-                   <QuoteComparison quotes={quotations} onAction={handleQuoteAction} recommendationId={aiRecommendation?.recommendedQuoteId} />
+                   <QuoteComparison 
+                    quotes={quotations} 
+                    onAction={handleQuoteAction}
+                    onConfirmAward={handleAwardConfirmation}
+                    recommendation={aiRecommendation}
+                    onReject={(quoteId) => handleQuoteAction(quoteId, 'Rejected')}
+                   />
                )}
             </CardContent>
             
@@ -667,6 +688,33 @@ export default function QuotationDetailsPage() {
                 </>
             )}
         </Card>
+        
+        {quoteToAward && (
+            <AlertDialog open={!!quoteToAward} onOpenChange={(open) => !open && setQuoteToAward(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Confirm Award Decision</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            You are about to award this requisition to <span className="font-bold">{quoteToAward.vendorName}</span> for a total of <span className="font-bold">{quoteToAward.totalPrice.toLocaleString()} ETB</span>. This will reject all other quotes. Are you sure you want to proceed?
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                     <div className="rounded-md border bg-muted/50 p-4 text-sm">
+                        <h4 className="font-semibold mb-2">Key Information</h4>
+                        <div className="grid grid-cols-2 gap-1">
+                            <span className="text-muted-foreground">Vendor:</span><span>{quoteToAward.vendorName}</span>
+                            <span className="text-muted-foreground">Total Price:</span><span>{quoteToAward.totalPrice.toLocaleString()} ETB</span>
+                            <span className="text-muted-foreground">Delivery Date:</span><span>{format(new Date(quoteToAward.deliveryDate), 'PP')}</span>
+                        </div>
+                     </div>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel onClick={() => setQuoteToAward(null)}>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => handleQuoteAction(quoteToAward.id, 'Awarded')}>
+                            Confirm and Award
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+        )}
     </div>
   );
 }

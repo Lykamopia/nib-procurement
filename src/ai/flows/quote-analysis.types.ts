@@ -31,9 +31,14 @@ export const QuoteAnalysisInputSchema = z.object({
 });
 export type QuoteAnalysisInput = z.infer<typeof QuoteAnalysisInputSchema>;
 
+const RecommendedQuoteSchema = z.object({
+  quoteId: z.string().describe("The ID of a recommended quote."),
+  reason: z.string().describe("A brief reason why this quote is recommended."),
+});
+
 export const QuoteAnalysisOutputSchema = z.object({
-  recommendedQuoteId: z.string().describe("The ID of the recommended quotation."),
-  justification: z.string().describe("A detailed justification for why this quote was recommended based on the metric."),
-  summary: z.string().describe("A brief summary of the recommendation."),
+  recommendations: z.array(RecommendedQuoteSchema).describe("A list of the top 3 recommended quotations, ordered from best to worst."),
+  justification: z.string().describe("A detailed justification for the overall recommendation ranking."),
+  summary: z.string().describe("A brief summary of the recommendation analysis."),
 });
 export type QuoteAnalysisOutput = z.infer<typeof QuoteAnalysisOutputSchema>;
