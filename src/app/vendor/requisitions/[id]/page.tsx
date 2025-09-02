@@ -4,7 +4,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { PurchaseRequisition, Vendor, User } from '@/lib/types';
+import { PurchaseRequisition } from '@/lib/types';
 import { useAuth } from '@/contexts/auth-context';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
@@ -120,8 +120,7 @@ export default function VendorRequisitionPage() {
                 body: JSON.stringify({ 
                     ...values, 
                     requisitionId: requisition.id,
-                    vendorId: user.vendorId,
-                    userId: user.id
+                    vendorId: user.vendorId, // Pass vendorId directly
                 }),
             });
 

@@ -26,21 +26,21 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     console.log('Request Body:', body);
-    const { requisitionId, vendorId, items, notes, userId } = body;
-
-    const user = users.find(u => u.id === userId);
-    const actorName = user ? user.name : 'System';
-
-    const requisition = requisitions.find(r => r.id === requisitionId);
-    if (!requisition) {
-      console.error('Requisition not found for ID:', requisitionId);
-      return NextResponse.json({ error: 'Requisition not found' }, { status: 404 });
-    }
+    const { requisitionId, vendorId, items, notes } = body;
 
     const vendor = vendors.find(v => v.id === vendorId);
     if (!vendor) {
       console.error('Vendor not found for ID:', vendorId);
       return NextResponse.json({ error: 'Vendor not found' }, { status: 404 });
+    }
+
+    const user = users.find(u => u.id === vendor.userId);
+    const actorName = user ? user.name : vendor.name; // Fallback to vendor name
+
+    const requisition = requisitions.find(r => r.id === requisitionId);
+    if (!requisition) {
+      console.error('Requisition not found for ID:', requisitionId);
+      return NextResponse.json({ error: 'Requisition not found' }, { status: 404 });
     }
 
     let totalPrice = 0;
