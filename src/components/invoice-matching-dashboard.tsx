@@ -208,36 +208,27 @@ export function InvoiceMatchingDashboard() {
               {results.length > 0 ? (
                 results.map((result) => (
                   <Collapsible asChild key={result.poId} onOpenChange={(isOpen) => setOpenItem(isOpen ? result.poId : null)}>
-                    <>
-                      <TableRow className="cursor-pointer">
-                        <TableCell>
-                          <CollapsibleTrigger>
-                            {openItem === result.poId ? <ChevronUp/> : <ChevronDown />}
-                          </CollapsibleTrigger>
-                        </TableCell>
-                        <TableCell className="font-medium text-primary">
-                          {result.poId}
-                        </TableCell>
-                        <TableCell>
-                          <MatchingStatusBadge status={result.status} />
-                        </TableCell>
-                        <TableCell>{result.details.poTotal.toFixed(2)} ETB</TableCell>
-                         <TableCell>{result.details.invoiceTotal.toFixed(2)} ETB</TableCell>
-                        <TableCell>
-                            {result.quantityMatch ? <CheckCircle2 className="text-green-500"/> : <AlertTriangle className="text-destructive" />}
-                        </TableCell>
-                         <TableCell>
-                             {result.priceMatch ? <CheckCircle2 className="text-green-500"/> : <AlertTriangle className="text-destructive" />}
-                        </TableCell>
-                      </TableRow>
-                      <CollapsibleContent asChild>
-                        <tr>
-                            <td colSpan={7}>
-                               <MatchDetails result={result} />
-                            </td>
-                        </tr>
-                      </CollapsibleContent>
-                    </>
+                    <TableRow className="cursor-pointer">
+                      <TableCell>
+                        <CollapsibleTrigger>
+                          {openItem === result.poId ? <ChevronUp/> : <ChevronDown />}
+                        </CollapsibleTrigger>
+                      </TableCell>
+                      <TableCell className="font-medium text-primary">
+                        {result.poId}
+                      </TableCell>
+                      <TableCell>
+                        <MatchingStatusBadge status={result.status} />
+                      </TableCell>
+                      <TableCell>{result.details.poTotal.toFixed(2)} ETB</TableCell>
+                       <TableCell>{result.details.invoiceTotal.toFixed(2)} ETB</TableCell>
+                      <TableCell>
+                          {result.quantityMatch ? <CheckCircle2 className="text-green-500"/> : <AlertTriangle className="text-destructive" />}
+                      </TableCell>
+                       <TableCell>
+                           {result.priceMatch ? <CheckCircle2 className="text-green-500"/> : <AlertTriangle className="text-destructive" />}
+                      </TableCell>
+                    </TableRow>
                   </Collapsible>
                 ))
               ) : (
