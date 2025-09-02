@@ -61,12 +61,11 @@ export default function VendorRequisitionPage() {
         const fetchRequisition = async () => {
             setLoading(true);
             try {
-                const response = await fetch('/api/requisitions', {
+                const response = await fetch(`/api/requisitions/${id}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 if (!response.ok) throw new Error('Failed to fetch requisition data.');
-                const data: PurchaseRequisition[] = await response.json();
-                const foundReq = data.find(r => r.id === id);
+                const foundReq: PurchaseRequisition = await response.json();
 
                 if (foundReq) {
                     setRequisition(foundReq);
@@ -92,6 +91,18 @@ export default function VendorRequisitionPage() {
 
      const onSubmit = async (values: z.infer<typeof quoteFormSchema>) => {
         if (!user || !requisition) return;
+        
+        const vendor = user as User & { vendorId: string };
+        if (!vendor.vendorId) {
+            toast({
+                variant: 'destructive',
+                title: 'Error',
+                description: 'Your vendor account is not properly configured.',
+            });
+            return;
+        }
+
+
         setSubmitting(true);
         try {
             const response = await fetch('/api/quotations', {
@@ -100,7 +111,7 @@ export default function VendorRequisitionPage() {
                 body: JSON.stringify({ 
                     ...values, 
                     requisitionId: requisition.id,
-                    vendorId: user.id 
+                    vendorId: vendor.vendorId 
                 }),
             });
 
