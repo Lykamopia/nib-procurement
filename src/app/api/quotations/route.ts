@@ -34,7 +34,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Vendor not found' }, { status: 404 });
     }
 
-    const actor = users.find(u => u.id === vendor.userId);
+    const actor = users.find(u => u.vendorId === vendorId);
 
     const requisition = requisitions.find(r => r.id === requisitionId);
     if (!requisition) {
@@ -83,7 +83,7 @@ export async function POST(request: Request) {
         id: `log-${Date.now()}-${Math.random()}`,
         timestamp: new Date(),
         user: actor?.name || vendor.name, // Use actor name if exists, otherwise fallback to vendor name
-        role: actor?.role || 'Vendor',
+        role: actor?.role || 'Vendor' as const,
         action: 'SUBMIT_QUOTATION',
         entity: 'Quotation',
         entityId: newQuotation.id,
