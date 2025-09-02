@@ -41,4 +41,5 @@ export const quotations: Quotation[] = data.quotations;
 export const purchaseOrders: PurchaseOrder[] = data.purchaseOrders;
 export const goodsReceipts: GoodsReceiptNote[] = data.goodsReceipts;
 export const invoices: Invoice[] = data.invoices;
+export const users = data.users;
 
