@@ -31,7 +31,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, PlusCircle, Award, XCircle, FileSignature, FileText, Bot, Lightbulb, ArrowLeft, Star } from 'lucide-react';
+import { Loader2, PlusCircle, Award, XCircle, FileSignature, FileText, Bot, Lightbulb, ArrowLeft, Star, Undo, Check } from 'lucide-react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -499,6 +499,24 @@ const ContractManagement = ({ requisition, onContractFinalized, onPOCreated }: {
     )
 }
 
+const WorkflowStepper = ({ step }: { step: 'award' | 'finalize' }) => (
+    <div className="flex items-center justify-center space-x-2 sm:space-x-4">
+        <div className="flex items-center gap-2">
+            <div className={cn("flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold", step === 'award' ? 'bg-primary text-primary-foreground' : 'bg-green-500 text-white')}>
+                {step === 'award' ? '1' : <Check className="h-4 w-4"/>}
+            </div>
+            <span className={cn("font-medium", step === 'award' ? "text-primary" : "text-muted-foreground")}>Compare & Award</span>
+        </div>
+        <div className={cn("h-px w-16 bg-border transition-colors", step === 'finalize' && "bg-primary")}></div>
+         <div className="flex items-center gap-2">
+            <div className={cn("flex h-6 w-6 items-center justify-center rounded-full border text-xs font-semibold", step === 'finalize' ? 'border-primary bg-primary text-primary-foreground' : 'border-border text-muted-foreground')}>
+                2
+            </div>
+            <span className={cn("font-medium", step === 'finalize' ? "text-primary" : "text-muted-foreground")}>Finalize Contract & PO</span>
+        </div>
+    </div>
+);
+
 export default function QuotationDetailsPage() {
   const [requisition, setRequisition] = useState<PurchaseRequisition | null>(null);
   const [vendors, setVendors] = useState<Vendor[]>([]);
@@ -508,6 +526,7 @@ export default function QuotationDetailsPage() {
   const [lastPOCreated, setLastPOCreated] = useState<PurchaseOrder | null>(null);
   const [aiRecommendation, setAiRecommendation] = useState<QuoteAnalysisOutput | null>(null);
   const [quoteToAward, setQuoteToAward] = useState<Quotation | null>(null);
+  const [isChangingAward, setIsChangingAward] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
   const params = useParams();
@@ -573,8 +592,11 @@ export default function QuotationDetailsPage() {
     setQuoteToAward(quote);
   }
 
-  const handleQuoteAction = async (quoteId: string, status: 'Awarded' | 'Rejected') => {
+  const handleQuoteAction = async (quoteId: string, status: 'Awarded' | 'Rejected' | 'ChangeAward') => {
     if (!user || !id) return;
+    
+    if (status === 'ChangeAward') setIsChangingAward(true);
+
     try {
         const response = await fetch(`/api/quotations/${quoteId}/status`, {
             method: 'PATCH',
@@ -586,9 +608,17 @@ export default function QuotationDetailsPage() {
             const errorData = await response.json();
             throw new Error(errorData.error || 'Failed to update quote status.');
         }
+
+        let toastDescription = `The quotation has been successfully ${status.toLowerCase()}.`;
+        if (status === 'ChangeAward') {
+            toastDescription = 'The award has been reset. You can now select a new quote.'
+        } else if (status === 'Awarded') {
+             toastDescription = `The quotation has been successfully awarded.`
+        }
+
         toast({
-            title: `Quote ${status}`,
-            description: `The quotation has been successfully ${status.toLowerCase()}.`
+            title: `Quote Status Updated`,
+            description: toastDescription
         });
         setQuoteToAward(null);
         fetchRequisitionAndQuotes();
@@ -598,6 +628,8 @@ export default function QuotationDetailsPage() {
             title: 'Error',
             description: error instanceof Error ? error.message : 'An unknown error occurred.',
         });
+    } finally {
+         if (status === 'ChangeAward') setIsChangingAward(false);
     }
   }
 
@@ -608,6 +640,8 @@ export default function QuotationDetailsPage() {
   if (!requisition) {
      return <div className="text-center p-8">Requisition not found.</div>;
   }
+  
+  const currentStep = isAwarded ? 'finalize' : 'award';
 
   return (
     <div className="space-y-6">
@@ -615,6 +649,10 @@ export default function QuotationDetailsPage() {
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to All Requisitions
         </Button>
+        
+        <Card className="p-4 sm:p-6">
+            <WorkflowStepper step={currentStep} />
+        </Card>
 
         <Card>
             <CardHeader className="flex flex-row items-start sm:items-center justify-between">
@@ -624,12 +662,20 @@ export default function QuotationDetailsPage() {
                         {requisition.title}
                     </CardDescription>
                 </div>
-                 <Dialog open={isFormOpen} onOpenChange={setFormOpen}>
-                    <DialogTrigger asChild>
-                        <Button disabled={isAwarded}><PlusCircle className="mr-2 h-4 w-4"/>Add Quotation</Button>
-                    </DialogTrigger>
-                    {requisition && <AddQuoteForm requisition={requisition} vendors={vendors} onQuoteAdded={handleQuoteAdded} />}
-                </Dialog>
+                <div className="flex items-center gap-2">
+                     {isAwarded && (
+                        <Button variant="outline" onClick={() => handleQuoteAction('', 'ChangeAward')} disabled={isChangingAward}>
+                            {isChangingAward ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Undo className="mr-2 h-4 w-4"/>}
+                            Change Award Decision
+                        </Button>
+                    )}
+                     <Dialog open={isFormOpen} onOpenChange={setFormOpen}>
+                        <DialogTrigger asChild>
+                            <Button disabled={isAwarded}><PlusCircle className="mr-2 h-4 w-4"/>Add Quotation</Button>
+                        </DialogTrigger>
+                        {requisition && <AddQuoteForm requisition={requisition} vendors={vendors} onQuoteAdded={handleQuoteAdded} />}
+                    </Dialog>
+                </div>
             </CardHeader>
              <CardContent>
                 {quotations.length > 1 && !isAwarded && (

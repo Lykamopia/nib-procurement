@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server';
 import { auditLogs, quotations, requisitions } from '@/lib/data-store';
 import { users } from '@/lib/auth-store';
 
+type StatusUpdate = 'Awarded' | 'Rejected' | 'ChangeAward';
+
 export async function PATCH(
   request: Request,
   { params }: { params: { id: string } }
@@ -10,9 +12,9 @@ export async function PATCH(
   try {
     const quoteId = params.id;
     const body = await request.json();
-    const { status, userId, requisitionId } = body;
+    const { status, userId, requisitionId } = body as { status: StatusUpdate, userId: string, requisitionId: string };
 
-    if (!['Awarded', 'Rejected'].includes(status)) {
+    if (!['Awarded', 'Rejected', 'ChangeAward'].includes(status)) {
       return NextResponse.json({ error: 'Invalid status provided.' }, { status: 400 });
     }
     
@@ -21,29 +23,53 @@ export async function PATCH(
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
     
-    const quoteToUpdate = quotations.find(q => q.id === quoteId);
-    if (!quoteToUpdate) {
-        return NextResponse.json({ error: 'Quotation not found' }, { status: 404 });
-    }
+    let updatedQuote = null;
+    let auditDetails = '';
 
-    quoteToUpdate.status = status;
-    let auditDetails = `marked quotation ${quoteId} as "${status}".`;
-
-    // If a quote is awarded, reject all others for the same requisition.
-    if (status === 'Awarded') {
-      quotations.forEach(q => {
-        if (q.requisitionId === requisitionId && q.id !== quoteId) {
-          q.status = 'Rejected';
+    if (status === 'ChangeAward') {
+        auditDetails = `changed the award decision for requisition ${requisitionId}, reverting all quotes to Submitted.`;
+        quotations.forEach(q => {
+            if (q.requisitionId === requisitionId) {
+                q.status = 'Submitted';
+            }
+        });
+        const requisition = requisitions.find(r => r.id === requisitionId);
+        if (requisition) {
+            requisition.status = 'Approved';
+            requisition.updatedAt = new Date();
         }
-      });
-      auditDetails = `awarded quotation ${quoteId}. All other quotes for requisition ${requisitionId} were rejected.`
-      
-      // Update the main requisition status
-      const requisition = requisitions.find(r => r.id === requisitionId);
-      if (requisition) {
-        requisition.status = 'RFQ In Progress'; 
-        requisition.updatedAt = new Date();
-      }
+    } else {
+        const quoteToUpdate = quotations.find(q => q.id === quoteId);
+        if (!quoteToUpdate) {
+            return NextResponse.json({ error: 'Quotation not found' }, { status: 404 });
+        }
+        updatedQuote = quoteToUpdate;
+        updatedQuote.status = status;
+        auditDetails = `marked quotation ${quoteId} as "${status}".`;
+
+        // If a quote is awarded, reject all others for the same requisition.
+        if (status === 'Awarded') {
+            const rejectedQuotes: string[] = [];
+            quotations.forEach(q => {
+                if (q.requisitionId === requisitionId && q.id !== quoteId) {
+                    if (q.status !== 'Rejected') {
+                       q.status = 'Rejected';
+                       rejectedQuotes.push(q.id);
+                    }
+                }
+            });
+            auditDetails = `awarded quotation ${quoteId}.`
+            if (rejectedQuotes.length > 0) {
+                auditDetails += ` Automatically rejected other quotes: ${rejectedQuotes.join(', ')}.`;
+            }
+            
+            // Update the main requisition status
+            const requisition = requisitions.find(r => r.id === requisitionId);
+            if (requisition) {
+                requisition.status = 'RFQ In Progress'; 
+                requisition.updatedAt = new Date();
+            }
+        }
     }
     
     // Add to audit log
@@ -54,12 +80,12 @@ export async function PATCH(
         role: user.role,
         action: 'UPDATE_STATUS',
         entity: 'Quotation',
-        entityId: quoteId,
+        entityId: quoteId || requisitionId,
         details: auditDetails,
     });
 
 
-    return NextResponse.json(quoteToUpdate);
+    return NextResponse.json(updatedQuote);
   } catch (error) {
     console.error('Failed to update quotation status:', error);
     if (error instanceof Error) {
