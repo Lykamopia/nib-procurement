@@ -11,11 +11,10 @@ export function resetData() {
     req.quotations = data.quotations.filter(q => q.requisitionId === req.id);
   });
    // Also re-link vendor users to vendors
-  const vendorUsers = data.users.filter(u => u.role === 'Vendor');
-  vendorUsers.forEach(user => {
-    const vendor = data.vendors.find(v => v.userId === user.id);
-    if (vendor) {
-        (user as any).vendorId = vendor.id;
+  data.vendors.forEach(vendor => {
+    const user = data.users.find(u => u.id === vendor.userId);
+    if (user) {
+        user.vendorId = vendor.id;
     }
   });
 }
@@ -23,6 +22,14 @@ export function resetData() {
 // Initial load
 data.requisitions.forEach(req => {
   req.quotations = data.quotations.filter(q => q.requisitionId === req.id);
+});
+
+// Also re-link vendor users to vendors on initial load
+data.vendors.forEach(vendor => {
+    const user = data.users.find(u => u.id === vendor.userId);
+    if (user) {
+        user.vendorId = vendor.id;
+    }
 });
 
 
@@ -34,3 +41,4 @@ export const quotations: Quotation[] = data.quotations;
 export const purchaseOrders: PurchaseOrder[] = data.purchaseOrders;
 export const goodsReceipts: GoodsReceiptNote[] = data.goodsReceipts;
 export const invoices: Invoice[] = data.invoices;
+
