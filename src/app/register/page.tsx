@@ -20,14 +20,12 @@ import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { UserRole } from '@/lib/types';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Separator } from '@/components/ui/separator';
 
 export default function RegisterPage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState<UserRole>('Requester');
   const [contactPerson, setContactPerson] = useState('');
   const [address, setAddress] = useState('');
   const [phone, setPhone] = useState('');
@@ -35,19 +33,20 @@ export default function RegisterPage() {
   const router = useRouter();
   const { login: authLogin } = useAuth();
   const { toast } = useToast();
+  const role: UserRole = 'Vendor'; // Hardcode role to Vendor
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
-    const vendorDetails = role === 'Vendor' ? { contactPerson, address, phone } : undefined;
+    const vendorDetails = { contactPerson, address, phone };
 
     const result = await register(name, email, password, role, vendorDetails);
     if (result) {
       authLogin(result.token, result.user, result.role);
       toast({
         title: 'Registration Successful',
-        description: `Welcome, ${result.user.name}!`,
+        description: `Welcome, ${result.user.name}! Your vendor application is pending verification.`,
       });
       router.push('/');
     } else {
@@ -64,44 +63,19 @@ export default function RegisterPage() {
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle className="text-xl">Sign Up</CardTitle>
+          <CardTitle className="text-xl">Vendor Registration</CardTitle>
           <CardDescription>
-            Enter your information to create an account
+            Enter your company information to create a vendor account.
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleRegister}>
           <CardContent className="grid gap-4">
-            <div className="grid gap-2">
-              <Label>Role</Label>
-              <RadioGroup
-                value={role}
-                onValueChange={(value) => setRole(value as UserRole)}
-                className="flex flex-wrap gap-4"
-              >
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="Requester" id="r1" />
-                  <Label htmlFor="r1">Requester</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="Approver" id="r2" />
-                  <Label htmlFor="r2">Approver</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="Procurement Officer" id="r3" />
-                  <Label htmlFor="r3">Procurement</Label>
-                </div>
-                 <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="Vendor" id="r4" />
-                  <Label htmlFor="r4">Vendor</Label>
-                </div>
-              </RadioGroup>
-            </div>
             
             <div className="grid gap-2">
-              <Label htmlFor="name">{role === 'Vendor' ? 'Company Name' : 'Full Name'}</Label>
+              <Label htmlFor="name">Company Name</Label>
               <Input 
                 id="name" 
-                placeholder={role === 'Vendor' ? 'Your Company LLC' : 'Jane Doe'}
+                placeholder="Your Company LLC"
                 required 
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -129,52 +103,50 @@ export default function RegisterPage() {
               />
             </div>
 
-            {role === 'Vendor' && (
-                <>
-                    <Separator />
-                     <p className="text-sm text-muted-foreground">Please provide your business details for verification.</p>
-                    <div className="grid gap-2">
-                        <Label htmlFor="contactPerson">Contact Person</Label>
-                        <Input 
-                            id="contactPerson" 
-                            placeholder="Jane Doe" 
-                            required 
-                            value={contactPerson}
-                            onChange={(e) => setContactPerson(e.target.value)}
-                        />
-                    </div>
-                     <div className="grid gap-2">
-                        <Label htmlFor="phone">Phone Number</Label>
-                        <Input 
-                            id="phone" 
-                            placeholder="(555) 123-4567" 
-                            required 
-                            value={phone}
-                            onChange={(e) => setPhone(e.target.value)}
-                        />
-                    </div>
-                     <div className="grid gap-2">
-                        <Label htmlFor="address">Business Address</Label>
-                        <Input 
-                            id="address" 
-                            placeholder="123 Main St, Anytown, USA" 
-                            required 
-                            value={address}
-                            onChange={(e) => setAddress(e.target.value)}
-                        />
-                    </div>
-                     <div className="grid gap-2">
-                        <Label htmlFor="license">Business License</Label>
-                        <Input id="license" type="file" required />
-                         <p className="text-xs text-muted-foreground">Upload a PDF of your business license.</p>
-                    </div>
-                     <div className="grid gap-2">
-                        <Label htmlFor="tax-id">Tax ID Document</Label>
-                        <Input id="tax-id" type="file" required />
-                         <p className="text-xs text-muted-foreground">Upload a PDF of your tax registration.</p>
-                    </div>
-                </>
-            )}
+            <>
+                <Separator />
+                  <p className="text-sm text-muted-foreground">Please provide your business details for verification.</p>
+                <div className="grid gap-2">
+                    <Label htmlFor="contactPerson">Contact Person</Label>
+                    <Input 
+                        id="contactPerson" 
+                        placeholder="Jane Doe" 
+                        required 
+                        value={contactPerson}
+                        onChange={(e) => setContactPerson(e.target.value)}
+                    />
+                </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="phone">Phone Number</Label>
+                    <Input 
+                        id="phone" 
+                        placeholder="(555) 123-4567" 
+                        required 
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                    />
+                </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="address">Business Address</Label>
+                    <Input 
+                        id="address" 
+                        placeholder="123 Main St, Anytown, USA" 
+                        required 
+                        value={address}
+                        onChange={(e) => setAddress(e.target.value)}
+                    />
+                </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="license">Business License</Label>
+                    <Input id="license" type="file" required />
+                      <p className="text-xs text-muted-foreground">Upload a PDF of your business license.</p>
+                </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="tax-id">Tax ID Document</Label>
+                    <Input id="tax-id" type="file" required />
+                      <p className="text-xs text-muted-foreground">Upload a PDF of your tax registration.</p>
+                </div>
+            </>
 
           </CardContent>
           <CardFooter className="flex flex-col gap-4">
