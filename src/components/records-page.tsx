@@ -172,7 +172,7 @@ export function RecordsPage() {
                       <Badge variant={getStatusVariant(record.status)}>{record.status}</Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                        {record.amount > 0 ? `$${record.amount.toLocaleString()}`: '-'}
+                        {record.amount > 0 ? `${record.amount.toLocaleString()} ETB`: '-'}
                     </TableCell>
                     <TableCell>
                         <div className="flex gap-2">

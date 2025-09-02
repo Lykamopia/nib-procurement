@@ -171,7 +171,7 @@ function AddQuoteForm({ requisition, vendors, onQuoteAdded }: { requisition: Pur
                                         name={`items.${index}.unitPrice`}
                                         render={({ field }) => (
                                             <FormItem>
-                                                <FormLabel>Unit Price ($)</FormLabel>
+                                                <FormLabel>Unit Price (ETB)</FormLabel>
                                                 <FormControl><Input type="number" step="0.01" {...field} value={field.value ?? ''} /></FormControl>
                                                 <FormMessage />
                                             </FormItem>
@@ -241,7 +241,7 @@ const QuoteComparison = ({ quotes, onAction, recommendationId }: { quotes: Quota
                         <CardDescription>Submitted {formatDistanceToNow(new Date(quote.createdAt), { addSuffix: true })}</CardDescription>
                     </CardHeader>
                     <CardContent className="flex-grow space-y-4">
-                        <div className="text-3xl font-bold text-center">${quote.totalPrice.toLocaleString()}</div>
+                        <div className="text-3xl font-bold text-center">{quote.totalPrice.toLocaleString()} ETB</div>
                         <div className="text-center text-muted-foreground">Est. Delivery: {format(new Date(quote.deliveryDate), 'PP')}</div>
                         
                         <div className="text-sm space-y-2">
@@ -249,7 +249,7 @@ const QuoteComparison = ({ quotes, onAction, recommendationId }: { quotes: Quota
                             {quote.items.map(item => (
                                 <div key={item.requisitionItemId} className="flex justify-between items-center text-muted-foreground">
                                     <span>{item.name} x {item.quantity}</span>
-                                    <span className="font-mono">${item.unitPrice.toFixed(2)} ea.</span>
+                                    <span className="font-mono">{item.unitPrice.toFixed(2)} ETB ea.</span>
                                 </div>
                             ))}
                         </div>

@@ -32,7 +32,7 @@ export function RfqGeneratorTool() {
   const [requisitionDetails, setRequisitionDetails] = useState(exampleRequisition);
   const [vendorList, setVendorList] = useState<string[]>(['vendor-a@example.com', 'vendor-b@example.com']);
   const [newVendor, setNewVendor] = useState('');
-  const [additionalInstructions, setAdditionalInstructions] = useState('Please provide pricing in USD. Include warranty information and estimated delivery time.');
+  const [additionalInstructions, setAdditionalInstructions] = useState('Please provide pricing in ETB. Include warranty information and estimated delivery time.');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<GenerateRfqOutput | null>(null);
   const { toast } = useToast();

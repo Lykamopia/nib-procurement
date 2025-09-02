@@ -97,7 +97,7 @@ function CollapsibleTableRow({ req, onAction, isOpen, onToggle }: { req: Purchas
                 <BudgetStatusBadge status={req.budgetStatus}/>
                 </TableCell>
                 <TableCell className="text-right">
-                  {req.totalPrice && req.totalPrice > 0 ? `$${req.totalPrice.toLocaleString()}` : 'N/A'}
+                  {req.totalPrice && req.totalPrice > 0 ? `${req.totalPrice.toLocaleString()} ETB` : 'N/A'}
                 </TableCell>
                 <TableCell>{format(new Date(req.createdAt), 'PP')}</TableCell>
                 <TableCell>
@@ -129,7 +129,7 @@ function CollapsibleTableRow({ req, onAction, isOpen, onToggle }: { req: Purchas
                                     {req.items.map(item => (
                                     <li key={item.id}>
                                         {item.quantity} x {item.name} 
-                                        {item.unitPrice && ` @ $${item.unitPrice.toLocaleString()} each`}
+                                        {item.unitPrice && ` @ ${item.unitPrice.toLocaleString()} ETB each`}
                                     </li>
                                     ))}
                                 </ul>

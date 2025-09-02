@@ -77,7 +77,7 @@ export function PurchaseOrdersList() {
                     <TableCell>{po.requisitionTitle}</TableCell>
                     <TableCell>{po.vendor.name}</TableCell>
                     <TableCell>{format(new Date(po.createdAt), 'PP')}</TableCell>
-                    <TableCell className="text-right">${po.totalAmount.toLocaleString()}</TableCell>
+                    <TableCell className="text-right">{po.totalAmount.toLocaleString()} ETB</TableCell>
                     <TableCell>
                       <Badge>{po.status}</Badge>
                     </TableCell>

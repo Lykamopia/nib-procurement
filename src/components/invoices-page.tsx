@@ -219,11 +219,11 @@ function AddInvoiceForm({ onInvoiceAdded }: { onInvoiceAdded: () => void }) {
                             <div key={field.id} className="grid grid-cols-4 gap-2 items-center">
                                 <p className="col-span-2">{field.name}</p>
                                 <p>x {field.quantity}</p>
-                                <p className="text-right">${field.totalPrice.toFixed(2)}</p>
+                                <p className="text-right">{field.totalPrice.toFixed(2)} ETB</p>
                             </div>
                         ))}
                     </div>
-                    <div className="text-right font-bold text-xl">Total: ${totalAmount.toFixed(2)}</div>
+                    <div className="text-right font-bold text-xl">Total: {totalAmount.toFixed(2)} ETB</div>
                     
                     <DialogFooter>
                         <DialogClose asChild><Button type="button" variant="ghost">Cancel</Button></DialogClose>
@@ -379,7 +379,7 @@ export function InvoicesPage() {
                          )}
                       </div>
                     </TableCell>
-                    <TableCell className="text-right">${invoice.totalAmount.toLocaleString()}</TableCell>
+                    <TableCell className="text-right">{invoice.totalAmount.toLocaleString()} ETB</TableCell>
                     <TableCell>
                       <div className="flex gap-2">
                         {invoice.status === 'Pending' && (
@@ -411,7 +411,7 @@ export function InvoicesPage() {
                                     <AlertDialogHeader>
                                         <AlertDialogTitle>Confirm Payment</AlertDialogTitle>
                                         <AlertDialogDescription>
-                                            This will simulate a payment for ${invoice.totalAmount.toLocaleString()} for invoice {invoice.id}. This action cannot be undone.
+                                            This will simulate a payment for {invoice.totalAmount.toLocaleString()} ETB for invoice {invoice.id}. This action cannot be undone.
                                         </AlertDialogDescription>
                                     </AlertDialogHeader>
                                     <AlertDialogFooter>

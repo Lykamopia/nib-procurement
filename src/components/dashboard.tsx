@@ -208,8 +208,8 @@ export function Dashboard({ setActiveView }: DashboardProps) {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  ${stats?.budgetStatus.spent.toLocaleString()} / $
-                  {stats?.budgetStatus.total.toLocaleString()}
+                  {stats?.budgetStatus.spent.toLocaleString()} ETB / 
+                  {stats?.budgetStatus.total.toLocaleString()} ETB
                 </div>
                 <p className="text-xs text-muted-foreground">
                   {budgetPercentage.toFixed(1)}% of budget utilized

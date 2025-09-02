@@ -107,8 +107,8 @@ function MatchDetails({ result }: { result: MatchingResult }) {
         <Card>
           <CardHeader><CardTitle>Totals</CardTitle></CardHeader>
           <CardContent>
-            <MatchDetailRow label="PO Total" value={`$${result.details.poTotal.toFixed(2)}`} />
-            <MatchDetailRow label="Invoice Total" value={`$${result.details.invoiceTotal.toFixed(2)}`} isMismatch={result.details.poTotal !== result.details.invoiceTotal}/>
+            <MatchDetailRow label="PO Total" value={`${result.details.poTotal.toFixed(2)} ETB`} />
+            <MatchDetailRow label="Invoice Total" value={`${result.details.invoiceTotal.toFixed(2)} ETB`} isMismatch={result.details.poTotal !== result.details.invoiceTotal}/>
             <MatchDetailRow label="PO Quantity" value={result.details.items.reduce((acc, i) => acc + i.poQuantity, 0)} />
             <MatchDetailRow label="GRN Quantity" value={result.details.grnTotalQuantity} isMismatch={result.details.items.reduce((acc, i) => acc + i.poQuantity, 0) !== result.details.grnTotalQuantity} />
             <MatchDetailRow label="Invoice Quantity" value={result.details.invoiceTotalQuantity} isMismatch={result.details.items.reduce((acc, i) => acc + i.poQuantity, 0) !== result.details.invoiceTotalQuantity} />
@@ -135,8 +135,8 @@ function MatchDetails({ result }: { result: MatchingResult }) {
                                 <TableCell>{item.poQuantity}</TableCell>
                                 <TableCell className={cn(!item.quantityMatch && "text-destructive font-bold")}>{item.grnQuantity}</TableCell>
                                 <TableCell className={cn(!item.quantityMatch && "text-destructive font-bold")}>{item.invoiceQuantity}</TableCell>
-                                <TableCell>${item.poUnitPrice.toFixed(2)}</TableCell>
-                                <TableCell className={cn(!item.priceMatch && "text-destructive font-bold")}>${item.invoiceUnitPrice.toFixed(2)}</TableCell>
+                                <TableCell>{item.poUnitPrice.toFixed(2)} ETB</TableCell>
+                                <TableCell className={cn(!item.priceMatch && "text-destructive font-bold")}>{item.invoiceUnitPrice.toFixed(2)} ETB</TableCell>
                             </TableRow>
                         ))}
                     </TableBody>
@@ -221,8 +221,8 @@ export function InvoiceMatchingDashboard() {
                         <TableCell>
                           <MatchingStatusBadge status={result.status} />
                         </TableCell>
-                        <TableCell>${result.details.poTotal.toFixed(2)}</TableCell>
-                         <TableCell>${result.details.invoiceTotal.toFixed(2)}</TableCell>
+                        <TableCell>{result.details.poTotal.toFixed(2)} ETB</TableCell>
+                         <TableCell>{result.details.invoiceTotal.toFixed(2)} ETB</TableCell>
                         <TableCell>
                             {result.quantityMatch ? <CheckCircle2 className="text-green-500"/> : <AlertTriangle className="text-destructive" />}
                         </TableCell>

@@ -20,15 +20,15 @@ const exampleRequisition = `{
   "title": "New Laptops for Design Team",
   "department": "Design",
   "items": [
-    { "name": "MacBook Pro 16-inch", "quantity": 5, "unitPrice": 2499 },
-    { "name": "4K Monitor", "quantity": 5, "unitPrice": 799 }
+    { "name": "MacBook Pro 16-inch", "quantity": 5, "unitPrice": 75000 },
+    { "name": "4K Monitor", "quantity": 5, "unitPrice": 25000 }
   ],
-  "totalPrice": 16490,
+  "totalPrice": 500000,
   "justification": "Current laptops are over 5 years old and struggling with new design software. New machines will improve productivity significantly."
 }`;
 
-const exampleBudgetPolicies = `- All hardware purchases over $10,000 require VP approval.
-- Individual workstations (laptop + monitor) should not exceed $3,500.
+const exampleBudgetPolicies = `- All hardware purchases over 300,000 ETB require VP approval.
+- Individual workstations (laptop + monitor) should not exceed 100,000 ETB.
 - Unbudgeted expenses require a 2-week lead time for finance review.`;
 
 const exampleCompliancePolicies = `- All computing hardware must be sourced from approved vendors: Apple, Dell, or Lenovo.

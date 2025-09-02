@@ -184,7 +184,7 @@ export default function VendorRequisitionPage() {
                                                 name={`items.${index}.unitPrice`}
                                                 render={({ field }) => (
                                                     <FormItem>
-                                                        <FormLabel>Unit Price ($)</FormLabel>
+                                                        <FormLabel>Unit Price (ETB)</FormLabel>
                                                         <FormControl><Input type="number" step="0.01" {...field} value={field.value ?? ''} /></FormControl>
                                                         <FormMessage />
                                                     </FormItem>
@@ -220,7 +220,7 @@ export default function VendorRequisitionPage() {
                             />
                             <Separator />
                              <div className="text-right font-bold text-xl">
-                                Total Quote Price: ${totalQuotePrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                Total Quote Price: {totalQuotePrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETB
                              </div>
                              <div className="flex justify-end gap-2">
                                 <Button variant="ghost" asChild><Link href="/vendor/dashboard">Cancel</Link></Button>

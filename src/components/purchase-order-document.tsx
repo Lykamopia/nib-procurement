@@ -86,8 +86,8 @@ export function PurchaseOrderDocument({ po }: { po: PurchaseOrder }) {
                           <TableRow key={item.id}>
                               <TableCell className="font-medium">{item.name}</TableCell>
                               <TableCell className="text-right">{item.quantity}</TableCell>
-                              <TableCell className="text-right">${item.unitPrice.toFixed(2)}</TableCell>
-                              <TableCell className="text-right">${item.totalPrice.toFixed(2)}</TableCell>
+                              <TableCell className="text-right">{item.unitPrice.toFixed(2)} ETB</TableCell>
+                              <TableCell className="text-right">{item.totalPrice.toFixed(2)} ETB</TableCell>
                           </TableRow>
                       ))}
                   </TableBody>
@@ -99,7 +99,7 @@ export function PurchaseOrderDocument({ po }: { po: PurchaseOrder }) {
                 <Separator />
                 <div className="flex justify-between font-bold text-lg">
                   <span>Total</span>
-                  <span>${po.totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  <span>{po.totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETB</span>
                 </div>
               </div>
             </div>
