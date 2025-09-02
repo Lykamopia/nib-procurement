@@ -53,10 +53,6 @@ const formSchema = z.object({
       z.object({
         name: z.string().min(2, 'Item name is required.'),
         quantity: z.coerce.number().min(1, 'Quantity must be at least 1.'),
-        unitPrice: z.coerce
-          .number()
-          .min(0, 'Price must be a positive number.')
-          .optional(),
       })
     )
     .min(1, 'At least one item is required.'),
@@ -75,7 +71,7 @@ export function NeedsRecognitionForm() {
       title: '',
       justification: '',
       urgency: 'Low',
-      items: [{ name: '', quantity: 1, unitPrice: undefined }],
+      items: [{ name: '', quantity: 1 }],
     },
   });
 
@@ -117,10 +113,6 @@ export function NeedsRecognitionForm() {
       setLoading(false);
     }
   }
-
-  const total = form.watch('items').reduce((acc, item) => {
-    return acc + (item.quantity || 0) * (item.unitPrice || 0);
-  }, 0);
 
   return (
     <Card>
@@ -221,19 +213,6 @@ export function NeedsRecognitionForm() {
                           </FormItem>
                         )}
                       />
-                        <FormField
-                        control={form.control}
-                        name={`items.${index}.unitPrice`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Est. Unit Price (ETB)</FormLabel>
-                            <FormControl>
-                              <Input type="number" step="0.01" placeholder="0.00" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
                     </div>
                     <Button
                       type="button"
@@ -252,16 +231,12 @@ export function NeedsRecognitionForm() {
                     variant="outline"
                     size="sm"
                     onClick={() =>
-                    append({ name: '', quantity: 1, unitPrice: 0 })
+                    append({ name: '', quantity: 1 })
                     }
                 >
                     <PlusCircle className="mr-2 h-4 w-4" />
                     Add Item
                 </Button>
-                <div className="text-right">
-                    <p className="text-muted-foreground">Estimated Total</p>
-                    <p className="font-bold text-lg">{total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETB</p>
-                </div>
               </div>
             </div>
 
