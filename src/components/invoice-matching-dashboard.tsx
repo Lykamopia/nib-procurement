@@ -73,7 +73,7 @@ const MatchDetailRow = ({ label, value, isMismatch = false }: { label: string, v
     </div>
 )
 
-function MatchDetails({ result }: { result: MatchingResult }) {
+function MatchDetails({ result, onResolve }: { result: MatchingResult, onResolve: () => void }) {
     const { user } = useAuth();
     const { toast } = useToast();
     const [isResolving, setResolving] = useState(false);
@@ -89,7 +89,7 @@ function MatchDetails({ result }: { result: MatchingResult }) {
             });
             if (!response.ok) throw new Error("Failed to resolve mismatch.");
             toast({ title: "Mismatch Resolved", description: `PO ${result.poId} has been manually marked as matched.` });
-            // Here you would typically refetch the data to update the UI
+            onResolve();
         } catch (error) {
              toast({
                 variant: 'destructive',
@@ -105,8 +105,8 @@ function MatchDetails({ result }: { result: MatchingResult }) {
     <div className="p-4 bg-muted/50">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card>
-          <CardHeader><CardTitle>Totals</CardTitle></CardHeader>
-          <CardContent>
+          <CardHeader><CardTitle className="text-base">Totals</CardTitle></CardHeader>
+          <CardContent className="text-sm">
             <MatchDetailRow label="PO Total" value={`${result.details.poTotal.toFixed(2)} ETB`} />
             <MatchDetailRow label="Invoice Total" value={`${result.details.invoiceTotal.toFixed(2)} ETB`} isMismatch={result.details.poTotal !== result.details.invoiceTotal}/>
             <MatchDetailRow label="PO Quantity" value={result.details.items.reduce((acc, i) => acc + i.poQuantity, 0)} />
@@ -115,7 +115,7 @@ function MatchDetails({ result }: { result: MatchingResult }) {
           </CardContent>
         </Card>
         <Card className="md:col-span-2">
-            <CardHeader><CardTitle>Item Breakdown</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-base">Item Breakdown</CardTitle></CardHeader>
             <CardContent>
                 <Table>
                     <TableHeader>
@@ -161,8 +161,7 @@ export function InvoiceMatchingDashboard() {
   const [loading, setLoading] = useState(true);
   const [openItem, setOpenItem] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchResults = async () => {
+  const fetchResults = async () => {
       setLoading(true);
       try {
         const response = await fetch('/api/matching');
@@ -174,6 +173,8 @@ export function InvoiceMatchingDashboard() {
         setLoading(false);
       }
     };
+
+  useEffect(() => {
     fetchResults();
   }, []);
 
@@ -208,10 +209,14 @@ export function InvoiceMatchingDashboard() {
               {results.length > 0 ? (
                 results.map((result) => (
                   <Collapsible asChild key={result.poId} onOpenChange={(isOpen) => setOpenItem(isOpen ? result.poId : null)}>
+                    <>
                     <TableRow className="cursor-pointer">
                       <TableCell>
-                        <CollapsibleTrigger>
-                          {openItem === result.poId ? <ChevronUp/> : <ChevronDown />}
+                        <CollapsibleTrigger asChild>
+                           <Button variant="ghost" size="sm" className="w-9 p-0">
+                                <span className="sr-only">Toggle Details</span>
+                                {openItem === result.poId ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4"/>}
+                           </Button>
                         </CollapsibleTrigger>
                       </TableCell>
                       <TableCell className="font-medium text-primary">
@@ -229,6 +234,14 @@ export function InvoiceMatchingDashboard() {
                            {result.priceMatch ? <CheckCircle2 className="text-green-500"/> : <AlertTriangle className="text-destructive" />}
                       </TableCell>
                     </TableRow>
+                     <CollapsibleContent asChild>
+                        <TableRow>
+                            <TableCell colSpan={7}>
+                               <MatchDetails result={result} onResolve={fetchResults} />
+                            </TableCell>
+                        </TableRow>
+                    </CollapsibleContent>
+                    </>
                   </Collapsible>
                 ))
               ) : (
