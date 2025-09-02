@@ -80,10 +80,11 @@ const BudgetStatusBadge = ({ status }: { status: BudgetStatus }) => {
   }
 }
 
-function CollapsibleTableRow({ req, onAction, isOpen, onToggle }: { req: PurchaseRequisition, onAction: (req: PurchaseRequisition, type: 'approve' | 'reject') => void, isOpen: boolean, onToggle: () => void }) {
+function CollapsibleTableRow({ req, onAction, isOpen, onToggle, index }: { req: PurchaseRequisition, onAction: (req: PurchaseRequisition, type: 'approve' | 'reject') => void, isOpen: boolean, onToggle: () => void, index: number }) {
     return (
         <>
             <TableRow>
+                <TableCell className="text-muted-foreground">{index + 1}</TableCell>
                 <TableCell>
                     <Button variant="ghost" size="sm" className="w-9 p-0" onClick={onToggle}>
                         <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", isOpen && "rotate-180")} />
@@ -115,7 +116,7 @@ function CollapsibleTableRow({ req, onAction, isOpen, onToggle }: { req: Purchas
             </TableRow>
             {isOpen && (
                 <TableRow className="bg-muted/50 hover:bg-muted/50">
-                    <TableCell colSpan={8} className="p-0">
+                    <TableCell colSpan={9} className="p-0">
                             <div className="p-4">
                             <h4 className="font-semibold mb-2">Requisition Details:</h4>
                             <div className="grid md:grid-cols-2 gap-4 text-sm">
@@ -241,6 +242,7 @@ export function ApprovalsTable() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10">#</TableHead>
                 <TableHead className="w-12"></TableHead>
                 <TableHead>Req. ID</TableHead>
                 <TableHead>Title</TableHead>
@@ -253,10 +255,11 @@ export function ApprovalsTable() {
             </TableHeader>
             <TableBody>
               {paginatedRequisitions.length > 0 ? (
-                paginatedRequisitions.map(req => (
+                paginatedRequisitions.map((req, index) => (
                   <CollapsibleTableRow 
                     key={req.id} 
-                    req={req} 
+                    req={req}
+                    index={(currentPage - 1) * PAGE_SIZE + index}
                     onAction={handleAction} 
                     isOpen={openRequisitionId === req.id}
                     onToggle={() => setOpenRequisitionId(openRequisitionId === req.id ? null : req.id)}
@@ -264,7 +267,7 @@ export function ApprovalsTable() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={8} className="h-24 text-center">
+                  <TableCell colSpan={9} className="h-24 text-center">
                     No requisitions pending approval.
                   </TableCell>
                 </TableRow>

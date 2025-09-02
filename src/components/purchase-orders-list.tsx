@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Table,
   TableBody,
@@ -22,10 +22,14 @@ import { PurchaseOrder } from '@/lib/types';
 import { format } from 'date-fns';
 import { Button } from './ui/button';
 import Link from 'next/link';
+import { ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight } from 'lucide-react';
+
+const PAGE_SIZE = 10;
 
 export function PurchaseOrdersList() {
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     const fetchPOs = async () => {
@@ -42,6 +46,12 @@ export function PurchaseOrdersList() {
     };
     fetchPOs();
   }, []);
+
+  const totalPages = Math.ceil(purchaseOrders.length / PAGE_SIZE);
+  const paginatedPOs = useMemo(() => {
+    const startIndex = (currentPage - 1) * PAGE_SIZE;
+    return purchaseOrders.slice(startIndex, startIndex + PAGE_SIZE);
+  }, [purchaseOrders, currentPage]);
 
   if (loading) {
     return <p>Loading purchase orders...</p>;
@@ -60,6 +70,7 @@ export function PurchaseOrdersList() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>#</TableHead>
                 <TableHead>PO Number</TableHead>
                 <TableHead>Requisition</TableHead>
                 <TableHead>Vendor</TableHead>
@@ -70,9 +81,10 @@ export function PurchaseOrdersList() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {purchaseOrders.length > 0 ? (
-                purchaseOrders.map((po) => (
+              {paginatedPOs.length > 0 ? (
+                paginatedPOs.map((po, index) => (
                   <TableRow key={po.id}>
+                    <TableCell className="text-muted-foreground">{(currentPage - 1) * PAGE_SIZE + index + 1}</TableCell>
                     <TableCell className="font-medium text-primary">{po.id}</TableCell>
                     <TableCell>{po.requisitionTitle}</TableCell>
                     <TableCell>{po.vendor.name}</TableCell>
@@ -90,7 +102,7 @@ export function PurchaseOrdersList() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={7} className="h-24 text-center">
+                  <TableCell colSpan={8} className="h-24 text-center">
                     No purchase orders found.
                   </TableCell>
                 </TableRow>
@@ -98,8 +110,18 @@ export function PurchaseOrdersList() {
             </TableBody>
           </Table>
         </div>
+         <div className="flex items-center justify-between mt-4">
+          <div className="text-sm text-muted-foreground">
+             Page {currentPage} of {totalPages} ({purchaseOrders.length} total POs)
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="icon" onClick={() => setCurrentPage(1)} disabled={currentPage === 1}><ChevronsLeft /></Button>
+            <Button variant="outline" size="icon" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}><ChevronLeft /></Button>
+            <Button variant="outline" size="icon" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}><ChevronRight /></Button>
+            <Button variant="outline" size="icon" onClick={() => setCurrentPage(totalPages)} disabled={currentPage === totalPages}><ChevronsRight /></Button>
+          </div>
+        </div>
       </CardContent>
     </Card>
   );
 }
-

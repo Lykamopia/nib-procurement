@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Table,
   TableBody,
@@ -22,13 +22,15 @@ import { PurchaseRequisition } from '@/lib/types';
 import { format } from 'date-fns';
 import { Badge } from './ui/badge';
 import { useRouter } from 'next/navigation';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight } from 'lucide-react';
 
+const PAGE_SIZE = 10;
 
 export function RequisitionsForQuotingTable() {
   const [requisitions, setRequisitions] = useState<PurchaseRequisition[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
   const router = useRouter();
 
 
@@ -54,6 +56,12 @@ export function RequisitionsForQuotingTable() {
     fetchRequisitions();
   }, []);
   
+  const totalPages = Math.ceil(requisitions.length / PAGE_SIZE);
+  const paginatedData = useMemo(() => {
+    const startIndex = (currentPage - 1) * PAGE_SIZE;
+    return requisitions.slice(startIndex, startIndex + PAGE_SIZE);
+  }, [requisitions, currentPage]);
+
 
   const handleRowClick = (reqId: string) => {
     router.push(`/quotations/${reqId}`);
@@ -82,6 +90,7 @@ export function RequisitionsForQuotingTable() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10">#</TableHead>
                 <TableHead>Req. ID</TableHead>
                 <TableHead>Title</TableHead>
                 <TableHead>Department</TableHead>
@@ -91,9 +100,10 @@ export function RequisitionsForQuotingTable() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {requisitions.length > 0 ? (
-                requisitions.map(req => (
+              {paginatedData.length > 0 ? (
+                paginatedData.map((req, index) => (
                   <TableRow key={req.id} className="cursor-pointer" onClick={() => handleRowClick(req.id)}>
+                    <TableCell className="text-muted-foreground">{(currentPage - 1) * PAGE_SIZE + index + 1}</TableCell>
                     <TableCell className="font-medium text-primary">{req.id}</TableCell>
                     <TableCell>{req.title}</TableCell>
                     <TableCell>{req.department}</TableCell>
@@ -110,13 +120,24 @@ export function RequisitionsForQuotingTable() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={6} className="h-24 text-center">
+                  <TableCell colSpan={7} className="h-24 text-center">
                     No requisitions are currently ready for quotation.
                   </TableCell>
                 </TableRow>
               )}
             </TableBody>
           </Table>
+        </div>
+         <div className="flex items-center justify-between mt-4">
+          <div className="text-sm text-muted-foreground">
+            Page {currentPage} of {totalPages} ({requisitions.length} total requisitions)
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="icon" onClick={() => setCurrentPage(1)} disabled={currentPage === 1}><ChevronsLeft /></Button>
+            <Button variant="outline" size="icon" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}><ChevronLeft /></Button>
+            <Button variant="outline" size="icon" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}><ChevronRight /></Button>
+            <Button variant="outline" size="icon" onClick={() => setCurrentPage(totalPages)} disabled={currentPage === totalPages}><ChevronsRight /></Button>
+          </div>
         </div>
       </CardContent>
     </Card>

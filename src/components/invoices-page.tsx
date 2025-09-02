@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Table,
   TableBody,
@@ -33,7 +33,7 @@ import {
 } from './ui/dialog';
 import { Input } from './ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, PlusCircle, ThumbsUp, ThumbsDown, FileUp, FileText, Banknote, CheckCircle } from 'lucide-react';
+import { Loader2, PlusCircle, ThumbsUp, ThumbsDown, FileUp, FileText, Banknote, CheckCircle, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight } from 'lucide-react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -56,6 +56,8 @@ const invoiceSchema = z.object({
     totalPrice: z.coerce.number(),
   })),
 });
+
+const PAGE_SIZE = 10;
 
 function AddInvoiceForm({ onInvoiceAdded }: { onInvoiceAdded: () => void }) {
     const [isSubmitting, setSubmitting] = useState(false);
@@ -243,6 +245,7 @@ export function InvoicesPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [isFormOpen, setFormOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -268,6 +271,12 @@ export function InvoicesPage() {
   useEffect(() => {
     fetchInvoices();
   }, []);
+  
+  const totalPages = Math.ceil(invoices.length / PAGE_SIZE);
+  const paginatedInvoices = useMemo(() => {
+    const startIndex = (currentPage - 1) * PAGE_SIZE;
+    return invoices.slice(startIndex, startIndex + PAGE_SIZE);
+  }, [invoices, currentPage]);
 
   const handleInvoiceAdded = () => {
     setFormOpen(false);
@@ -356,6 +365,7 @@ export function InvoicesPage() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>#</TableHead>
                 <TableHead>Invoice ID</TableHead>
                 <TableHead>PO Number</TableHead>
                 <TableHead>Date</TableHead>
@@ -365,9 +375,10 @@ export function InvoicesPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {invoices.length > 0 ? (
-                invoices.map((invoice) => (
+              {paginatedInvoices.length > 0 ? (
+                paginatedInvoices.map((invoice, index) => (
                   <TableRow key={invoice.id}>
+                    <TableCell className="text-muted-foreground">{(currentPage - 1) * PAGE_SIZE + index + 1}</TableCell>
                     <TableCell className="font-medium text-primary">{invoice.id}</TableCell>
                     <TableCell>{invoice.purchaseOrderId}</TableCell>
                     <TableCell>{format(new Date(invoice.invoiceDate), 'PP')}</TableCell>
@@ -434,13 +445,24 @@ export function InvoicesPage() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={6} className="h-24 text-center">
+                  <TableCell colSpan={7} className="h-24 text-center">
                     No invoices found.
                   </TableCell>
                 </TableRow>
               )}
             </TableBody>
           </Table>
+        </div>
+         <div className="flex items-center justify-between mt-4">
+          <div className="text-sm text-muted-foreground">
+             Page {currentPage} of {totalPages} ({invoices.length} total invoices)
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="icon" onClick={() => setCurrentPage(1)} disabled={currentPage === 1}><ChevronsLeft /></Button>
+            <Button variant="outline" size="icon" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}><ChevronLeft /></Button>
+            <Button variant="outline" size="icon" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}><ChevronRight /></Button>
+            <Button variant="outline" size="icon" onClick={() => setCurrentPage(totalPages)} disabled={currentPage === totalPages}><ChevronsRight /></Button>
+          </div>
         </div>
       </CardContent>
     </Card>

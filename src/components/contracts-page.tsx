@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Table,
   TableBody,
@@ -20,12 +20,16 @@ import {
 import { Badge } from './ui/badge';
 import { PurchaseRequisition } from '@/lib/types';
 import { format } from 'date-fns';
-import { FileText, CircleCheck } from 'lucide-react';
+import { FileText, CircleCheck, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight } from 'lucide-react';
+import { Button } from './ui/button';
+
+const PAGE_SIZE = 10;
 
 export function ContractsPage() {
   const [contractedReqs, setContractedReqs] = useState<PurchaseRequisition[]>([]);
   const [loading, setLoading] = useState(true);
-
+  const [currentPage, setCurrentPage] = useState(1);
+  
   useEffect(() => {
     const fetchRequisitions = async () => {
       setLoading(true);
@@ -44,6 +48,12 @@ export function ContractsPage() {
     fetchRequisitions();
   }, []);
 
+  const totalPages = Math.ceil(contractedReqs.length / PAGE_SIZE);
+  const paginatedData = useMemo(() => {
+    const startIndex = (currentPage - 1) * PAGE_SIZE;
+    return contractedReqs.slice(startIndex, startIndex + PAGE_SIZE);
+  }, [contractedReqs, currentPage]);
+
   if (loading) {
     return <p>Loading contracts...</p>;
   }
@@ -61,6 +71,7 @@ export function ContractsPage() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10">#</TableHead>
                 <TableHead>Req. ID</TableHead>
                 <TableHead>Title</TableHead>
                 <TableHead>Department</TableHead>
@@ -70,9 +81,10 @@ export function ContractsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {contractedReqs.length > 0 ? (
-                contractedReqs.map((req) => (
+              {paginatedData.length > 0 ? (
+                paginatedData.map((req, index) => (
                   <TableRow key={req.id}>
+                    <TableCell className="text-muted-foreground">{(currentPage - 1) * PAGE_SIZE + index + 1}</TableCell>
                     <TableCell className="font-medium text-primary">{req.id}</TableCell>
                     <TableCell>{req.title}</TableCell>
                     <TableCell>{req.department}</TableCell>
@@ -90,13 +102,24 @@ export function ContractsPage() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={6} className="h-24 text-center">
+                  <TableCell colSpan={7} className="h-24 text-center">
                     No contracts found.
                   </TableCell>
                 </TableRow>
               )}
             </TableBody>
           </Table>
+        </div>
+         <div className="flex items-center justify-between mt-4">
+          <div className="text-sm text-muted-foreground">
+            Page {currentPage} of {totalPages} ({contractedReqs.length} total contracts)
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="icon" onClick={() => setCurrentPage(1)} disabled={currentPage === 1}><ChevronsLeft /></Button>
+            <Button variant="outline" size="icon" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}><ChevronLeft /></Button>
+            <Button variant="outline" size="icon" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}><ChevronRight /></Button>
+            <Button variant="outline" size="icon" onClick={() => setCurrentPage(totalPages)} disabled={currentPage === totalPages}><ChevronsRight /></Button>
+          </div>
         </div>
       </CardContent>
     </Card>

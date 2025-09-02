@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Table,
   TableBody,
@@ -33,7 +33,7 @@ import {
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, PlusCircle } from 'lucide-react';
+import { Loader2, PlusCircle, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -47,11 +47,14 @@ const vendorSchema = z.object({
   address: z.string().min(10, "Address is required."),
 });
 
+const PAGE_SIZE = 10;
+
 export function VendorsPage() {
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [loading, setLoading] = useState(true);
   const [isFormOpen, setFormOpen] = useState(false);
   const [isSubmitting, setSubmitting] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
   const { toast } = useToast();
 
   const form = useForm<z.infer<typeof vendorSchema>>({
@@ -86,6 +89,12 @@ export function VendorsPage() {
   useEffect(() => {
     fetchVendors();
   }, []);
+
+  const totalPages = Math.ceil(vendors.length / PAGE_SIZE);
+  const paginatedVendors = useMemo(() => {
+    const startIndex = (currentPage - 1) * PAGE_SIZE;
+    return vendors.slice(startIndex, startIndex + PAGE_SIZE);
+  }, [vendors, currentPage]);
 
   const onSubmit = async (values: z.infer<typeof vendorSchema>) => {
     setSubmitting(true);
@@ -231,6 +240,7 @@ export function VendorsPage() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>#</TableHead>
                 <TableHead>Vendor ID</TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>Contact Person</TableHead>
@@ -239,9 +249,10 @@ export function VendorsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {vendors.length > 0 ? (
-                vendors.map((vendor) => (
+              {paginatedVendors.length > 0 ? (
+                paginatedVendors.map((vendor, index) => (
                   <TableRow key={vendor.id}>
+                    <TableCell className="text-muted-foreground">{(currentPage - 1) * PAGE_SIZE + index + 1}</TableCell>
                     <TableCell className="font-medium text-primary">{vendor.id}</TableCell>
                     <TableCell>{vendor.name}</TableCell>
                     <TableCell>{vendor.contactPerson}</TableCell>
@@ -251,13 +262,24 @@ export function VendorsPage() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={5} className="h-24 text-center">
+                  <TableCell colSpan={6} className="h-24 text-center">
                     No vendors found.
                   </TableCell>
                 </TableRow>
               )}
             </TableBody>
           </Table>
+        </div>
+        <div className="flex items-center justify-between mt-4">
+          <div className="text-sm text-muted-foreground">
+             Page {currentPage} of {totalPages} ({vendors.length} total vendors)
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="icon" onClick={() => setCurrentPage(1)} disabled={currentPage === 1}><ChevronsLeft /></Button>
+            <Button variant="outline" size="icon" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}><ChevronLeft /></Button>
+            <Button variant="outline" size="icon" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}><ChevronRight /></Button>
+            <Button variant="outline" size="icon" onClick={() => setCurrentPage(totalPages)} disabled={currentPage === totalPages}><ChevronsRight /></Button>
+          </div>
         </div>
       </CardContent>
     </Card>

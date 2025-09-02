@@ -240,6 +240,7 @@ export function RequisitionsTable() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10">#</TableHead>
                 <TableHead>Req. ID</TableHead>
                 <TableHead>Title</TableHead>
                 <TableHead>Requester</TableHead>
@@ -251,8 +252,9 @@ export function RequisitionsTable() {
             </TableHeader>
             <TableBody>
               {paginatedRequisitions.length > 0 ? (
-                paginatedRequisitions.map(req => (
+                paginatedRequisitions.map((req, index) => (
                   <TableRow key={req.id}>
+                    <TableCell className="text-muted-foreground">{(currentPage - 1) * PAGE_SIZE + index + 1}</TableCell>
                     <TableCell className="font-medium text-primary">{req.id}</TableCell>
                     <TableCell>{req.title}</TableCell>
                     <TableCell>{req.requesterName}</TableCell>
@@ -275,7 +277,7 @@ export function RequisitionsTable() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={7} className="h-24 text-center">
+                  <TableCell colSpan={8} className="h-24 text-center">
                     No results found.
                   </TableCell>
                 </TableRow>

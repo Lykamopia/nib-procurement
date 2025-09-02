@@ -26,9 +26,15 @@ import {
   Download,
   History,
   Search,
+  ChevronsLeft,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsRight
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from './ui/dialog';
+
+const PAGE_SIZE = 15;
 
 const getStatusVariant = (status: string) => {
     status = status.toLowerCase();
@@ -81,6 +87,7 @@ export function RecordsPage() {
   const [records, setRecords] = useState<DocumentRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
   const { toast } = useToast();
 
 
@@ -117,6 +124,12 @@ export function RecordsPage() {
     })
   }, [records, searchTerm]);
 
+  const totalPages = Math.ceil(filteredRecords.length / PAGE_SIZE);
+  const paginatedRecords = useMemo(() => {
+    const startIndex = (currentPage - 1) * PAGE_SIZE;
+    return filteredRecords.slice(startIndex, startIndex + PAGE_SIZE);
+  }, [filteredRecords, currentPage]);
+
   const handleDownload = (record: DocumentRecord) => {
     toast({
         title: 'Simulating Download',
@@ -151,6 +164,7 @@ export function RecordsPage() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10">#</TableHead>
                 <TableHead>Doc ID</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>Title</TableHead>
@@ -161,9 +175,10 @@ export function RecordsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredRecords.length > 0 ? (
-                filteredRecords.map(record => (
+              {paginatedRecords.length > 0 ? (
+                paginatedRecords.map((record, index) => (
                   <TableRow key={`${record.type}-${record.id}`}>
+                    <TableCell className="text-muted-foreground">{(currentPage - 1) * PAGE_SIZE + index + 1}</TableCell>
                     <TableCell className="font-medium text-primary">{record.id}</TableCell>
                     <TableCell>{record.type}</TableCell>
                     <TableCell>{record.title}</TableCell>
@@ -193,13 +208,24 @@ export function RecordsPage() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={7} className="h-24 text-center">
+                  <TableCell colSpan={8} className="h-24 text-center">
                     No records found.
                   </TableCell>
                 </TableRow>
               )}
             </TableBody>
           </Table>
+        </div>
+         <div className="flex items-center justify-between mt-4">
+          <div className="text-sm text-muted-foreground">
+             Page {currentPage} of {totalPages} ({filteredRecords.length} total records)
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="icon" onClick={() => setCurrentPage(1)} disabled={currentPage === 1}><ChevronsLeft /></Button>
+            <Button variant="outline" size="icon" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}><ChevronLeft /></Button>
+            <Button variant="outline" size="icon" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}><ChevronRight /></Button>
+            <Button variant="outline" size="icon" onClick={() => setCurrentPage(totalPages)} disabled={currentPage === totalPages}><ChevronsRight /></Button>
+          </div>
         </div>
       </CardContent>
     </Card>

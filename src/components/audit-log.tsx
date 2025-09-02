@@ -162,6 +162,7 @@ export function AuditLog() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10">#</TableHead>
                 <TableHead className="w-[150px]">Timestamp</TableHead>
                 <TableHead>User</TableHead>
                 <TableHead>Role</TableHead>
@@ -171,8 +172,9 @@ export function AuditLog() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {paginatedLogs.length > 0 ? paginatedLogs.map((log) => (
+              {paginatedLogs.length > 0 ? paginatedLogs.map((log, index) => (
                 <TableRow key={log.id}>
+                  <TableCell className="text-muted-foreground">{(currentPage - 1) * PAGE_SIZE + index + 1}</TableCell>
                   <TableCell>
                     <TooltipProvider>
                       <Tooltip>
@@ -197,7 +199,7 @@ export function AuditLog() {
                 </TableRow>
               )) : (
                 <TableRow>
-                    <TableCell colSpan={6} className="h-24 text-center">No logs found matching your criteria.</TableCell>
+                    <TableCell colSpan={7} className="h-24 text-center">No logs found matching your criteria.</TableCell>
                 </TableRow>
               )}
             </TableBody>

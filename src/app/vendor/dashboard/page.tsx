@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect }from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { PurchaseRequisition } from '@/lib/types';
 import { useAuth } from '@/contexts/auth-context';
 import {
@@ -23,14 +23,16 @@ import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight } from 'lucide-react';
 
+const PAGE_SIZE = 10;
 
 export default function VendorDashboardPage() {
     const { token } = useAuth();
     const [requisitions, setRequisitions] = useState<PurchaseRequisition[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [currentPage, setCurrentPage] = useState(1);
 
     useEffect(() => {
         if (!token) return;
@@ -63,6 +65,13 @@ export default function VendorDashboardPage() {
         fetchRequisitions();
     }, [token]);
 
+    const totalPages = Math.ceil(requisitions.length / PAGE_SIZE);
+    const paginatedData = useMemo(() => {
+        const startIndex = (currentPage - 1) * PAGE_SIZE;
+        return requisitions.slice(startIndex, startIndex + PAGE_SIZE);
+    }, [requisitions, currentPage]);
+
+
     return (
         <div>
             <h1 className="text-3xl font-bold mb-4">Open for Quotation</h1>
@@ -82,6 +91,7 @@ export default function VendorDashboardPage() {
                        <Table>
                             <TableHeader>
                                 <TableRow>
+                                <TableHead className="w-10">#</TableHead>
                                 <TableHead>Requisition ID</TableHead>
                                 <TableHead>Title</TableHead>
                                 <TableHead>Department</TableHead>
@@ -91,9 +101,10 @@ export default function VendorDashboardPage() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {requisitions.length > 0 ? (
-                                    requisitions.map((req) => (
+                                {paginatedData.length > 0 ? (
+                                    paginatedData.map((req, index) => (
                                     <TableRow key={req.id}>
+                                        <TableCell className="text-muted-foreground">{(currentPage - 1) * PAGE_SIZE + index + 1}</TableCell>
                                         <TableCell className="font-medium">{req.id}</TableCell>
                                         <TableCell>{req.title}</TableCell>
                                         <TableCell>{req.department}</TableCell>
@@ -110,13 +121,24 @@ export default function VendorDashboardPage() {
                                     ))
                                 ) : (
                                     <TableRow>
-                                        <TableCell colSpan={6} className="h-24 text-center">
+                                        <TableCell colSpan={7} className="h-24 text-center">
                                             There are no requisitions currently open for quotation.
                                         </TableCell>
                                     </TableRow>
                                 )}
                             </TableBody>
                         </Table>
+                         <div className="flex items-center justify-between mt-4">
+                            <div className="text-sm text-muted-foreground">
+                                Page {currentPage} of {totalPages} ({requisitions.length} total requisitions)
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Button variant="outline" size="icon" onClick={() => setCurrentPage(1)} disabled={currentPage === 1}><ChevronsLeft /></Button>
+                                <Button variant="outline" size="icon" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}><ChevronLeft /></Button>
+                                <Button variant="outline" size="icon" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}><ChevronRight /></Button>
+                                <Button variant="outline" size="icon" onClick={() => setCurrentPage(totalPages)} disabled={currentPage === totalPages}><ChevronsRight /></Button>
+                            </div>
+                        </div>
                     </CardContent>
                 </Card>
             )}
