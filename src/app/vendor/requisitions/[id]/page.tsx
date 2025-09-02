@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -56,19 +57,20 @@ export default function VendorRequisitionPage() {
     });
 
     useEffect(() => {
-        if (!token || !id) return;
+        if (!id) return;
+        console.log("VendorRequisitionPage: useEffect triggered for ID:", id);
 
         const fetchRequisition = async () => {
             setLoading(true);
             try {
-                 const response = await fetch(`/api/requisitions`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if (!response.ok) throw new Error('Failed to fetch requisitions list.');
-                const allReqs: PurchaseRequisition[] = await response.json();
-                const foundReq = allReqs.find(r => r.id === id);
+                 const response = await fetch(`/api/requisitions`);
+                 if (!response.ok) throw new Error('Failed to fetch requisitions list.');
+                 const allReqs: PurchaseRequisition[] = await response.json();
+                 console.log(`Fetched ${allReqs.length} total requisitions.`);
+                 const foundReq = allReqs.find(r => r.id === id);
 
                 if (foundReq) {
+                    console.log("Found requisition:", foundReq);
                     setRequisition(foundReq);
                     const formItems = foundReq.items.map(item => ({
                         requisitionItemId: item.id,
@@ -79,19 +81,25 @@ export default function VendorRequisitionPage() {
                     }));
                     replace(formItems);
                 } else {
+                    console.error('Requisition not found or not available for quoting for ID:', id);
                     setError('Requisition not found or not available for quoting.');
                 }
             } catch (e) {
+                console.error("Error fetching requisition:", e);
                 setError(e instanceof Error ? e.message : 'An unknown error occurred');
             } finally {
                 setLoading(false);
             }
         };
         fetchRequisition();
-    }, [id, token, replace]);
+    }, [id, replace]);
 
      const onSubmit = async (values: z.infer<typeof quoteFormSchema>) => {
-        if (!user || !requisition) return;
+        console.log("Submitting quotation for user:", user);
+        if (!user || !requisition) {
+            console.error("User or requisition not available for submission.");
+            return;
+        }
         
         if (!user.vendorId) {
             toast({
@@ -99,24 +107,27 @@ export default function VendorRequisitionPage() {
                 title: 'Error',
                 description: 'Your vendor account is not properly configured.',
             });
+            console.error("Submission failed: vendorId is missing from user object.", user);
             return;
         }
 
-
         setSubmitting(true);
         try {
+            console.log("Submitting quote with values:", values);
             const response = await fetch('/api/quotations', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({ 
                     ...values, 
                     requisitionId: requisition.id,
-                    vendorId: user.vendorId 
+                    vendorId: user.vendorId,
+                    userId: user.id
                 }),
             });
 
             if (!response.ok) {
                 const errorData = await response.json();
+                console.error("Failed to submit quote:", errorData);
                 throw new Error(errorData.error || 'Failed to submit quote.');
             }
 

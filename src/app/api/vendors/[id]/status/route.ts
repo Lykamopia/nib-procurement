@@ -10,24 +10,30 @@ export async function PATCH(
   request: Request,
   { params }: { params: { id: string } }
 ) {
+  console.log(`PATCH /api/vendors/${params.id}/status`);
   try {
     const vendorId = params.id;
     const body = await request.json();
+    console.log('Request body:', body);
     const { status, userId, rejectionReason } = body;
 
     if (!['Verified', 'Rejected'].includes(status)) {
+      console.error('Invalid status provided:', status);
       return NextResponse.json({ error: 'Invalid status provided.' }, { status: 400 });
     }
     
     const user = users.find(u => u.id === userId);
     if (!user) {
+        console.error('User not found for ID:', userId);
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
     
     const vendorToUpdate = vendors.find(v => v.id === vendorId);
     if (!vendorToUpdate) {
+        console.error('Vendor not found for ID:', vendorId);
         return NextResponse.json({ error: 'Vendor not found' }, { status: 404 });
     }
+    console.log('Found vendor to update:', vendorToUpdate);
 
     const oldStatus = vendorToUpdate.kycStatus;
     vendorToUpdate.kycStatus = status as KycStatus;
@@ -35,7 +41,7 @@ export async function PATCH(
         vendorToUpdate.rejectionReason = rejectionReason;
     }
     
-    auditLogs.unshift({
+    const auditLogEntry = {
         id: `log-${Date.now()}-${Math.random()}`,
         timestamp: new Date(),
         user: user.name,
@@ -44,7 +50,9 @@ export async function PATCH(
         entity: 'Vendor',
         entityId: vendorId,
         details: `Updated vendor KYC status from "${oldStatus}" to "${status}". ${rejectionReason ? `Reason: ${rejectionReason}` : ''}`.trim(),
-    });
+    };
+    auditLogs.unshift(auditLogEntry);
+    console.log('Added audit log:', auditLogEntry);
 
 
     return NextResponse.json(vendorToUpdate);

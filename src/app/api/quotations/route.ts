@@ -1,34 +1,46 @@
 
+
 import { NextResponse } from 'next/server';
-import { quotations, requisitions, vendors } from '@/lib/data-store';
+import { quotations, requisitions, vendors, auditLogs } from '@/lib/data-store';
 import { Quotation } from '@/lib/types';
 import { addDays } from 'date-fns';
+import { users } from '@/lib/auth-store';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const requisitionId = searchParams.get('requisitionId');
+  console.log(`GET /api/quotations - Fetching quotes for requisitionId: ${requisitionId}`);
 
   if (!requisitionId) {
+    console.error('Requisition ID is required');
     return NextResponse.json({ error: 'Requisition ID is required' }, { status: 400 });
   }
 
   const reqQuotations = quotations.filter(q => q.requisitionId === requisitionId);
+  console.log(`Found ${reqQuotations.length} quotations for requisition ${requisitionId}.`);
   return NextResponse.json(reqQuotations);
 }
 
 
 export async function POST(request: Request) {
+  console.log('POST /api/quotations - Creating new quotation.');
   try {
     const body = await request.json();
-    const { requisitionId, vendorId, items, notes } = body;
+    console.log('Request Body:', body);
+    const { requisitionId, vendorId, items, notes, userId } = body;
+
+    const user = users.find(u => u.id === userId);
+    const actorName = user ? user.name : 'System';
 
     const requisition = requisitions.find(r => r.id === requisitionId);
     if (!requisition) {
+      console.error('Requisition not found for ID:', requisitionId);
       return NextResponse.json({ error: 'Requisition not found' }, { status: 404 });
     }
 
     const vendor = vendors.find(v => v.id === vendorId);
     if (!vendor) {
+      console.error('Vendor not found for ID:', vendorId);
       return NextResponse.json({ error: 'Vendor not found' }, { status: 404 });
     }
 
@@ -62,15 +74,26 @@ export async function POST(request: Request) {
     };
 
     quotations.unshift(newQuotation);
+    console.log('Created new quotation:', newQuotation);
     
-    // Also add to the requisition for easy access
     if (!requisition.quotations) {
         requisition.quotations = [];
     }
     requisition.quotations.push(newQuotation);
 
+    const auditLogEntry = {
+        id: `log-${Date.now()}-${Math.random()}`,
+        timestamp: new Date(),
+        user: actorName,
+        role: user ? user.role : 'Vendor',
+        action: 'SUBMIT_QUOTATION',
+        entity: 'Quotation',
+        entityId: newQuotation.id,
+        details: `Submitted quotation from ${vendor.name} for requisition ${requisitionId}.`,
+    };
+    auditLogs.unshift(auditLogEntry);
+    console.log('Added audit log:', auditLogEntry);
 
-    // In a real app, you would add an audit log entry here.
 
     return NextResponse.json(newQuotation, { status: 201 });
   } catch (error) {

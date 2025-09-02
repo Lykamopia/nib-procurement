@@ -1,16 +1,20 @@
 
+
 import { NextResponse } from 'next/server';
-import { vendors } from '@/lib/data-store';
+import { vendors, auditLogs } from '@/lib/data-store';
 import { Vendor } from '@/lib/types';
 import { users } from '@/lib/auth-store';
 
 export async function GET() {
+  console.log('GET /api/vendors - Fetching all vendors.');
   return NextResponse.json(vendors);
 }
 
 export async function POST(request: Request) {
+  console.log('POST /api/vendors - Creating new vendor.');
   try {
     const body = await request.json();
+    console.log('Request body:', body);
 
     const newVendor: Vendor = {
       id: `VENDOR-${Date.now()}`,
@@ -28,8 +32,20 @@ export async function POST(request: Request) {
     };
 
     vendors.unshift(newVendor);
+    console.log('Created new vendor:', newVendor);
 
-    // In a real app, you'd also create an audit log entry here.
+    const auditLogEntry = {
+        id: `log-${Date.now()}-${Math.random()}`,
+        timestamp: new Date(),
+        user: 'System', // Or the user if available
+        role: 'Admin' as const,
+        action: 'CREATE_VENDOR',
+        entity: 'Vendor',
+        entityId: newVendor.id,
+        details: `Added new vendor "${newVendor.name}" (pending verification).`,
+    };
+    auditLogs.unshift(auditLogEntry);
+    console.log('Added audit log:', auditLogEntry);
 
     return NextResponse.json(newVendor, { status: 201 });
   } catch (error) {

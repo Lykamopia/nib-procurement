@@ -1,32 +1,40 @@
 
+
 import { NextResponse } from 'next/server';
 import { purchaseOrders, auditLogs } from '@/lib/data-store';
 import { performThreeWayMatch } from '@/services/matching-service';
 import { users } from '@/lib/auth-store';
 
 export async function GET() {
+  console.log('GET /api/matching - Performing three-way match for all POs.');
   const results = purchaseOrders.map(performThreeWayMatch);
+  console.log(`Found ${results.length} matching results.`);
   return NextResponse.json(results);
 }
 
 export async function POST(request: Request) {
+    console.log('POST /api/matching - Manually resolving mismatch.');
     try {
         const body = await request.json();
+        console.log('Request body:', body);
         const { poId, userId } = body;
 
         const po = purchaseOrders.find(p => p.id === poId);
         if (!po) {
+            console.error('Purchase Order not found for ID:', poId);
             return NextResponse.json({ error: 'Purchase Order not found' }, { status: 404 });
         }
 
         const user = users.find(u => u.id === userId);
         if (!user) {
+            console.error('User not found for ID:', userId);
             return NextResponse.json({ error: 'User not found' }, { status: 404 });
         }
 
-        po.status = 'Matched'; 
+        po.status = 'Matched';
+        console.log(`PO ${poId} status updated to Matched.`);
         
-        auditLogs.unshift({
+        const auditLogEntry = {
             id: `log-${Date.now()}-${Math.random()}`,
             timestamp: new Date(),
             user: user.name,
@@ -35,7 +43,9 @@ export async function POST(request: Request) {
             entity: 'PurchaseOrder',
             entityId: po.id,
             details: `Manually resolved and marked PO as Matched.`,
-        });
+        };
+        auditLogs.unshift(auditLogEntry);
+        console.log('Added audit log:', auditLogEntry);
 
         const result = performThreeWayMatch(po);
         return NextResponse.json(result);

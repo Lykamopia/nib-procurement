@@ -1,4 +1,5 @@
 
+
 import { NextResponse } from 'next/server';
 import { auditLogs, quotations, requisitions } from '@/lib/data-store';
 import { users } from '@/lib/auth-store';
@@ -8,35 +9,42 @@ export async function POST(
   request: Request,
   { params }: { params: { id: string } }
 ) {
+  console.log(`POST /api/requisitions/${params.id}/reset-award`);
   try {
     const requisitionId = params.id;
     const body = await request.json();
+    console.log('Request body:', body);
     const { userId } = body;
     
     const user = users.find(u => u.id === userId);
     if (!user) {
+        console.error('User not found for ID:', userId);
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
     
     const requisition = requisitions.find(r => r.id === requisitionId);
     if (!requisition) {
+      console.error('Requisition not found for ID:', requisitionId);
       return NextResponse.json({ error: 'Requisition not found' }, { status: 404 });
     }
+    console.log('Found requisition to reset:', requisition);
 
-    // Revert all related quotes to 'Submitted'
+    let quotesResetCount = 0;
     quotations.forEach(q => {
         if (q.requisitionId === requisitionId) {
             q.status = 'Submitted';
+            quotesResetCount++;
         }
     });
+    console.log(`Reset ${quotesResetCount} quotes to 'Submitted' status.`);
 
-    // Revert requisition status
     requisition.status = 'Approved';
     requisition.updatedAt = new Date();
+    console.log(`Requisition ${requisitionId} status reverted to 'Approved'.`);
 
     const auditDetails = `changed the award decision for requisition ${requisitionId}, reverting all quotes to Submitted.`;
     
-    auditLogs.unshift({
+    const auditLogEntry = {
         id: `log-${Date.now()}-${Math.random()}`,
         timestamp: new Date(),
         user: user.name,
@@ -45,8 +53,9 @@ export async function POST(
         entity: 'Requisition',
         entityId: requisitionId,
         details: auditDetails,
-    });
-
+    };
+    auditLogs.unshift(auditLogEntry);
+    console.log('Added audit log:', auditLogEntry);
 
     return NextResponse.json({ message: 'Award reset successfully', requisition });
   } catch (error) {

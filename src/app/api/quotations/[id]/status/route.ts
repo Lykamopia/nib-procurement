@@ -1,4 +1,5 @@
 
+
 import { NextResponse } from 'next/server';
 import { auditLogs, quotations, requisitions } from '@/lib/data-store';
 import { users } from '@/lib/auth-store';
@@ -9,29 +10,34 @@ export async function PATCH(
   request: Request,
   { params }: { params: { id: string } }
 ) {
+  console.log(`PATCH /api/quotations/${params.id}/status`);
   try {
     const quoteId = params.id;
     const body = await request.json();
+    console.log('Request body:', body);
     const { status, userId, requisitionId } = body as { status: StatusUpdate, userId: string, requisitionId: string };
 
     if (!['Awarded', 'Rejected'].includes(status)) {
+      console.error('Invalid status provided:', status);
       return NextResponse.json({ error: 'Invalid status provided.' }, { status: 400 });
     }
     
     const user = users.find(u => u.id === userId);
     if (!user) {
+        console.error('User not found for ID:', userId);
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
     
     const quoteToUpdate = quotations.find(q => q.id === quoteId);
     if (!quoteToUpdate) {
+        console.error('Quotation not found for ID:', quoteId);
         return NextResponse.json({ error: 'Quotation not found' }, { status: 404 });
     }
+    console.log('Found quote to update:', quoteToUpdate);
     
     quoteToUpdate.status = status;
     let auditDetails = `marked quotation ${quoteId} as "${status}".`;
 
-    // If a quote is awarded, reject all others for the same requisition.
     if (status === 'Awarded') {
         const rejectedQuotes: string[] = [];
         quotations.forEach(q => {
@@ -47,16 +53,15 @@ export async function PATCH(
             auditDetails += ` Automatically rejected other quotes: ${rejectedQuotes.join(', ')}.`;
         }
         
-        // Update the main requisition status
         const requisition = requisitions.find(r => r.id === requisitionId);
         if (requisition) {
             requisition.status = 'RFQ In Progress'; 
             requisition.updatedAt = new Date();
+            console.log(`Updated requisition ${requisitionId} status to "RFQ In Progress".`);
         }
     }
     
-    // Add to audit log
-    auditLogs.unshift({
+    const auditLogEntry = {
         id: `log-${Date.now()}-${Math.random()}`,
         timestamp: new Date(),
         user: user.name,
@@ -65,7 +70,9 @@ export async function PATCH(
         entity: 'Quotation',
         entityId: quoteId,
         details: auditDetails,
-    });
+    };
+    auditLogs.unshift(auditLogEntry);
+    console.log('Added audit log:', auditLogEntry);
 
     return NextResponse.json(quoteToUpdate);
   } catch (error) {

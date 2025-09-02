@@ -6,21 +6,26 @@ import { Invoice } from '@/lib/types';
 import { users } from '@/lib/auth-store';
 
 export async function GET() {
+  console.log('GET /api/invoices - Fetching all invoices.');
   return NextResponse.json(invoiceStore);
 }
 
 export async function POST(request: Request) {
+  console.log('POST /api/invoices - Creating new invoice.');
   try {
     const body = await request.json();
+    console.log('Request body:', body);
     const { purchaseOrderId, vendorId, invoiceDate, items, totalAmount, documentUrl, userId } = body;
 
     const user = users.find(u => u.id === userId);
     if (!user) {
+      console.error('User not found for ID:', userId);
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
     const po = purchaseOrders.find(p => p.id === purchaseOrderId);
     if (!po) {
+      console.error('Purchase Order not found for ID:', purchaseOrderId);
       return NextResponse.json({ error: 'Purchase Order not found' }, { status: 404 });
     }
 
@@ -31,7 +36,7 @@ export async function POST(request: Request) {
       invoiceDate: new Date(invoiceDate),
       items: items.map((item: any) => ({
         ...item,
-        id: `INV-ITEM-${Date.now()}-${item.name}`
+        id: `INV-ITEM-${Date.now()}-${Math.random()}`
       })),
       totalAmount,
       status: 'Pending',
@@ -43,8 +48,9 @@ export async function POST(request: Request) {
       po.invoices = [];
     }
     po.invoices.push(newInvoice);
+    console.log('Created new invoice:', newInvoice);
 
-    auditLogs.unshift({
+    const auditLogEntry = {
         id: `log-${Date.now()}-${Math.random()}`,
         timestamp: new Date(),
         user: user.name,
@@ -53,7 +59,9 @@ export async function POST(request: Request) {
         entity: 'Invoice',
         entityId: newInvoice.id,
         details: `Created Invoice for PO ${purchaseOrderId}.`,
-    });
+    };
+    auditLogs.unshift(auditLogEntry);
+    console.log('Added audit log:', auditLogEntry);
 
     return NextResponse.json(newInvoice, { status: 201 });
   } catch (error) {
