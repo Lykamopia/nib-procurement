@@ -97,7 +97,7 @@ function CollapsibleTableRow({ req, onAction, isOpen, onToggle }: { req: Purchas
                 <BudgetStatusBadge status={req.budgetStatus}/>
                 </TableCell>
                 <TableCell className="text-right">
-                  {req.totalPrice > 0 ? `$${req.totalPrice.toLocaleString()}` : 'N/A'}
+                  {req.totalPrice && req.totalPrice > 0 ? `$${req.totalPrice.toLocaleString()}` : 'N/A'}
                 </TableCell>
                 <TableCell>{format(new Date(req.createdAt), 'PP')}</TableCell>
                 <TableCell>

@@ -191,14 +191,7 @@ export function NeedsRecognitionForm() {
                     key={field.id}
                     className="flex gap-4 items-end p-4 border rounded-lg relative"
                   >
-                    <div
-                      className={cn(
-                        'grid grid-cols-1 gap-4 flex-1',
-                        (role === 'Procurement Officer' || role === 'Vendor')
-                          ? 'md:grid-cols-3'
-                          : 'md:grid-cols-2'
-                      )}
-                    >
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1">
                       <FormField
                         control={form.control}
                         name={`items.${index}.name`}
@@ -228,26 +221,6 @@ export function NeedsRecognitionForm() {
                           </FormItem>
                         )}
                       />
-                      {(role === 'Procurement Officer' || role === 'Vendor') && (
-                        <FormField
-                          control={form.control}
-                          name={`items.${index}.unitPrice`}
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Unit Price ($)</FormLabel>
-                              <FormControl>
-                                <Input
-                                  type="number"
-                                  step="0.01"
-                                  {...field}
-                                  value={field.value ?? ''}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      )}
                     </div>
                     <Button
                       type="button"
@@ -266,7 +239,7 @@ export function NeedsRecognitionForm() {
                 size="sm"
                 className="mt-4"
                 onClick={() =>
-                  append({ name: '', quantity: 1, unitPrice: undefined })
+                  append({ name: '', quantity: 1, unitPrice: 0 })
                 }
               >
                 <PlusCircle className="mr-2 h-4 w-4" />
@@ -339,11 +312,6 @@ export function NeedsRecognitionForm() {
             />
 
             <div className="flex justify-end items-center gap-4">
-              {(role === 'Procurement Officer' || role === 'Vendor') && (
-                <span className="text-xl font-semibold">
-                  Total: ${total.toFixed(2)}
-                </span>
-              )}
               <Button type="submit" disabled={loading}>
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Submit Requisition

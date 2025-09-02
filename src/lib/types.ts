@@ -49,7 +49,7 @@ export type PurchaseRequisition = {
   title: string;
   department: string;
   items: RequisitionItem[];
-  totalPrice: number;
+  totalPrice?: number;
   justification: string;
   status: RequisitionStatus;
   budgetStatus: BudgetStatus;

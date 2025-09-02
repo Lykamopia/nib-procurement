@@ -13,10 +13,6 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     
-    const total = body.items.reduce((acc: number, item: { quantity: number; unitPrice?: number; }) => {
-        return acc + (item.quantity || 0) * (item.unitPrice || 0);
-    }, 0);
-
     const user = users.find(u => u.name === body.requesterName);
 
     const newRequisition: PurchaseRequisition = {
@@ -26,7 +22,7 @@ export async function POST(request: Request) {
       title: body.title,
       department: body.department,
       items: body.items.map((item: any, index: number) => ({...item, id: `ITEM-${Date.now()}-${index}`})),
-      totalPrice: total,
+      totalPrice: 0,
       justification: body.justification,
       status: 'Draft',
       budgetStatus: 'Pending',
