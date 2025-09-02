@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState } from 'react';
@@ -13,7 +14,7 @@ import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
 import { Input } from './ui/input';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
-import { Bot, Copy, Loader2, Send } from 'lucide-react';
+import { Bot, Copy, Loader2, Mail, X } from 'lucide-react';
 import { generateRfq, GenerateRfqOutput } from '@/ai/flows/rfq-generation';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from './ui/badge';
@@ -30,17 +31,23 @@ Delivery Address: 123 Tech Park, Innovation City, 12345`;
 
 export function RfqGeneratorTool() {
   const [requisitionDetails, setRequisitionDetails] = useState(exampleRequisition);
-  const [vendorList, setVendorList] = useState<string[]>(['vendor-a@example.com', 'vendor-b@example.com']);
+  const [vendorList, setVendorList] = useState<string[]>(['sales@apple.com', 'pro-sales@dell.com', 'corporate@bestbuy.com']);
   const [newVendor, setNewVendor] = useState('');
-  const [additionalInstructions, setAdditionalInstructions] = useState('Please provide pricing in ETB. Include warranty information and estimated delivery time.');
+  const [additionalInstructions, setAdditionalInstructions] = useState('Please provide pricing in ETB. Include detailed warranty information and estimated delivery times for all items. Your quotation should be valid for 30 days.');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<GenerateRfqOutput | null>(null);
   const { toast } = useToast();
 
   const handleAddVendor = () => {
-    if (newVendor && !vendorList.includes(newVendor)) {
+    if (newVendor && !vendorList.includes(newVendor) && newVendor.includes('@')) {
       setVendorList([...vendorList, newVendor]);
       setNewVendor('');
+    } else {
+        toast({
+            variant: 'destructive',
+            title: 'Invalid Email',
+            description: 'Please enter a valid vendor email address.',
+        })
     }
   };
 
@@ -52,8 +59,8 @@ export function RfqGeneratorTool() {
     if (vendorList.length === 0) {
       toast({
         variant: 'destructive',
-        title: 'No vendors',
-        description: 'Please add at least one vendor email.',
+        title: 'No Vendors',
+        description: 'Please add at least one vendor email before generating the RFQ.',
       });
       return;
     }
@@ -72,7 +79,7 @@ export function RfqGeneratorTool() {
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Failed to generate RFQ. Please try again.',
+        description: 'Failed to generate RFQ. Please try again later.',
       });
     } finally {
       setLoading(false);
@@ -87,30 +94,30 @@ export function RfqGeneratorTool() {
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
       <Card className="lg:col-span-1">
         <CardHeader>
-          <CardTitle>RFQ Generator</CardTitle>
+          <CardTitle className="flex items-center gap-2"><Bot /> AI-Powered RFQ Generator</CardTitle>
           <CardDescription>
-            Automatically generate a Request for Quotation document.
+            Provide the details of an approved requisition, and the AI will generate a professional Request for Quotation (RFQ) document ready to be sent to vendors.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
             <label htmlFor="requisition-rfq" className="block text-sm font-medium mb-1">
-              Requisition Details
+              Approved Requisition Details
             </label>
             <Textarea
               id="requisition-rfq"
               value={requisitionDetails}
               onChange={(e) => setRequisitionDetails(e.target.value)}
               rows={10}
-              placeholder="Paste approved requisition details here..."
+              placeholder="Paste the full, approved requisition details here. Include items, quantities, and delivery requirements."
             />
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">
-              Vendor List
+              Vendor Email List
             </label>
             <div className="flex gap-2">
               <Input
@@ -118,17 +125,17 @@ export function RfqGeneratorTool() {
                 value={newVendor}
                 onChange={(e) => setNewVendor(e.target.value)}
                 placeholder="vendor@example.com"
-                onKeyDown={(e) => e.key === 'Enter' && handleAddVendor()}
+                onKeyDown={(e) => {if (e.key === 'Enter') { e.preventDefault(); handleAddVendor();}}}
               />
               <Button type="button" onClick={handleAddVendor}>Add</Button>
             </div>
             <div className="flex flex-wrap gap-2 mt-2">
               {vendorList.map(vendor => (
-                <Badge key={vendor} variant="secondary" className="text-sm">
+                <Badge key={vendor} variant="secondary" className="text-sm font-normal">
                   {vendor}
                   <button onClick={() => handleRemoveVendor(vendor)} className="ml-2 rounded-full hover:bg-muted-foreground/20 p-0.5">
                     <span className="sr-only">Remove {vendor}</span>
-                    &times;
+                    <X className="h-3 w-3" />
                   </button>
                 </Badge>
               ))}
@@ -136,48 +143,51 @@ export function RfqGeneratorTool() {
           </div>
           <div>
             <label htmlFor="instructions" className="block text-sm font-medium mb-1">
-              Additional Instructions
+              Additional Instructions for Vendors
             </label>
             <Textarea
               id="instructions"
               value={additionalInstructions}
               onChange={(e) => setAdditionalInstructions(e.target.value)}
               rows={4}
-              placeholder="e.g., pricing currency, warranty info..."
+              placeholder="e.g., pricing currency, warranty info, quote validity period..."
             />
           </div>
         </CardContent>
         <CardFooter>
-          <Button onClick={handleGenerate} disabled={loading}>
+          <Button onClick={handleGenerate} disabled={loading} size="lg">
             {loading ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
-              <Bot className="mr-2 h-4 w-4" />
+              <Mail className="mr-2 h-4 w-4" />
             )}
-            Generate RFQ
+            Generate RFQ Document
           </Button>
         </CardFooter>
       </Card>
       
-      <div className="lg:col-span-1">
+      <div className="lg:col-span-1 sticky top-8">
         {loading && (
-          <div className="flex items-center justify-center h-full">
+          <Card className="flex items-center justify-center h-96">
             <div className="text-center">
               <Loader2 className="mx-auto h-12 w-12 animate-spin text-primary" />
               <p className="mt-4 text-muted-foreground">AI is drafting the RFQ...</p>
+              <p className="text-xs text-muted-foreground mt-2">This may take a moment.</p>
             </div>
-          </div>
+          </Card>
         )}
         {result && (
           <Card>
             <CardHeader>
               <CardTitle>Generated RFQ Document</CardTitle>
+              <CardDescription>Review the generated text below. You can copy it or send it directly.</CardDescription>
             </CardHeader>
             <CardContent>
                <Textarea
                 readOnly
                 value={result.rfqDocument}
-                className="min-h-[400px] font-mono text-xs"
+                className="min-h-[400px] font-mono text-xs bg-muted/20"
+                aria-label="Generated RFQ Document"
               />
             </CardContent>
             <CardFooter className="justify-end gap-2">
@@ -186,11 +196,20 @@ export function RfqGeneratorTool() {
                     Copy Text
                 </Button>
                 <Button>
-                    <Send className="mr-2 h-4 w-4"/>
+                    <Mail className="mr-2 h-4 w-4"/>
                     Send to Vendors
                 </Button>
             </CardFooter>
           </Card>
+        )}
+         {!loading && !result && (
+            <Card className="flex items-center justify-center h-96 border-dashed">
+                <div className="text-center text-muted-foreground">
+                    <Bot className="mx-auto h-12 w-12 mb-4" />
+                    <p className="font-semibold">The generated RFQ will appear here.</p>
+                    <p className="text-sm">Click "Generate RFQ Document" to start.</p>
+                </div>
+            </Card>
         )}
       </div>
     </div>
