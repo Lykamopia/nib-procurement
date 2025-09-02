@@ -4,39 +4,16 @@
  * @fileOverview This file defines a Genkit flow for analyzing vendor quotations and recommending the best option based on specified criteria.
  *
  * - analyzeQuotes - A function that triggers the quote analysis flow.
- * - QuoteAnalysisInput - The input type for the analyzeQuotes function.
- * - QuoteAnalysisOutput - The return type for the analyzeQuotes function.
  */
 
 import {ai} from '@/ai/genkit';
-import {z} from 'zod';
-import { Quotation } from '@/lib/types';
+import {
+    QuoteAnalysisInputSchema,
+    QuoteAnalysisOutputSchema,
+    type QuoteAnalysisInput,
+    type QuoteAnalysisOutput
+} from './quote-analysis.types';
 
-
-const QuotationSchema = z.object({
-  id: z.string(),
-  vendorName: z.string(),
-  totalPrice: z.number(),
-  deliveryDate: z.date(),
-  createdAt: z.date(),
-  status: z.enum(['Submitted', 'Awarded', 'Rejected']),
-  notes: z.string().optional(),
-});
-
-
-export const QuoteAnalysisInputSchema = z.object({
-  quotations: z.array(QuotationSchema).describe("The list of vendor quotations to be analyzed."),
-  decisionMetric: z.enum(["Lowest Price", "Fastest Delivery", "Best Balance"]).describe("The primary metric to use for the decision."),
-  requisitionDetails: z.string().describe("The original requisition details for context.")
-});
-export type QuoteAnalysisInput = z.infer<typeof QuoteAnalysisInputSchema>;
-
-export const QuoteAnalysisOutputSchema = z.object({
-  recommendedQuoteId: z.string().describe("The ID of the recommended quotation."),
-  justification: z.string().describe("A detailed justification for why this quote was recommended based on the metric."),
-  summary: z.string().describe("A brief summary of the recommendation."),
-});
-export type QuoteAnalysisOutput = z.infer<typeof QuoteAnalysisOutputSchema>;
 
 export async function analyzeQuotes(input: QuoteAnalysisInput): Promise<QuoteAnalysisOutput> {
   return quoteAnalysisFlow(input);

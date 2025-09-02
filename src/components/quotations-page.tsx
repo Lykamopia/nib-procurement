@@ -44,7 +44,8 @@ import { Separator } from './ui/separator';
 import Link from 'next/link';
 import { Alert, AlertTitle, AlertDescription } from './ui/alert';
 import { cn } from '@/lib/utils';
-import { analyzeQuotes, QuoteAnalysisInput, QuoteAnalysisOutput } from '@/ai/flows/quote-analysis';
+import { analyzeQuotes } from '@/ai/flows/quote-analysis';
+import type { QuoteAnalysisInput, QuoteAnalysisOutput } from '@/ai/flows/quote-analysis.types';
 
 
 const quoteFormSchema = z.object({
