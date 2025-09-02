@@ -17,8 +17,8 @@ const QuotationSchema = z.object({
     leadTimeDays: z.number(),
   })),
   totalPrice: z.number(),
-  deliveryDate: z.date(),
-  createdAt: z.date(),
+  deliveryDate: z.string().datetime(),
+  createdAt: z.string().datetime(),
   status: z.enum(['Submitted', 'Awarded', 'Rejected']),
   notes: z.string().optional(),
 });
