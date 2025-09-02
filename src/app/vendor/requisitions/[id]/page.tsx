@@ -61,9 +61,7 @@ export default function VendorRequisitionPage() {
         const fetchRequisition = async () => {
             setLoading(true);
             try {
-                // In a real app, you would fetch a single requisition by its ID
-                // For this mock app, we fetch all and filter
-                const response = await fetch('/api/vendor/requisitions', {
+                const response = await fetch('/api/requisitions', {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 if (!response.ok) throw new Error('Failed to fetch requisition data.');

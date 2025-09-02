@@ -39,7 +39,7 @@ export default function VendorDashboardPage() {
             setLoading(true);
             setError(null);
             try {
-                const response = await fetch('/api/vendor/requisitions', {
+                const response = await fetch('/api/requisitions', {
                     headers: {
                         'Authorization': `Bearer ${token}`
                     }
@@ -50,8 +50,9 @@ export default function VendorDashboardPage() {
                     }
                     throw new Error('Failed to fetch requisitions.');
                 }
-                const data = await response.json();
-                setRequisitions(data);
+                const data: PurchaseRequisition[] = await response.json();
+                const openForQuoting = data.filter(r => r.status === 'Approved' || r.status === 'RFQ In Progress');
+                setRequisitions(openForQuoting);
             } catch (err) {
                 setError(err instanceof Error ? err.message : 'An unknown error occurred.');
             } finally {
