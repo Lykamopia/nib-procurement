@@ -13,7 +13,14 @@ export interface AppData {
 
 export function getInitialData(): AppData {
   // Use structuredClone for a deep copy to ensure the original seed data is never mutated.
-  return structuredClone(seedData);
+  const initialData = structuredClone(seedData);
+
+  // Link quotations to their requisitions
+  initialData.requisitions.forEach(req => {
+    req.quotations = initialData.quotations.filter(q => q.requisitionId === req.id);
+  });
+  
+  return initialData;
 }
 
 const seedData: AppData = {
@@ -141,7 +148,38 @@ const seedData: AppData = {
         },
     ],
 
-    quotations: [],
+    quotations: [
+        {
+            id: 'QUO-001',
+            requisitionId: 'REQ-1672531200',
+            vendorId: 'VENDOR-001',
+            vendorName: 'Apple Inc.',
+            items: [
+                { requisitionItemId: 'ITEM-1', name: 'MacBook Pro 16-inch', quantity: 5, unitPrice: 2450, leadTimeDays: 14 },
+                { requisitionItemId: 'ITEM-2', name: '4K Monitor', quantity: 5, unitPrice: 780, leadTimeDays: 10 }
+            ],
+            totalPrice: 16150,
+            deliveryDate: new Date('2023-11-15T00:00:00Z'),
+            createdAt: new Date('2023-10-06T10:00:00Z'),
+            status: 'Submitted',
+            notes: 'Bulk discount applied. Warranty included.'
+        },
+        {
+            id: 'QUO-002',
+            requisitionId: 'REQ-1672531200',
+            vendorId: 'VENDOR-002',
+            vendorName: 'Dell Technologies',
+            items: [
+                 { requisitionItemId: 'ITEM-1', name: 'MacBook Pro 16-inch', quantity: 5, unitPrice: 2550, leadTimeDays: 20 },
+                 { requisitionItemId: 'ITEM-2', name: '4K Monitor', quantity: 5, unitPrice: 750, leadTimeDays: 5 }
+            ],
+            totalPrice: 16500,
+            deliveryDate: new Date('2023-11-20T00:00:00Z'),
+            createdAt: new Date('2023-10-07T14:30:00Z'),
+            status: 'Submitted',
+            notes: 'Can ship monitors immediately. Laptops will have a longer lead time.'
+        }
+    ],
     purchaseOrders: [],
     goodsReceipts: [],
     invoices: [],

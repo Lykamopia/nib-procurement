@@ -5,7 +5,17 @@ let data: AppData = getInitialData();
 
 export function resetData() {
   data = getInitialData();
+  // We need to re-link the quotations to the requisitions after reset
+  data.requisitions.forEach(req => {
+    req.quotations = data.quotations.filter(q => q.requisitionId === req.id);
+  });
 }
+
+// Initial load
+data.requisitions.forEach(req => {
+  req.quotations = data.quotations.filter(q => q.requisitionId === req.id);
+});
+
 
 export const departmentBudgets: DepartmentBudget[] = data.departmentBudgets;
 export const vendors: Vendor[] = data.vendors;
