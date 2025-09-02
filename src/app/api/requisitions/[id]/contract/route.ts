@@ -30,7 +30,7 @@ export async function POST(
     
     requisition.contract = contractDetails;
     requisition.negotiationNotes = notes;
-    requisition.status = 'PO Created'; // Update status
+    requisition.status = 'RFQ In Progress'; // Update status
     requisition.updatedAt = new Date();
 
     auditLogs.unshift({
