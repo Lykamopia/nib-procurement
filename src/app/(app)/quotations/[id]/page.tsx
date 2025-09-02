@@ -2,6 +2,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useParams, useRouter } from 'next/navigation';
 import {
   Card,
   CardContent,
@@ -9,15 +10,15 @@ import {
   CardTitle,
   CardDescription,
   CardFooter,
-} from './ui/card';
-import { Button } from './ui/button';
+} from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from './ui/select';
+} from '@/components/ui/select';
 import {
   Dialog,
   DialogContent,
@@ -27,22 +28,22 @@ import {
   DialogFooter,
   DialogClose,
   DialogDescription,
-} from './ui/dialog';
-import { Input } from './ui/input';
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, PlusCircle, Award, XCircle, FileSignature, FileText, Bot, Lightbulb } from 'lucide-react';
+import { Loader2, PlusCircle, Award, XCircle, FileSignature, FileText, Bot, Lightbulb, ArrowLeft } from 'lucide-react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from './ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { PurchaseOrder, PurchaseRequisition, Quotation, Vendor } from '@/lib/types';
 import { format, formatDistanceToNow } from 'date-fns';
-import { Badge } from './ui/badge';
-import { Textarea } from './ui/textarea';
+import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/contexts/auth-context';
-import { Separator } from './ui/separator';
+import { Separator } from '@/components/ui/separator';
 import Link from 'next/link';
-import { Alert, AlertTitle, AlertDescription } from './ui/alert';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 import { analyzeQuotes } from '@/ai/flows/quote-analysis';
 import type { QuoteAnalysisInput, QuoteAnalysisOutput } from '@/ai/flows/quote-analysis.types';
@@ -489,94 +490,82 @@ const ContractManagement = ({ requisition, onContractFinalized, onPOCreated }: {
     )
 }
 
-/**
- * @deprecated This component is deprecated and will be removed in a future version.
- * Please use the new page at /app/(app)/quotations/[id]/page.tsx instead.
- */
-export function QuotationsPage() {
-  const [requisitions, setRequisitions] = useState<PurchaseRequisition[]>([]);
+export default function QuotationDetailsPage() {
+  const [requisition, setRequisition] = useState<PurchaseRequisition | null>(null);
   const [vendors, setVendors] = useState<Vendor[]>([]);
-  const [selectedReqId, setSelectedReqId] = useState<string>('');
   const [quotations, setQuotations] = useState<Quotation[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [isFormOpen, setFormOpen] = useState(false);
   const [lastPOCreated, setLastPOCreated] = useState<PurchaseOrder | null>(null);
   const [aiRecommendation, setAiRecommendation] = useState<QuoteAnalysisOutput | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
-
-
-  const selectedRequisition = requisitions.find(r => r.id === selectedReqId);
+  const params = useParams();
+  const router = useRouter();
+  const id = params.id as string;
+  
   const isAwarded = quotations.some(q => q.status === 'Awarded');
 
-  const fetchAllData = async () => {
-    try {
-      const [reqResponse, venResponse] = await Promise.all([
-        fetch('/api/requisitions'),
-        fetch('/api/vendors')
-      ]);
-      const reqData = await reqResponse.json();
-      const venData = await venResponse.json();
-      setRequisitions(reqData);
-      setVendors(venData);
-    } catch (error) {
-      console.error("Failed to fetch initial data", error);
-    }
-  };
-  
-  const fetchQuotations = async (requisitionId: string) => {
-    if (!requisitionId) return;
+  const fetchRequisitionAndQuotes = async () => {
+    if (!id) return;
     setLoading(true);
     setLastPOCreated(null);
     setAiRecommendation(null);
     try {
-      const response = await fetch(`/api/quotations?requisitionId=${requisitionId}`);
-      const data = await response.json();
-      setQuotations(data);
+       const [reqResponse, venResponse, quoResponse] = await Promise.all([
+        fetch('/api/requisitions'),
+        fetch('/api/vendors'),
+        fetch(`/api/quotations?requisitionId=${id}`)
+      ]);
+      const allReqs = await reqResponse.json();
+      const venData = await venResponse.json();
+      const quoData = await quoResponse.json();
+
+      const currentReq = allReqs.find((r: PurchaseRequisition) => r.id === id);
+
+      if (currentReq) {
+        setRequisition(currentReq);
+      } else {
+        toast({ variant: 'destructive', title: 'Error', description: 'Requisition not found.' });
+      }
+
+      setVendors(venData);
+      setQuotations(quoData);
+
     } catch (error) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch quotations.' });
+      toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch data.' });
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchAllData();
-  }, []);
-
-  useEffect(() => {
-    if (selectedReqId) {
-      fetchQuotations(selectedReqId);
-      // Also refetch the single requisition to get its latest state
-      fetch(`/api/requisitions`).then(res => res.json()).then(data => setRequisitions(data));
-    } else {
-        setQuotations([]);
+    if (id) {
+        fetchRequisitionAndQuotes();
     }
-  }, [selectedReqId]);
+  }, [id]);
 
   const handleQuoteAdded = () => {
     setFormOpen(false);
-    if(selectedReqId) fetchQuotations(selectedReqId);
+    fetchRequisitionAndQuotes();
   }
   
   const handleContractFinalized = () => {
-    fetchAllData(); // To get the updated requisition status
-    if(selectedReqId) fetchQuotations(selectedReqId);
+    fetchRequisitionAndQuotes();
   }
   
   const handlePOCreated = (po: PurchaseOrder) => {
-    fetchAllData(); // To get the updated requisition status
-    if(selectedReqId) fetchQuotations(selectedReqId);
+    fetchRequisitionAndQuotes();
     setLastPOCreated(po);
   }
 
   const handleQuoteAction = async (quoteId: string, status: 'Awarded' | 'Rejected') => {
-    if (!user || !selectedReqId) return;
+    if (!user || !id) return;
     try {
         const response = await fetch(`/api/quotations/${quoteId}/status`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status, userId: user.id, requisitionId: selectedReqId }),
+            body: JSON.stringify({ status, userId: user.id, requisitionId: id }),
         });
 
         if (!response.ok) {
@@ -587,8 +576,7 @@ export function QuotationsPage() {
             title: `Quote ${status}`,
             description: `The quotation has been successfully ${status.toLowerCase()}.`
         });
-        if(selectedReqId) fetchQuotations(selectedReqId);
-        fetchAllData(); // to get updated req status and details
+        fetchRequisitionAndQuotes();
     } catch (error) {
         toast({
             variant: 'destructive',
@@ -597,101 +585,88 @@ export function QuotationsPage() {
         });
     }
   }
-  
-  const availableRequisitions = requisitions.filter(r => 
-      (r.status === 'Approved' || r.status === 'RFQ In Progress' || r.status === 'PO Created')
-  );
 
+  if (loading) {
+     return <div className="flex items-center justify-center p-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+  }
+  
+  if (!requisition) {
+     return <div className="text-center p-8">Requisition not found.</div>;
+  }
 
   return (
     <div className="space-y-6">
-        <Card>
-            <CardHeader>
-                <CardTitle>Select Requisition</CardTitle>
-                <CardDescription>Choose a requisition to manage quotations and contracts.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <Select onValueChange={setSelectedReqId} value={selectedReqId}>
-                    <SelectTrigger className="w-full md:w-1/2">
-                        <SelectValue placeholder="Select an approved requisition..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {availableRequisitions.length > 0 ? availableRequisitions.map(req => (
-                            <SelectItem key={req.id} value={req.id}>{req.id} - {req.title}</SelectItem>
-                        )) : <div className="p-4 text-sm text-muted-foreground">No requisitions ready for quotation.</div>}
-                    </SelectContent>
-                </Select>
-            </CardContent>
-        </Card>
-    
-        {selectedRequisition && (
-            <Card>
-                <CardHeader className="flex flex-row items-start sm:items-center justify-between">
-                    <div>
-                        <CardTitle>Quotations for {selectedRequisition.id}</CardTitle>
-                        <CardDescription>
-                            Compare submitted quotes side-by-side or add a new one.
-                        </CardDescription>
-                    </div>
-                     <Dialog open={isFormOpen} onOpenChange={setFormOpen}>
-                        <DialogTrigger asChild>
-                            <Button disabled={isAwarded}><PlusCircle className="mr-2 h-4 w-4"/>Add Quotation</Button>
-                        </DialogTrigger>
-                        {selectedRequisition && <AddQuoteForm requisition={selectedRequisition} vendors={vendors} onQuoteAdded={handleQuoteAdded} />}
-                    </Dialog>
-                </CardHeader>
-                 <CardContent>
-                    {quotations.length > 0 && !isAwarded && (
-                        <AIQuoteAdvisor 
-                            requisition={selectedRequisition} 
-                            quotes={quotations} 
-                            onRecommendation={setAiRecommendation}
-                        />
-                    )}
-                 </CardContent>
-                  {aiRecommendation && (
-                     <CardContent>
-                        <Alert variant="default" className="border-green-500/50">
-                            <Lightbulb className="h-4 w-4 text-green-500" />
-                            <AlertTitle className="text-green-600">AI Recommendation: {aiRecommendation.summary}</AlertTitle>
-                            <AlertDescription>
-                                {aiRecommendation.justification}
-                            </AlertDescription>
-                        </Alert>
-                    </CardContent>
-                  )}
-                <CardContent>
-                   {loading ? (
-                       <div className="h-24 flex items-center justify-center">
-                           <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                       </div>
-                   ) : (
-                       <QuoteComparison quotes={quotations} onAction={handleQuoteAction} recommendationId={aiRecommendation?.recommendedQuoteId} />
-                   )}
-                </CardContent>
-                
-                 {lastPOCreated && (
-                    <CardContent>
-                        <Alert>
-                            <AlertTitle>Success!</AlertTitle>
-                            <AlertDescription className="flex items-center justify-between">
-                                <span>Purchase Order {lastPOCreated.id} was created.</span>
-                                <Button asChild variant="link">
-                                    <Link href={`/purchase-orders/${lastPOCreated.id}`} target="_blank">View PO</Link>
-                                </Button>
-                            </AlertDescription>
-                        </Alert>
-                    </CardContent>
-                 )}
+        <Button variant="outline" onClick={() => router.push('/quotations')}>
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to All Requisitions
+        </Button>
 
-                {isAwarded && selectedRequisition.status !== 'PO Created' && (
-                    <>
-                        <Separator className="my-6"/>
-                        <ContractManagement requisition={selectedRequisition} onContractFinalized={handleContractFinalized} onPOCreated={handlePOCreated}/>
-                    </>
+        <Card>
+            <CardHeader className="flex flex-row items-start sm:items-center justify-between">
+                <div>
+                    <CardTitle>Quotations for {requisition.id}</CardTitle>
+                    <CardDescription>
+                        {requisition.title}
+                    </CardDescription>
+                </div>
+                 <Dialog open={isFormOpen} onOpenChange={setFormOpen}>
+                    <DialogTrigger asChild>
+                        <Button disabled={isAwarded}><PlusCircle className="mr-2 h-4 w-4"/>Add Quotation</Button>
+                    </DialogTrigger>
+                    {requisition && <AddQuoteForm requisition={requisition} vendors={vendors} onQuoteAdded={handleQuoteAdded} />}
+                </Dialog>
+            </CardHeader>
+             <CardContent>
+                {quotations.length > 0 && !isAwarded && (
+                    <AIQuoteAdvisor 
+                        requisition={requisition} 
+                        quotes={quotations} 
+                        onRecommendation={setAiRecommendation}
+                    />
                 )}
-            </Card>
-        )}
+             </CardContent>
+              {aiRecommendation && (
+                 <CardContent>
+                    <Alert variant="default" className="border-green-500/50">
+                        <Lightbulb className="h-4 w-4 text-green-500" />
+                        <AlertTitle className="text-green-600">AI Recommendation: {aiRecommendation.summary}</AlertTitle>
+                        <AlertDescription>
+                            {aiRecommendation.justification}
+                        </AlertDescription>
+                    </Alert>
+                </CardContent>
+              )}
+            <CardContent>
+               {loading ? (
+                   <div className="h-24 flex items-center justify-center">
+                       <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                   </div>
+               ) : (
+                   <QuoteComparison quotes={quotations} onAction={handleQuoteAction} recommendationId={aiRecommendation?.recommendedQuoteId} />
+               )}
+            </CardContent>
+            
+             {lastPOCreated && (
+                <CardContent>
+                    <Alert>
+                        <AlertTitle>Success!</AlertTitle>
+                        <AlertDescription className="flex items-center justify-between">
+                            <span>Purchase Order {lastPOCreated.id} was created.</span>
+                            <Button asChild variant="link">
+                                <Link href={`/purchase-orders/${lastPOCreated.id}`} target="_blank">View PO</Link>
+                            </Button>
+                        </AlertDescription>
+                    </Alert>
+                </CardContent>
+             )}
+
+            {isAwarded && requisition.status !== 'PO Created' && (
+                <>
+                    <Separator className="my-6"/>
+                    <ContractManagement requisition={requisition} onContractFinalized={handleContractFinalized} onPOCreated={handlePOCreated}/>
+                </>
+            )}
+        </Card>
     </div>
   );
 }

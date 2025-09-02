@@ -1,6 +1,6 @@
 
-import { QuotationsPage } from '@/components/quotations-page';
+import { RequisitionsForQuotingTable } from '@/components/requisitions-for-quoting-table';
 
-export default function Quotations() {
-    return <QuotationsPage />;
+export default function QuotationsPage() {
+    return <RequisitionsForQuotingTable />;
 }
