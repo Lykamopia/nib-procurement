@@ -19,7 +19,7 @@ import {
   CardFooter,
 } from './ui/card';
 import { Button } from './ui/button';
-import { Vendor } from '@/lib/types';
+import { Vendor, KycStatus } from '@/lib/types';
 import {
   Dialog,
   DialogContent,
@@ -33,11 +33,13 @@ import {
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, PlusCircle, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight } from 'lucide-react';
+import { Loader2, PlusCircle, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, ShieldCheck, ShieldAlert, ShieldQuestion } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from './ui/form';
+import { Badge } from './ui/badge';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 
 const vendorSchema = z.object({
   name: z.string().min(2, "Vendor name is required."),
@@ -48,6 +50,33 @@ const vendorSchema = z.object({
 });
 
 const PAGE_SIZE = 10;
+
+const KycStatusBadge = ({ status, reason }: { status: KycStatus, reason?: string }) => {
+  const badgeContent = {
+    'Verified': { icon: <ShieldCheck className="mr-2 h-3 w-3" />, text: 'Verified', variant: 'default' as const },
+    'Pending': { icon: <ShieldQuestion className="mr-2 h-3 w-3" />, text: 'Pending', variant: 'secondary' as const },
+    'Rejected': { icon: <ShieldAlert className="mr-2 h-3 w-3" />, text: 'Rejected', variant: 'destructive' as const },
+  };
+
+  const { icon, text, variant } = badgeContent[status];
+
+  if (status === 'Rejected' && reason) {
+    return (
+        <TooltipProvider>
+            <Tooltip>
+                <TooltipTrigger>
+                    <Badge variant={variant}>{icon} {text}</Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                    <p>Reason: {reason}</p>
+                </TooltipContent>
+            </Tooltip>
+        </TooltipProvider>
+    )
+  }
+
+  return <Badge variant={variant}>{icon} {text}</Badge>;
+}
 
 export function VendorsPage() {
   const [vendors, setVendors] = useState<Vendor[]>([]);
@@ -109,7 +138,7 @@ export function VendorsPage() {
 
       toast({
         title: 'Success!',
-        description: 'New vendor has been added.',
+        description: 'New vendor has been added and is pending verification.',
       });
       await fetchVendors(); // Refresh the list
       setFormOpen(false); // Close the dialog
@@ -149,7 +178,7 @@ export function VendorsPage() {
             <DialogHeader>
               <DialogTitle>Add New Vendor</DialogTitle>
               <DialogDescription>
-                Fill in the details below to add a new vendor to the system.
+                Fill in the details below to add a new vendor. They will require KYC verification before they can participate in quotes.
               </DialogDescription>
             </DialogHeader>
             <Form {...form}>
@@ -241,11 +270,10 @@ export function VendorsPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>#</TableHead>
-                <TableHead>Vendor ID</TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>Contact Person</TableHead>
                 <TableHead>Email</TableHead>
-                <TableHead>Phone</TableHead>
+                <TableHead>KYC Status</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -253,16 +281,17 @@ export function VendorsPage() {
                 paginatedVendors.map((vendor, index) => (
                   <TableRow key={vendor.id}>
                     <TableCell className="text-muted-foreground">{(currentPage - 1) * PAGE_SIZE + index + 1}</TableCell>
-                    <TableCell className="font-medium text-primary">{vendor.id}</TableCell>
-                    <TableCell>{vendor.name}</TableCell>
+                    <TableCell className="font-medium text-primary">{vendor.name}</TableCell>
                     <TableCell>{vendor.contactPerson}</TableCell>
                     <TableCell>{vendor.email}</TableCell>
-                    <TableCell>{vendor.phone}</TableCell>
+                    <TableCell>
+                      <KycStatusBadge status={vendor.kycStatus} reason={vendor.rejectionReason} />
+                    </TableCell>
                   </TableRow>
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={6} className="h-24 text-center">
+                  <TableCell colSpan={5} className="h-24 text-center">
                     No vendors found.
                   </TableCell>
                 </TableRow>

@@ -1,4 +1,5 @@
-import type { PurchaseRequisition, AuditLog, DepartmentBudget, Vendor, Quotation, PurchaseOrder, GoodsReceiptNote, Invoice } from './types';
+
+import type { PurchaseRequisition, AuditLog, DepartmentBudget, Vendor, Quotation, PurchaseOrder, GoodsReceiptNote, Invoice, User } from './types';
 
 export interface AppData {
     departmentBudgets: DepartmentBudget[];
@@ -9,6 +10,7 @@ export interface AppData {
     purchaseOrders: PurchaseOrder[];
     goodsReceipts: GoodsReceiptNote[];
     invoices: Invoice[];
+    users: User[];
 }
 
 export function getInitialData(): AppData {
@@ -34,27 +36,45 @@ const seedData: AppData = {
     vendors: [
         {
             id: 'VENDOR-001',
+            userId: '6',
             name: 'Apple Inc.',
             contactPerson: 'Tim Cook',
-            email: 'sales@apple.com',
+            email: 'vendor@apple.com',
             phone: '1-800-MY-APPLE',
-            address: '1 Apple Park Way, Cupertino, CA 95014'
+            address: '1 Apple Park Way, Cupertino, CA 95014',
+            kycStatus: 'Verified',
+            kycDocuments: [
+                { name: 'Business License', url: '#', submittedAt: new Date('2023-01-15T00:00:00Z')},
+                { name: 'Tax ID', url: '#', submittedAt: new Date('2023-01-15T00:00:00Z')}
+            ]
         },
         {
             id: 'VENDOR-002',
+            userId: '7',
             name: 'Dell Technologies',
             contactPerson: 'Michael Dell',
-            email: 'sales@dell.com',
+            email: 'vendor@dell.com',
             phone: '1-877-275-3355',
-            address: '1 Dell Way, Round Rock, TX 78682'
+            address: '1 Dell Way, Round Rock, TX 78682',
+            kycStatus: 'Verified',
+            kycDocuments: [
+                { name: 'Business License', url: '#', submittedAt: new Date('2023-02-20T00:00:00Z')},
+                { name: 'Tax ID', url: '#', submittedAt: new Date('2023-02-20T00:00:00Z')}
+            ]
         },
         {
             id: 'VENDOR-003',
             name: 'Office Depot',
+            userId: '8',
             contactPerson: 'Sales Team',
-            email: 'support@officedepot.com',
+            email: 'vendor@officedepot.com',
             phone: '1-800-GO-DEPOT',
-            address: '6600 N Military Trl, Boca Raton, FL 33496'
+            address: '6600 N Military Trl, Boca Raton, FL 33496',
+            kycStatus: 'Pending',
+            kycDocuments: [
+                { name: 'Business License', url: '#', submittedAt: new Date('2023-10-28T00:00:00Z')},
+                { name: 'Tax ID', url: '#', submittedAt: new Date('2023-10-28T00:00:00Z')}
+            ]
         }
     ],
 
@@ -183,4 +203,14 @@ const seedData: AppData = {
     purchaseOrders: [],
     goodsReceipts: [],
     invoices: [],
+    users: [
+        { id: '1', name: 'Alice', email: 'alice@example.com', password: 'password123', role: 'Requester' },
+        { id: '2', name: 'Bob', email: 'bob@example.com', password: 'password123', role: 'Approver' },
+        { id: '3', name: 'Charlie', email: 'charlie@example.com', password: 'password123', role: 'Procurement Officer' },
+        { id: '4', name: 'David', email: 'david@example.com', password: 'password123', role: 'Receiving' },
+        { id: '5', name: 'Eve', email: 'eve@example.com', password: 'password123', role: 'Finance' },
+        { id: '6', name: 'Apple Inc.', email: 'vendor@apple.com', password: 'password123', role: 'Vendor' },
+        { id: '7', name: 'Dell Technologies', email: 'vendor@dell.com', password: 'password123', role: 'Vendor' },
+        { id: '8', name: 'Office Depot', email: 'vendor@officedepot.com', password: 'password123', role: 'Vendor' },
+    ]
 };

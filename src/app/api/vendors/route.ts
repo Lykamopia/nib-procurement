@@ -14,11 +14,17 @@ export async function POST(request: Request) {
 
     const newVendor: Vendor = {
       id: `VENDOR-${Date.now()}`,
+      userId: `TEMP-USER-${Date.now()}`, // This should be updated post-registration ideally
       name: body.name,
       contactPerson: body.contactPerson,
       email: body.email,
       phone: body.phone,
       address: body.address,
+      kycStatus: 'Pending',
+      kycDocuments: [
+        { name: 'Business License', url: '#', submittedAt: new Date() },
+        { name: 'Tax ID Document', url: '#', submittedAt: new Date() },
+      ],
     };
 
     vendors.unshift(newVendor);

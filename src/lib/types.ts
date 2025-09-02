@@ -1,5 +1,4 @@
 
-
 export type UserRole =
   | 'Requester'
   | 'Approver'
@@ -15,6 +14,7 @@ export type User = {
   email: string;
   password?: string; // Should not be sent to client
   role: UserRole;
+  vendorId?: string;
 };
 
 export type RequisitionStatus =
@@ -80,14 +80,25 @@ export type DepartmentBudget = {
   spentBudget: number;
 }
 
+export type KycStatus = 'Pending' | 'Verified' | 'Rejected';
+
+export type KycDocument = {
+    name: string;
+    url: string;
+    submittedAt: Date;
+}
+
 export type Vendor = {
   id: string;
+  userId: string;
   name: string;
   contactPerson: string;
   email: string;
-phone: string;
+  phone: string;
   address: string;
-  documents?: { name: string; url: string }[];
+  kycStatus: KycStatus;
+  kycDocuments?: KycDocument[];
+  rejectionReason?: string;
 };
 
 export type QuoteItem = {

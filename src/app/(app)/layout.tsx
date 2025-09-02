@@ -32,6 +32,7 @@ import {
   Wallet,
   Landmark,
   Archive,
+  ShieldCheck,
 } from 'lucide-react';
 import { Icons } from '@/components/icons';
 import { Separator } from '@/components/ui/separator';
@@ -71,6 +72,8 @@ export default function AppLayout({
         return 'Approvals';
       case '/vendors':
         return 'Vendors';
+       case '/vendor-verification':
+        return 'Vendor Verification';
        case '/quotations':
         return 'Quotations';
        case '/contracts':
@@ -172,6 +175,17 @@ export default function AppLayout({
                     >
                       <Building2 />
                       <span>Vendors</span>
+                    </SidebarMenuButton>
+                  </Link>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <Link href="/vendor-verification">
+                    <SidebarMenuButton
+                      isActive={pathname === '/vendor-verification'}
+                      tooltip="Vendor Verification"
+                    >
+                      <ShieldCheck />
+                      <span>Vendor Verification</span>
                     </SidebarMenuButton>
                   </Link>
                 </SidebarMenuItem>

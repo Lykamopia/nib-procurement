@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -121,6 +120,9 @@ function AddQuoteForm({ requisition, vendors, onQuoteAdded }: { requisition: Pur
         }
     };
     
+    // Filter for only verified vendors
+    const verifiedVendors = vendors.filter(v => v.kycStatus === 'Verified');
+
     return (
         <DialogContent className="sm:max-w-[625px]">
             <DialogHeader>
@@ -140,11 +142,15 @@ function AddQuoteForm({ requisition, vendors, onQuoteAdded }: { requisition: Pur
                             <Select onValueChange={field.onChange} defaultValue={field.value}>
                                 <FormControl>
                                 <SelectTrigger>
-                                    <SelectValue placeholder="Select a vendor" />
+                                    <SelectValue placeholder="Select a verified vendor" />
                                 </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
-                                {vendors.map(v => <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>)}
+                                    {verifiedVendors.length > 0 ? (
+                                        verifiedVendors.map(v => <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>)
+                                    ) : (
+                                        <div className="p-4 text-center text-sm text-muted-foreground">No verified vendors available.</div>
+                                    )}
                                 </SelectContent>
                             </Select>
                             <FormMessage />
@@ -197,7 +203,7 @@ function AddQuoteForm({ requisition, vendors, onQuoteAdded }: { requisition: Pur
                     </div>
                     <DialogFooter>
                         <DialogClose asChild><Button type="button" variant="ghost">Cancel</Button></DialogClose>
-                        <Button type="submit" disabled={isSubmitting}>
+                        <Button type="submit" disabled={isSubmitting || verifiedVendors.length === 0}>
                             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             Add Quotation
                         </Button>

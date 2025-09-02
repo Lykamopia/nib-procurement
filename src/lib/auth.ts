@@ -1,6 +1,64 @@
 
-import type { User, UserRole } from './types';
+import type { User, UserRole, Vendor } from './types';
 import { users } from './auth-store';
+import { vendors } from './data-store';
+
+type VendorDetails = {
+    contactPerson: string;
+    address: string;
+    phone: string;
+}
+
+export async function register(
+    name: string, 
+    email: string, 
+    password: string, 
+    role: UserRole,
+    vendorDetails?: VendorDetails
+): Promise<{ user: User; token: string; role: UserRole } | null> {
+  if (users.some((u) => u.email === email)) {
+    return null; // User already exists
+  }
+
+  const newUserId = role === 'Vendor' ? `VENDOR-USER-${Date.now()}` : String(users.length + 1 + Date.now());
+  
+  const newUser: User = {
+    id: newUserId,
+    name,
+    email,
+    password,
+    role,
+  };
+  users.push(newUser);
+
+  if (role === 'Vendor' && vendorDetails) {
+      const newVendor: Vendor = {
+          id: `VENDOR-${Date.now()}`,
+          name: name, // Company Name
+          contactPerson: vendorDetails.contactPerson,
+          email: email,
+          phone: vendorDetails.phone,
+          address: vendorDetails.address,
+          userId: newUserId,
+          kycStatus: 'Pending',
+          kycDocuments: [
+              { name: 'Business License', url: '/placeholder-document.pdf', submittedAt: new Date() },
+              { name: 'Tax ID Document', url: '/placeholder-document.pdf', submittedAt: new Date() },
+          ]
+      };
+      vendors.unshift(newVendor);
+      // Link user to vendor id
+      const userInDb = users.find(u => u.id === newUserId);
+      if (userInDb) {
+          (userInDb as any).vendorId = newVendor.id;
+      }
+  }
+
+  const mockToken = `mock-token-for-${newUser.id}__ROLE__${newUser.role}__TS__${Date.now()}`;
+  const { password: _, ...userWithoutPassword } = newUser;
+  return { user: userWithoutPassword, token: mockToken, role: newUser.role };
+}
+
 
 export async function login(email: string, password: string): Promise<{ user: User; token: string; role: UserRole } | null> {
   const user = users.find((u) => u.email === email && u.password === password);
@@ -12,23 +70,6 @@ export async function login(email: string, password: string): Promise<{ user: Us
     return { user: userWithoutPassword, token: mockToken, role: user.role };
   }
   return null;
-}
-
-export async function register(name: string, email: string, password: string, role: UserRole): Promise<{ user: User; token: string; role: UserRole } | null> {
-  if (users.some((u) => u.email === email)) {
-    return null; // User already exists
-  }
-  const newUser = {
-    id: role === 'Vendor' ? `VENDOR-${Date.now()}` : String(users.length + 1),
-    name,
-    email,
-    password,
-    role,
-  };
-  users.push(newUser);
-  const mockToken = `mock-token-for-${newUser.id}__ROLE__${newUser.role}__TS__${Date.now()}`;
-  const { password: _, ...userWithoutPassword } = newUser;
-  return { user: userWithoutPassword, token: mockToken, role: newUser.role };
 }
 
 export async function getUserByToken(token: string): Promise<{ user: User, role: UserRole } | null> {
