@@ -63,10 +63,17 @@ export async function register(
 export async function login(email: string, password: string): Promise<{ user: User; token: string; role: UserRole } | null> {
   const user = users.find((u) => u.email === email && u.password === password);
   if (user) {
-    // In a real app, generate a proper JWT.
-    // Here, we just create a mock token.
     const mockToken = `mock-token-for-${user.id}__ROLE__${user.role}__TS__${Date.now()}`;
     const { password, ...userWithoutPassword } = user;
+
+    // If the user is a vendor, find their corresponding vendor record and attach the ID.
+    if (user.role === 'Vendor') {
+        const vendor = vendors.find(v => v.userId === user.id);
+        if (vendor) {
+            userWithoutPassword.vendorId = vendor.id;
+        }
+    }
+
     return { user: userWithoutPassword, token: mockToken, role: user.role };
   }
   return null;
@@ -84,6 +91,15 @@ export async function getUserByToken(token: string): Promise<{ user: User, role:
 
         if (user && user.role === userRole) {
           const { password, ...userWithoutPassword } = user;
+          
+          // Also link vendorId on token-based auth rehydration
+          if (user.role === 'Vendor') {
+             const vendor = vendors.find(v => v.userId === user.id);
+             if (vendor) {
+                userWithoutPassword.vendorId = vendor.id;
+             }
+          }
+
           return { user: userWithoutPassword, role: user.role as UserRole };
         }
     } catch(e) {
