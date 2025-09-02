@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { PurchaseRequisition, Vendor } from '@/lib/types';
+import { PurchaseRequisition, Vendor, User } from '@/lib/types';
 import { useAuth } from '@/contexts/auth-context';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
@@ -92,8 +92,7 @@ export default function VendorRequisitionPage() {
      const onSubmit = async (values: z.infer<typeof quoteFormSchema>) => {
         if (!user || !requisition) return;
         
-        const vendor = user as User & { vendorId: string };
-        if (!vendor.vendorId) {
+        if (!user.vendorId) {
             toast({
                 variant: 'destructive',
                 title: 'Error',
@@ -111,7 +110,7 @@ export default function VendorRequisitionPage() {
                 body: JSON.stringify({ 
                     ...values, 
                     requisitionId: requisition.id,
-                    vendorId: vendor.vendorId 
+                    vendorId: user.vendorId 
                 }),
             });
 
