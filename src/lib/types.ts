@@ -5,7 +5,8 @@ export type UserRole =
   | 'Procurement Officer'
   | 'Finance'
   | 'Admin'
-  | 'Receiving';
+  | 'Receiving'
+  | 'Vendor';
 
 export type User = {
   id: string;
