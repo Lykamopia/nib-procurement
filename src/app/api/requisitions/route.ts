@@ -28,7 +28,8 @@ export async function POST(request: Request) {
     const user = users.find(u => u.name === body.requesterName);
 
     const itemsWithIds = body.items.map((item: any, index: number) => ({...item, id: `ITEM-${Date.now()}-${index}`}));
-    
+    const questionsWithIds = body.customQuestions?.map((q: any, index: number) => ({...q, id: `Q-${Date.now()}-${index}`})) || [];
+
     const newRequisition: PurchaseRequisition = {
       id: `REQ-${Date.now()}`,
       requesterId: user?.id || 'temp-user-id',
@@ -36,6 +37,7 @@ export async function POST(request: Request) {
       title: body.title,
       department: body.department,
       items: itemsWithIds,
+      customQuestions: questionsWithIds,
       totalPrice: 0, // Price is not set at creation
       justification: body.justification,
       status: 'Draft',

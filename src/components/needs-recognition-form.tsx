@@ -58,6 +58,11 @@ const formSchema = z.object({
       })
     )
     .min(1, 'At least one item is required.'),
+  customQuestions: z.array(
+    z.object({
+      questionText: z.string().min(5, 'Question must be at least 5 characters.')
+    })
+  ).optional(),
 });
 
 export function NeedsRecognitionForm() {
@@ -82,12 +87,18 @@ export function NeedsRecognitionForm() {
       justification: '',
       urgency: 'Low',
       items: [{ name: '', quantity: 1 }],
+      customQuestions: [],
     },
   });
 
   const { fields, append, remove } = useFieldArray({
     control: form.control,
     name: 'items',
+  });
+
+  const { fields: questionFields, append: appendQuestion, remove: removeQuestion } = useFieldArray({
+      control: form.control,
+      name: "customQuestions",
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
@@ -253,6 +264,56 @@ export function NeedsRecognitionForm() {
                 >
                     <PlusCircle className="mr-2 h-4 w-4" />
                     Add Item
+                </Button>
+              </div>
+            </div>
+
+            <Separator />
+            
+            <div>
+              <h3 className="text-lg font-medium mb-4">Custom Questions for Vendors</h3>
+              <div className="space-y-6">
+                {questionFields.map((field, index) => (
+                  <div
+                    key={field.id}
+                    className="flex gap-4 items-end p-4 border rounded-lg"
+                  >
+                    <FormField
+                      control={form.control}
+                      name={`customQuestions.${index}.questionText`}
+                      render={({ field }) => (
+                        <FormItem className="flex-1">
+                          <FormLabel>Question {index + 1}</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="e.g., What is the warranty period?"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="icon"
+                      onClick={() => removeQuestion(index)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+               <div className="flex justify-between items-center mt-4">
+                 <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => appendQuestion({ questionText: '' })}
+                >
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Add Question
                 </Button>
               </div>
             </div>

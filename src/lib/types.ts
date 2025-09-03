@@ -37,6 +37,11 @@ export type RequisitionItem = {
   unitPrice?: number;
 };
 
+export type CustomQuestion = {
+  id: string;
+  questionText: string;
+};
+
 export type ContractDetails = {
     fileName: string;
     uploadDate: Date;
@@ -62,6 +67,7 @@ export type PurchaseRequisition = {
   negotiationNotes?: string;
   purchaseOrderId?: string;
   allowedVendorIds?: 'all' | string[];
+  customQuestions?: CustomQuestion[];
 };
 
 export type AuditLog = {
