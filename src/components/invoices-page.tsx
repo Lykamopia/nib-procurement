@@ -361,7 +361,7 @@ const MatchingStatusBadge = ({ invoiceId, onStatusClick }: { invoiceId: string, 
         return <Badge variant="outline"><Loader2 className="mr-2 h-3 w-3 animate-spin"/>Checking</Badge>;
     }
     
-    const isClickable = result.status === 'Mismatched';
+    const isClickable = result.status === 'Mismatched' || result.status === 'Matched';
     const BadgeComponent = (
         <Badge 
             variant={result.status === 'Matched' ? 'default' : result.status === 'Mismatched' ? 'destructive' : 'secondary'}
