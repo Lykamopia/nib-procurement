@@ -31,7 +31,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, PlusCircle, Award, XCircle, FileSignature, FileText, Bot, Lightbulb, ArrowLeft, Star, Undo, Check } from 'lucide-react';
+import { Loader2, PlusCircle, Award, XCircle, FileSignature, FileText, Bot, Lightbulb, ArrowLeft, Star, Undo, Check, Send } from 'lucide-react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -48,7 +48,9 @@ import { cn } from '@/lib/utils';
 import { analyzeQuotes } from '@/ai/flows/quote-analysis';
 import type { QuoteAnalysisInput, QuoteAnalysisOutput } from '@/ai/flows/quote-analysis.types';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-
+import { Checkbox } from '@/components/ui/checkbox';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Label } from '@/components/ui/label';
 
 const quoteFormSchema = z.object({
   vendorId: z.string().min(1, "Vendor is required."),
@@ -506,23 +508,157 @@ const ContractManagement = ({ requisition, onContractFinalized, onPOCreated }: {
     )
 }
 
-const WorkflowStepper = ({ step }: { step: 'award' | 'finalize' }) => (
-    <div className="flex items-center justify-center space-x-2 sm:space-x-4">
-        <div className="flex items-center gap-2">
-            <div className={cn("flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold", step === 'award' ? 'bg-primary text-primary-foreground' : 'bg-green-500 text-white')}>
-                {step === 'award' ? '1' : <Check className="h-4 w-4"/>}
+const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: PurchaseRequisition; vendors: Vendor[]; onRfqSent: () => void; }) => {
+    const [distributionType, setDistributionType] = useState<'all' | 'select'>('all');
+    const [selectedVendors, setSelectedVendors] = useState<string[]>([]);
+    const [isSubmitting, setSubmitting] = useState(false);
+    const { user } = useAuth();
+    const { toast } = useToast();
+
+    const handleSendRFQ = async () => {
+        if (!user) return;
+        if (distributionType === 'select' && selectedVendors.length === 0) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Please select at least one vendor.' });
+            return;
+        }
+
+        setSubmitting(true);
+        try {
+            const response = await fetch(`/api/requisitions/${requisition.id}/send-rfq`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    userId: user.id, 
+                    vendorIds: distributionType === 'all' ? 'all' : selectedVendors 
+                }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to send RFQ.');
+            }
+
+            toast({ title: 'RFQ Sent!', description: 'The requisition is now open for quotations from the selected vendors.' });
+            onRfqSent();
+        } catch (error) {
+             toast({
+                variant: 'destructive',
+                title: 'Error',
+                description: error instanceof Error ? error.message : 'An unknown error occurred.',
+            });
+        } finally {
+            setSubmitting(false);
+        }
+    }
+
+    const verifiedVendors = vendors.filter(v => v.kycStatus === 'Verified');
+
+    return (
+        <Card className="mt-6 border-dashed">
+            <CardHeader>
+                <CardTitle>RFQ Distribution</CardTitle>
+                <CardDescription>
+                    This requisition is approved. Send the Request for Quotation to vendors to begin receiving bids.
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <Select value={distributionType} onValueChange={(v) => setDistributionType(v as any)}>
+                    <SelectTrigger className="w-[300px]">
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">Send to all verified vendors</SelectItem>
+                        <SelectItem value="select">Send to selected vendors</SelectItem>
+                    </SelectContent>
+                </Select>
+
+                {distributionType === 'select' && (
+                    <Card>
+                        <CardHeader><CardTitle className="text-lg">Select Vendors</CardTitle></CardHeader>
+                        <CardContent>
+                             <ScrollArea className="h-48">
+                                <div className="space-y-2">
+                                {verifiedVendors.map(vendor => (
+                                    <div key={vendor.id} className="flex items-center space-x-2">
+                                        <Checkbox 
+                                            id={`vendor-${vendor.id}`} 
+                                            checked={selectedVendors.includes(vendor.id)}
+                                            onCheckedChange={(checked) => {
+                                                setSelectedVendors(prev => 
+                                                    checked ? [...prev, vendor.id] : prev.filter(id => id !== vendor.id)
+                                                )
+                                            }}
+                                        />
+                                        <Label htmlFor={`vendor-${vendor.id}`}>{vendor.name}</Label>
+                                    </div>
+                                ))}
+                                </div>
+                            </ScrollArea>
+                        </CardContent>
+                    </Card>
+                )}
+            </CardContent>
+            <CardFooter>
+                <Button onClick={handleSendRFQ} disabled={isSubmitting}>
+                    {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                    Send RFQ
+                </Button>
+            </CardFooter>
+        </Card>
+    );
+};
+
+const WorkflowStepper = ({ step }: { step: 'rfq' | 'award' | 'finalize' }) => {
+     const getStepClass = (currentStep: string, targetStep: string) => {
+        const stepOrder = ['rfq', 'award', 'finalize'];
+        const currentIndex = stepOrder.indexOf(currentStep);
+        const targetIndex = stepOrder.indexOf(targetStep);
+        if (currentIndex > targetIndex) return 'completed';
+        if (currentIndex === targetIndex) return 'active';
+        return 'inactive';
+    };
+
+    const rfqState = getStepClass(step, 'rfq');
+    const awardState = getStepClass(step, 'award');
+    const finalizeState = getStepClass(step, 'finalize');
+
+    const stateClasses = {
+        active: 'bg-primary text-primary-foreground border-primary',
+        completed: 'bg-green-500 text-white border-green-500',
+        inactive: 'border-border text-muted-foreground'
+    };
+
+    const textClasses = {
+        active: 'text-primary',
+        completed: 'text-muted-foreground',
+        inactive: 'text-muted-foreground'
+    }
+
+    return (
+        <div className="flex items-center justify-center space-x-2 sm:space-x-4">
+            <div className="flex items-center gap-2">
+                <div className={cn("flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold", stateClasses[rfqState])}>
+                    {rfqState === 'completed' ? <Check className="h-4 w-4"/> : '1'}
+                </div>
+                <span className={cn("font-medium", textClasses[rfqState])}>Send RFQ</span>
             </div>
-            <span className={cn("font-medium", step === 'award' ? "text-primary" : "text-muted-foreground")}>Compare & Award</span>
-        </div>
-        <div className={cn("h-px w-16 bg-border transition-colors", step === 'finalize' && "bg-primary")}></div>
-         <div className="flex items-center gap-2">
-            <div className={cn("flex h-6 w-6 items-center justify-center rounded-full border text-xs font-semibold", step === 'finalize' ? 'border-primary bg-primary text-primary-foreground' : 'border-border text-muted-foreground')}>
-                2
+            <div className={cn("h-px w-16 bg-border transition-colors", (awardState === 'active' || awardState === 'completed') && "bg-primary")}></div>
+            <div className="flex items-center gap-2">
+                <div className={cn("flex h-6 w-6 items-center justify-center rounded-full border text-xs font-semibold", stateClasses[awardState])}>
+                    {awardState === 'completed' ? <Check className="h-4 w-4"/> : '2'}
+                </div>
+                <span className={cn("font-medium", textClasses[awardState])}>Compare & Award</span>
             </div>
-            <span className={cn("font-medium", step === 'finalize' ? "text-primary" : "text-muted-foreground")}>Finalize Contract & PO</span>
+            <div className={cn("h-px w-16 bg-border transition-colors", finalizeState === 'active' && "bg-primary")}></div>
+             <div className="flex items-center gap-2">
+                <div className={cn("flex h-6 w-6 items-center justify-center rounded-full border text-xs font-semibold", stateClasses[finalizeState])}>
+                    3
+                </div>
+                <span className={cn("font-medium", textClasses[finalizeState])}>Finalize Contract & PO</span>
+            </div>
         </div>
-    </div>
-);
+    );
+};
 
 export default function QuotationDetailsPage() {
   const [requisition, setRequisition] = useState<PurchaseRequisition | null>(null);
@@ -580,6 +716,10 @@ export default function QuotationDetailsPage() {
         fetchRequisitionAndQuotes();
     }
   }, [id]);
+
+  const handleRfqSent = () => {
+    fetchRequisitionAndQuotes();
+  }
 
   const handleQuoteAdded = () => {
     setFormOpen(false);
@@ -673,7 +813,15 @@ export default function QuotationDetailsPage() {
      return <div className="text-center p-8">Requisition not found.</div>;
   }
   
-  const currentStep = isAwarded ? 'finalize' : 'award';
+  const getCurrentStep = () => {
+    if (requisition.status === 'Approved') return 'rfq';
+    if (isAwarded) {
+        if (requisition.status === 'PO Created') return 'completed';
+        return 'finalize';
+    }
+    return 'award';
+  };
+  const currentStep = getCurrentStep();
 
   return (
     <div className="space-y-6">
@@ -686,86 +834,92 @@ export default function QuotationDetailsPage() {
             <WorkflowStepper step={currentStep} />
         </Card>
 
-        <Card>
-            <CardHeader className="flex flex-row items-start sm:items-center justify-between">
-                <div>
-                    <CardTitle>Quotations for {requisition.id}</CardTitle>
-                    <CardDescription>
-                        {requisition.title}
-                    </CardDescription>
-                </div>
-                <div className="flex items-center gap-2">
-                     {isAwarded && (
-                        <Button variant="outline" onClick={handleResetAward} disabled={isChangingAward}>
-                            {isChangingAward ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Undo className="mr-2 h-4 w-4"/>}
-                            Change Award Decision
-                        </Button>
+        {requisition.status === 'Approved' && (
+            <RFQDistribution requisition={requisition} vendors={vendors} onRfqSent={handleRfqSent} />
+        )}
+
+        {requisition.status === 'RFQ In Progress' && (
+            <Card>
+                <CardHeader className="flex flex-row items-start sm:items-center justify-between">
+                    <div>
+                        <CardTitle>Quotations for {requisition.id}</CardTitle>
+                        <CardDescription>
+                            {requisition.title}
+                        </CardDescription>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        {isAwarded && (
+                            <Button variant="outline" onClick={handleResetAward} disabled={isChangingAward}>
+                                {isChangingAward ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Undo className="mr-2 h-4 w-4"/>}
+                                Change Award Decision
+                            </Button>
+                        )}
+                        <Dialog open={isFormOpen} onOpenChange={setFormOpen}>
+                            <DialogTrigger asChild>
+                                <Button disabled={isAwarded}><PlusCircle className="mr-2 h-4 w-4"/>Add Quotation</Button>
+                            </DialogTrigger>
+                            {requisition && <AddQuoteForm requisition={requisition} vendors={vendors} onQuoteAdded={handleQuoteAdded} />}
+                        </Dialog>
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    {quotations.length > 1 && !isAwarded && (
+                        <AIQuoteAdvisor 
+                            requisition={requisition} 
+                            quotes={quotations} 
+                            onRecommendation={setAiRecommendation}
+                        />
                     )}
-                     <Dialog open={isFormOpen} onOpenChange={setFormOpen}>
-                        <DialogTrigger asChild>
-                            <Button disabled={isAwarded}><PlusCircle className="mr-2 h-4 w-4"/>Add Quotation</Button>
-                        </DialogTrigger>
-                        {requisition && <AddQuoteForm requisition={requisition} vendors={vendors} onQuoteAdded={handleQuoteAdded} />}
-                    </Dialog>
-                </div>
-            </CardHeader>
-             <CardContent>
-                {quotations.length > 1 && !isAwarded && (
-                    <AIQuoteAdvisor 
-                        requisition={requisition} 
+                </CardContent>
+                {aiRecommendation && (
+                    <CardContent>
+                        <Alert variant="default" className="border-green-500/50">
+                            <Lightbulb className="h-4 w-4 text-green-500" />
+                            <AlertTitle className="text-green-600">AI Recommendation: {aiRecommendation.summary}</AlertTitle>
+                            <AlertDescription>
+                                {aiRecommendation.justification}
+                            </AlertDescription>
+                        </Alert>
+                    </CardContent>
+                )}
+                <CardContent>
+                {loading ? (
+                    <div className="h-24 flex items-center justify-center">
+                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    </div>
+                ) : (
+                    <QuoteComparison 
                         quotes={quotations} 
-                        onRecommendation={setAiRecommendation}
+                        onAction={handleQuoteAction}
+                        onConfirmAward={handleAwardConfirmation}
+                        recommendation={aiRecommendation}
+                        onReject={(quoteId) => handleQuoteAction(quoteId, 'Rejected')}
                     />
                 )}
-             </CardContent>
-              {aiRecommendation && (
-                 <CardContent>
-                    <Alert variant="default" className="border-green-500/50">
-                        <Lightbulb className="h-4 w-4 text-green-500" />
-                        <AlertTitle className="text-green-600">AI Recommendation: {aiRecommendation.summary}</AlertTitle>
-                        <AlertDescription>
-                            {aiRecommendation.justification}
-                        </AlertDescription>
-                    </Alert>
                 </CardContent>
-              )}
+            </Card>
+        )}
+        
+        {lastPOCreated && (
             <CardContent>
-               {loading ? (
-                   <div className="h-24 flex items-center justify-center">
-                       <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                   </div>
-               ) : (
-                   <QuoteComparison 
-                    quotes={quotations} 
-                    onAction={handleQuoteAction}
-                    onConfirmAward={handleAwardConfirmation}
-                    recommendation={aiRecommendation}
-                    onReject={(quoteId) => handleQuoteAction(quoteId, 'Rejected')}
-                   />
-               )}
+                <Alert>
+                    <AlertTitle>Success!</AlertTitle>
+                    <AlertDescription className="flex items-center justify-between">
+                        <span>Purchase Order {lastPOCreated.id} was created.</span>
+                        <Button asChild variant="link">
+                            <Link href={`/purchase-orders/${lastPOCreated.id}`} target="_blank">View PO</Link>
+                        </Button>
+                    </AlertDescription>
+                </Alert>
             </CardContent>
-            
-             {lastPOCreated && (
-                <CardContent>
-                    <Alert>
-                        <AlertTitle>Success!</AlertTitle>
-                        <AlertDescription className="flex items-center justify-between">
-                            <span>Purchase Order {lastPOCreated.id} was created.</span>
-                            <Button asChild variant="link">
-                                <Link href={`/purchase-orders/${lastPOCreated.id}`} target="_blank">View PO</Link>
-                            </Button>
-                        </AlertDescription>
-                    </Alert>
-                </CardContent>
-             )}
+        )}
 
-            {isAwarded && requisition.status !== 'PO Created' && (
-                <>
-                    <Separator className="my-6"/>
-                    <ContractManagement requisition={requisition} onContractFinalized={handleContractFinalized} onPOCreated={handlePOCreated}/>
-                </>
-            )}
-        </Card>
+        {isAwarded && requisition.status !== 'PO Created' && (
+            <>
+                <Separator className="my-6"/>
+                <ContractManagement requisition={requisition} onContractFinalized={handleContractFinalized} onPOCreated={handlePOCreated}/>
+            </>
+        )}
         
         {quoteToAward && (
             <AlertDialog open={!!quoteToAward} onOpenChange={(open) => !open && setQuoteToAward(null)}>

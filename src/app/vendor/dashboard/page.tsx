@@ -28,14 +28,14 @@ import { ArrowRight, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight } fr
 const PAGE_SIZE = 10;
 
 export default function VendorDashboardPage() {
-    const { token } = useAuth();
+    const { token, user } = useAuth();
     const [requisitions, setRequisitions] = useState<PurchaseRequisition[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
 
     useEffect(() => {
-        if (!token) return;
+        if (!token || !user?.vendorId) return;
 
         const fetchRequisitions = async () => {
             setLoading(true);
@@ -53,7 +53,11 @@ export default function VendorDashboardPage() {
                     throw new Error('Failed to fetch requisitions.');
                 }
                 const data: PurchaseRequisition[] = await response.json();
-                const openForQuoting = data.filter(r => r.status === 'Approved' || r.status === 'RFQ In Progress');
+                // Show requisitions that are open for quoting and either for all vendors or for this specific vendor
+                const openForQuoting = data.filter(r => 
+                    r.status === 'RFQ In Progress' &&
+                    (r.allowedVendorIds === 'all' || (Array.isArray(r.allowedVendorIds) && r.allowedVendorIds.includes(user.vendorId!)))
+                );
                 setRequisitions(openForQuoting);
             } catch (err) {
                 setError(err instanceof Error ? err.message : 'An unknown error occurred.');
@@ -63,7 +67,7 @@ export default function VendorDashboardPage() {
         };
 
         fetchRequisitions();
-    }, [token]);
+    }, [token, user]);
 
     const totalPages = Math.ceil(requisitions.length / PAGE_SIZE);
     const paginatedData = useMemo(() => {
