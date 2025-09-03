@@ -216,7 +216,7 @@ function AddQuoteForm({ requisition, vendors, onQuoteAdded }: { requisition: Pur
     );
 }
 
-const QuoteComparison = ({ quotes, onAction, onConfirmAward, recommendation, onReject }: { quotes: Quotation[], onAction: (quoteId: string, status: 'Awarded' | 'Rejected') => void, onConfirmAward: (quote: Quotation) => void, recommendation?: QuoteAnalysisOutput | null, onReject: (quoteId: string) => void }) => {
+const QuoteComparison = ({ quotes, onConfirmAward, recommendation, onReject }: { quotes: Quotation[], onConfirmAward: (quote: Quotation) => void, recommendation?: QuoteAnalysisOutput | null, onReject: (quoteId: string) => void }) => {
     if (quotes.length === 0) {
         return (
             <div className="h-24 flex items-center justify-center text-muted-foreground">
@@ -236,19 +236,20 @@ const QuoteComparison = ({ quotes, onAction, onConfirmAward, recommendation, onR
     }
 
     const getRecommendationRank = (quoteId: string) => {
-        return recommendation?.recommendations.findIndex(r => r.quoteId === quoteId);
+        if (!recommendation) return -1;
+        return recommendation.recommendations.findIndex(r => r.quoteId === quoteId);
     }
 
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {quotes.map(quote => {
                 const rank = getRecommendationRank(quote.id);
-                const isRecommended = rank !== undefined && rank > -1;
+                const isRecommended = rank > -1;
                 return (
                     <Card key={quote.id} className={cn("flex flex-col", quote.status === 'Awarded' && 'border-primary ring-2 ring-primary', isRecommended && 'border-green-500 ring-2 ring-green-500')}>
                         {isRecommended && (
                             <div className="flex items-center gap-2 p-2 bg-green-500 text-white text-xs font-bold rounded-t-lg">
-                               <Star className="h-4 w-4 fill-white"/> AI Recommendation #{rank! + 1}
+                               <Star className="h-4 w-4 fill-white"/> AI Recommendation #{rank + 1}
                             </div>
                         )}
                         <CardHeader>
@@ -650,9 +651,9 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
     );
 };
 
-const WorkflowStepper = ({ step }: { step: 'rfq' | 'award' | 'finalize' }) => {
+const WorkflowStepper = ({ step }: { step: 'rfq' | 'award' | 'finalize' | 'completed' }) => {
      const getStepClass = (currentStep: string, targetStep: string) => {
-        const stepOrder = ['rfq', 'award', 'finalize'];
+        const stepOrder = ['rfq', 'award', 'finalize', 'completed'];
         const currentIndex = stepOrder.indexOf(currentStep);
         const targetIndex = stepOrder.indexOf(targetStep);
         if (currentIndex > targetIndex) return 'completed';
@@ -684,17 +685,17 @@ const WorkflowStepper = ({ step }: { step: 'rfq' | 'award' | 'finalize' }) => {
                 </div>
                 <span className={cn("font-medium", textClasses[rfqState])}>Send RFQ</span>
             </div>
-            <div className={cn("h-px w-16 bg-border transition-colors", (awardState === 'active' || awardState === 'completed') && "bg-primary")}></div>
+            <div className={cn("h-px w-16 bg-border transition-colors", (awardState === 'active' || awardState === 'completed' || step === 'finalize') && "bg-primary")}></div>
             <div className="flex items-center gap-2">
                 <div className={cn("flex h-6 w-6 items-center justify-center rounded-full border text-xs font-semibold", stateClasses[awardState])}>
                     {awardState === 'completed' ? <Check className="h-4 w-4"/> : '2'}
                 </div>
                 <span className={cn("font-medium", textClasses[awardState])}>Compare & Award</span>
             </div>
-            <div className={cn("h-px w-16 bg-border transition-colors", finalizeState === 'active' && "bg-primary")}></div>
+            <div className={cn("h-px w-16 bg-border transition-colors", (finalizeState === 'active' || finalizeState === 'completed' || step === 'completed') && "bg-primary")}></div>
              <div className="flex items-center gap-2">
                 <div className={cn("flex h-6 w-6 items-center justify-center rounded-full border text-xs font-semibold", stateClasses[finalizeState])}>
-                    3
+                    {finalizeState === 'completed' ? <Check className="h-4 w-4"/> : '3'}
                 </div>
                 <span className={cn("font-medium", textClasses[finalizeState])}>Finalize Contract & PO</span>
             </div>
@@ -757,7 +758,7 @@ export default function QuotationDetailsPage() {
     if (id) {
         fetchRequisitionAndQuotes();
     }
-  }, [id]);
+  }, [id, toast]);
 
   const handleRfqSent = () => {
     fetchRequisitionAndQuotes();
@@ -855,7 +856,7 @@ export default function QuotationDetailsPage() {
      return <div className="text-center p-8">Requisition not found.</div>;
   }
   
-  const getCurrentStep = () => {
+  const getCurrentStep = (): 'rfq' | 'award' | 'finalize' | 'completed' => {
     if (requisition.status === 'Approved') return 'rfq';
     if (isAwarded) {
         if (requisition.status === 'PO Created') return 'completed';
@@ -880,7 +881,7 @@ export default function QuotationDetailsPage() {
             <RFQDistribution requisition={requisition} vendors={vendors} onRfqSent={handleRfqSent} />
         )}
 
-        {requisition.status === 'RFQ In Progress' && (
+        {(currentStep === 'award' || currentStep === 'finalize' || currentStep === 'completed') && (
             <Card>
                 <CardHeader className="flex flex-row items-start sm:items-center justify-between">
                     <div>
@@ -890,7 +891,7 @@ export default function QuotationDetailsPage() {
                         </CardDescription>
                     </div>
                     <div className="flex items-center gap-2">
-                        {isAwarded && (
+                        {isAwarded && requisition.status !== 'PO Created' && (
                             <Button variant="outline" onClick={handleResetAward} disabled={isChangingAward}>
                                 {isChangingAward ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Undo className="mr-2 h-4 w-4"/>}
                                 Change Award Decision
@@ -932,7 +933,6 @@ export default function QuotationDetailsPage() {
                 ) : (
                     <QuoteComparison 
                         quotes={quotations} 
-                        onAction={handleQuoteAction}
                         onConfirmAward={handleAwardConfirmation}
                         recommendation={aiRecommendation}
                         onReject={(quoteId) => handleQuoteAction(quoteId, 'Rejected')}
