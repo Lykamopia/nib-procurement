@@ -318,14 +318,17 @@ export default function VendorRequisitionPage() {
         setLoading(true);
         setError(null);
         try {
-             const response = await fetch(`/api/requisitions/${id}`);
+             const response = await fetch(`/api/requisitions`);
              if (!response.ok) {
-                if (response.status === 404) {
-                    throw new Error('Requisition not found or not available for quoting.');
-                }
-                throw new Error('Failed to fetch requisition data.');
+                throw new Error('Failed to fetch requisitions data.');
              }
-             const foundReq: PurchaseRequisition = await response.json();
+             const allReqs: PurchaseRequisition[] = await response.json();
+             const foundReq = allReqs.find(r => r.id === id);
+
+             if (!foundReq) {
+                 throw new Error('Requisition not found or not available for quoting.');
+             }
+             
              setRequisition(foundReq);
 
              const vendorSubmittedQuote = foundReq.quotations?.find(q => q.vendorId === user.vendorId);
