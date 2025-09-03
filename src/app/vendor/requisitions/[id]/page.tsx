@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { PurchaseRequisition, Quotation } from '@/lib/types';
+import { PurchaseOrder, PurchaseRequisition, Quotation } from '@/lib/types';
 import { useAuth } from '@/contexts/auth-context';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
@@ -14,11 +14,12 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Loader2, Send, ArrowLeft, CheckCircle, FileText, BadgeInfo } from 'lucide-react';
+import { Loader2, Send, ArrowLeft, CheckCircle, FileText, BadgeInfo, FileUp, CircleCheck } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import Link from 'next/link';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { format } from 'date-fns';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 
 const quoteFormSchema = z.object({
   notes: z.string().optional(),
@@ -31,13 +32,132 @@ const quoteFormSchema = z.object({
   })),
 });
 
+const invoiceFormSchema = z.object({
+    documentUrl: z.string().min(1, "Invoice document is required"),
+    invoiceDate: z.string().min(1, "Invoice date is required"),
+});
+
+function InvoiceSubmissionForm({ po, onInvoiceSubmitted }: { po: PurchaseOrder; onInvoiceSubmitted: () => void }) {
+    const { toast } = useToast();
+    const { user } = useAuth();
+    const [isSubmitting, setSubmitting] = useState(false);
+    const form = useForm<z.infer<typeof invoiceFormSchema>>({
+        resolver: zodResolver(invoiceFormSchema),
+        defaultValues: {
+            documentUrl: "",
+            invoiceDate: new Date().toISOString().split('T')[0],
+        },
+    });
+
+    const onSubmit = async (values: z.infer<typeof invoiceFormSchema>) => {
+        if (!user || !po) return;
+        setSubmitting(true);
+        try {
+            const response = await fetch('/api/invoices', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    purchaseOrderId: po.id,
+                    vendorId: po.vendor.id,
+                    invoiceDate: values.invoiceDate,
+                    documentUrl: values.documentUrl,
+                    items: po.items,
+                    totalAmount: po.totalAmount,
+                    userId: user.id
+                }),
+            });
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to submit invoice.');
+            }
+            toast({ title: 'Invoice Submitted', description: 'Your invoice has been sent to the procurement team for review.' });
+            onInvoiceSubmitted();
+        } catch (error) {
+            toast({
+                variant: 'destructive',
+                title: 'Error',
+                description: error instanceof Error ? error.message : 'An unknown error occurred.',
+            });
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    return (
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Submit Invoice for PO: {po.id}</DialogTitle>
+                <DialogDescription>
+                    Please confirm the invoice details and upload your document.
+                </DialogDescription>
+            </DialogHeader>
+            <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                    <Card className="bg-muted/50">
+                        <CardHeader><CardTitle className="text-lg">Invoice Summary</CardTitle></CardHeader>
+                        <CardContent>
+                            <div className="space-y-2 text-sm">
+                                {po.items.map(item => (
+                                    <div key={item.id} className="flex justify-between">
+                                        <span>{item.name} x {item.quantity}</span>
+                                        <span>{item.totalPrice.toFixed(2)} ETB</span>
+                                    </div>
+                                ))}
+                                <Separator />
+                                <div className="flex justify-between font-bold">
+                                    <span>Total Amount</span>
+                                    <span>{po.totalAmount.toFixed(2)} ETB</span>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                    <div className="grid grid-cols-2 gap-4">
+                        <FormField
+                            control={form.control}
+                            name="invoiceDate"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Invoice Date</FormLabel>
+                                    <FormControl><Input type="date" {...field} /></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                         <FormField
+                            control={form.control}
+                            name="documentUrl"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Invoice Document (PDF)</FormLabel>
+                                    <FormControl>
+                                        <Input type="file" accept=".pdf" onChange={(e) => field.onChange(e.target.files?.[0]?.name || "")} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                    </div>
+                    <DialogFooter>
+                        <Button type="submit" disabled={isSubmitting}>
+                            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            Submit Invoice
+                        </Button>
+                    </DialogFooter>
+                </form>
+            </Form>
+        </DialogContent>
+    );
+}
+
 
 export default function VendorRequisitionPage() {
     const [requisition, setRequisition] = useState<PurchaseRequisition | null>(null);
+    const [purchaseOrder, setPurchaseOrder] = useState<PurchaseOrder | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [isSubmitting, setSubmitting] = useState(false);
     const [awardedQuote, setAwardedQuote] = useState<Quotation | null>(null);
+    const [isInvoiceFormOpen, setInvoiceFormOpen] = useState(false);
 
     const params = useParams();
     const router = useRouter();
@@ -58,48 +178,55 @@ export default function VendorRequisitionPage() {
         name: "items",
     });
 
-    useEffect(() => {
+    const fetchRequisitionData = async () => {
         if (!id || !token || !user) return;
         
-        const fetchRequisition = async () => {
-            setLoading(true);
-            setError(null);
-            try {
-                 const response = await fetch(`/api/requisitions/${id}`, {
-                     headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
-                 });
-                 if (!response.ok) {
-                    if (response.status === 404) {
-                        throw new Error('Requisition not found or not available for quoting.');
-                    }
-                    throw new Error('Failed to fetch requisition data.');
-                 }
-                 const foundReq: PurchaseRequisition = await response.json();
-                 setRequisition(foundReq);
+        setLoading(true);
+        setError(null);
+        try {
+             const response = await fetch(`/api/requisitions/${id}`, {
+                 headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+             });
+             if (!response.ok) {
+                if (response.status === 404) {
+                    throw new Error('Requisition not found or not available for quoting.');
+                }
+                throw new Error('Failed to fetch requisition data.');
+             }
+             const foundReq: PurchaseRequisition = await response.json();
+             setRequisition(foundReq);
 
-                 const vendorAwardedQuote = foundReq.quotations?.find(q => q.vendorId === user.vendorId && q.status === 'Awarded');
-                 if (vendorAwardedQuote) {
-                     setAwardedQuote(vendorAwardedQuote);
-                 } else {
-                    const formItems = foundReq.items.map(item => ({
-                        requisitionItemId: item.id,
-                        name: item.name,
-                        quantity: item.quantity,
-                        unitPrice: 0,
-                        leadTimeDays: 0,
-                    }));
-                    replace(formItems);
+             const vendorAwardedQuote = foundReq.quotations?.find(q => q.vendorId === user.vendorId && (q.status === 'Awarded' || q.status === 'Invoice Submitted'));
+             if (vendorAwardedQuote) {
+                 setAwardedQuote(vendorAwardedQuote);
+                 if (foundReq.purchaseOrderId) {
+                     const poResponse = await fetch('/api/purchase-orders');
+                     const allPOs: PurchaseOrder[] = await poResponse.json();
+                     const po = allPOs.find(p => p.id === foundReq.purchaseOrderId);
+                     setPurchaseOrder(po || null);
                  }
-                 
-            } catch (e) {
-                setError(e instanceof Error ? e.message : 'An unknown error occurred');
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchRequisition();
+             } else {
+                const formItems = foundReq.items.map(item => ({
+                    requisitionItemId: item.id,
+                    name: item.name,
+                    quantity: item.quantity,
+                    unitPrice: 0,
+                    leadTimeDays: 0,
+                }));
+                replace(formItems);
+             }
+             
+        } catch (e) {
+            setError(e instanceof Error ? e.message : 'An unknown error occurred');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchRequisitionData();
     }, [id, replace, token, user]);
 
      const onSubmit = async (values: z.infer<typeof quoteFormSchema>) => {
@@ -156,6 +283,8 @@ export default function VendorRequisitionPage() {
 
     const totalQuotePrice = form.watch('items').reduce((acc, item) => acc + (item.quantity * (item.unitPrice || 0)), 0);
 
+    const hasSubmittedInvoice = awardedQuote?.status === 'Invoice Submitted';
+
     return (
         <div className="space-y-6">
             <Button variant="outline" size="sm" onClick={() => router.push('/vendor/dashboard')}>
@@ -168,7 +297,7 @@ export default function VendorRequisitionPage() {
                     <CheckCircle className="h-5 w-5 !text-green-600" />
                     <AlertTitle className="font-bold text-lg">This Requisition has been Awarded to You!</AlertTitle>
                     <AlertDescription>
-                        Congratulations! Your quote was accepted. You can view the details below. No further action is needed until you receive the Purchase Order.
+                        Congratulations! Your quote was accepted. Please await the official Purchase Order before submitting your invoice.
                     </AlertDescription>
                 </Alert>
             )}
@@ -233,6 +362,22 @@ export default function VendorRequisitionPage() {
                              <div className="text-right font-bold text-2xl">
                                 Total Awarded Price: {awardedQuote.totalPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETB
                              </div>
+                             {purchaseOrder && (
+                                <CardFooter className="p-0 pt-4">
+                                     <Dialog open={isInvoiceFormOpen} onOpenChange={setInvoiceFormOpen}>
+                                        <DialogTrigger asChild>
+                                            <Button className="w-full" disabled={hasSubmittedInvoice}>
+                                                {hasSubmittedInvoice ? (
+                                                    <><CircleCheck className="mr-2"/> Invoice Submitted</>
+                                                ) : (
+                                                    <><FileUp className="mr-2"/> Submit Invoice</>
+                                                )}
+                                            </Button>
+                                        </DialogTrigger>
+                                        <InvoiceSubmissionForm po={purchaseOrder} onInvoiceSubmitted={() => { setInvoiceFormOpen(false); fetchRequisitionData(); }} />
+                                    </Dialog>
+                                </CardFooter>
+                             )}
                         </CardContent>
                     </Card>
                 ) : (

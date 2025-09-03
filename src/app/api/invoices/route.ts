@@ -1,7 +1,7 @@
 
 
 import { NextResponse } from 'next/server';
-import { purchaseOrders, invoices as invoiceStore, auditLogs } from '@/lib/data-store';
+import { purchaseOrders, invoices as invoiceStore, auditLogs, quotations } from '@/lib/data-store';
 import { Invoice } from '@/lib/types';
 import { users } from '@/lib/auth-store';
 
@@ -49,6 +49,13 @@ export async function POST(request: Request) {
     }
     po.invoices.push(newInvoice);
     console.log('Created new invoice:', newInvoice);
+    
+    // Also update the original quote status if submitted by a vendor
+    const awardedQuote = quotations.find(q => q.requisitionId === po.requisitionId && q.status === 'Awarded');
+    if (awardedQuote) {
+        awardedQuote.status = 'Invoice Submitted';
+    }
+
 
     const auditLogEntry = {
         id: `log-${Date.now()}-${Math.random()}`,
