@@ -110,6 +110,9 @@ export type QuoteItem = {
     leadTimeDays: number;
 };
 
+export type QuotationStatus = 'Submitted' | 'Awarded' | 'Rejected' | 'Standby';
+
+
 export type Quotation = {
     id: string;
     requisitionId: string;
@@ -119,8 +122,9 @@ export type Quotation = {
     totalPrice: number;
     deliveryDate: Date;
     createdAt: Date;
-    status: 'Submitted' | 'Awarded' | 'Rejected';
+    status: QuotationStatus;
     notes?: string;
+    rank?: 1 | 2 | 3;
 };
 
 export type POItem = {

@@ -3,62 +3,62 @@
 import { NextResponse } from 'next/server';
 import { auditLogs, quotations, requisitions } from '@/lib/data-store';
 import { users } from '@/lib/auth-store';
+import { QuotationStatus } from '@/lib/types';
 
-type StatusUpdate = 'Awarded' | 'Rejected';
+type StatusUpdate = {
+    quoteId: string;
+    status: QuotationStatus;
+    rank?: 1 | 2 | 3;
+}
 
 export async function PATCH(
   request: Request,
   { params }: { params: { id: string } }
 ) {
-  console.log(`PATCH /api/quotations/${params.id}/status`);
+  console.log(`PATCH /api/quotations/status for requisition ${params.id}`);
   try {
-    const quoteId = params.id;
+    const requisitionId = params.id;
     const body = await request.json();
     console.log('Request body:', body);
-    const { status, userId, requisitionId } = body as { status: StatusUpdate, userId: string, requisitionId: string };
+    const { updates, userId } = body as { updates: StatusUpdate[], userId: string };
 
-    if (!['Awarded', 'Rejected'].includes(status)) {
-      console.error('Invalid status provided:', status);
-      return NextResponse.json({ error: 'Invalid status provided.' }, { status: 400 });
-    }
-    
     const user = users.find(u => u.id === userId);
     if (!user) {
         console.error('User not found for ID:', userId);
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
     
-    const quoteToUpdate = quotations.find(q => q.id === quoteId);
-    if (!quoteToUpdate) {
-        console.error('Quotation not found for ID:', quoteId);
-        return NextResponse.json({ error: 'Quotation not found' }, { status: 404 });
+    const requisition = requisitions.find(r => r.id === requisitionId);
+    if (!requisition) {
+      return NextResponse.json({ error: 'Requisition not found' }, { status: 404 });
     }
-    console.log('Found quote to update:', quoteToUpdate);
-    
-    quoteToUpdate.status = status;
-    let auditDetails = `marked quotation ${quoteId} as "${status}".`;
 
-    if (status === 'Awarded') {
-        const rejectedQuotes: string[] = [];
-        quotations.forEach(q => {
-            if (q.requisitionId === requisitionId && q.id !== quoteId) {
-                if (q.status !== 'Rejected') {
-                    q.status = 'Rejected';
-                    rejectedQuotes.push(q.id);
-                }
-            }
-        });
-        auditDetails = `awarded quotation ${quoteId}.`
-        if (rejectedQuotes.length > 0) {
-            auditDetails += ` Automatically rejected other quotes: ${rejectedQuotes.join(', ')}.`;
+    let auditDetails = `Updated quote statuses for requisition ${requisitionId}: `;
+    const updatedQuoteIds = new Set(updates.map(u => u.quoteId));
+
+    // Update quotes based on the provided updates array
+    updates.forEach(update => {
+        const quote = quotations.find(q => q.id === update.quoteId);
+        if (quote) {
+            quote.status = update.status;
+            quote.rank = update.rank;
+            auditDetails += `Set ${quote.id} to ${quote.status} (Rank: ${quote.rank || 'N/A'}). `;
         }
-        
-        const requisition = requisitions.find(r => r.id === requisitionId);
-        if (requisition) {
-            requisition.status = 'RFQ In Progress'; 
-            requisition.updatedAt = new Date();
-            console.log(`Updated requisition ${requisitionId} status to "RFQ In Progress".`);
+    });
+
+    // Reject all other quotes for this requisition that weren't in the update
+    quotations.forEach(q => {
+        if (q.requisitionId === requisitionId && !updatedQuoteIds.has(q.id)) {
+            q.status = 'Rejected';
+            q.rank = undefined;
+            auditDetails += `Rejected quote ${q.id}. `;
         }
+    });
+    
+    // Update requisition status if an award was made
+    if (updates.some(u => u.status === 'Awarded')) {
+      requisition.status = 'RFQ In Progress'; // Or a more specific status
+      requisition.updatedAt = new Date();
     }
     
     const auditLogEntry = {
@@ -66,17 +66,17 @@ export async function PATCH(
         timestamp: new Date(),
         user: user.name,
         role: user.role,
-        action: 'UPDATE_STATUS',
-        entity: 'Quotation',
-        entityId: quoteId,
+        action: 'UPDATE_QUOTES_STATUS',
+        entity: 'Requisition',
+        entityId: requisitionId,
         details: auditDetails,
     };
     auditLogs.unshift(auditLogEntry);
     console.log('Added audit log:', auditLogEntry);
 
-    return NextResponse.json(quoteToUpdate);
+    return NextResponse.json(quotations.filter(q => q.requisitionId === requisitionId));
   } catch (error) {
-    console.error('Failed to update quotation status:', error);
+    console.error('Failed to update quotation statuses:', error);
     if (error instanceof Error) {
         return NextResponse.json({ error: 'Failed to process request', details: error.message }, { status: 400 });
     }

@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -30,12 +31,12 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, PlusCircle, Award, XCircle, FileSignature, FileText, Bot, Lightbulb, ArrowLeft, Star, Undo, Check, Send, Search } from 'lucide-react';
+import { Loader2, PlusCircle, Award, XCircle, FileSignature, FileText, Bot, Lightbulb, ArrowLeft, Star, Undo, Check, Send, Search, BadgeHelp, BadgeCheck, BadgeX, Crown, Medal, Trophy } from 'lucide-react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { PurchaseOrder, PurchaseRequisition, Quotation, Vendor } from '@/lib/types';
+import { PurchaseOrder, PurchaseRequisition, Quotation, Vendor, QuotationStatus } from '@/lib/types';
 import { format, formatDistanceToNow } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
@@ -51,6 +52,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 const quoteFormSchema = z.object({
   vendorId: z.string().min(1, "Vendor is required."),
@@ -216,7 +218,7 @@ function AddQuoteForm({ requisition, vendors, onQuoteAdded }: { requisition: Pur
     );
 }
 
-const QuoteComparison = ({ quotes, onConfirmAward, recommendation, onReject }: { quotes: Quotation[], onConfirmAward: (quote: Quotation) => void, recommendation?: QuoteAnalysisOutput | null, onReject: (quoteId: string) => void }) => {
+const QuoteComparison = ({ quotes, recommendation }: { quotes: Quotation[], recommendation?: QuoteAnalysisOutput | null }) => {
     if (quotes.length === 0) {
         return (
             <div className="h-24 flex items-center justify-center text-muted-foreground">
@@ -225,13 +227,21 @@ const QuoteComparison = ({ quotes, onConfirmAward, recommendation, onReject }: {
         );
     }
     
-    const isAnyAwarded = quotes.some(q => q.status === 'Awarded');
-    
-    const getStatusVariant = (status: 'Submitted' | 'Awarded' | 'Rejected') => {
+    const getStatusVariant = (status: QuotationStatus) => {
         switch (status) {
             case 'Awarded': return 'default';
-            case 'Submitted': return 'secondary';
+            case 'Standby': return 'secondary';
+            case 'Submitted': return 'outline';
             case 'Rejected': return 'destructive';
+        }
+    }
+
+    const getRankIcon = (rank?: number) => {
+        switch (rank) {
+            case 1: return <Crown className="h-5 w-5 text-amber-400" />;
+            case 2: return <Trophy className="h-5 w-5 text-slate-400" />;
+            case 3: return <Medal className="h-5 w-5 text-amber-600" />;
+            default: return null;
         }
     }
 
@@ -242,22 +252,25 @@ const QuoteComparison = ({ quotes, onConfirmAward, recommendation, onReject }: {
 
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {quotes.map(quote => {
-                const rank = getRecommendationRank(quote.id);
-                const isRecommended = rank > -1;
+            {quotes.sort((a, b) => (a.rank || 4) - (b.rank || 4)).map(quote => {
+                const aiRank = getRecommendationRank(quote.id);
+                const isRecommended = aiRank > -1;
                 return (
-                    <Card key={quote.id} className={cn("flex flex-col", quote.status === 'Awarded' && 'border-primary ring-2 ring-primary', isRecommended && 'border-green-500 ring-2 ring-green-500')}>
-                        {isRecommended && (
-                            <div className="flex items-center gap-2 p-2 bg-green-500 text-white text-xs font-bold rounded-t-lg">
-                               <Star className="h-4 w-4 fill-white"/> AI Recommendation #{rank + 1}
-                            </div>
-                        )}
-                        <CardHeader>
+                    <Card key={quote.id} className={cn("flex flex-col", quote.status === 'Awarded' && 'border-primary ring-2 ring-primary')}>
+                       <CardHeader>
                             <CardTitle className="flex justify-between items-start">
-                            <span>{quote.vendorName}</span>
-                            <Badge variant={getStatusVariant(quote.status)}>{quote.status}</Badge>
+                               <div className="flex items-center gap-2">
+                                 {getRankIcon(quote.rank)}
+                                 <span>{quote.vendorName}</span>
+                               </div>
+                               <Badge variant={getStatusVariant(quote.status)}>{quote.status}</Badge>
                             </CardTitle>
-                            <CardDescription>Submitted {formatDistanceToNow(new Date(quote.createdAt), { addSuffix: true })}</CardDescription>
+                            <CardDescription>
+                                {isRecommended && (
+                                     <span className="flex items-center gap-1 text-xs text-green-600 font-semibold"><Star className="h-3 w-3 fill-green-500" /> AI Rec #{aiRank + 1}</span>
+                                )}
+                                <span className="text-xs">Submitted {formatDistanceToNow(new Date(quote.createdAt), { addSuffix: true })}</span>
+                            </CardDescription>
                         </CardHeader>
                         <CardContent className="flex-grow space-y-4">
                             <div className="text-3xl font-bold text-center">{quote.totalPrice.toLocaleString()} ETB</div>
@@ -279,23 +292,6 @@ const QuoteComparison = ({ quotes, onConfirmAward, recommendation, onReject }: {
                                 </div>
                             )}
                         </CardContent>
-                        <CardFooter className="flex gap-2">
-                            <Button 
-                                className="w-full"
-                                onClick={() => onConfirmAward(quote)}
-                                disabled={isAnyAwarded || quote.status !== 'Submitted'}>
-                                <Award className="mr-2 h-4 w-4"/>
-                                {quote.status === 'Awarded' ? 'Awarded' : 'Award'}
-                            </Button>
-                            <Button 
-                                className="w-full"
-                                variant="outline"
-                                onClick={() => onReject(quote.id)}
-                                disabled={isAnyAwarded || quote.status !== 'Submitted'}>
-                                <XCircle className="mr-2 h-4 w-4"/>
-                                Reject
-                            </Button>
-                        </CardFooter>
                     </Card>
                 )
             })}
@@ -703,15 +699,98 @@ const WorkflowStepper = ({ step }: { step: 'rfq' | 'award' | 'finalize' | 'compl
     );
 };
 
+type AwardRanking = {
+    quoteId: string;
+    rank: 1 | 2 | 3;
+    status: 'Awarded' | 'Standby';
+}
+
+const ManageAwardsDialog = ({ quotes, onAwardsConfirmed, onCancel }: { quotes: Quotation[], onAwardsConfirmed: (updates: any[]) => void, onCancel: () => void }) => {
+    const [first, setFirst] = useState<string | undefined>(quotes.find(q => q.rank === 1)?.id);
+    const [second, setSecond] = useState<string | undefined>(quotes.find(q => q.rank === 2)?.id);
+    const [third, setThird] = useState<string | undefined>(quotes.find(q => q.rank === 3)?.id);
+
+    const availableForSecond = useMemo(() => quotes.filter(q => q.id !== first), [first, quotes]);
+    const availableForThird = useMemo(() => quotes.filter(q => q.id !== first && q.id !== second), [first, second, quotes]);
+
+    const handleConfirm = () => {
+        const updates = [];
+        if (first) updates.push({ quoteId: first, rank: 1, status: 'Awarded' });
+        if (second) updates.push({ quoteId: second, rank: 2, status: 'Standby' });
+        if (third) updates.push({ quoteId: third, rank: 3, status: 'Standby' });
+        onAwardsConfirmed(updates);
+    }
+    
+    const isAnyAwarded = quotes.some(q => q.status === 'Awarded');
+    if (isAnyAwarded) {
+        return (
+             <DialogContent>
+                 <DialogHeader>
+                     <DialogTitle>Activate Standby Quote</DialogTitle>
+                     <DialogDescription>The primary vendor has failed to deliver. Promote a standby vendor to be the new primary.</DialogDescription>
+                 </DialogHeader>
+                 <div className="p-4">
+                     <p>Coming soon: Logic to activate the next standby vendor.</p>
+                 </div>
+                  <DialogFooter>
+                      <Button variant="ghost" onClick={onCancel}>Cancel</Button>
+                      <Button disabled>Activate Next</Button>
+                  </DialogFooter>
+             </DialogContent>
+        )
+    }
+
+    return (
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Manage Quote Awards</DialogTitle>
+                <DialogDescription>Select up to 3 vendors for the award and standby positions. Unselected quotes will be rejected.</DialogDescription>
+            </DialogHeader>
+            <div className="py-4 space-y-4">
+                <div className="grid grid-cols-3 gap-4 items-center">
+                    <Label className="text-right">1st Choice (Awarded)</Label>
+                    <Select value={first} onValueChange={setFirst}>
+                        <SelectTrigger className="col-span-2"><SelectValue placeholder="Select primary vendor"/></SelectTrigger>
+                        <SelectContent>
+                            {quotes.map(q => <SelectItem key={q.id} value={q.id}>{q.vendorName} ({q.totalPrice.toLocaleString()} ETB)</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+
+                    <Label className="text-right">2nd Choice (Standby)</Label>
+                     <Select value={second} onValueChange={setSecond} disabled={!first}>
+                        <SelectTrigger className="col-span-2"><SelectValue placeholder="Select backup vendor"/></SelectTrigger>
+                        <SelectContent>
+                           {availableForSecond.map(q => <SelectItem key={q.id} value={q.id}>{q.vendorName} ({q.totalPrice.toLocaleString()} ETB)</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                    
+                    <Label className="text-right">3rd Choice (Standby)</Label>
+                    <Select value={third} onValueChange={setThird} disabled={!first || !second}>
+                        <SelectTrigger className="col-span-2"><SelectValue placeholder="Select second backup"/></SelectTrigger>
+                        <SelectContent>
+                             {availableForThird.map(q => <SelectItem key={q.id} value={q.id}>{q.vendorName} ({q.totalPrice.toLocaleString()} ETB)</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                </div>
+            </div>
+            <DialogFooter>
+                <Button variant="ghost" onClick={onCancel}>Cancel</Button>
+                <Button onClick={handleConfirm} disabled={!first}>Confirm Awards</Button>
+            </DialogFooter>
+        </DialogContent>
+    );
+};
+
+
 export default function QuotationDetailsPage() {
   const [requisition, setRequisition] = useState<PurchaseRequisition | null>(null);
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [quotations, setQuotations] = useState<Quotation[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isFormOpen, setFormOpen] = useState(false);
+  const [isAddFormOpen, setAddFormOpen] = useState(false);
+  const [isAwardFormOpen, setAwardFormOpen] = useState(false);
   const [lastPOCreated, setLastPOCreated] = useState<PurchaseOrder | null>(null);
   const [aiRecommendation, setAiRecommendation] = useState<QuoteAnalysisOutput | null>(null);
-  const [quoteToAward, setQuoteToAward] = useState<Quotation | null>(null);
   const [isChangingAward, setIsChangingAward] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
@@ -765,7 +844,7 @@ export default function QuotationDetailsPage() {
   }
 
   const handleQuoteAdded = () => {
-    setFormOpen(false);
+    setAddFormOpen(false);
     fetchRequisitionAndQuotes();
   }
   
@@ -776,10 +855,6 @@ export default function QuotationDetailsPage() {
   const handlePOCreated = (po: PurchaseOrder) => {
     fetchRequisitionAndQuotes();
     setLastPOCreated(po);
-  }
-  
-  const handleAwardConfirmation = (quote: Quotation) => {
-    setQuoteToAward(quote);
   }
 
   const handleResetAward = async () => {
@@ -813,39 +888,35 @@ export default function QuotationDetailsPage() {
     }
   }
   
-  const handleQuoteAction = async (quoteId: string, status: 'Awarded' | 'Rejected') => {
-    if (!user || !id) return;
-    
-    try {
-        const response = await fetch(`/api/quotations/${quoteId}/status`, {
+  const handleAwardsConfirmed = async (updates: any[]) => {
+     if (!user || !id) return;
+     
+     try {
+        const response = await fetch(`/api/quotations/${id}/status`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status, userId: user.id, requisitionId: id }),
+            body: JSON.stringify({ updates, userId: user.id }),
         });
 
         if (!response.ok) {
             const errorData = await response.json();
-            throw new Error(errorData.error || 'Failed to update quote status.');
+            throw new Error(errorData.error || 'Failed to update quote statuses.');
         }
-
-        let toastDescription = `The quotation has been successfully ${status.toLowerCase()}.`;
-        if (status === 'Awarded') {
-             toastDescription = `The quotation has been successfully awarded.`
-        }
-
+        
         toast({
-            title: `Quote Status Updated`,
-            description: toastDescription
+            title: 'Awards Updated',
+            description: 'The quote statuses have been successfully updated.'
         });
-        setQuoteToAward(null);
+        setAwardFormOpen(false);
         fetchRequisitionAndQuotes();
-    } catch (error) {
-        toast({
+
+     } catch (error) {
+          toast({
             variant: 'destructive',
             title: 'Error',
             description: error instanceof Error ? error.message : 'An unknown error occurred.',
         });
-    }
+     }
   }
 
   if (loading) {
@@ -894,12 +965,21 @@ export default function QuotationDetailsPage() {
                         {isAwarded && requisition.status !== 'PO Created' && (
                             <Button variant="outline" onClick={handleResetAward} disabled={isChangingAward}>
                                 {isChangingAward ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Undo className="mr-2 h-4 w-4"/>}
-                                Change Award Decision
+                                Reset Awards
                             </Button>
                         )}
-                        <Dialog open={isFormOpen} onOpenChange={setFormOpen}>
+                         <Dialog open={isAwardFormOpen} onOpenChange={setAwardFormOpen}>
                             <DialogTrigger asChild>
-                                <Button disabled={isAwarded}><PlusCircle className="mr-2 h-4 w-4"/>Add Quotation</Button>
+                                 <Button disabled={requisition.status === 'PO Created'}>
+                                    <Award className="mr-2 h-4 w-4" />
+                                    Manage Awards
+                                </Button>
+                            </DialogTrigger>
+                            <ManageAwardsDialog quotes={quotations} onAwardsConfirmed={handleAwardsConfirmed} onCancel={() => setAwardFormOpen(false)} />
+                         </Dialog>
+                        <Dialog open={isAddFormOpen} onOpenChange={setAddFormOpen}>
+                            <DialogTrigger asChild>
+                                <Button disabled={isAwarded} variant="outline"><PlusCircle className="mr-2 h-4 w-4"/>Add Quote</Button>
                             </DialogTrigger>
                             {requisition && <AddQuoteForm requisition={requisition} vendors={vendors} onQuoteAdded={handleQuoteAdded} />}
                         </Dialog>
@@ -933,9 +1013,7 @@ export default function QuotationDetailsPage() {
                 ) : (
                     <QuoteComparison 
                         quotes={quotations} 
-                        onConfirmAward={handleAwardConfirmation}
                         recommendation={aiRecommendation}
-                        onReject={(quoteId) => handleQuoteAction(quoteId, 'Rejected')}
                     />
                 )}
                 </CardContent>
@@ -962,33 +1040,7 @@ export default function QuotationDetailsPage() {
                 <ContractManagement requisition={requisition} onContractFinalized={handleContractFinalized} onPOCreated={handlePOCreated}/>
             </>
         )}
-        
-        {quoteToAward && (
-            <AlertDialog open={!!quoteToAward} onOpenChange={(open) => !open && setQuoteToAward(null)}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Confirm Award Decision</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            You are about to award this requisition to <span className="font-bold">{quoteToAward.vendorName}</span> for a total of <span className="font-bold">{quoteToAward.totalPrice.toLocaleString()} ETB</span>. This will reject all other quotes. Are you sure you want to proceed?
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                     <div className="rounded-md border bg-muted/50 p-4 text-sm">
-                        <h4 className="font-semibold mb-2">Key Information</h4>
-                        <div className="grid grid-cols-2 gap-1">
-                            <span className="text-muted-foreground">Vendor:</span><span>{quoteToAward.vendorName}</span>
-                            <span className="text-muted-foreground">Total Price:</span><span>{quoteToAward.totalPrice.toLocaleString()} ETB</span>
-                            <span className="text-muted-foreground">Delivery Date:</span><span>{format(new Date(quoteToAward.deliveryDate), 'PP')}</span>
-                        </div>
-                     </div>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel onClick={() => setQuoteToAward(null)}>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => handleQuoteAction(quoteToAward.id, 'Awarded')}>
-                            Confirm and Award
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-        )}
+
     </div>
   );
 }
