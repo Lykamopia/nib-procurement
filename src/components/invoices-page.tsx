@@ -19,7 +19,7 @@ import {
   CardFooter,
 } from './ui/card';
 import { Button } from './ui/button';
-import { Invoice, InvoiceStatus, PurchaseOrder, Vendor } from '@/lib/types';
+import { Invoice, InvoiceStatus, PurchaseOrder, Vendor, MatchingResult, MatchingStatus } from '@/lib/types';
 import { format } from 'date-fns';
 import {
   Dialog,
@@ -33,7 +33,7 @@ import {
 } from './ui/dialog';
 import { Input } from './ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, PlusCircle, ThumbsUp, ThumbsDown, FileUp, FileText, Banknote, CheckCircle, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight } from 'lucide-react';
+import { Loader2, PlusCircle, ThumbsUp, ThumbsDown, FileUp, FileText, Banknote, CheckCircle, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, CheckCircle2, AlertTriangle, Clock } from 'lucide-react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -240,11 +240,150 @@ function AddInvoiceForm({ onInvoiceAdded }: { onInvoiceAdded: () => void }) {
     );
 }
 
+const MatchDetailRow = ({ label, value, isMismatch = false }: { label: string, value: React.ReactNode, isMismatch?: boolean}) => (
+    <div className={cn("flex justify-between py-1", isMismatch && "text-destructive font-bold")}>
+        <span className="text-muted-foreground">{label}</span>
+        <span>{value}</span>
+    </div>
+)
+
+function MatchDetailsDialog({ result, onResolve, onCancel }: { result: MatchingResult, onResolve: () => void, onCancel: () => void }) {
+    const { user } = useAuth();
+    const { toast } = useToast();
+    const [isResolving, setResolving] = useState(false);
+
+    const handleResolve = async () => {
+        if (!user) return;
+        setResolving(true);
+        try {
+            const response = await fetch('/api/matching', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ poId: result.poId, userId: user.id })
+            });
+            if (!response.ok) throw new Error("Failed to resolve mismatch.");
+            toast({ title: "Mismatch Resolved", description: `PO ${result.poId} has been manually marked as matched.` });
+            onResolve();
+        } catch (error) {
+             toast({
+                variant: 'destructive',
+                title: 'Error',
+                description: error instanceof Error ? error.message : 'An unknown error occurred.',
+            });
+        } finally {
+            setResolving(false);
+            onCancel();
+        }
+    }
+    
+  return (
+     <DialogContent className="max-w-4xl">
+        <DialogHeader>
+            <DialogTitle>Matching Details for PO: {result.poId}</DialogTitle>
+        </DialogHeader>
+        <div className="py-4 grid grid-cols-1 md:grid-cols-3 gap-6">
+            <Card>
+            <CardHeader><CardTitle className="text-base">Totals</CardTitle></CardHeader>
+            <CardContent className="text-sm">
+                <MatchDetailRow label="PO Total" value={`${result.details.poTotal?.toFixed(2) ?? 'N/A'} ETB`} />
+                <MatchDetailRow label="Invoice Total" value={`${result.details.invoiceTotal?.toFixed(2) ?? 'N/A'} ETB`} isMismatch={result.details.poTotal !== result.details.invoiceTotal}/>
+                <MatchDetailRow label="PO Quantity" value={result.details.items?.reduce((acc, i) => acc + i.poQuantity, 0) ?? 'N/A'} />
+                <MatchDetailRow label="GRN Quantity" value={result.details.grnTotalQuantity ?? 'N/A'} isMismatch={result.details.items?.reduce((acc, i) => acc + i.poQuantity, 0) !== result.details.grnTotalQuantity} />
+                <MatchDetailRow label="Invoice Quantity" value={result.details.invoiceTotalQuantity ?? 'N/A'} isMismatch={result.details.items?.reduce((acc, i) => acc + i.poQuantity, 0) !== result.details.invoiceTotalQuantity} />
+            </CardContent>
+            </Card>
+            <Card className="md:col-span-2">
+                <CardHeader><CardTitle className="text-base">Item Breakdown</CardTitle></CardHeader>
+                <CardContent>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Item</TableHead>
+                                <TableHead>PO Qty</TableHead>
+                                <TableHead>GRN Qty</TableHead>
+                                <TableHead>Inv Qty</TableHead>
+                                <TableHead>PO Price</TableHead>
+                                <TableHead>Inv Price</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {result.details.items?.map(item => (
+                                <TableRow key={item.itemId}>
+                                    <TableCell>{item.itemName}</TableCell>
+                                    <TableCell>{item.poQuantity}</TableCell>
+                                    <TableCell className={cn(!item.quantityMatch && "text-destructive font-bold")}>{item.grnQuantity}</TableCell>
+                                    <TableCell className={cn(!item.quantityMatch && "text-destructive font-bold")}>{item.invoiceQuantity}</TableCell>
+                                    <TableCell>{item.poUnitPrice.toFixed(2)} ETB</TableCell>
+                                    <TableCell className={cn(!item.priceMatch && "text-destructive font-bold")}>{item.invoiceUnitPrice.toFixed(2)} ETB</TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
+        </div>
+        {result.status === 'Mismatched' && (
+            <DialogFooter>
+                <Button onClick={onCancel} variant="ghost">Close</Button>
+                <Button onClick={handleResolve} disabled={isResolving}>
+                    {isResolving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Manually Resolve Mismatch
+                </Button>
+            </DialogFooter>
+      )}
+    </DialogContent>
+  );
+}
+
+const MatchingStatusBadge = ({ invoiceId, onStatusClick }: { invoiceId: string, onStatusClick: (result: MatchingResult) => void }) => {
+    const [result, setResult] = useState<MatchingResult | null>(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchStatus = async () => {
+            setLoading(true);
+            try {
+                const response = await fetch(`/api/matching?invoiceId=${invoiceId}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    setResult(data);
+                }
+            } catch (error) {
+                console.error(`Failed to fetch matching status for invoice ${invoiceId}`, error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchStatus();
+    }, [invoiceId]);
+
+    if (loading || !result) {
+        return <Badge variant="outline"><Loader2 className="mr-2 h-3 w-3 animate-spin"/>Checking</Badge>;
+    }
+    
+    const isClickable = result.status === 'Mismatched';
+    const BadgeComponent = (
+        <Badge 
+            variant={result.status === 'Matched' ? 'default' : result.status === 'Mismatched' ? 'destructive' : 'secondary'}
+            className={cn(isClickable && "cursor-pointer")}
+            onClick={() => isClickable && onStatusClick(result)}
+        >
+            {result.status === 'Matched' && <CheckCircle2 className="mr-2 h-3 w-3" />}
+            {result.status === 'Mismatched' && <AlertTriangle className="mr-2 h-3 w-3" />}
+            {result.status === 'Pending' && <Clock className="mr-2 h-3 w-3" />}
+            {result.status}
+        </Badge>
+    );
+
+    return isClickable ? BadgeComponent : BadgeComponent;
+}
 
 export function InvoicesPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [isFormOpen, setFormOpen] = useState(false);
+  const [isMatchingDetailsOpen, setMatchingDetailsOpen] = useState(false);
+  const [selectedMatchResult, setSelectedMatchResult] = useState<MatchingResult | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const { toast } = useToast();
   const { user } = useAuth();
@@ -325,6 +464,11 @@ export function InvoicesPage() {
         });
     }
   }
+  
+  const handleStatusClick = (result: MatchingResult) => {
+    setSelectedMatchResult(result);
+    setMatchingDetailsOpen(true);
+  }
 
   const getStatusVariant = (status: InvoiceStatus) => {
     switch (status) {
@@ -342,12 +486,13 @@ export function InvoicesPage() {
   }
 
   return (
+    <>
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <div>
-          <CardTitle>Invoices</CardTitle>
+          <CardTitle>Invoices & Matching</CardTitle>
           <CardDescription>
-            Manage and process vendor invoices.
+            Manage vendor invoices and their three-way matching status.
           </CardDescription>
         </div>
         <Dialog open={isFormOpen} onOpenChange={setFormOpen}>
@@ -369,6 +514,7 @@ export function InvoicesPage() {
                 <TableHead>Invoice ID</TableHead>
                 <TableHead>PO Number</TableHead>
                 <TableHead>Date</TableHead>
+                <TableHead>Matching</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Amount</TableHead>
                 <TableHead>Actions</TableHead>
@@ -382,6 +528,9 @@ export function InvoicesPage() {
                     <TableCell className="font-medium text-primary">{invoice.id}</TableCell>
                     <TableCell>{invoice.purchaseOrderId}</TableCell>
                     <TableCell>{format(new Date(invoice.invoiceDate), 'PP')}</TableCell>
+                     <TableCell>
+                      <MatchingStatusBadge invoiceId={invoice.id} onStatusClick={handleStatusClick} />
+                    </TableCell>
                     <TableCell>
                       <div className="flex flex-col gap-1">
                         <Badge variant={getStatusVariant(invoice.status)}>{invoice.status}</Badge>
@@ -445,7 +594,7 @@ export function InvoicesPage() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={7} className="h-24 text-center">
+                  <TableCell colSpan={8} className="h-24 text-center">
                     No invoices found.
                   </TableCell>
                 </TableRow>
@@ -466,5 +615,18 @@ export function InvoicesPage() {
         </div>
       </CardContent>
     </Card>
+    <Dialog open={isMatchingDetailsOpen} onOpenChange={setMatchingDetailsOpen}>
+      {selectedMatchResult && (
+        <MatchDetailsDialog
+            result={selectedMatchResult}
+            onResolve={() => {
+                setMatchingDetailsOpen(false);
+                fetchInvoices();
+            }}
+            onCancel={() => setMatchingDetailsOpen(false)}
+        />
+      )}
+    </Dialog>
+    </>
   );
 }

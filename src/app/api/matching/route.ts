@@ -1,15 +1,39 @@
 
 
 import { NextResponse } from 'next/server';
-import { purchaseOrders, auditLogs } from '@/lib/data-store';
+import { purchaseOrders, auditLogs, invoices } from '@/lib/data-store';
 import { performThreeWayMatch } from '@/services/matching-service';
 import { users } from '@/lib/auth-store';
 
-export async function GET() {
-  console.log('GET /api/matching - Performing three-way match for all POs.');
-  const results = purchaseOrders.map(performThreeWayMatch);
-  console.log(`Found ${results.length} matching results.`);
-  return NextResponse.json(results);
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const invoiceId = searchParams.get('invoiceId');
+  
+  if (!invoiceId) {
+    return NextResponse.json({ error: 'Invoice ID is required' }, { status: 400 });
+  }
+
+  const invoice = invoices.find(inv => inv.id === invoiceId);
+  if (!invoice) {
+    return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
+  }
+
+  const po = purchaseOrders.find(p => p.id === invoice.purchaseOrderId);
+  if (!po) {
+    // This case might happen if an invoice is added without a PO.
+    // Return a pending state.
+    const pendingResult = {
+        poId: invoice.purchaseOrderId,
+        status: 'Pending' as const,
+        quantityMatch: false,
+        priceMatch: false,
+        details: { /* empty details */ }
+    }
+     return NextResponse.json(pendingResult);
+  }
+
+  const result = performThreeWayMatch(po);
+  return NextResponse.json(result);
 }
 
 export async function POST(request: Request) {

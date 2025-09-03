@@ -82,10 +82,8 @@ export default function AppLayout({
         return 'Purchase Orders'
       case '/receive-goods':
         return 'Receive Goods';
-       case '/invoice-matching':
-        return 'Invoice Matching';
        case '/invoices':
-        return 'Invoices';
+        return 'Invoices & Matching';
        case '/records':
         return 'Document Records';
       case '/audit-log':
@@ -218,17 +216,6 @@ export default function AppLayout({
                     </SidebarMenuButton>
                   </Link>
                 </SidebarMenuItem>
-                 <SidebarMenuItem>
-                  <Link href="/invoice-matching">
-                    <SidebarMenuButton
-                      isActive={pathname === '/invoice-matching'}
-                      tooltip="Invoice Matching"
-                    >
-                      <Wallet />
-                      <span>Invoice Matching</span>
-                    </SidebarMenuButton>
-                  </Link>
-                </SidebarMenuItem>
               </>
             )}
              {role === 'Finance' && (
@@ -236,10 +223,10 @@ export default function AppLayout({
                   <Link href="/invoices">
                     <SidebarMenuButton
                       isActive={pathname === '/invoices'}
-                      tooltip="Invoices"
+                      tooltip="Invoices & Matching"
                     >
                       <Landmark />
-                      <span>Invoices</span>
+                      <span>Invoices & Matching</span>
                     </SidebarMenuButton>
                   </Link>
                 </SidebarMenuItem>
