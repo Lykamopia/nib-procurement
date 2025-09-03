@@ -41,7 +41,7 @@ export async function PATCH(
     console.log(`PATCH /api/quotations/${quoteId}`);
     try {
         const body = await request.json();
-        const { userId, items, notes } = body;
+        const { userId, items, notes, answers } = body;
 
         const user = users.find(u => u.id === userId);
         if (!user) {
@@ -83,6 +83,7 @@ export async function PATCH(
             totalPrice,
             deliveryDate: addDays(new Date(), maxLeadTime),
             notes: notes,
+            answers: answers,
             createdAt: new Date(), // Update timestamp to reflect edit time
         };
 

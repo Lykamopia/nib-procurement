@@ -26,7 +26,7 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     console.log('Request Body:', body);
-    const { requisitionId, vendorId, items, notes } = body;
+    const { requisitionId, vendorId, items, notes, answers } = body;
 
     const vendor = vendors.find(v => v.id === vendorId);
     if (!vendor) {
@@ -77,6 +77,7 @@ export async function POST(request: Request) {
       createdAt: new Date(),
       status: 'Submitted',
       notes: notes,
+      answers: answers,
     };
 
     quotations.unshift(newQuotation);

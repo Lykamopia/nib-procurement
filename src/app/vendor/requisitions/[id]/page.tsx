@@ -21,6 +21,8 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { format } from 'date-fns';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const quoteFormSchema = z.object({
   notes: z.string().optional(),
@@ -31,6 +33,10 @@ const quoteFormSchema = z.object({
     unitPrice: z.coerce.number().min(0.01, "Price is required."),
     leadTimeDays: z.coerce.number().min(0, "Lead time is required."),
   })),
+  answers: z.array(z.object({
+      questionId: z.string(),
+      answer: z.string().min(1, "This question requires an answer."),
+  })).optional(),
 });
 
 const invoiceFormSchema = z.object({
@@ -162,7 +168,8 @@ function QuoteSubmissionForm({ requisition, quote, onQuoteSubmitted }: { requisi
             items: quote.items.map(item => ({
                 ...item,
                 requisitionItemId: item.requisitionItemId
-            }))
+            })),
+            answers: quote.answers || requisition.customQuestions?.map(q => ({ questionId: q.id, answer: '' }))
         } : {
             notes: "",
             items: requisition.items.map(item => ({
@@ -172,12 +179,18 @@ function QuoteSubmissionForm({ requisition, quote, onQuoteSubmitted }: { requisi
                 unitPrice: 0,
                 leadTimeDays: 0,
             })),
+            answers: requisition.customQuestions?.map(q => ({ questionId: q.id, answer: '' }))
         },
     });
 
      const { fields } = useFieldArray({
         control: form.control,
         name: "items",
+    });
+
+    const { fields: answerFields } = useFieldArray({
+        control: form.control,
+        name: "answers",
     });
 
     const onSubmit = async (values: z.infer<typeof quoteFormSchema>) => {
@@ -265,6 +278,65 @@ function QuoteSubmissionForm({ requisition, quote, onQuoteSubmitted }: { requisi
                                 </Card>
                             ))}
                         </div>
+
+                         {requisition.customQuestions && requisition.customQuestions.length > 0 && (
+                            <>
+                                <Separator />
+                                <h3 className="text-lg font-medium">Additional Questions</h3>
+                                <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
+                                {requisition.customQuestions.map((question, index) => (
+                                    <Card key={question.id} className="p-4">
+                                        <FormField
+                                            control={form.control}
+                                            name={`answers.${index}.answer`}
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>{question.questionText}</FormLabel>
+                                                    <FormControl>
+                                                        {question.questionType === 'text' && (
+                                                            <Textarea placeholder="Your answer..." {...field} />
+                                                        )}
+                                                        {question.questionType === 'boolean' && (
+                                                            <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex gap-4 pt-2">
+                                                                <FormItem className="flex items-center space-x-2">
+                                                                    <FormControl>
+                                                                        <RadioGroupItem value="true" id={`${question.id}-true`} />
+                                                                    </FormControl>
+                                                                    <FormLabel htmlFor={`${question.id}-true`} className="font-normal">True</FormLabel>
+                                                                </FormItem>
+                                                                <FormItem className="flex items-center space-x-2">
+                                                                    <FormControl>
+                                                                        <RadioGroupItem value="false" id={`${question.id}-false`} />
+                                                                    </FormControl>
+                                                                    <FormLabel htmlFor={`${question.id}-false`} className="font-normal">False</FormLabel>
+                                                                </FormItem>
+                                                            </RadioGroup>
+                                                        )}
+                                                        {question.questionType === 'multiple-choice' && (
+                                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                                <SelectTrigger>
+                                                                    <SelectValue placeholder="Select an option" />
+                                                                </SelectTrigger>
+                                                                <SelectContent>
+                                                                    {question.options?.map(option => (
+                                                                        <SelectItem key={option} value={option}>{option}</SelectItem>
+                                                                    ))}
+                                                                </SelectContent>
+                                                            </Select>
+                                                        )}
+                                                    </FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                    </Card>
+                                ))}
+                                </div>
+                            </>
+                        )}
+                        
+                        <Separator />
+
                         <FormField
                             control={form.control}
                             name="notes"

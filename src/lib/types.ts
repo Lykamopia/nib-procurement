@@ -1,4 +1,5 @@
 
+
 export type UserRole =
   | 'Requester'
   | 'Approver'
@@ -120,6 +121,11 @@ export type QuoteItem = {
     leadTimeDays: number;
 };
 
+export type QuoteAnswer = {
+  questionId: string;
+  answer: string;
+}
+
 export type QuotationStatus = 'Submitted' | 'Awarded' | 'Rejected' | 'Standby' | 'Invoice Submitted' | 'Failed';
 
 
@@ -135,6 +141,7 @@ export type Quotation = {
     status: QuotationStatus;
     notes?: string;
     rank?: 1 | 2 | 3;
+    answers?: QuoteAnswer[];
 };
 
 export type POItem = {
