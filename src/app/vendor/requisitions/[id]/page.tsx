@@ -292,39 +292,43 @@ function QuoteSubmissionForm({ requisition, quote, onQuoteSubmitted }: { requisi
                                             render={({ field }) => (
                                                 <FormItem>
                                                     <FormLabel>{question.questionText}</FormLabel>
-                                                    <FormControl>
                                                         {question.questionType === 'text' && (
+                                                          <FormControl>
                                                             <Textarea placeholder="Your answer..." {...field} />
+                                                          </FormControl>
                                                         )}
                                                         {question.questionType === 'boolean' && (
-                                                            <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex gap-4 pt-2">
-                                                                <FormItem className="flex items-center space-x-2">
-                                                                    <FormControl>
-                                                                        <RadioGroupItem value="true" id={`${question.id}-true`} />
-                                                                    </FormControl>
-                                                                    <FormLabel htmlFor={`${question.id}-true`} className="font-normal">True</FormLabel>
-                                                                </FormItem>
-                                                                <FormItem className="flex items-center space-x-2">
-                                                                    <FormControl>
-                                                                        <RadioGroupItem value="false" id={`${question.id}-false`} />
-                                                                    </FormControl>
-                                                                    <FormLabel htmlFor={`${question.id}-false`} className="font-normal">False</FormLabel>
-                                                                </FormItem>
-                                                            </RadioGroup>
+                                                             <FormControl>
+                                                                <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex gap-4 pt-2">
+                                                                    <FormItem className="flex items-center space-x-2">
+                                                                        <FormControl>
+                                                                            <RadioGroupItem value="true" id={`${question.id}-true`} />
+                                                                        </FormControl>
+                                                                        <FormLabel htmlFor={`${question.id}-true`} className="font-normal">True</FormLabel>
+                                                                    </FormItem>
+                                                                    <FormItem className="flex items-center space-x-2">
+                                                                        <FormControl>
+                                                                            <RadioGroupItem value="false" id={`${question.id}-false`} />
+                                                                        </FormControl>
+                                                                        <FormLabel htmlFor={`${question.id}-false`} className="font-normal">False</FormLabel>
+                                                                    </FormItem>
+                                                                </RadioGroup>
+                                                            </FormControl>
                                                         )}
                                                         {question.questionType === 'multiple-choice' && (
-                                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                                <SelectTrigger>
-                                                                    <SelectValue placeholder="Select an option" />
-                                                                </SelectTrigger>
-                                                                <SelectContent>
-                                                                    {question.options?.map(option => (
-                                                                        <SelectItem key={option} value={option}>{option}</SelectItem>
-                                                                    ))}
-                                                                </SelectContent>
-                                                            </Select>
+                                                           <FormControl>
+                                                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                                    <SelectTrigger>
+                                                                        <SelectValue placeholder="Select an option" />
+                                                                    </SelectTrigger>
+                                                                    <SelectContent>
+                                                                        {question.options?.map(option => (
+                                                                            <SelectItem key={option} value={option}>{option}</SelectItem>
+                                                                        ))}
+                                                                    </SelectContent>
+                                                                </Select>
+                                                            </FormControl>
                                                         )}
-                                                    </FormControl>
                                                     <FormMessage />
                                                 </FormItem>
                                             )}
