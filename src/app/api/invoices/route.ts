@@ -47,8 +47,8 @@ export async function POST(request: Request) {
     if (!po.invoices) {
       po.invoices = [];
     }
-    po.invoices.push(newInvoice);
-    console.log('Created new invoice:', newInvoice);
+    po.invoices.push(newInvoice); // This line ensures the PO is aware of the new invoice.
+    console.log('Created new invoice and linked to PO:', newInvoice);
     
     // Also update the original quote status if submitted by a vendor
     const awardedQuote = quotations.find(q => q.requisitionId === po.requisitionId && q.status === 'Awarded');
