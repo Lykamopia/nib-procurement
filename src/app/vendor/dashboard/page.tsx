@@ -17,6 +17,7 @@ import { format, formatDistanceToNow } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { ArrowRight, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, Award } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const PAGE_SIZE = 9;
 
@@ -48,9 +49,10 @@ export default function VendorDashboardPage() {
                 }
                 const data: PurchaseRequisition[] = await response.json();
 
-                // 1. Filter for requisitions open for quoting
+                // 1. Filter for requisitions open for quoting and not yet awarded to someone else
                 const openForQuoting = data.filter(r => 
                     r.status === 'RFQ In Progress' &&
+                    !r.quotations?.some(q => q.status === 'Awarded') &&
                     (r.allowedVendorIds === 'all' || (Array.isArray(r.allowedVendorIds) && r.allowedVendorIds.includes(user.vendorId!)))
                 );
                 setOpenRequisitions(openForQuoting);
@@ -88,15 +90,16 @@ export default function VendorDashboardPage() {
                 <>
                     {awardedRequisitions.length > 0 && (
                         <div className="space-y-4">
-                            <div className="space-y-1">
-                                <h1 className="text-3xl font-bold flex items-center gap-2"><Award className="text-primary"/> Congratulations! You've Been Awarded</h1>
-                                <p className="text-muted-foreground">
-                                    The following requisitions have been awarded to you. Await the official Purchase Order.
-                                </p>
-                            </div>
+                            <Alert className="border-primary/50 text-primary">
+                                <Award className="h-5 w-5 !text-primary" />
+                                <AlertTitle className="text-xl font-bold">Congratulations! You've Been Awarded</AlertTitle>
+                                <AlertDescription className="text-primary/90">
+                                    The following requisitions have been awarded to you. Please await the official Purchase Order from the procurement team.
+                                </AlertDescription>
+                            </Alert>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                 {awardedRequisitions.map(req => (
-                                    <Card key={req.id} className="border-primary ring-2 ring-primary">
+                                    <Card key={req.id} className="border-primary ring-2 ring-primary/50 bg-primary/5">
                                         <CardHeader>
                                             <CardTitle>{req.title}</CardTitle>
                                             <CardDescription>From {req.department} Department</CardDescription>
@@ -104,7 +107,7 @@ export default function VendorDashboardPage() {
                                         <CardContent>
                                             <div className="text-sm text-muted-foreground space-y-2">
                                                 <div><span className="font-semibold text-foreground">Requisition ID:</span> {req.id}</div>
-                                                <div><Badge>Awarded</Badge></div>
+                                                <div><Badge variant="default" className="bg-green-600">Awarded</Badge></div>
                                             </div>
                                         </CardContent>
                                         <CardFooter>
@@ -130,7 +133,7 @@ export default function VendorDashboardPage() {
                         {paginatedData.length > 0 ? (
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {paginatedData.map((req) => (
-                                    <Card key={req.id} className="flex flex-col">
+                                    <Card key={req.id} className="flex flex-col hover:shadow-md transition-shadow">
                                         <CardHeader>
                                             <CardTitle>{req.title}</CardTitle>
                                             <CardDescription>From {req.department} Department</CardDescription>
@@ -144,7 +147,7 @@ export default function VendorDashboardPage() {
                                                     <span className="font-semibold text-foreground">Posted:</span> {formatDistanceToNow(new Date(req.createdAt), { addSuffix: true })}
                                                 </div>
                                                 <div>
-                                                    <Badge>{req.status}</Badge>
+                                                    <Badge variant="secondary">{req.status}</Badge>
                                                 </div>
                                             </div>
                                         </CardContent>
@@ -159,7 +162,7 @@ export default function VendorDashboardPage() {
                                 ))}
                             </div>
                         ) : (
-                            <div className="flex flex-col items-center justify-center h-64 border border-dashed rounded-lg">
+                            <div className="flex flex-col items-center justify-center h-64 border border-dashed rounded-lg bg-muted/50">
                                 <h3 className="text-xl font-semibold">No Open Requisitions</h3>
                                 <p className="text-muted-foreground">There are no requisitions currently available for quotation.</p>
                             </div>
@@ -168,7 +171,7 @@ export default function VendorDashboardPage() {
                         {totalPages > 1 && (
                             <div className="flex items-center justify-between mt-4">
                                 <div className="text-sm text-muted-foreground">
-                                    Page {currentPage} of {totalPages} ({openRequisitions.length} total requisitions)
+                                    Page {currentPage} of {totalPages}
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <Button variant="outline" size="icon" onClick={() => setCurrentPage(1)} disabled={currentPage === 1}><ChevronsLeft /></Button>
