@@ -14,7 +14,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Loader2, Send, ArrowLeft, CheckCircle, FileText, BadgeInfo, FileUp, CircleCheck } from 'lucide-react';
+import { Loader2, Send, ArrowLeft, CheckCircle, FileText, BadgeInfo, FileUp, CircleCheck, Info } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import Link from 'next/link';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -156,7 +156,7 @@ export default function VendorRequisitionPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [isSubmitting, setSubmitting] = useState(false);
-    const [awardedQuote, setAwardedQuote] = useState<Quotation | null>(null);
+    const [submittedQuote, setSubmittedQuote] = useState<Quotation | null>(null);
     const [isInvoiceFormOpen, setInvoiceFormOpen] = useState(false);
 
     const params = useParams();
@@ -198,9 +198,10 @@ export default function VendorRequisitionPage() {
              const foundReq: PurchaseRequisition = await response.json();
              setRequisition(foundReq);
 
-             const vendorAwardedQuote = foundReq.quotations?.find(q => q.vendorId === user.vendorId && (q.status === 'Awarded' || q.status === 'Invoice Submitted'));
-             if (vendorAwardedQuote) {
-                 setAwardedQuote(vendorAwardedQuote);
+             const vendorSubmittedQuote = foundReq.quotations?.find(q => q.vendorId === user.vendorId);
+             
+             if (vendorSubmittedQuote) {
+                 setSubmittedQuote(vendorSubmittedQuote);
                  if (foundReq.purchaseOrderId) {
                      const poResponse = await fetch('/api/purchase-orders');
                      const allPOs: PurchaseOrder[] = await poResponse.json();
@@ -263,7 +264,8 @@ export default function VendorRequisitionPage() {
                 title: 'Success!',
                 description: 'Your quotation has been submitted.',
             });
-            router.push('/vendor/dashboard');
+            // Re-fetch data to show the submitted quote view
+            fetchRequisitionData(); 
 
         } catch (error) {
             toast({
@@ -283,7 +285,69 @@ export default function VendorRequisitionPage() {
 
     const totalQuotePrice = form.watch('items').reduce((acc, item) => acc + (item.quantity * (item.unitPrice || 0)), 0);
 
-    const hasSubmittedInvoice = awardedQuote?.status === 'Invoice Submitted';
+    const isAwarded = submittedQuote?.status === 'Awarded' || submittedQuote?.status === 'Invoice Submitted';
+    const hasSubmittedInvoice = submittedQuote?.status === 'Invoice Submitted';
+
+    const QuoteDisplayCard = ({ quote }: { quote: Quotation }) => (
+         <Card>
+            <CardHeader>
+                <CardTitle>Your Submitted Quote</CardTitle>
+                <CardDescription>
+                    Status: <Badge variant={quote.status === 'Awarded' ? 'default' : 'secondary'}>{quote.status}</Badge>
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <div className="space-y-2">
+                    {quote.items.map((item) => (
+                        <div key={item.requisitionItemId} className="flex justify-between p-2 border rounded-md">
+                            <div>
+                                <p className="font-semibold">{item.name} x {item.quantity}</p>
+                                <p className="text-xs text-muted-foreground">Unit Price: {item.unitPrice.toFixed(2)} ETB</p>
+                            </div>
+                            <p className="font-semibold text-lg">{(item.unitPrice * item.quantity).toFixed(2)} ETB</p>
+                        </div>
+                    ))}
+                </div>
+                {quote.notes && (
+                    <div>
+                        <h3 className="font-semibold text-sm">Your Notes</h3>
+                        <p className="text-muted-foreground text-sm p-3 border rounded-md bg-muted/50 italic">"{quote.notes}"</p>
+                    </div>
+                )}
+                 <Separator />
+                 <div className="text-right font-bold text-2xl">
+                    Total Quoted Price: {quote.totalPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETB
+                 </div>
+                 {isAwarded && purchaseOrder && (
+                    <CardFooter className="p-0 pt-4">
+                         <Dialog open={isInvoiceFormOpen} onOpenChange={setInvoiceFormOpen}>
+                            <DialogTrigger asChild>
+                                <Button className="w-full" disabled={hasSubmittedInvoice}>
+                                    {hasSubmittedInvoice ? (
+                                        <><CircleCheck className="mr-2"/> Invoice Submitted</>
+                                    ) : (
+                                        <><FileUp className="mr-2"/> Submit Invoice</>
+                                    )}
+                                </Button>
+                            </DialogTrigger>
+                            <InvoiceSubmissionForm po={purchaseOrder} onInvoiceSubmitted={() => { setInvoiceFormOpen(false); fetchRequisitionData(); }} />
+                        </Dialog>
+                    </CardFooter>
+                 )}
+                 {!isAwarded && (
+                     <CardFooter className="p-0 pt-4">
+                        <Alert variant="default" className="border-blue-500/50">
+                            <Info className="h-4 w-4 text-blue-500" />
+                            <AlertTitle>Quote Under Review</AlertTitle>
+                            <AlertDescription>
+                                Your quote has been submitted and is awaiting review by the procurement team. You will be notified of the outcome.
+                            </AlertDescription>
+                        </Alert>
+                     </CardFooter>
+                 )}
+            </CardContent>
+        </Card>
+    );
 
     return (
         <div className="space-y-6">
@@ -292,7 +356,7 @@ export default function VendorRequisitionPage() {
                 Back to Dashboard
             </Button>
             
-            {awardedQuote && (
+            {isAwarded && (
                 <Alert variant="default" className="border-green-600 bg-green-50 text-green-900 dark:bg-green-950 dark:text-green-200 dark:border-green-800">
                     <CheckCircle className="h-5 w-5 !text-green-600" />
                     <AlertTitle className="font-bold text-lg">This Requisition has been Awarded to You!</AlertTitle>
@@ -332,54 +396,8 @@ export default function VendorRequisitionPage() {
                     </CardContent>
                 </Card>
 
-                {awardedQuote ? (
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Your Awarded Quote</CardTitle>
-                            <CardDescription>
-                                The following is the quote you submitted which was accepted.
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div className="space-y-2">
-                                {awardedQuote.items.map((item) => (
-                                    <div key={item.requisitionItemId} className="flex justify-between p-2 border rounded-md">
-                                        <div>
-                                            <p className="font-semibold">{item.name} x {item.quantity}</p>
-                                            <p className="text-xs text-muted-foreground">Unit Price: {item.unitPrice.toFixed(2)} ETB</p>
-                                        </div>
-                                        <p className="font-semibold text-lg">{(item.unitPrice * item.quantity).toFixed(2)} ETB</p>
-                                    </div>
-                                ))}
-                            </div>
-                            {awardedQuote.notes && (
-                                <div>
-                                    <h3 className="font-semibold text-sm">Your Notes</h3>
-                                    <p className="text-muted-foreground text-sm p-3 border rounded-md bg-muted/50 italic">"{awardedQuote.notes}"</p>
-                                </div>
-                            )}
-                             <Separator />
-                             <div className="text-right font-bold text-2xl">
-                                Total Awarded Price: {awardedQuote.totalPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETB
-                             </div>
-                             {purchaseOrder && (
-                                <CardFooter className="p-0 pt-4">
-                                     <Dialog open={isInvoiceFormOpen} onOpenChange={setInvoiceFormOpen}>
-                                        <DialogTrigger asChild>
-                                            <Button className="w-full" disabled={hasSubmittedInvoice}>
-                                                {hasSubmittedInvoice ? (
-                                                    <><CircleCheck className="mr-2"/> Invoice Submitted</>
-                                                ) : (
-                                                    <><FileUp className="mr-2"/> Submit Invoice</>
-                                                )}
-                                            </Button>
-                                        </DialogTrigger>
-                                        <InvoiceSubmissionForm po={purchaseOrder} onInvoiceSubmitted={() => { setInvoiceFormOpen(false); fetchRequisitionData(); }} />
-                                    </Dialog>
-                                </CardFooter>
-                             )}
-                        </CardContent>
-                    </Card>
+                {submittedQuote ? (
+                    <QuoteDisplayCard quote={submittedQuote} />
                 ) : (
                     <Card>
                         <CardHeader>

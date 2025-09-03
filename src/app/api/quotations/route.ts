@@ -42,6 +42,14 @@ export async function POST(request: Request) {
     }
     console.log('Found requisition:', requisition);
 
+    // Prevent duplicate submissions
+    const existingQuote = quotations.find(q => q.requisitionId === requisitionId && q.vendorId === vendorId);
+    if (existingQuote) {
+        console.error(`Vendor ${vendorId} has already submitted a quote for requisition ${requisitionId}.`);
+        return NextResponse.json({ error: 'You have already submitted a quote for this requisition.' }, { status: 409 });
+    }
+
+
     let totalPrice = 0;
     let maxLeadTime = 0;
     const quoteItems = items.map((item: any) => {
