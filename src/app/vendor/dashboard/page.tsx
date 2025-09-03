@@ -18,8 +18,25 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { ArrowRight, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, Award } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { cn } from '@/lib/utils';
 
 const PAGE_SIZE = 9;
+
+type RequisitionCardStatus = 'Awarded' | 'Submitted' | 'Not Awarded' | 'Action Required';
+
+const VendorStatusBadge = ({ status }: { status: RequisitionCardStatus }) => {
+  const statusInfo = {
+    'Awarded': { text: 'Awarded to You', variant: 'default', className: 'bg-green-600 hover:bg-green-700' },
+    'Submitted': { text: 'Submitted', variant: 'secondary', className: '' },
+    'Not Awarded': { text: 'Not Awarded', variant: 'destructive', className: 'bg-gray-500 hover:bg-gray-600' },
+    'Action Required': { text: 'Action Required', variant: 'default', className: '' },
+  };
+
+  const { text, variant, className } = statusInfo[status] || { text: 'Unknown', variant: 'outline', className: '' };
+
+  return <Badge variant={variant} className={cn('absolute top-4 right-4', className)}>{text}</Badge>;
+};
+
 
 export default function VendorDashboardPage() {
     const { token, user } = useAuth();
@@ -49,10 +66,9 @@ export default function VendorDashboardPage() {
                 }
                 const data: PurchaseRequisition[] = await response.json();
 
-                // 1. Filter for requisitions open for quoting and not yet awarded to someone else
+                // 1. Filter for requisitions open for quoting
                 const openForQuoting = data.filter(r => 
                     r.status === 'RFQ In Progress' &&
-                    !r.quotations?.some(q => q.status === 'Awarded') &&
                     (r.allowedVendorIds === 'all' || (Array.isArray(r.allowedVendorIds) && r.allowedVendorIds.includes(user.vendorId!)))
                 );
                 setOpenRequisitions(openForQuoting);
@@ -72,6 +88,22 @@ export default function VendorDashboardPage() {
 
         fetchRequisitions();
     }, [token, user]);
+    
+    const getRequisitionCardStatus = (req: PurchaseRequisition): RequisitionCardStatus => {
+        if (!user?.vendorId) return 'Action Required';
+
+        const vendorQuote = req.quotations?.find(q => q.vendorId === user.vendorId);
+        const anAwardedQuote = req.quotations?.find(q => q.status === 'Awarded');
+        
+        if (anAwardedQuote) {
+            return anAwardedQuote.vendorId === user.vendorId ? 'Awarded' : 'Not Awarded';
+        }
+        if (vendorQuote) {
+            return 'Submitted';
+        }
+        return 'Action Required';
+    }
+
 
     const totalPages = Math.ceil(openRequisitions.length / PAGE_SIZE);
     const paginatedData = useMemo(() => {
@@ -99,7 +131,8 @@ export default function VendorDashboardPage() {
                             </Alert>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                 {awardedRequisitions.map(req => (
-                                    <Card key={req.id} className="border-primary ring-2 ring-primary/50 bg-primary/5">
+                                    <Card key={req.id} className="border-primary ring-2 ring-primary/50 bg-primary/5 relative">
+                                        <VendorStatusBadge status="Awarded" />
                                         <CardHeader>
                                             <CardTitle>{req.title}</CardTitle>
                                             <CardDescription>From {req.department} Department</CardDescription>
@@ -107,7 +140,6 @@ export default function VendorDashboardPage() {
                                         <CardContent>
                                             <div className="text-sm text-muted-foreground space-y-2">
                                                 <div><span className="font-semibold text-foreground">Requisition ID:</span> {req.id}</div>
-                                                <div><Badge variant="default" className="bg-green-600">Awarded</Badge></div>
                                             </div>
                                         </CardContent>
                                         <CardFooter>
@@ -132,8 +164,13 @@ export default function VendorDashboardPage() {
                         </div>
                         {paginatedData.length > 0 ? (
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {paginatedData.map((req) => (
-                                    <Card key={req.id} className="flex flex-col hover:shadow-md transition-shadow">
+                            {paginatedData.map((req) => {
+                                const status = getRequisitionCardStatus(req);
+                                const isClickable = status !== 'Not Awarded';
+
+                                return (
+                                    <Card key={req.id} className={cn("flex flex-col hover:shadow-md transition-shadow relative", !isClickable && "opacity-60")}>
+                                        <VendorStatusBadge status={status} />
                                         <CardHeader>
                                             <CardTitle>{req.title}</CardTitle>
                                             <CardDescription>From {req.department} Department</CardDescription>
@@ -146,20 +183,18 @@ export default function VendorDashboardPage() {
                                                 <div>
                                                     <span className="font-semibold text-foreground">Posted:</span> {formatDistanceToNow(new Date(req.createdAt), { addSuffix: true })}
                                                 </div>
-                                                <div>
-                                                    <Badge variant="secondary">{req.status}</Badge>
-                                                </div>
                                             </div>
                                         </CardContent>
                                         <CardFooter>
-                                            <Button asChild className="w-full">
+                                            <Button asChild className="w-full" disabled={!isClickable}>
                                                 <Link href={`/vendor/requisitions/${req.id}`}>
-                                                    View & Quote <ArrowRight className="ml-2 h-4 w-4" />
+                                                     {status === 'Submitted' ? 'View Your Quote' : 'View & Quote'} <ArrowRight className="ml-2 h-4 w-4" />
                                                 </Link>
                                             </Button>
                                         </CardFooter>
                                     </Card>
-                                ))}
+                                )}
+                            )}
                             </div>
                         ) : (
                             <div className="flex flex-col items-center justify-center h-64 border border-dashed rounded-lg bg-muted/50">
@@ -187,3 +222,5 @@ export default function VendorDashboardPage() {
         </div>
     )
 }
+
+    
