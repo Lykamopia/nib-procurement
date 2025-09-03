@@ -46,7 +46,7 @@ export async function PATCH(
         }
     });
 
-    // Reject all other quotes for this requisition that weren't in the update
+    // Reject all other quotes for this requisition that weren't in the update list
     quotations.forEach(q => {
         if (q.requisitionId === requisitionId && !updatedQuoteIds.has(q.id)) {
             q.status = 'Rejected';
@@ -57,7 +57,7 @@ export async function PATCH(
     
     // Update requisition status if an award was made
     if (updates.some(u => u.status === 'Awarded')) {
-      requisition.status = 'RFQ In Progress'; // Or a more specific status
+      requisition.status = 'RFQ In Progress';
       requisition.updatedAt = new Date();
     }
     
