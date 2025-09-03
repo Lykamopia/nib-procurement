@@ -1,7 +1,7 @@
 
 
 import { NextResponse } from 'next/server';
-import { purchaseOrders, goodsReceipts, auditLogs } from '@/lib/data-store';
+import { purchaseOrders, goodsReceipts, auditLogs, quotations } from '@/lib/data-store';
 import { users } from '@/lib/auth-store';
 import { GoodsReceiptNote, PurchaseOrderStatus } from '@/lib/types';
 
@@ -54,6 +54,27 @@ export async function POST(request: Request) {
 
     po.status = allItemsDelivered ? 'Delivered' : 'Partially Delivered';
     console.log(`Updated PO ${po.id} status to ${po.status}`);
+
+    // If fully delivered, reject standby quotes
+    if (po.status === 'Delivered') {
+        quotations.forEach(q => {
+            if (q.requisitionId === po.requisitionId && q.status === 'Standby') {
+                q.status = 'Rejected';
+                const auditLogEntry = {
+                    id: `log-${Date.now()}-${Math.random()}`,
+                    timestamp: new Date(),
+                    user: 'System',
+                    role: 'Admin' as const,
+                    action: 'AUTO_REJECT_STANDBY',
+                    entity: 'Quotation',
+                    entityId: q.id,
+                    details: `Automatically rejected standby quote from ${q.vendorName} as primary PO ${po.id} was fulfilled.`,
+                };
+                auditLogs.unshift(auditLogEntry);
+            }
+        });
+        console.log(`PO ${po.id} fulfilled. Standby quotes for requisition ${po.requisitionId} have been rejected.`);
+    }
 
     const auditLogEntry = {
         id: `log-${Date.now()}-${Math.random()}`,

@@ -718,24 +718,24 @@ const ManageAwardsDialog = ({ quotes, onAwardsConfirmed, onCancel }: { quotes: Q
         if (first) updates.push({ quoteId: first, rank: 1, status: 'Awarded' });
         if (second) updates.push({ quoteId: second, rank: 2, status: 'Standby' });
         if (third) updates.push({ quoteId: third, rank: 3, status: 'Standby' });
+        
         onAwardsConfirmed(updates);
     }
     
     const isAnyAwarded = quotes.some(q => q.status === 'Awarded');
+    
+    // Simplified logic for this component: focus on initial award setting.
+    // The "reset" flow handles re-awarding.
     if (isAnyAwarded) {
         return (
              <DialogContent>
                  <DialogHeader>
-                     <DialogTitle>Activate Standby Quote</DialogTitle>
-                     <DialogDescription>The primary vendor has failed to deliver. Promote a standby vendor to be the new primary.</DialogDescription>
+                     <DialogTitle>Awards Managed</DialogTitle>
+                     <DialogDescription>An award has already been made for this requisition. To change it, use the "Reset Awards" button.</DialogDescription>
                  </DialogHeader>
-                 <div className="p-4">
-                     <p>Coming soon: Logic to activate the next standby vendor.</p>
-                 </div>
-                  <DialogFooter>
-                      <Button variant="ghost" onClick={onCancel}>Cancel</Button>
-                      <Button disabled>Activate Next</Button>
-                  </DialogFooter>
+                 <DialogFooter>
+                    <Button onClick={onCancel}>Close</Button>
+                </DialogFooter>
              </DialogContent>
         )
     }
@@ -756,21 +756,29 @@ const ManageAwardsDialog = ({ quotes, onAwardsConfirmed, onCancel }: { quotes: Q
                         </SelectContent>
                     </Select>
 
-                    <Label className="text-right">2nd Choice (Standby)</Label>
-                     <Select value={second} onValueChange={setSecond} disabled={!first}>
-                        <SelectTrigger className="col-span-2"><SelectValue placeholder="Select backup vendor"/></SelectTrigger>
-                        <SelectContent>
-                           {availableForSecond.map(q => <SelectItem key={q.id} value={q.id}>{q.vendorName} ({q.totalPrice.toLocaleString()} ETB)</SelectItem>)}
-                        </SelectContent>
-                    </Select>
+                    {quotes.length > 1 && (
+                        <>
+                            <Label className="text-right">2nd Choice (Standby)</Label>
+                            <Select value={second} onValueChange={setSecond} disabled={!first}>
+                                <SelectTrigger className="col-span-2"><SelectValue placeholder="Select backup vendor"/></SelectTrigger>
+                                <SelectContent>
+                                {availableForSecond.map(q => <SelectItem key={q.id} value={q.id}>{q.vendorName} ({q.totalPrice.toLocaleString()} ETB)</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </>
+                    )}
                     
-                    <Label className="text-right">3rd Choice (Standby)</Label>
-                    <Select value={third} onValueChange={setThird} disabled={!first || !second}>
-                        <SelectTrigger className="col-span-2"><SelectValue placeholder="Select second backup"/></SelectTrigger>
-                        <SelectContent>
-                             {availableForThird.map(q => <SelectItem key={q.id} value={q.id}>{q.vendorName} ({q.totalPrice.toLocaleString()} ETB)</SelectItem>)}
-                        </SelectContent>
-                    </Select>
+                    {quotes.length > 2 && (
+                        <>
+                            <Label className="text-right">3rd Choice (Standby)</Label>
+                            <Select value={third} onValueChange={setThird} disabled={!first || !second}>
+                                <SelectTrigger className="col-span-2"><SelectValue placeholder="Select second backup"/></SelectTrigger>
+                                <SelectContent>
+                                    {availableForThird.map(q => <SelectItem key={q.id} value={q.id}>{q.vendorName} ({q.totalPrice.toLocaleString()} ETB)</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </>
+                    )}
                 </div>
             </div>
             <DialogFooter>
@@ -837,7 +845,7 @@ export default function QuotationDetailsPage() {
     if (id) {
         fetchRequisitionAndQuotes();
     }
-  }, [id, toast]);
+  }, [id]);
 
   const handleRfqSent = () => {
     fetchRequisitionAndQuotes();
@@ -970,7 +978,7 @@ export default function QuotationDetailsPage() {
                         )}
                          <Dialog open={isAwardFormOpen} onOpenChange={setAwardFormOpen}>
                             <DialogTrigger asChild>
-                                 <Button disabled={requisition.status === 'PO Created'}>
+                                 <Button disabled={requisition.status === 'PO Created' || isAwarded}>
                                     <Award className="mr-2 h-4 w-4" />
                                     Manage Awards
                                 </Button>
