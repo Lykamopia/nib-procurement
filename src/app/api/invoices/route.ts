@@ -47,13 +47,21 @@ export async function POST(request: Request) {
     if (!po.invoices) {
       po.invoices = [];
     }
-    po.invoices.push(newInvoice); // This line ensures the PO is aware of the new invoice.
+    po.invoices.push(newInvoice);
     console.log('Created new invoice and linked to PO:', newInvoice);
     
-    // Also update the original quote status if submitted by a vendor
-    const awardedQuote = quotations.find(q => q.requisitionId === po.requisitionId && q.status === 'Awarded');
+    // Find the specific quote that was awarded to this vendor for this PO's requisition
+    const awardedQuote = quotations.find(q => 
+        q.requisitionId === po.requisitionId && 
+        q.vendorId === vendorId &&
+        q.status === 'Awarded'
+    );
+
     if (awardedQuote) {
         awardedQuote.status = 'Invoice Submitted';
+        console.log(`Updated status to "Invoice Submitted" for quote ${awardedQuote.id}`);
+    } else {
+        console.warn(`Could not find matching awarded quote for vendor ${vendorId} on requisition ${po.requisitionId} to update status.`);
     }
 
 
