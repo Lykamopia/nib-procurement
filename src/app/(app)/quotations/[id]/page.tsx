@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   Card,
@@ -31,7 +31,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, PlusCircle, Award, XCircle, FileSignature, FileText, Bot, Lightbulb, ArrowLeft, Star, Undo, Check, Send } from 'lucide-react';
+import { Loader2, PlusCircle, Award, XCircle, FileSignature, FileText, Bot, Lightbulb, ArrowLeft, Star, Undo, Check, Send, Search } from 'lucide-react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -512,6 +512,7 @@ const ContractManagement = ({ requisition, onContractFinalized, onPOCreated }: {
 const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: PurchaseRequisition; vendors: Vendor[]; onRfqSent: () => void; }) => {
     const [distributionType, setDistributionType] = useState<'all' | 'select'>('all');
     const [selectedVendors, setSelectedVendors] = useState<string[]>([]);
+    const [vendorSearch, setVendorSearch] = useState('');
     const [isSubmitting, setSubmitting] = useState(false);
     const { user } = useAuth();
     const { toast } = useToast();
@@ -551,8 +552,20 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
             setSubmitting(false);
         }
     }
+    
+    const filteredVendors = useMemo(() => {
+        const verifiedVendors = vendors.filter(v => v.kycStatus === 'Verified');
+        if (!vendorSearch) {
+            return verifiedVendors;
+        }
+        const lowercasedSearch = vendorSearch.toLowerCase();
+        return verifiedVendors.filter(vendor =>
+            vendor.name.toLowerCase().includes(lowercasedSearch) ||
+            vendor.email.toLowerCase().includes(lowercasedSearch) ||
+            vendor.contactPerson.toLowerCase().includes(lowercasedSearch)
+        );
+    }, [vendors, vendorSearch]);
 
-    const verifiedVendors = vendors.filter(v => v.kycStatus === 'Verified');
 
     return (
         <Card className="mt-6 border-dashed">
@@ -575,11 +588,22 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
 
                 {distributionType === 'select' && (
                     <Card>
-                        <CardHeader><CardTitle className="text-lg">Select Vendors</CardTitle></CardHeader>
+                        <CardHeader>
+                            <CardTitle className="text-lg">Select Vendors</CardTitle>
+                            <div className="relative mt-2">
+                                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                                <Input 
+                                    placeholder="Search vendors..." 
+                                    className="pl-8 w-full"
+                                    value={vendorSearch}
+                                    onChange={(e) => setVendorSearch(e.target.value)}
+                                />
+                            </div>
+                        </CardHeader>
                         <CardContent>
                             <ScrollArea className="h-60">
                                 <div className="space-y-4">
-                                {verifiedVendors.map(vendor => (
+                                {filteredVendors.map(vendor => (
                                     <div key={vendor.id} className="flex items-start space-x-4 rounded-md border p-4 has-[:checked]:bg-muted">
                                         <Checkbox 
                                             id={`vendor-${vendor.id}`} 
@@ -606,6 +630,11 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
                                         </div>
                                     </div>
                                 ))}
+                                {filteredVendors.length === 0 && (
+                                    <div className="text-center text-muted-foreground py-10">
+                                        No vendors found matching your search.
+                                    </div>
+                                )}
                                 </div>
                             </ScrollArea>
                         </CardContent>
