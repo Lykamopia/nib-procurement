@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -31,13 +32,13 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, PlusCircle, Award, XCircle, FileSignature, FileText, Bot, Lightbulb, ArrowLeft, Star, Undo, Check, Send, Search, BadgeHelp, BadgeCheck, BadgeX, Crown, Medal, Trophy, RefreshCw } from 'lucide-react';
+import { Loader2, PlusCircle, Award, XCircle, FileSignature, FileText, Bot, Lightbulb, ArrowLeft, Star, Undo, Check, Send, Search, BadgeHelp, BadgeCheck, BadgeX, Crown, Medal, Trophy, RefreshCw, TimerOff } from 'lucide-react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { PurchaseOrder, PurchaseRequisition, Quotation, Vendor, QuotationStatus } from '@/lib/types';
-import { format, formatDistanceToNow } from 'date-fns';
+import { format, formatDistanceToNow, isBefore } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/contexts/auth-context';
@@ -219,7 +220,7 @@ function AddQuoteForm({ requisition, vendors, onQuoteAdded }: { requisition: Pur
     );
 }
 
-const QuoteComparison = ({ quotes, recommendation }: { quotes: Quotation[], recommendation?: QuoteAnalysisOutput | null }) => {
+const QuoteComparison = ({ quotes, requisition, recommendation }: { quotes: Quotation[], requisition: PurchaseRequisition, recommendation?: QuoteAnalysisOutput | null }) => {
     if (quotes.length === 0) {
         return (
             <div className="h-24 flex items-center justify-center text-muted-foreground">
@@ -227,6 +228,9 @@ const QuoteComparison = ({ quotes, recommendation }: { quotes: Quotation[], reco
             </div>
         );
     }
+    
+    const deadline = requisition.deadline ? new Date(requisition.deadline) : null;
+    const isDeadlinePassed = deadline ? !isBefore(new Date(), deadline) : true;
     
     const getStatusVariant = (status: QuotationStatus) => {
         switch (status) {
@@ -274,18 +278,28 @@ const QuoteComparison = ({ quotes, recommendation }: { quotes: Quotation[], reco
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="flex-grow space-y-4">
-                            <div className="text-3xl font-bold text-center">{quote.totalPrice.toLocaleString()} ETB</div>
-                            <div className="text-center text-muted-foreground">Est. Delivery: {format(new Date(quote.deliveryDate), 'PP')}</div>
-                            
-                            <div className="text-sm space-y-2">
-                            <h4 className="font-semibold">Items:</h4>
-                                {quote.items.map(item => (
-                                    <div key={item.requisitionItemId} className="flex justify-between items-center text-muted-foreground">
-                                        <span>{item.name} x {item.quantity}</span>
-                                        <span className="font-mono">{item.unitPrice.toFixed(2)} ETB ea.</span>
+                             {isDeadlinePassed ? (
+                                <>
+                                    <div className="text-3xl font-bold text-center">{quote.totalPrice.toLocaleString()} ETB</div>
+                                    <div className="text-center text-muted-foreground">Est. Delivery: {format(new Date(quote.deliveryDate), 'PP')}</div>
+                                    <div className="text-sm space-y-2">
+                                    <h4 className="font-semibold">Items:</h4>
+                                        {quote.items.map(item => (
+                                            <div key={item.requisitionItemId} className="flex justify-between items-center text-muted-foreground">
+                                                <span>{item.name} x {item.quantity}</span>
+                                                <span className="font-mono">{item.unitPrice.toFixed(2)} ETB ea.</span>
+                                            </div>
+                                        ))}
                                     </div>
-                                ))}
-                            </div>
+                                </>
+                            ) : (
+                                <div className="text-center py-8">
+                                    <TimerOff className="h-8 w-8 mx-auto text-muted-foreground" />
+                                    <p className="font-semibold mt-2">Price Masked</p>
+                                    <p className="text-sm text-muted-foreground">Revealed after {format(deadline!, 'PP')}</p>
+                                </div>
+                            )}
+
                             {quote.notes && (
                                 <div className="text-sm space-y-1 pt-2 border-t">
                                     <h4 className="font-semibold">Notes:</h4>
@@ -706,7 +720,10 @@ type AwardRanking = {
     status: 'Awarded' | 'Standby';
 }
 
-const ManageAwardsDialog = ({ quotes, aiRecommendation, onAwardsConfirmed, onCancel }: { quotes: Quotation[], aiRecommendation: QuoteAnalysisOutput | null, onAwardsConfirmed: (updates: any[]) => void, onCancel: () => void }) => {
+const ManageAwardsDialog = ({ quotes, requisition, aiRecommendation, onAwardsConfirmed, onCancel }: { quotes: Quotation[], requisition: PurchaseRequisition, aiRecommendation: QuoteAnalysisOutput | null, onAwardsConfirmed: (updates: any[]) => void, onCancel: () => void }) => {
+    
+    const deadline = requisition.deadline ? new Date(requisition.deadline) : null;
+    const isDeadlinePassed = deadline ? !isBefore(new Date(), deadline) : true;
     
     const getInitialValue = (rank: number) => {
         if (aiRecommendation && aiRecommendation.recommendations.length >= rank) {
@@ -777,6 +794,22 @@ const ManageAwardsDialog = ({ quotes, aiRecommendation, onAwardsConfirmed, onCan
                  <DialogHeader>
                      <DialogTitle>Awards Managed</DialogTitle>
                      <DialogDescription>An award has already been made for this requisition. To change it, use the "Change Award Decision" button.</DialogDescription>
+                 </DialogHeader>
+                 <DialogFooter>
+                    <Button onClick={onCancel}>Close</Button>
+                </DialogFooter>
+             </DialogContent>
+        )
+    }
+
+    if (!isDeadlinePassed) {
+        return (
+             <DialogContent>
+                 <DialogHeader>
+                     <DialogTitle>Cannot Manage Awards Yet</DialogTitle>
+                     <DialogDescription>
+                        The deadline for this requisition has not passed yet. Please wait until {format(deadline!, "PPpp")} to manage awards.
+                     </DialogDescription>
                  </DialogHeader>
                  <DialogFooter>
                     <Button onClick={onCancel}>Close</Button>
@@ -988,6 +1021,8 @@ export default function QuotationDetailsPage() {
     return 'award';
   };
   const currentStep = getCurrentStep();
+  
+  const isDeadlinePassed = requisition.deadline ? !isBefore(new Date(), new Date(requisition.deadline)) : true;
 
   return (
     <div className="space-y-6">
@@ -1011,6 +1046,12 @@ export default function QuotationDetailsPage() {
                         <CardTitle>Quotations for {requisition.id}</CardTitle>
                         <CardDescription>
                             {requisition.title}
+                            {requisition.deadline && (
+                                <>
+                                 <br/>
+                                 <span className="text-xs">Deadline: {format(new Date(requisition.deadline), "PPpp")}</span>
+                                </>
+                            )}
                         </CardDescription>
                     </div>
                     <div className="flex items-center gap-2">
@@ -1056,6 +1097,7 @@ export default function QuotationDetailsPage() {
                             </DialogTrigger>
                             <ManageAwardsDialog 
                                 quotes={quotations} 
+                                requisition={requisition}
                                 aiRecommendation={aiRecommendation}
                                 onAwardsConfirmed={handleAwardsConfirmed} 
                                 onCancel={() => setAwardFormOpen(false)} 
@@ -1070,7 +1112,7 @@ export default function QuotationDetailsPage() {
                     </div>
                 </CardHeader>
                 <CardContent>
-                    {quotations.length > 1 && !isAwarded && (
+                    {isDeadlinePassed && quotations.length > 1 && !isAwarded && (
                         <AIQuoteAdvisor 
                             requisition={requisition} 
                             quotes={quotations} 
@@ -1097,6 +1139,7 @@ export default function QuotationDetailsPage() {
                 ) : (
                     <QuoteComparison 
                         quotes={quotations} 
+                        requisition={requisition}
                         recommendation={aiRecommendation}
                     />
                 )}
@@ -1128,4 +1171,5 @@ export default function QuotationDetailsPage() {
     </div>
   );
 }
+
 

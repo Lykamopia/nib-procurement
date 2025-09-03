@@ -73,6 +73,7 @@ export type PurchaseRequisition = {
   purchaseOrderId?: string;
   allowedVendorIds?: 'all' | string[];
   customQuestions?: CustomQuestion[];
+  deadline?: Date;
 };
 
 export type AuditLog = {

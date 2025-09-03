@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { NextResponse } from 'next/server';
@@ -38,6 +39,7 @@ export async function POST(request: Request) {
       department: body.department,
       items: itemsWithIds,
       customQuestions: questionsWithIds,
+      deadline: body.deadline ? new Date(body.deadline) : undefined,
       totalPrice: 0, // Price is not set at creation
       justification: body.justification,
       status: 'Draft',

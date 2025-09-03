@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -26,7 +27,7 @@ import {
   CardHeader,
   CardTitle,
 } from './ui/card';
-import { PlusCircle, Trash2, Loader2 } from 'lucide-react';
+import { PlusCircle, Trash2, Loader2, Calendar as CalendarIcon } from 'lucide-react';
 import { Separator } from './ui/separator';
 import {
   Select,
@@ -40,6 +41,9 @@ import { useAuth } from '@/contexts/auth-context';
 import { cn } from '@/lib/utils';
 import { DepartmentBudget, QuestionType } from '@/lib/types';
 import { departmentBudgets } from '@/lib/data-store';
+import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
+import { Calendar } from './ui/calendar';
+import { format } from 'date-fns';
 
 const formSchema = z.object({
   requesterName: z.string().min(2, 'Name must be at least 2 characters.'),
@@ -48,7 +52,7 @@ const formSchema = z.object({
   justification: z
     .string()
     .min(10, 'Justification must be at least 10 characters.'),
-  urgency: z.enum(['Low', 'Medium', 'High']),
+  deadline: z.date().optional(),
   attachments: z.any().optional(),
   items: z
     .array(
@@ -87,7 +91,6 @@ export function NeedsRecognitionForm() {
       department: '',
       title: '',
       justification: '',
-      urgency: 'Low',
       items: [{ name: '', quantity: 1 }],
       customQuestions: [],
     },
@@ -362,25 +365,44 @@ export function NeedsRecognitionForm() {
             <div className="grid md:grid-cols-2 gap-8">
               <FormField
                 control={form.control}
-                name="urgency"
+                name="deadline"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Urgency</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select urgency level" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="Low">Low</SelectItem>
-                        <SelectItem value="Medium">Medium</SelectItem>
-                        <SelectItem value="High">High</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  <FormItem className="flex flex-col">
+                    <FormLabel>Quotation Deadline</FormLabel>
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <FormControl>
+                            <Button
+                                variant={"outline"}
+                                className={cn(
+                                "w-[240px] pl-3 text-left font-normal",
+                                !field.value && "text-muted-foreground"
+                                )}
+                            >
+                                {field.value ? (
+                                format(field.value, "PPP")
+                                ) : (
+                                <span>Pick a date</span>
+                                )}
+                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                            </Button>
+                            </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                            mode="single"
+                            selected={field.value}
+                            onSelect={field.onChange}
+                            disabled={(date) =>
+                                date < new Date()
+                            }
+                            initialFocus
+                            />
+                        </PopoverContent>
+                    </Popover>
+                    <FormDescription>
+                      This is the final date for vendors to submit their quotes.
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
