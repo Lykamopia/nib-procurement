@@ -110,7 +110,7 @@ export type QuoteItem = {
     leadTimeDays: number;
 };
 
-export type QuotationStatus = 'Submitted' | 'Awarded' | 'Rejected' | 'Standby' | 'Invoice Submitted';
+export type QuotationStatus = 'Submitted' | 'Awarded' | 'Rejected' | 'Standby' | 'Invoice Submitted' | 'Failed';
 
 
 export type Quotation = {

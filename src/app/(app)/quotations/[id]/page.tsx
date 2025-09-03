@@ -31,7 +31,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, PlusCircle, Award, XCircle, FileSignature, FileText, Bot, Lightbulb, ArrowLeft, Star, Undo, Check, Send, Search, BadgeHelp, BadgeCheck, BadgeX, Crown, Medal, Trophy } from 'lucide-react';
+import { Loader2, PlusCircle, Award, XCircle, FileSignature, FileText, Bot, Lightbulb, ArrowLeft, Star, Undo, Check, Send, Search, BadgeHelp, BadgeCheck, BadgeX, Crown, Medal, Trophy, RefreshCw } from 'lucide-react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -47,7 +47,7 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 import { analyzeQuotes } from '@/ai/flows/quote-analysis';
 import type { QuoteAnalysisInput, QuoteAnalysisOutput } from '@/ai/flows/quote-analysis.types';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Label } from '@/components/ui/label';
@@ -724,14 +724,12 @@ const ManageAwardsDialog = ({ quotes, onAwardsConfirmed, onCancel }: { quotes: Q
     
     const isAnyAwarded = quotes.some(q => q.status === 'Awarded');
     
-    // Simplified logic for this component: focus on initial award setting.
-    // The "reset" flow handles re-awarding.
     if (isAnyAwarded) {
         return (
              <DialogContent>
                  <DialogHeader>
                      <DialogTitle>Awards Managed</DialogTitle>
-                     <DialogDescription>An award has already been made for this requisition. To change it, use the "Reset Awards" button.</DialogDescription>
+                     <DialogDescription>An award has already been made for this requisition. To change it, use the "Change Award Decision" button.</DialogDescription>
                  </DialogHeader>
                  <DialogFooter>
                     <Button onClick={onCancel}>Close</Button>
@@ -807,6 +805,8 @@ export default function QuotationDetailsPage() {
   const id = params.id as string;
   
   const isAwarded = quotations.some(q => q.status === 'Awarded');
+  const secondStandby = useMemo(() => quotations.find(q => q.rank === 2), [quotations]);
+  const thirdStandby = useMemo(() => quotations.find(q => q.rank === 3), [quotations]);
 
   const fetchRequisitionAndQuotes = async () => {
     if (!id) return;
@@ -845,7 +845,7 @@ export default function QuotationDetailsPage() {
     if (id) {
         fetchRequisitionAndQuotes();
     }
-  }, [id]);
+  }, [id, toast]);
 
   const handleRfqSent = () => {
     fetchRequisitionAndQuotes();
@@ -865,24 +865,24 @@ export default function QuotationDetailsPage() {
     setLastPOCreated(po);
   }
 
-  const handleResetAward = async () => {
+  const handleAwardChange = async (action: 'promote_second' | 'promote_third' | 'restart_rfq') => {
     if (!user || !id) return;
     setIsChangingAward(true);
     try {
-        const response = await fetch(`/api/requisitions/${id}/reset-award`, {
+        const response = await fetch(`/api/requisitions/${id}/handle-award-change`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId: user.id }),
+            body: JSON.stringify({ userId: user.id, action }),
         });
 
         if (!response.ok) {
-            const errorData = await response.json().catch(() => ({ error: 'Failed to reset award.' }));
+            const errorData = await response.json().catch(() => ({ error: 'Failed to handle award change.' }));
             throw new Error(errorData.error);
         }
 
         toast({
-            title: `Award Reset`,
-            description: 'The award has been reset. You can now select a new quote.'
+            title: `Action Successful`,
+            description: `The award status has been updated.`
         });
         fetchRequisitionAndQuotes();
     } catch (error) {
@@ -971,10 +971,37 @@ export default function QuotationDetailsPage() {
                     </div>
                     <div className="flex items-center gap-2">
                         {isAwarded && requisition.status !== 'PO Created' && (
-                            <Button variant="outline" onClick={handleResetAward} disabled={isChangingAward}>
-                                {isChangingAward ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Undo className="mr-2 h-4 w-4"/>}
-                                Reset Awards
-                            </Button>
+                             <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <Button variant="outline" disabled={isChangingAward}>
+                                        {isChangingAward ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Undo className="mr-2 h-4 w-4"/>}
+                                        Change Award Decision
+                                    </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>Change Award Decision</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            The primary awarded vendor may have failed to deliver. Choose how to proceed. This action cannot be undone.
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <div className="flex flex-col gap-4 py-4">
+                                        <Button onClick={() => handleAwardChange('promote_second')} disabled={!secondStandby}>
+                                            Award to 2nd Vendor ({secondStandby?.vendorName})
+                                        </Button>
+                                        <Button onClick={() => handleAwardChange('promote_third')} disabled={!thirdStandby}>
+                                            Award to 3rd Vendor ({thirdStandby?.vendorName})
+                                        </Button>
+                                        <Button onClick={() => handleAwardChange('restart_rfq')} variant="destructive">
+                                            <RefreshCw className="mr-2 h-4 w-4"/>
+                                            Restart RFQ Process
+                                        </Button>
+                                    </div>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
                         )}
                          <Dialog open={isAwardFormOpen} onOpenChange={setAwardFormOpen}>
                             <DialogTrigger asChild>
