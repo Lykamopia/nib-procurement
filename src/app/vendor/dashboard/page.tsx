@@ -10,22 +10,15 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
+  CardFooter,
 } from "@/components/ui/card"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
 import { Badge } from '@/components/ui/badge';
-import { format } from 'date-fns';
+import { format, formatDistanceToNow } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { ArrowRight, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight } from 'lucide-react';
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 9;
 
 export default function VendorDashboardPage() {
     const { token, user } = useAuth();
@@ -77,62 +70,59 @@ export default function VendorDashboardPage() {
 
 
     return (
-        <div>
-            <h1 className="text-3xl font-bold mb-4">Open for Quotation</h1>
+        <div className="space-y-6">
+            <div className="space-y-1">
+                <h1 className="text-3xl font-bold">Open for Quotation</h1>
+                 <p className="text-muted-foreground">
+                    The following requisitions are currently open for quotation.
+                </p>
+            </div>
             
             {loading && <p>Loading open requisitions...</p>}
             {error && <p className="text-destructive">Error: {error}</p>}
 
             {!loading && !error && (
-                 <Card>
-                    <CardHeader>
-                        <CardTitle>Available Requisitions</CardTitle>
-                        <CardDescription>
-                        The following requisitions are currently open for quotation.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                       <Table>
-                            <TableHeader>
-                                <TableRow>
-                                <TableHead className="w-10">#</TableHead>
-                                <TableHead>Requisition ID</TableHead>
-                                <TableHead>Title</TableHead>
-                                <TableHead>Department</TableHead>
-                                <TableHead>Date Created</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead></TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {paginatedData.length > 0 ? (
-                                    paginatedData.map((req, index) => (
-                                    <TableRow key={req.id}>
-                                        <TableCell className="text-muted-foreground">{(currentPage - 1) * PAGE_SIZE + index + 1}</TableCell>
-                                        <TableCell className="font-medium">{req.id}</TableCell>
-                                        <TableCell>{req.title}</TableCell>
-                                        <TableCell>{req.department}</TableCell>
-                                        <TableCell>{format(new Date(req.createdAt), 'PPP')}</TableCell>
-                                        <TableCell><Badge>{req.status}</Badge></TableCell>
-                                        <TableCell>
-                                             <Button asChild variant="outline" size="sm">
-                                                <Link href={`/vendor/requisitions/${req.id}`}>
-                                                    View & Quote <ArrowRight className="ml-2 h-4 w-4" />
-                                                </Link>
-                                            </Button>
-                                        </TableCell>
-                                    </TableRow>
-                                    ))
-                                ) : (
-                                    <TableRow>
-                                        <TableCell colSpan={7} className="h-24 text-center">
-                                            There are no requisitions currently open for quotation.
-                                        </TableCell>
-                                    </TableRow>
-                                )}
-                            </TableBody>
-                        </Table>
-                         <div className="flex items-center justify-between mt-4">
+                <>
+                    {paginatedData.length > 0 ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                           {paginatedData.map((req) => (
+                                <Card key={req.id} className="flex flex-col">
+                                    <CardHeader>
+                                        <CardTitle>{req.title}</CardTitle>
+                                        <CardDescription>From {req.department} Department</CardDescription>
+                                    </CardHeader>
+                                    <CardContent className="flex-grow">
+                                        <div className="text-sm text-muted-foreground space-y-2">
+                                            <div>
+                                                <span className="font-semibold text-foreground">Requisition ID:</span> {req.id}
+                                            </div>
+                                            <div>
+                                                 <span className="font-semibold text-foreground">Posted:</span> {formatDistanceToNow(new Date(req.createdAt), { addSuffix: true })}
+                                            </div>
+                                            <div>
+                                                <Badge>{req.status}</Badge>
+                                            </div>
+                                        </div>
+                                    </CardContent>
+                                    <CardFooter>
+                                        <Button asChild className="w-full">
+                                            <Link href={`/vendor/requisitions/${req.id}`}>
+                                                View & Quote <ArrowRight className="ml-2 h-4 w-4" />
+                                            </Link>
+                                        </Button>
+                                    </CardFooter>
+                                </Card>
+                            ))}
+                        </div>
+                     ) : (
+                        <div className="flex flex-col items-center justify-center h-64 border border-dashed rounded-lg">
+                            <h3 className="text-xl font-semibold">No Open Requisitions</h3>
+                            <p className="text-muted-foreground">There are no requisitions currently available for quotation.</p>
+                        </div>
+                    )}
+                    
+                    {totalPages > 1 && (
+                        <div className="flex items-center justify-between mt-4">
                             <div className="text-sm text-muted-foreground">
                                 Page {currentPage} of {totalPages} ({requisitions.length} total requisitions)
                             </div>
@@ -143,8 +133,8 @@ export default function VendorDashboardPage() {
                                 <Button variant="outline" size="icon" onClick={() => setCurrentPage(totalPages)} disabled={currentPage === totalPages}><ChevronsRight /></Button>
                             </div>
                         </div>
-                    </CardContent>
-                </Card>
+                    )}
+                </>
             )}
         </div>
     )
