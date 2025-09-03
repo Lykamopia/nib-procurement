@@ -37,9 +37,13 @@ export type RequisitionItem = {
   unitPrice?: number;
 };
 
+export type QuestionType = 'text' | 'boolean' | 'multiple-choice';
+
 export type CustomQuestion = {
   id: string;
   questionText: string;
+  questionType: QuestionType;
+  options?: string[];
 };
 
 export type ContractDetails = {

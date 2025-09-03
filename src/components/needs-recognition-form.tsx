@@ -38,7 +38,7 @@ import {
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/auth-context';
 import { cn } from '@/lib/utils';
-import { DepartmentBudget } from '@/lib/types';
+import { DepartmentBudget, QuestionType } from '@/lib/types';
 import { departmentBudgets } from '@/lib/data-store';
 
 const formSchema = z.object({
@@ -60,7 +60,9 @@ const formSchema = z.object({
     .min(1, 'At least one item is required.'),
   customQuestions: z.array(
     z.object({
-      questionText: z.string().min(5, 'Question must be at least 5 characters.')
+      questionText: z.string().min(5, 'Question must be at least 5 characters.'),
+      questionType: z.enum(['text', 'boolean', 'multiple-choice']),
+      options: z.array(z.object({ value: z.string().min(1, "Option cannot be empty.") })).optional(),
     })
   ).optional(),
 });
@@ -104,12 +106,20 @@ export function NeedsRecognitionForm() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setLoading(true);
     try {
+      const formattedValues = {
+        ...values,
+        customQuestions: values.customQuestions?.map(q => ({
+          ...q,
+          options: q.options?.map(opt => opt.value)
+        }))
+      }
+
       const response = await fetch('/api/requisitions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(values),
+        body: JSON.stringify(formattedValues),
       });
 
       if (!response.ok) {
@@ -272,48 +282,77 @@ export function NeedsRecognitionForm() {
             
             <div>
               <h3 className="text-lg font-medium mb-4">Custom Questions for Vendors</h3>
-              <div className="space-y-6">
-                {questionFields.map((field, index) => (
-                  <div
-                    key={field.id}
-                    className="flex gap-4 items-end p-4 border rounded-lg"
-                  >
-                    <FormField
-                      control={form.control}
-                      name={`customQuestions.${index}.questionText`}
-                      render={({ field }) => (
-                        <FormItem className="flex-1">
-                          <FormLabel>Question {index + 1}</FormLabel>
-                          <FormControl>
-                            <Input
-                              placeholder="e.g., What is the warranty period?"
-                              {...field}
+              <FormDescription>Add questions to gather specific information from vendors with their quotes.</FormDescription>
+              <div className="space-y-6 mt-4">
+                {questionFields.map((field, index) => {
+                  const questionType = form.watch(`customQuestions.${index}.questionType`);
+                  return (
+                    <div key={field.id} className="flex gap-4 items-start p-4 border rounded-lg">
+                      <div className="flex-1 space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <FormField
+                            control={form.control}
+                            name={`customQuestions.${index}.questionText`}
+                            render={({ field }) => (
+                              <FormItem className="md:col-span-2">
+                                <FormLabel>Question {index + 1}</FormLabel>
+                                <FormControl>
+                                  <Input placeholder="e.g., What is the warranty period?" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                           <FormField
+                              control={form.control}
+                              name={`customQuestions.${index}.questionType`}
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Question Type</FormLabel>
+                                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <FormControl>
+                                      <SelectTrigger><SelectValue placeholder="Select a type" /></SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                      <SelectItem value="text">Open-ended Text</SelectItem>
+                                      <SelectItem value="boolean">True/False</SelectItem>
+                                      <SelectItem value="multiple-choice">Multiple Choice</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
                             />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="icon"
-                      onClick={() => removeQuestion(index)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
+                        </div>
+                         {questionType === 'multiple-choice' && (
+                          <div className="pl-4 space-y-2">
+                            <FormLabel>Multiple Choice Options</FormLabel>
+                            <QuestionOptions index={index} />
+                          </div>
+                        )}
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="mt-6"
+                        onClick={() => removeQuestion(index)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  );
+                })}
               </div>
-               <div className="flex justify-between items-center mt-4">
-                 <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => appendQuestion({ questionText: '' })}
+              <div className="flex justify-between items-center mt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => appendQuestion({ questionText: '', questionType: 'text', options: [] })}
                 >
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    Add Question
+                  <PlusCircle className="mr-2 h-4 w-4" />
+                  Add Question
                 </Button>
               </div>
             </div>
@@ -392,5 +431,40 @@ export function NeedsRecognitionForm() {
         </Form>
       </CardContent>
     </Card>
+  );
+}
+
+// Sub-component to manage options for multiple-choice questions
+function QuestionOptions({ index }: { index: number }) {
+  const { control } = useFormContext();
+  const { fields, append, remove } = useFieldArray({
+    control,
+    name: `customQuestions.${index}.options`,
+  });
+
+  return (
+    <div className="space-y-2">
+      {fields.map((field, optionIndex) => (
+        <div key={field.id} className="flex items-center gap-2">
+           <FormField
+              control={control}
+              name={`customQuestions.${index}.options.${optionIndex}.value`}
+              render={({ field }) => (
+                <FormItem className="flex-1">
+                  <FormControl>
+                    <Input {...field} placeholder={`Option ${optionIndex + 1}`} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          <Button type="button" variant="ghost" size="sm" onClick={() => remove(optionIndex)}>Remove</Button>
+        </div>
+      ))}
+      <Button type="button" size="sm" variant="outline" onClick={() => append({ value: "" })}>
+        <PlusCircle className="mr-2 h-4 w-4" />
+        Add Option
+      </Button>
+    </div>
   );
 }

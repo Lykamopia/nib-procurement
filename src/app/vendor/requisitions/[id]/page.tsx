@@ -481,6 +481,27 @@ export default function VendorRequisitionPage() {
                                 ))}
                             </div>
                         </div>
+                         {requisition.customQuestions && requisition.customQuestions.length > 0 && (
+                            <>
+                                <Separator />
+                                <div>
+                                    <h3 className="font-semibold text-sm mb-2">Additional Questions from Requester</h3>
+                                    <div className="space-y-3 text-sm">
+                                        {requisition.customQuestions.map(q => (
+                                            <div key={q.id}>
+                                                <p className="font-medium">{q.questionText}</p>
+                                                {q.questionType === 'boolean' && <p className="text-muted-foreground text-xs italic">Please answer with True/False.</p>}
+                                                {q.questionType === 'multiple-choice' && (
+                                                    <p className="text-muted-foreground text-xs italic">
+                                                        Please choose from: {q.options?.join(', ')}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </>
+                        )}
                     </CardContent>
                 </Card>
 
