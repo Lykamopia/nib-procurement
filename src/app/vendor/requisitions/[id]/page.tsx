@@ -14,7 +14,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Loader2, Send, ArrowLeft, CheckCircle, FileText, BadgeInfo, FileUp, CircleCheck, Info } from 'lucide-react';
+import { Loader2, Send, ArrowLeft, CheckCircle, FileText, BadgeInfo, FileUp, CircleCheck, Info, Edit, FileEdit } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import Link from 'next/link';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -150,34 +150,167 @@ function InvoiceSubmissionForm({ po, onInvoiceSubmitted }: { po: PurchaseOrder; 
     );
 }
 
+function QuoteSubmissionForm({ requisition, quote, onQuoteSubmitted }: { requisition: PurchaseRequisition; quote?: Quotation | null; onQuoteSubmitted: () => void; }) {
+    const { user, token } = useAuth();
+    const [isSubmitting, setSubmitting] = useState(false);
+    const { toast } = useToast();
+
+    const form = useForm<z.infer<typeof quoteFormSchema>>({
+        resolver: zodResolver(quoteFormSchema),
+        defaultValues: quote ? {
+            notes: quote.notes,
+            items: quote.items.map(item => ({
+                ...item,
+                requisitionItemId: item.requisitionItemId
+            }))
+        } : {
+            notes: "",
+            items: requisition.items.map(item => ({
+                requisitionItemId: item.id,
+                name: item.name,
+                quantity: item.quantity,
+                unitPrice: 0,
+                leadTimeDays: 0,
+            })),
+        },
+    });
+
+     const { fields } = useFieldArray({
+        control: form.control,
+        name: "items",
+    });
+
+    const onSubmit = async (values: z.infer<typeof quoteFormSchema>) => {
+        if (!user || !requisition) return;
+
+        setSubmitting(true);
+        try {
+            const isEditing = !!quote;
+            const url = isEditing ? `/api/quotations/${quote.id}` : '/api/quotations';
+            const method = isEditing ? 'PATCH' : 'POST';
+
+            const response = await fetch(url, {
+                method,
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({
+                    ...values,
+                    requisitionId: requisition.id,
+                    vendorId: user.vendorId,
+                    userId: user.id // for PATCH
+                }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.error || `Failed to ${isEditing ? 'update' : 'submit'} quote.`);
+            }
+
+            toast({
+                title: 'Success!',
+                description: `Your quotation has been ${isEditing ? 'updated' : 'submitted'}.`,
+            });
+            onQuoteSubmitted();
+        } catch (error) {
+            toast({
+                variant: 'destructive',
+                title: 'Error',
+                description: error instanceof Error ? error.message : 'An unknown error occurred.',
+            });
+        } finally {
+            setSubmitting(false);
+        }
+    };
+    
+    const totalQuotePrice = form.watch('items').reduce((acc, item) => acc + (item.quantity * (item.unitPrice || 0)), 0);
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>{quote ? 'Edit Your Quotation' : 'Submit Your Quotation'}</CardTitle>
+                <CardDescription>
+                    Please provide your pricing and estimated lead times for the items requested.
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                        <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
+                            {fields.map((field, index) => (
+                                <Card key={field.id} className="p-4">
+                                    <p className="font-semibold mb-2">{field.name} (Qty: {field.quantity})</p>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <FormField
+                                            control={form.control}
+                                            name={`items.${index}.unitPrice`}
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Unit Price (ETB)</FormLabel>
+                                                    <FormControl><Input type="number" step="0.01" {...field} value={field.value ?? ''} /></FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                        <FormField
+                                            control={form.control}
+                                            name={`items.${index}.leadTimeDays`}
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Lead Time (Days)</FormLabel>
+                                                    <FormControl><Input type="number" {...field} /></FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                    </div>
+                                </Card>
+                            ))}
+                        </div>
+                        <FormField
+                            control={form.control}
+                            name="notes"
+                            render={({ field }) => (
+                                <FormItem>
+                                <FormLabel>Overall Notes (Optional)</FormLabel>
+                                <FormControl>
+                                    <Textarea placeholder="Include any notes about warranty, shipping, etc." {...field} />
+                                </FormControl>
+                                <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <Separator />
+                        <div className="text-right font-bold text-xl">
+                            Total Quote Price: {totalQuotePrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETB
+                        </div>
+                        <div className="flex justify-end gap-2">
+                            <Button type="button" variant="ghost" asChild><Link href="/vendor/dashboard">Cancel</Link></Button>
+                            <Button type="submit" disabled={isSubmitting}>
+                                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                                {quote ? 'Update Quotation' : 'Submit Quotation'}
+                            </Button>
+                        </div>
+                    </form>
+                </Form>
+            </CardContent>
+        </Card>
+    );
+}
 
 export default function VendorRequisitionPage() {
     const [requisition, setRequisition] = useState<PurchaseRequisition | null>(null);
     const [purchaseOrder, setPurchaseOrder] = useState<PurchaseOrder | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [isSubmitting, setSubmitting] = useState(false);
     const [submittedQuote, setSubmittedQuote] = useState<Quotation | null>(null);
     const [isInvoiceFormOpen, setInvoiceFormOpen] = useState(false);
+    const [isEditingQuote, setIsEditingQuote] = useState(false);
 
     const params = useParams();
     const router = useRouter();
     const id = params.id as string;
     const { token, user } = useAuth();
-    const { toast } = useToast();
-
-    const form = useForm<z.infer<typeof quoteFormSchema>>({
-        resolver: zodResolver(quoteFormSchema),
-        defaultValues: {
-            notes: "",
-            items: [],
-        },
-    });
-
-     const { fields, replace } = useFieldArray({
-        control: form.control,
-        name: "items",
-    });
+    
+    const isAwardProcessStarted = requisition?.quotations?.some(q => q.status === 'Awarded' || q.status === 'Standby') ?? false;
 
     const fetchRequisitionData = async () => {
         if (!id || !token || !user) return;
@@ -185,11 +318,7 @@ export default function VendorRequisitionPage() {
         setLoading(true);
         setError(null);
         try {
-             const response = await fetch(`/api/requisitions/${id}`, {
-                 headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-             });
+             const response = await fetch(`/api/requisitions/${id}`);
              if (!response.ok) {
                 if (response.status === 404) {
                     throw new Error('Requisition not found or not available for quoting.');
@@ -210,14 +339,7 @@ export default function VendorRequisitionPage() {
                      setPurchaseOrder(po || null);
                  }
              } else {
-                const formItems = foundReq.items.map(item => ({
-                    requisitionItemId: item.id,
-                    name: item.name,
-                    quantity: item.quantity,
-                    unitPrice: 0,
-                    leadTimeDays: 0,
-                }));
-                replace(formItems);
+                setSubmittedQuote(null);
              }
              
         } catch (e) {
@@ -229,73 +351,35 @@ export default function VendorRequisitionPage() {
 
     useEffect(() => {
         fetchRequisitionData();
-    }, [id, replace, token, user]);
-
-     const onSubmit = async (values: z.infer<typeof quoteFormSchema>) => {
-        if (!user || !requisition) return;
-        
-        if (!user.vendorId) {
-            toast({
-                variant: 'destructive',
-                title: 'Error',
-                description: 'Your vendor account is not properly configured.',
-            });
-            return;
-        }
-
-        setSubmitting(true);
-        try {
-            const response = await fetch('/api/quotations', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify({ 
-                    ...values, 
-                    requisitionId: requisition.id,
-                    vendorId: user.vendorId,
-                }),
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                console.error("Failed to submit quote:", errorData);
-                throw new Error(errorData.error || 'Failed to submit quote.');
-            }
-
-            toast({
-                title: 'Success!',
-                description: 'Your quotation has been submitted.',
-            });
-            // Re-fetch data to show the submitted quote view
-            fetchRequisitionData(); 
-
-        } catch (error) {
-            toast({
-                variant: 'destructive',
-                title: 'Error',
-                description: error instanceof Error ? error.message : 'An unknown error occurred.',
-            });
-        } finally {
-            setSubmitting(false);
-        }
-    };
+    }, [id, token, user]);
+    
+    const handleQuoteSubmitted = () => {
+        setIsEditingQuote(false);
+        fetchRequisitionData();
+    }
 
 
     if (loading) return <div className="flex h-64 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
     if (error) return <div className="text-destructive text-center p-8">{error}</div>;
     if (!requisition) return <div className="text-center p-8">Requisition not found.</div>;
 
-    const totalQuotePrice = form.watch('items').reduce((acc, item) => acc + (item.quantity * (item.unitPrice || 0)), 0);
-
     const isAwarded = submittedQuote?.status === 'Awarded' || submittedQuote?.status === 'Invoice Submitted';
     const hasSubmittedInvoice = submittedQuote?.status === 'Invoice Submitted';
 
     const QuoteDisplayCard = ({ quote }: { quote: Quotation }) => (
          <Card>
-            <CardHeader>
-                <CardTitle>Your Submitted Quote</CardTitle>
-                <CardDescription>
-                    Status: <Badge variant={quote.status === 'Awarded' ? 'default' : 'secondary'}>{quote.status}</Badge>
-                </CardDescription>
+            <CardHeader className="flex flex-row items-start justify-between">
+                <div>
+                    <CardTitle>Your Submitted Quote</CardTitle>
+                    <CardDescription>
+                        Status: <Badge variant={quote.status === 'Awarded' ? 'default' : 'secondary'}>{quote.status}</Badge>
+                    </CardDescription>
+                </div>
+                {!isAwardProcessStarted && quote.status === 'Submitted' && (
+                    <Button variant="outline" size="sm" onClick={() => setIsEditingQuote(true)}>
+                        <FileEdit className="mr-2 h-4 w-4" /> Edit Quote
+                    </Button>
+                )}
             </CardHeader>
             <CardContent className="space-y-4">
                 <div className="space-y-2">
@@ -341,7 +425,7 @@ export default function VendorRequisitionPage() {
                             <Info className="h-4 w-4 text-blue-500" />
                             <AlertTitle>Quote Under Review</AlertTitle>
                             <AlertDescription>
-                                Your quote has been submitted and is awaiting review by the procurement team. You will be notified of the outcome.
+                                {isAwardProcessStarted ? 'The award process has begun. Your quote can no longer be edited.' : 'Your quote has been submitted and is awaiting review. You can still edit it until an award decision is made.'}
                             </AlertDescription>
                         </Alert>
                      </CardFooter>
@@ -397,78 +481,14 @@ export default function VendorRequisitionPage() {
                     </CardContent>
                 </Card>
 
-                {submittedQuote ? (
+                {submittedQuote && !isEditingQuote ? (
                     <QuoteDisplayCard quote={submittedQuote} />
                 ) : (
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Submit Your Quotation</CardTitle>
-                            <CardDescription>
-                                Please provide your pricing and estimated lead times for the items requested.
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <Form {...form}>
-                                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                                    <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
-                                        {fields.map((field, index) => (
-                                            <Card key={field.id} className="p-4">
-                                                <p className="font-semibold mb-2">{field.name} (Qty: {field.quantity})</p>
-                                                <div className="grid grid-cols-2 gap-4">
-                                                    <FormField
-                                                        control={form.control}
-                                                        name={`items.${index}.unitPrice`}
-                                                        render={({ field }) => (
-                                                            <FormItem>
-                                                                <FormLabel>Unit Price (ETB)</FormLabel>
-                                                                <FormControl><Input type="number" step="0.01" {...field} value={field.value ?? ''} /></FormControl>
-                                                                <FormMessage />
-                                                            </FormItem>
-                                                        )}
-                                                    />
-                                                    <FormField
-                                                        control={form.control}
-                                                        name={`items.${index}.leadTimeDays`}
-                                                        render={({ field }) => (
-                                                            <FormItem>
-                                                                <FormLabel>Lead Time (Days)</FormLabel>
-                                                                <FormControl><Input type="number" {...field} /></FormControl>
-                                                                <FormMessage />
-                                                            </FormItem>
-                                                        )}
-                                                    />
-                                                </div>
-                                            </Card>
-                                        ))}
-                                    </div>
-                                    <FormField
-                                        control={form.control}
-                                        name="notes"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                            <FormLabel>Overall Notes (Optional)</FormLabel>
-                                            <FormControl>
-                                                <Textarea placeholder="Include any notes about warranty, shipping, etc." {...field} />
-                                            </FormControl>
-                                            <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                    <Separator />
-                                    <div className="text-right font-bold text-xl">
-                                        Total Quote Price: {totalQuotePrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETB
-                                    </div>
-                                    <div className="flex justify-end gap-2">
-                                        <Button type="button" variant="ghost" asChild><Link href="/vendor/dashboard">Cancel</Link></Button>
-                                        <Button type="submit" disabled={isSubmitting}>
-                                            {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-                                            Submit Quotation
-                                        </Button>
-                                    </div>
-                                </form>
-                            </Form>
-                        </CardContent>
-                    </Card>
+                    <QuoteSubmissionForm 
+                        requisition={requisition} 
+                        quote={isEditingQuote ? submittedQuote : null} 
+                        onQuoteSubmitted={handleQuoteSubmitted} 
+                    />
                 )}
             </div>
         </div>
