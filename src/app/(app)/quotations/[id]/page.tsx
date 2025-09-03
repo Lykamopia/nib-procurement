@@ -51,6 +51,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Label } from '@/components/ui/label';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 const quoteFormSchema = z.object({
   vendorId: z.string().min(1, "Vendor is required."),
@@ -576,10 +577,10 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
                     <Card>
                         <CardHeader><CardTitle className="text-lg">Select Vendors</CardTitle></CardHeader>
                         <CardContent>
-                             <ScrollArea className="h-48">
-                                <div className="space-y-2">
+                            <ScrollArea className="h-60">
+                                <div className="space-y-4">
                                 {verifiedVendors.map(vendor => (
-                                    <div key={vendor.id} className="flex items-center space-x-2">
+                                    <div key={vendor.id} className="flex items-start space-x-4 rounded-md border p-4 has-[:checked]:bg-muted">
                                         <Checkbox 
                                             id={`vendor-${vendor.id}`} 
                                             checked={selectedVendors.includes(vendor.id)}
@@ -588,8 +589,21 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
                                                     checked ? [...prev, vendor.id] : prev.filter(id => id !== vendor.id)
                                                 )
                                             }}
+                                            className="mt-1"
                                         />
-                                        <Label htmlFor={`vendor-${vendor.id}`}>{vendor.name}</Label>
+                                        <div className="flex items-start gap-4 flex-1">
+                                            <Avatar>
+                                                <AvatarImage src={`https://picsum.photos/seed/${vendor.id}/40/40`} data-ai-hint="logo" />
+                                                <AvatarFallback>{vendor.name.charAt(0)}</AvatarFallback>
+                                            </Avatar>
+                                            <div className="grid gap-1">
+                                                <Label htmlFor={`vendor-${vendor.id}`} className="font-semibold cursor-pointer">
+                                                    {vendor.name}
+                                                </Label>
+                                                <p className="text-xs text-muted-foreground">{vendor.email}</p>
+                                                <p className="text-xs text-muted-foreground">Contact: {vendor.contactPerson}</p>
+                                            </div>
+                                        </div>
                                     </div>
                                 ))}
                                 </div>
