@@ -15,7 +15,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { format } from 'date-fns';
 import { Icons } from './icons';
 import { Button } from './ui/button';
-import { Printer } from 'lucide-react';
+import { Printer, AlertTriangle } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 
 export function PurchaseOrderDocument({ po }: { po: PurchaseOrder }) {
     const handlePrint = () => {
@@ -23,12 +24,21 @@ export function PurchaseOrderDocument({ po }: { po: PurchaseOrder }) {
     };
   return (
     <>
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4 print:hidden">
           <h1 className="text-2xl font-bold">Purchase Order: {po.id}</h1>
-          <Button onClick={handlePrint} variant="outline" className="print:hidden">
+          <Button onClick={handlePrint} variant="outline">
               <Printer className="mr-2 h-4 w-4" /> Print PO
           </Button>
       </div>
+      {po.status === 'On Hold' && (
+        <Alert variant="destructive" className="mb-4">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>This Purchase Order is On Hold</AlertTitle>
+            <AlertDescription>
+                No further actions (e.g., receiving goods, processing invoices) can be taken until the hold is lifted.
+            </AlertDescription>
+        </Alert>
+      )}
       <Card className="p-4 sm:p-6 md:p-8">
         <CardHeader className="flex flex-row items-start justify-between space-y-0">
           <div>
@@ -45,6 +55,8 @@ export function PurchaseOrderDocument({ po }: { po: PurchaseOrder }) {
                 <span>{format(new Date(po.createdAt), 'PP')}</span>
                  <span className="font-semibold text-muted-foreground">Requisition ID:</span>
                 <span>{po.requisitionId}</span>
+                <span className="font-semibold text-muted-foreground">Status:</span>
+                <span className="font-bold">{po.status}</span>
             </div>
           </div>
         </CardHeader>

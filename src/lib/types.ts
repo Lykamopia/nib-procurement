@@ -136,7 +136,7 @@ export type POItem = {
     receivedQuantity: number;
 };
 
-export type PurchaseOrderStatus = 'Issued' | 'Acknowledged' | 'Shipped' | 'Partially Delivered' | 'Delivered' | 'Cancelled' | 'Matched' | 'Mismatched';
+export type PurchaseOrderStatus = 'Issued' | 'Acknowledged' | 'Shipped' | 'Partially Delivered' | 'Delivered' | 'Cancelled' | 'Matched' | 'Mismatched' | 'On Hold';
 
 export type PurchaseOrder = {
     id: string;
