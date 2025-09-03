@@ -35,13 +35,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from './ui/select';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/auth-context';
 import { cn } from '@/lib/utils';
+import { DepartmentBudget } from '@/lib/types';
+import { departmentBudgets } from '@/lib/data-store';
 
 const formSchema = z.object({
   requesterName: z.string().min(2, 'Name must be at least 2 characters.'),
-  department: z.string().min(2, 'Department is required.'),
+  department: z.string().min(1, 'Department is required.'),
   title: z.string().min(5, 'Title must be at least 5 characters.'),
   justification: z
     .string()
@@ -62,6 +64,14 @@ export function NeedsRecognitionForm() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const { user, role } = useAuth();
+  const [departments, setDepartments] = useState<DepartmentBudget[]>([]);
+
+
+  useEffect(() => {
+    // In a real-world app, you might fetch this from an API
+    setDepartments(departmentBudgets);
+  }, []);
+
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -145,9 +155,16 @@ export function NeedsRecognitionForm() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Department</FormLabel>
-                    <FormControl>
-                      <Input placeholder="e.g. Marketing" {...field} />
-                    </FormControl>
+                     <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a department" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {departments.map(d => <SelectItem key={d.department} value={d.department}>{d.department}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
