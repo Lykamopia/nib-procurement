@@ -53,6 +53,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Tooltip, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const quoteFormSchema = z.object({
   vendorId: z.string().min(1, "Vendor is required."),
@@ -705,10 +706,30 @@ type AwardRanking = {
     status: 'Awarded' | 'Standby';
 }
 
-const ManageAwardsDialog = ({ quotes, onAwardsConfirmed, onCancel }: { quotes: Quotation[], onAwardsConfirmed: (updates: any[]) => void, onCancel: () => void }) => {
-    const [first, setFirst] = useState<string | undefined>(quotes.find(q => q.rank === 1)?.id);
-    const [second, setSecond] = useState<string | undefined>(quotes.find(q => q.rank === 2)?.id);
-    const [third, setThird] = useState<string | undefined>(quotes.find(q => q.rank === 3)?.id);
+const ManageAwardsDialog = ({ quotes, aiRecommendation, onAwardsConfirmed, onCancel }: { quotes: Quotation[], aiRecommendation: QuoteAnalysisOutput | null, onAwardsConfirmed: (updates: any[]) => void, onCancel: () => void }) => {
+    
+    const getInitialValue = (rank: number) => {
+        if (aiRecommendation && aiRecommendation.recommendations.length >= rank) {
+            const recommendedQuoteId = aiRecommendation.recommendations[rank - 1].quoteId;
+            // Ensure the recommended quote is actually in the list of available quotes
+            if (quotes.some(q => q.id === recommendedQuoteId)) {
+                return recommendedQuoteId;
+            }
+        }
+        return quotes.find(q => q.rank === rank)?.id;
+    }
+    
+    const [first, setFirst] = useState<string | undefined>(getInitialValue(1));
+    const [second, setSecond] = useState<string | undefined>(getInitialValue(2));
+    const [third, setThird] = useState<string | undefined>(getInitialValue(3));
+
+    // Re-sync with AI recs when dialog opens/re-renders with new props
+    useEffect(() => {
+        setFirst(getInitialValue(1));
+        setSecond(getInitialValue(2));
+        setThird(getInitialValue(3));
+    }, [aiRecommendation, quotes]);
+
 
     const availableForSecond = useMemo(() => quotes.filter(q => q.id !== first), [first, quotes]);
     const availableForThird = useMemo(() => quotes.filter(q => q.id !== first && q.id !== second), [first, second, quotes]);
@@ -723,6 +744,32 @@ const ManageAwardsDialog = ({ quotes, onAwardsConfirmed, onCancel }: { quotes: Q
     }
     
     const isAnyAwarded = quotes.some(q => q.status === 'Awarded');
+
+    const AwardSelect = ({ label, value, onChange, options, rank, isAiSuggested }: { label: string, value?: string, onChange: (v?: string) => void, options: Quotation[], rank: number, isAiSuggested: boolean }) => (
+        <div className="grid grid-cols-3 gap-4 items-center">
+            <Label className="text-right flex justify-end items-center gap-2">
+                <span>{label}</span>
+                {isAiSuggested && (
+                    <TooltipProvider>
+                        <Tooltip>
+                            <TooltipTrigger>
+                                <Star className="h-4 w-4 text-green-500 fill-green-500" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p>AI Suggested</p>
+                            </TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
+                )}
+            </Label>
+            <Select value={value} onValueChange={(v) => onChange(v)}>
+                <SelectTrigger className="col-span-2"><SelectValue placeholder={`Select vendor for rank #${rank}`}/></SelectTrigger>
+                <SelectContent>
+                    {options.map(q => <SelectItem key={q.id} value={q.id}>{q.vendorName} ({q.totalPrice.toLocaleString()} ETB)</SelectItem>)}
+                </SelectContent>
+            </Select>
+        </div>
+    );
     
     if (isAnyAwarded) {
         return (
@@ -745,39 +792,36 @@ const ManageAwardsDialog = ({ quotes, onAwardsConfirmed, onCancel }: { quotes: Q
                 <DialogDescription>Select up to 3 vendors for the award and standby positions. Unselected quotes will be rejected.</DialogDescription>
             </DialogHeader>
             <div className="py-4 space-y-4">
-                <div className="grid grid-cols-3 gap-4 items-center">
-                    <Label className="text-right">1st Choice (Awarded)</Label>
-                    <Select value={first} onValueChange={setFirst}>
-                        <SelectTrigger className="col-span-2"><SelectValue placeholder="Select primary vendor"/></SelectTrigger>
-                        <SelectContent>
-                            {quotes.map(q => <SelectItem key={q.id} value={q.id}>{q.vendorName} ({q.totalPrice.toLocaleString()} ETB)</SelectItem>)}
-                        </SelectContent>
-                    </Select>
-
-                    {quotes.length > 1 && (
-                        <>
-                            <Label className="text-right">2nd Choice (Standby)</Label>
-                            <Select value={second} onValueChange={setSecond} disabled={!first}>
-                                <SelectTrigger className="col-span-2"><SelectValue placeholder="Select backup vendor"/></SelectTrigger>
-                                <SelectContent>
-                                {availableForSecond.map(q => <SelectItem key={q.id} value={q.id}>{q.vendorName} ({q.totalPrice.toLocaleString()} ETB)</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                        </>
-                    )}
-                    
-                    {quotes.length > 2 && (
-                        <>
-                            <Label className="text-right">3rd Choice (Standby)</Label>
-                            <Select value={third} onValueChange={setThird} disabled={!first || !second}>
-                                <SelectTrigger className="col-span-2"><SelectValue placeholder="Select second backup"/></SelectTrigger>
-                                <SelectContent>
-                                    {availableForThird.map(q => <SelectItem key={q.id} value={q.id}>{q.vendorName} ({q.totalPrice.toLocaleString()} ETB)</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                        </>
-                    )}
-                </div>
+                <AwardSelect
+                    label="1st Choice (Awarded)"
+                    value={first}
+                    onChange={setFirst}
+                    options={quotes}
+                    rank={1}
+                    isAiSuggested={!!aiRecommendation && !!first && aiRecommendation.recommendations[0]?.quoteId === first}
+                />
+                
+                {quotes.length > 1 && (
+                     <AwardSelect
+                        label="2nd Choice (Standby)"
+                        value={second}
+                        onChange={setSecond}
+                        options={availableForSecond}
+                        rank={2}
+                        isAiSuggested={!!aiRecommendation && !!second && aiRecommendation.recommendations[1]?.quoteId === second}
+                    />
+                )}
+                
+                {quotes.length > 2 && (
+                    <AwardSelect
+                        label="3rd Choice (Standby)"
+                        value={third}
+                        onChange={setThird}
+                        options={availableForThird}
+                        rank={3}
+                        isAiSuggested={!!aiRecommendation && !!third && aiRecommendation.recommendations[2]?.quoteId === third}
+                    />
+                )}
             </div>
             <DialogFooter>
                 <Button variant="ghost" onClick={onCancel}>Cancel</Button>
@@ -1010,7 +1054,12 @@ export default function QuotationDetailsPage() {
                                     Manage Awards
                                 </Button>
                             </DialogTrigger>
-                            <ManageAwardsDialog quotes={quotations} onAwardsConfirmed={handleAwardsConfirmed} onCancel={() => setAwardFormOpen(false)} />
+                            <ManageAwardsDialog 
+                                quotes={quotations} 
+                                aiRecommendation={aiRecommendation}
+                                onAwardsConfirmed={handleAwardsConfirmed} 
+                                onCancel={() => setAwardFormOpen(false)} 
+                            />
                          </Dialog>
                         <Dialog open={isAddFormOpen} onOpenChange={setAddFormOpen}>
                             <DialogTrigger asChild>
