@@ -53,7 +53,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Tooltip, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 
 const quoteFormSchema = z.object({
   vendorId: z.string().min(1, "Vendor is required."),
@@ -1128,3 +1128,4 @@ export default function QuotationDetailsPage() {
     </div>
   );
 }
+
