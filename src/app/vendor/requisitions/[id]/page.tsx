@@ -298,7 +298,7 @@ function QuoteSubmissionForm({ requisition, quote, onQuoteSubmitted }: { requisi
                                                           </FormControl>
                                                         )}
                                                         {question.questionType === 'boolean' && (
-                                                             <FormControl>
+                                                            <FormControl>
                                                                 <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex gap-4 pt-2">
                                                                     <FormItem className="flex items-center space-x-2">
                                                                         <FormControl>
