@@ -61,6 +61,7 @@ const formSchema = z.object({
     .string()
     .min(10, 'Justification must be at least 10 characters.'),
   deadline: z.date().optional(),
+  deadlineTime: z.string().optional(),
   attachments: z.any().optional(),
   items: z
     .array(
@@ -122,6 +123,7 @@ export function NeedsRecognitionForm({ existingRequisition, onSuccess }: NeedsRe
         justification: existingRequisition.justification,
         evaluationCriteria: existingRequisition.evaluationCriteria,
         deadline: existingRequisition.deadline ? new Date(existingRequisition.deadline) : undefined,
+        deadlineTime: existingRequisition.deadline ? format(new Date(existingRequisition.deadline), "HH:mm") : '17:00',
         items: existingRequisition.items.map(item => ({
             name: item.name,
             quantity: item.quantity,
@@ -147,6 +149,7 @@ export function NeedsRecognitionForm({ existingRequisition, onSuccess }: NeedsRe
       },
       items: [{ name: '', quantity: 1, unitPrice: 0 }],
       customQuestions: [],
+      deadlineTime: '17:00',
     },
   });
 
@@ -170,14 +173,28 @@ export function NeedsRecognitionForm({ existingRequisition, onSuccess }: NeedsRe
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setLoading(true);
     try {
+      
+      let finalDeadline: Date | undefined = undefined;
+        if (values.deadline && values.deadlineTime) {
+            const [hours, minutes] = values.deadlineTime.split(':');
+            const deadlineDate = new Date(values.deadline);
+            deadlineDate.setHours(parseInt(hours), parseInt(minutes));
+            finalDeadline = deadlineDate;
+        } else if (values.deadline) {
+            finalDeadline = values.deadline;
+        }
+
       const formattedValues = {
         ...values,
+        deadline: finalDeadline,
         items: values.items.map(item => ({...item, unitPrice: undefined })), // Ensure unitPrice is not sent
         customQuestions: values.customQuestions?.map(q => ({
           ...q,
           options: q.options?.map(opt => opt.value)
         }))
       };
+      
+      delete (formattedValues as any).deadlineTime;
 
       const body = isEditMode ? 
         { ...formattedValues, id: existingRequisition.id, status: 'Pending Approval', userId: user?.id, totalPrice: 0 } : 
@@ -556,45 +573,60 @@ export function NeedsRecognitionForm({ existingRequisition, onSuccess }: NeedsRe
             <Separator />
 
             <div className="grid md:grid-cols-2 gap-8">
-              <FormField
+               <FormField
                 control={form.control}
                 name="deadline"
                 render={({ field }) => (
                   <FormItem className="flex flex-col">
                     <FormLabel>Quotation Deadline</FormLabel>
-                    <Popover>
-                        <PopoverTrigger asChild>
-                            <FormControl>
-                            <Button
-                                variant={"outline"}
-                                className={cn(
-                                "w-[240px] pl-3 text-left font-normal",
-                                !field.value && "text-muted-foreground"
-                                )}
-                            >
-                                {field.value ? (
-                                format(field.value, "PPP")
-                                ) : (
-                                <span>Pick a date</span>
-                                )}
-                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                            </Button>
-                            </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar
-                            mode="single"
-                            selected={field.value}
-                            onSelect={field.onChange}
-                            disabled={(date) =>
-                                date < new Date()
-                            }
-                            initialFocus
-                            />
-                        </PopoverContent>
-                    </Popover>
+                     <div className="flex items-center gap-2">
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <FormControl>
+                                <Button
+                                    variant={"outline"}
+                                    className={cn(
+                                    "w-[240px] pl-3 text-left font-normal",
+                                    !field.value && "text-muted-foreground"
+                                    )}
+                                >
+                                    {field.value ? (
+                                    format(field.value, "PPP")
+                                    ) : (
+                                    <span>Pick a date</span>
+                                    )}
+                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                </Button>
+                                </FormControl>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                                <Calendar
+                                mode="single"
+                                selected={field.value}
+                                onSelect={field.onChange}
+                                disabled={(date) =>
+                                    date < new Date(new Date().setDate(new Date().getDate() - 1))
+                                }
+                                initialFocus
+                                />
+                            </PopoverContent>
+                        </Popover>
+                        <FormField
+                            control={form.control}
+                            name="deadlineTime"
+                            render={({ field }) => (
+                                <FormControl>
+                                    <Input
+                                        type="time"
+                                        className="w-[120px]"
+                                        {...field}
+                                    />
+                                </FormControl>
+                            )}
+                        />
+                     </div>
                     <FormDescription>
-                      This is the final date for vendors to submit their quotes.
+                      The final date and time for vendors to submit their quotes.
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
