@@ -7,7 +7,8 @@ export type UserRole =
   | 'Finance'
   | 'Admin'
   | 'Receiving'
-  | 'Vendor';
+  | 'Vendor'
+  | 'Committee Member';
 
 export type User = {
   id: string;

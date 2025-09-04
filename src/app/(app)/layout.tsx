@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -159,7 +160,7 @@ export default function AppLayout({
                 </Link>
               </SidebarMenuItem>
             )}
-             {role === 'Procurement Officer' && (
+             {(role === 'Procurement Officer' || role === 'Committee Member') && (
               <>
                 <SidebarMenuItem>
                   <Link href="/vendors">

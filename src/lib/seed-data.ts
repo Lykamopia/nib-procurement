@@ -89,7 +89,7 @@ const seedData: AppData = {
                 { id: 'ITEM-1', name: 'MacBook Pro 16-inch', quantity: 5, unitPrice: 2499, description: '' },
                 { id: 'ITEM-2', name: '4K Monitor', quantity: 5, unitPrice: 799, description: '' }
             ],
-            totalPrice: 16490,
+            totalPrice: 0,
             justification: 'Current laptops are over 5 years old and struggling with new design software.',
             status: 'Approved',
             budgetStatus: 'OK',
@@ -107,7 +107,7 @@ const seedData: AppData = {
                 { id: 'ITEM-3', name: 'Printer Paper (Case)', quantity: 10, unitPrice: 45, description: '' },
                 { id: 'ITEM-4', name: 'Toner Cartridge', quantity: 4, unitPrice: 150, description: '' }
             ],
-            totalPrice: 1050,
+            totalPrice: 0,
             justification: 'Standard quarterly replenishment of office supplies.',
             status: 'Pending Approval',
             budgetStatus: 'OK',
@@ -124,7 +124,7 @@ const seedData: AppData = {
             items: [
               { id: 'ITEM-5', name: 'Project Management Tool (Annual)', quantity: 20, unitPrice: 240, description: '' },
             ],
-            totalPrice: 4800,
+            totalPrice: 0,
             justification: 'Annual renewal for critical project management software.',
             status: 'PO Created',
             budgetStatus: 'OK',
@@ -209,8 +209,10 @@ const seedData: AppData = {
         { id: '3', name: 'Charlie', email: 'charlie@example.com', password: 'password123', role: 'Procurement Officer' },
         { id: '4', name: 'David', email: 'david@example.com', password: 'password123', role: 'Receiving' },
         { id: '5', name: 'Eve', email: 'eve@example.com', password: 'password123', role: 'Finance' },
-        { id: '6', name: 'Apple Inc.', email: 'vendor@apple.com', password: 'password123', role: 'Vendor' },
-        { id: '7', name: 'Dell Technologies', email: 'vendor@dell.com', password: 'password123', role: 'Vendor' },
-        { id: '8', name: 'Office Depot', email: 'vendor@officedepot.com', password: 'password123', role: 'Vendor' },
+        { id: '6', name: 'Apple Inc.', email: 'vendor@apple.com', password: 'password123', role: 'Vendor', vendorId: 'VENDOR-001' },
+        { id: '7', name: 'Dell Technologies', email: 'vendor@dell.com', password: 'password123', role: 'Vendor', vendorId: 'VENDOR-002' },
+        { id: '8', name: 'Office Depot', email: 'vendor@officedepot.com', password: 'password123', role: 'Vendor', vendorId: 'VENDOR-003' },
+        { id: '9', name: 'Fiona', email: 'fiona@example.com', password: 'password123', role: 'Committee Member' },
+        { id: '10', name: 'George', email: 'george@example.com', password: 'password123', role: 'Committee Member' },
     ]
 };
