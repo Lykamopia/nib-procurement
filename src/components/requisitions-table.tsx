@@ -38,6 +38,7 @@ import {
   Send,
   CircleAlert,
   CircleCheck,
+  Info,
 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Calendar } from './ui/calendar';
@@ -259,7 +260,21 @@ export function RequisitionsTable() {
                     <TableCell>{req.title}</TableCell>
                     <TableCell>{req.requesterName}</TableCell>
                     <TableCell>
-                      <Badge variant={getStatusVariant(req.status)}>{req.status}</Badge>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={getStatusVariant(req.status)}>{req.status}</Badge>
+                         {req.status === 'Rejected' && req.approverComment && (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger>
+                                <Info className="h-4 w-4 text-muted-foreground cursor-pointer" />
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p className="max-w-xs">Rejection Reason: {req.approverComment}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>{format(new Date(req.createdAt), 'PP')}</TableCell>
                     <TableCell>
