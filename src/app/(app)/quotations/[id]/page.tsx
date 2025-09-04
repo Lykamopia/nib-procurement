@@ -221,7 +221,7 @@ function AddQuoteForm({ requisition, vendors, onQuoteAdded }: { requisition: Pur
     );
 }
 
-const QuoteComparison = ({ quotes, requisition, recommendation, onScore }: { quotes: Quotation[], requisition: PurchaseRequisition, recommendation?: QuoteAnalysisOutput | null, onScore: (quote: Quotation) => void }) => {
+const QuoteComparison = ({ quotes, requisition, recommendation, onScore, userRole }: { quotes: Quotation[], requisition: PurchaseRequisition, recommendation?: QuoteAnalysisOutput | null, onScore: (quote: Quotation) => void, userRole: User['role'] }) => {
     if (quotes.length === 0) {
         return (
             <div className="h-24 flex items-center justify-center text-muted-foreground">
@@ -314,12 +314,14 @@ const QuoteComparison = ({ quotes, requisition, recommendation, onScore }: { quo
                                  </div>
                              )}
                         </CardContent>
-                         <CardFooter>
-                            <Button className="w-full" variant="outline" onClick={() => onScore(quote)}>
-                                <Edit2 className="mr-2 h-4 w-4" />
-                                View / Edit Scores
-                            </Button>
-                        </CardFooter>
+                        {userRole === 'Committee Member' && (
+                            <CardFooter>
+                                <Button className="w-full" variant="outline" onClick={() => onScore(quote)}>
+                                    <Edit2 className="mr-2 h-4 w-4" />
+                                    View / Edit Scores
+                                </Button>
+                            </CardFooter>
+                        )}
                     </Card>
                 )
             })}
@@ -1058,6 +1060,7 @@ export default function QuotationDetailsPage() {
         if (!criteria) return "No specific criteria defined.";
 
         const formatSection = (title: string, weight: number, items: any[]) => {
+            if (!items || items.length === 0) return `${title} (Overall Weight: ${weight}%):\n- No criteria defined.`;
             const itemDetails = items.map(item => `- ${item.name} (${item.weight}%)`).join('\n');
             return `${title} (Overall Weight: ${weight}%):\n${itemDetails}`;
         };
@@ -1193,6 +1196,7 @@ export default function QuotationDetailsPage() {
                         requisition={requisition}
                         recommendation={aiRecommendation}
                         onScore={handleScoreButtonClick}
+                        userRole={user.role}
                     />
                 )}
                 </CardContent>
@@ -1233,6 +1237,7 @@ export default function QuotationDetailsPage() {
     </div>
   );
 }
+
 
 
 
