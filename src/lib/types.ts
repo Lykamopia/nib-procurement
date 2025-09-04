@@ -120,7 +120,7 @@ export type QuoteItem = {
     quantity: number;
     unitPrice: number;
     leadTimeDays: number;
-    vendorItemNotes?: string;
+    brandDetails?: string;
 };
 
 export type QuoteAnswer = {

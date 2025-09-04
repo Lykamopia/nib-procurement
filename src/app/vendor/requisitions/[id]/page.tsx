@@ -15,7 +15,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Loader2, Send, ArrowLeft, CheckCircle, FileText, BadgeInfo, FileUp, CircleCheck, Info, Edit, FileEdit } from 'lucide-react';
+import { Loader2, Send, ArrowLeft, CheckCircle, FileText, BadgeInfo, FileUp, CircleCheck, Info, Edit, FileEdit, PlusCircle, Trash2 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import Link from 'next/link';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -33,7 +33,7 @@ const quoteFormSchema = z.object({
     quantity: z.number(),
     unitPrice: z.coerce.number().min(0.01, "Price is required."),
     leadTimeDays: z.coerce.number().min(0, "Lead time is required."),
-    vendorItemNotes: z.string().optional(),
+    brandDetails: z.string().optional(),
   })),
   answers: z.array(z.object({
       questionId: z.string(),
@@ -169,7 +169,8 @@ function QuoteSubmissionForm({ requisition, quote, onQuoteSubmitted }: { requisi
             notes: quote.notes,
             items: quote.items.map(item => ({
                 ...item,
-                requisitionItemId: item.requisitionItemId
+                requisitionItemId: item.requisitionItemId,
+                brandDetails: item.brandDetails || '',
             })),
             answers: quote.answers || requisition.customQuestions?.map(q => ({ questionId: q.id, answer: '' }))
         } : {
@@ -180,13 +181,13 @@ function QuoteSubmissionForm({ requisition, quote, onQuoteSubmitted }: { requisi
                 quantity: item.quantity,
                 unitPrice: 0,
                 leadTimeDays: 0,
-                vendorItemNotes: '',
+                brandDetails: '',
             })),
             answers: requisition.customQuestions?.map(q => ({ questionId: q.id, answer: '' }))
         },
     });
 
-     const { fields } = useFieldArray({
+     const { fields, append, remove, update } = useFieldArray({
         control: form.control,
         name: "items",
     });
@@ -195,6 +196,16 @@ function QuoteSubmissionForm({ requisition, quote, onQuoteSubmitted }: { requisi
         control: form.control,
         name: "answers",
     });
+
+    const addAlternative = (index: number) => {
+        const originalItem = form.getValues(`items.${index}`);
+        append({
+            ...originalItem,
+            unitPrice: 0,
+            leadTimeDays: 0,
+            brandDetails: '',
+        });
+    };
 
     const onSubmit = async (values: z.infer<typeof quoteFormSchema>) => {
         if (!user || !requisition) return;
@@ -252,9 +263,32 @@ function QuoteSubmissionForm({ requisition, quote, onQuoteSubmitted }: { requisi
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                         <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
                             {fields.map((field, index) => (
-                                <Card key={field.id} className="p-4">
-                                    <p className="font-semibold mb-2">{field.name} (Qty: {field.quantity})</p>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <Card key={field.id} className="p-4 relative">
+                                    <div className="flex justify-between items-start">
+                                      <div>
+                                        <p className="font-semibold mb-2">{field.name} (Qty: {field.quantity})</p>
+                                        <p className="text-xs text-muted-foreground">Original Item ID: {field.requisitionItemId}</p>
+                                      </div>
+                                       {fields.filter(f => f.requisitionItemId === field.requisitionItemId).length > 1 && (
+                                            <Button type="button" variant="ghost" size="icon" className="h-6 w-6 absolute top-2 right-2" onClick={() => remove(index)}>
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        )}
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+                                        <FormField
+                                            control={form.control}
+                                            name={`items.${index}.brandDetails`}
+                                            render={({ field }) => (
+                                                <FormItem className="md:col-span-2">
+                                                    <FormLabel>Brand / Model Details</FormLabel>
+                                                    <FormControl>
+                                                        <Textarea placeholder="e.g., Dell XPS 15, HP Spectre x360..." {...field} />
+                                                    </FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
                                         <FormField
                                             control={form.control}
                                             name={`items.${index}.unitPrice`}
@@ -277,19 +311,12 @@ function QuoteSubmissionForm({ requisition, quote, onQuoteSubmitted }: { requisi
                                                 </FormItem>
                                             )}
                                         />
-                                        <FormField
-                                            control={form.control}
-                                            name={`items.${index}.vendorItemNotes`}
-                                            render={({ field }) => (
-                                                <FormItem className="md:col-span-2">
-                                                    <FormLabel>Item Notes</FormLabel>
-                                                    <FormControl>
-                                                        <Textarea placeholder="e.g., Brand Name, specific model, color, etc." {...field} />
-                                                    </FormControl>
-                                                    <FormMessage />
-                                                </FormItem>
-                                            )}
-                                        />
+                                    </div>
+                                    <div className="mt-4 flex justify-end">
+                                      <Button type="button" variant="outline" size="sm" onClick={() => addAlternative(index)}>
+                                          <PlusCircle className="mr-2 h-4 w-4" />
+                                          Add Alternative Offer
+                                      </Button>
                                     </div>
                                 </Card>
                             ))}
@@ -478,8 +505,8 @@ export default function VendorRequisitionPage() {
             </CardHeader>
             <CardContent className="space-y-4">
                 <div className="space-y-2">
-                    {quote.items.map((item) => (
-                        <Card key={item.requisitionItemId} className="p-3">
+                    {quote.items.map((item, index) => (
+                        <Card key={`${item.requisitionItemId}-${index}`} className="p-3">
                             <div className="flex justify-between">
                                 <div>
                                     <p className="font-semibold">{item.name} x {item.quantity}</p>
@@ -487,10 +514,10 @@ export default function VendorRequisitionPage() {
                                 </div>
                                 <p className="font-semibold text-lg">{(item.unitPrice * item.quantity).toFixed(2)} ETB</p>
                             </div>
-                            {item.vendorItemNotes && (
+                            {item.brandDetails && (
                                 <div className="mt-2 text-xs border-t pt-2">
                                     <p className="font-bold">Your notes:</p>
-                                    <p className="text-muted-foreground italic">{item.vendorItemNotes}</p>
+                                    <p className="text-muted-foreground italic">{item.brandDetails}</p>
                                 </div>
                             )}
                         </Card>
