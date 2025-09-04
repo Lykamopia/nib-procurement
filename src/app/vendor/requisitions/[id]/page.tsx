@@ -14,7 +14,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Loader2, Send, ArrowLeft, CheckCircle, FileText, BadgeInfo, FileUp, CircleCheck, Info, Edit, FileEdit, PlusCircle, Trash2 } from 'lucide-react';
+import { Loader2, Send, ArrowLeft, CheckCircle, FileText, BadgeInfo, FileUp, CircleCheck, Info, Edit, FileEdit, PlusCircle, Trash2, ThumbsDown, ThumbsUp } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import Link from 'next/link';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -23,6 +23,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Badge } from '@/components/ui/badge';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
 const quoteFormSchema = z.object({
   notes: z.string().optional(),
@@ -198,7 +199,7 @@ function QuoteSubmissionForm({ requisition, quote, onQuoteSubmitted }: { requisi
 
     const addItem = () => {
         append({
-            requisitionItemId: 'NEW-ITEM',
+            requisitionItemId: `ALT-${Date.now()}`,
             name: '', // Empty name for new/alternative items
             quantity: 1,
             unitPrice: 0,
@@ -265,12 +266,21 @@ function QuoteSubmissionForm({ requisition, quote, onQuoteSubmitted }: { requisi
                             {fields.map((field, index) => (
                                 <Card key={field.id} className="p-4 relative">
                                     <div className="flex justify-between items-start">
-                                      <div>
-                                        <p className="font-semibold mb-2">{field.name} (Qty: {field.quantity})</p>
-                                        <p className="text-xs text-muted-foreground">Original Item ID: {field.requisitionItemId}</p>
-                                      </div>
+                                        <FormField
+                                            control={form.control}
+                                            name={`items.${index}.name`}
+                                            render={({ field }) => (
+                                                <FormItem className="flex-1">
+                                                    <FormLabel>Item Name (Qty: {form.getValues(`items.${index}.quantity`)})</FormLabel>
+                                                    <FormControl>
+                                                        <Input placeholder="e.g., MacBook Pro 16-inch or alternative" {...field} />
+                                                    </FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
                                        {fields.length > 1 && (
-                                            <Button type="button" variant="ghost" size="icon" className="h-6 w-6 absolute top-2 right-2" onClick={() => remove(index)}>
+                                            <Button type="button" variant="ghost" size="icon" className="h-6 w-6 ml-2 mt-7" onClick={() => remove(index)}>
                                                 <Trash2 className="h-4 w-4" />
                                             </Button>
                                         )}
@@ -420,6 +430,7 @@ export default function VendorRequisitionPage() {
     const [requisition, setRequisition] = useState<PurchaseRequisition | null>(null);
     const [purchaseOrder, setPurchaseOrder] = useState<PurchaseOrder | null>(null);
     const [loading, setLoading] = useState(true);
+    const [isResponding, setIsResponding] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [submittedQuote, setSubmittedQuote] = useState<Quotation | null>(null);
     const [isInvoiceFormOpen, setInvoiceFormOpen] = useState(false);
@@ -429,8 +440,9 @@ export default function VendorRequisitionPage() {
     const router = useRouter();
     const id = params.id as string;
     const { token, user } = useAuth();
+    const { toast } = useToast();
     
-    const isAwardProcessStarted = requisition?.quotations?.some(q => q.status === 'Awarded' || q.status === 'Standby') ?? false;
+    const isAwardProcessStarted = requisition?.quotations?.some(q => q.status === 'Awarded' || q.status === 'Standby' || q.status === 'Accepted' || q.status === 'Declined') ?? false;
 
     const fetchRequisitionData = async () => {
         if (!id || !token || !user) return;
@@ -480,13 +492,42 @@ export default function VendorRequisitionPage() {
         setIsEditingQuote(false);
         fetchRequisitionData();
     }
+    
+    const handleAwardResponse = async (action: 'accept' | 'reject') => {
+        if (!submittedQuote || !user) return;
+        setIsResponding(true);
+        try {
+            const response = await fetch(`/api/quotations/${submittedQuote.id}/respond`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: user.id, action })
+            });
+
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error || `Failed to ${action} award.`);
+            
+            toast({ title: 'Response Submitted', description: result.message });
+            fetchRequisitionData();
+
+        } catch (error) {
+             toast({
+                variant: 'destructive',
+                title: 'Error',
+                description: error instanceof Error ? error.message : 'An unknown error occurred.',
+            });
+        } finally {
+            setIsResponding(false);
+        }
+    }
 
 
     if (loading) return <div className="flex h-64 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
     if (error) return <div className="text-destructive text-center p-8">{error}</div>;
     if (!requisition) return <div className="text-center p-8">Requisition not found.</div>;
 
-    const isAwarded = submittedQuote?.status === 'Awarded' || submittedQuote?.status === 'Invoice Submitted';
+    const isAwarded = submittedQuote?.status === 'Awarded';
+    const isAccepted = submittedQuote?.status === 'Accepted';
+    const hasResponded = submittedQuote?.status === 'Accepted' || submittedQuote?.status === 'Declined';
     const hasSubmittedInvoice = submittedQuote?.status === 'Invoice Submitted';
 
     const QuoteDisplayCard = ({ quote }: { quote: Quotation }) => (
@@ -495,7 +536,7 @@ export default function VendorRequisitionPage() {
                 <div>
                     <CardTitle>Your Submitted Quote</CardTitle>
                     <CardDescription>
-                        Status: <Badge variant={quote.status === 'Awarded' ? 'default' : 'secondary'}>{quote.status}</Badge>
+                        Status: <Badge variant={quote.status === 'Awarded' || quote.status === 'Accepted' ? 'default' : 'secondary'}>{quote.status}</Badge>
                     </CardDescription>
                 </div>
                 {!isAwardProcessStarted && quote.status === 'Submitted' && (
@@ -534,7 +575,7 @@ export default function VendorRequisitionPage() {
                  <div className="text-right font-bold text-2xl">
                     Total Quoted Price: {quote.totalPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETB
                  </div>
-                 {isAwarded && purchaseOrder && (
+                 {isAccepted && purchaseOrder && (
                     <CardFooter className="p-0 pt-4">
                          <Dialog open={isInvoiceFormOpen} onOpenChange={setInvoiceFormOpen}>
                             <DialogTrigger asChild>
@@ -550,13 +591,23 @@ export default function VendorRequisitionPage() {
                         </Dialog>
                     </CardFooter>
                  )}
-                 {!isAwarded && (
+                 {!isAwarded && !hasResponded && (
                      <CardFooter className="p-0 pt-4">
                         <Alert variant="default" className="border-blue-500/50">
                             <Info className="h-4 w-4 text-blue-500" />
                             <AlertTitle>Quote Under Review</AlertTitle>
                             <AlertDescription>
                                 {isAwardProcessStarted ? 'The award process has begun. Your quote can no longer be edited.' : 'Your quote has been submitted and is awaiting review. You can still edit it until an award decision is made.'}
+                            </AlertDescription>
+                        </Alert>
+                     </CardFooter>
+                 )}
+                 {hasResponded && (
+                     <CardFooter className="p-0 pt-4">
+                        <Alert variant={quote.status === 'Accepted' ? 'default' : 'destructive'}>
+                            <AlertTitle>Response Recorded</AlertTitle>
+                            <AlertDescription>
+                                You have {quote.status.toLowerCase()} this award.
                             </AlertDescription>
                         </Alert>
                      </CardFooter>
@@ -573,11 +624,60 @@ export default function VendorRequisitionPage() {
             </Button>
             
             {isAwarded && (
+                 <Card>
+                    <CardHeader>
+                        <CardTitle className="text-green-600">Congratulations! You've Been Awarded!</CardTitle>
+                        <CardDescription>Please review and respond to this award. If you accept, a Purchase Order will be generated.</CardDescription>
+                    </CardHeader>
+                    <CardFooter className="gap-4">
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button className="flex-1" disabled={isResponding}>
+                                    {isResponding ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ThumbsUp className="mr-2 h-4 w-4"/>} Accept Award
+                                </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                <AlertDialogTitle>Confirm Acceptance</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    By accepting, you commit to fulfilling this order as per your quote. A formal Purchase Order will be generated.
+                                </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => handleAwardResponse('accept')}>Confirm</AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button className="flex-1" variant="destructive" disabled={isResponding}>
+                                    {isResponding ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ThumbsDown className="mr-2 h-4 w-4"/>} Decline Award
+                                </Button>
+                            </AlertDialogTrigger>
+                             <AlertDialogContent>
+                                <AlertDialogHeader>
+                                <AlertDialogTitle>Confirm Rejection</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                   Are you sure you want to decline this award? This action cannot be undone and the award will be offered to the next vendor.
+                                </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => handleAwardResponse('reject')} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Decline</AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                    </CardFooter>
+                 </Card>
+            )}
+
+            {isAccepted && (
                 <Alert variant="default" className="border-green-600 bg-green-50 text-green-900 dark:bg-green-950 dark:text-green-200 dark:border-green-800">
                     <CheckCircle className="h-5 w-5 !text-green-600" />
-                    <AlertTitle className="font-bold text-lg">This Requisition has been Awarded to You!</AlertTitle>
+                    <AlertTitle className="font-bold text-lg">Award Accepted!</AlertTitle>
                     <AlertDescription>
-                        Congratulations! Your quote was accepted. Please await the official Purchase Order before submitting your invoice.
+                        Thank you for your confirmation. A Purchase Order has been issued. You may now submit an invoice.
                     </AlertDescription>
                 </Alert>
             )}
@@ -601,8 +701,8 @@ export default function VendorRequisitionPage() {
                         <div>
                             <h3 className="font-semibold text-sm mb-2">Items Requested</h3>
                             <div className="space-y-2">
-                                {requisition.items.map(item => (
-                                    <div key={item.id} className="flex justify-between p-2 border rounded-md bg-muted/50">
+                                {requisition.items.map((item, i) => (
+                                    <div key={`${item.id}-${i}`} className="flex justify-between p-2 border rounded-md bg-muted/50">
                                         <span>{item.name}</span>
                                         <span className="font-semibold">Qty: {item.quantity}</span>
                                     </div>

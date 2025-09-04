@@ -143,7 +143,7 @@ export type QuoteAnswer = {
   answer: string;
 }
 
-export type QuotationStatus = 'Submitted' | 'Awarded' | 'Rejected' | 'Standby' | 'Invoice Submitted' | 'Failed';
+export type QuotationStatus = 'Submitted' | 'Awarded' | 'Rejected' | 'Standby' | 'Invoice Submitted' | 'Failed' | 'Accepted' | 'Declined';
 
 export type Score = {
   criterionId: string;
