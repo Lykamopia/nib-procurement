@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -32,6 +33,7 @@ const quoteFormSchema = z.object({
     quantity: z.number(),
     unitPrice: z.coerce.number().min(0.01, "Price is required."),
     leadTimeDays: z.coerce.number().min(0, "Lead time is required."),
+    vendorItemNotes: z.string().optional(),
   })),
   answers: z.array(z.object({
       questionId: z.string(),
@@ -178,6 +180,7 @@ function QuoteSubmissionForm({ requisition, quote, onQuoteSubmitted }: { requisi
                 quantity: item.quantity,
                 unitPrice: 0,
                 leadTimeDays: 0,
+                vendorItemNotes: '',
             })),
             answers: requisition.customQuestions?.map(q => ({ questionId: q.id, answer: '' }))
         },
@@ -251,7 +254,7 @@ function QuoteSubmissionForm({ requisition, quote, onQuoteSubmitted }: { requisi
                             {fields.map((field, index) => (
                                 <Card key={field.id} className="p-4">
                                     <p className="font-semibold mb-2">{field.name} (Qty: {field.quantity})</p>
-                                    <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <FormField
                                             control={form.control}
                                             name={`items.${index}.unitPrice`}
@@ -270,6 +273,19 @@ function QuoteSubmissionForm({ requisition, quote, onQuoteSubmitted }: { requisi
                                                 <FormItem>
                                                     <FormLabel>Lead Time (Days)</FormLabel>
                                                     <FormControl><Input type="number" {...field} /></FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                        <FormField
+                                            control={form.control}
+                                            name={`items.${index}.vendorItemNotes`}
+                                            render={({ field }) => (
+                                                <FormItem className="md:col-span-2">
+                                                    <FormLabel>Item Notes</FormLabel>
+                                                    <FormControl>
+                                                        <Textarea placeholder="e.g., Brand Name, specific model, color, etc." {...field} />
+                                                    </FormControl>
                                                     <FormMessage />
                                                 </FormItem>
                                             )}
@@ -298,22 +314,22 @@ function QuoteSubmissionForm({ requisition, quote, onQuoteSubmitted }: { requisi
                                                           </FormControl>
                                                         )}
                                                         {question.questionType === 'boolean' && (
-                                                            <FormControl>
-                                                                <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex gap-4 pt-2">
-                                                                    <FormItem className="flex items-center space-x-2">
-                                                                        <FormControl>
-                                                                            <RadioGroupItem value="true" id={`${question.id}-true`} />
-                                                                        </FormControl>
-                                                                        <FormLabel htmlFor={`${question.id}-true`} className="font-normal">True</FormLabel>
-                                                                    </FormItem>
-                                                                    <FormItem className="flex items-center space-x-2">
-                                                                        <FormControl>
-                                                                            <RadioGroupItem value="false" id={`${question.id}-false`} />
-                                                                        </FormControl>
-                                                                        <FormLabel htmlFor={`${question.id}-false`} className="font-normal">False</FormLabel>
-                                                                    </FormItem>
-                                                                </RadioGroup>
-                                                            </FormControl>
+                                                          <FormControl>
+                                                            <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex gap-4 pt-2">
+                                                              <FormItem className="flex items-center space-x-2">
+                                                                <FormControl>
+                                                                  <RadioGroupItem value="true" id={`${question.id}-true`} />
+                                                                </FormControl>
+                                                                <FormLabel htmlFor={`${question.id}-true`} className="font-normal">True</FormLabel>
+                                                              </FormItem>
+                                                              <FormItem className="flex items-center space-x-2">
+                                                                <FormControl>
+                                                                  <RadioGroupItem value="false" id={`${question.id}-false`} />
+                                                                </FormControl>
+                                                                <FormLabel htmlFor={`${question.id}-false`} className="font-normal">False</FormLabel>
+                                                              </FormItem>
+                                                            </RadioGroup>
+                                                          </FormControl>
                                                         )}
                                                         {question.questionType === 'multiple-choice' && (
                                                            <FormControl>
@@ -463,18 +479,26 @@ export default function VendorRequisitionPage() {
             <CardContent className="space-y-4">
                 <div className="space-y-2">
                     {quote.items.map((item) => (
-                        <div key={item.requisitionItemId} className="flex justify-between p-2 border rounded-md">
-                            <div>
-                                <p className="font-semibold">{item.name} x {item.quantity}</p>
-                                <p className="text-xs text-muted-foreground">Unit Price: {item.unitPrice.toFixed(2)} ETB</p>
+                        <Card key={item.requisitionItemId} className="p-3">
+                            <div className="flex justify-between">
+                                <div>
+                                    <p className="font-semibold">{item.name} x {item.quantity}</p>
+                                    <p className="text-xs text-muted-foreground">Unit Price: {item.unitPrice.toFixed(2)} ETB</p>
+                                </div>
+                                <p className="font-semibold text-lg">{(item.unitPrice * item.quantity).toFixed(2)} ETB</p>
                             </div>
-                            <p className="font-semibold text-lg">{(item.unitPrice * item.quantity).toFixed(2)} ETB</p>
-                        </div>
+                            {item.vendorItemNotes && (
+                                <div className="mt-2 text-xs border-t pt-2">
+                                    <p className="font-bold">Your notes:</p>
+                                    <p className="text-muted-foreground italic">{item.vendorItemNotes}</p>
+                                </div>
+                            )}
+                        </Card>
                     ))}
                 </div>
                 {quote.notes && (
                     <div>
-                        <h3 className="font-semibold text-sm">Your Notes</h3>
+                        <h3 className="font-semibold text-sm">Your Overall Notes</h3>
                         <p className="text-muted-foreground text-sm p-3 border rounded-md bg-muted/50 italic">"{quote.notes}"</p>
                     </div>
                 )}
