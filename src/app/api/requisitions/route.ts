@@ -30,6 +30,7 @@ export async function POST(request: Request) {
 
     const itemsWithIds = body.items.map((item: any, index: number) => ({...item, id: `ITEM-${Date.now()}-${index}`}));
     const questionsWithIds = body.customQuestions?.map((q: any, index: number) => ({...q, id: `Q-${Date.now()}-${index}`})) || [];
+    const total = itemsWithIds.reduce((acc: number, item: any) => acc + ((item.unitPrice || 0) * item.quantity), 0);
 
     const newRequisition: PurchaseRequisition = {
       id: `REQ-${Date.now()}`,
@@ -40,10 +41,10 @@ export async function POST(request: Request) {
       items: itemsWithIds,
       customQuestions: questionsWithIds,
       deadline: body.deadline ? new Date(body.deadline) : undefined,
-      totalPrice: 0, // Price is not set at creation
+      totalPrice: total,
       justification: body.justification,
       status: 'Draft',
-      budgetStatus: 'Pending',
+      budgetStatus: checkBudget(body.department, total),
       createdAt: new Date(),
       updatedAt: new Date(),
       quotations: [], // Initialize quotations array
@@ -79,7 +80,7 @@ export async function POST(request: Request) {
 export async function PATCH(
   request: Request,
 ) {
-  console.log('PATCH /api/requisitions - Updating requisition status.');
+  console.log('PATCH /api/requisitions - Updating requisition status or content.');
   try {
     const body = await request.json();
     console.log('Request body:', body);
@@ -99,42 +100,66 @@ export async function PATCH(
 
     const requisition = requisitions[requisitionIndex];
     const oldStatus = requisition.status;
-    requisition.status = status as RequisitionStatus;
-    requisition.updatedAt = new Date();
     
-    let auditDetails = `Changed status from "${oldStatus}" to "${status}"`;
+    let auditDetails = ``;
 
-    if (status === 'Pending Approval') {
+    // This handles editing a rejected requisition and resubmitting
+    if (oldStatus === 'Rejected' && status === 'Pending Approval') {
+        requisition.title = body.title;
+        requisition.department = body.department;
+        requisition.items = body.items;
+        requisition.customQuestions = body.customQuestions;
+        requisition.deadline = body.deadline ? new Date(body.deadline) : undefined;
+        requisition.justification = body.justification;
+        
         const total = requisition.items.reduce((acc, item) => acc + ((item.unitPrice || 0) * item.quantity), 0);
         requisition.totalPrice = total;
         requisition.budgetStatus = checkBudget(requisition.department, requisition.totalPrice || 0);
-        auditDetails = `Submitted for approval. Total Price: ${total}. Budget status: ${requisition.budgetStatus}`
-    }
+        
+        requisition.status = 'Pending Approval';
+        requisition.approverId = undefined;
+        requisition.approverComment = undefined;
+        auditDetails = `Edited and resubmitted for approval. Total Price: ${total}. Budget status: ${requisition.budgetStatus}`;
+    } else if (status) { // This handles normal status changes (draft -> pending, pending -> approved/rejected)
+        requisition.status = status as RequisitionStatus;
+        auditDetails = `Changed status from "${oldStatus}" to "${status}"`;
 
-    if (status === 'Approved' || status === 'Rejected') {
-        requisition.approverId = userId;
-        requisition.approverComment = comment;
-
-        if (status === 'Approved') {
-            const budget = departmentBudgets.find(b => b.department === requisition.department);
-            if (budget) {
-                budget.spentBudget += requisition.totalPrice || 0;
-            }
-            auditDetails = `Approved requisition. Comment: "${comment}"`
-            if (overrideBudget) {
-              auditDetails += ` (Budget Overridden)`
-            }
-        } else {
-            auditDetails = `Rejected requisition. Comment: "${comment}"`
+        if (status === 'Pending Approval') {
+            const total = requisition.items.reduce((acc, item) => acc + ((item.unitPrice || 0) * item.quantity), 0);
+            requisition.totalPrice = total;
+            requisition.budgetStatus = checkBudget(requisition.department, requisition.totalPrice || 0);
+            auditDetails = `Submitted for approval. Total Price: ${total}. Budget status: ${requisition.budgetStatus}`
         }
+
+        if (status === 'Approved' || status === 'Rejected') {
+            requisition.approverId = userId;
+            requisition.approverComment = comment;
+
+            if (status === 'Approved') {
+                const budget = departmentBudgets.find(b => b.department === requisition.department);
+                if (budget) {
+                    budget.spentBudget += requisition.totalPrice || 0;
+                }
+                auditDetails = `Approved requisition. Comment: "${comment}"`
+                if (overrideBudget) {
+                  auditDetails += ` (Budget Overridden)`
+                }
+            } else {
+                auditDetails = `Rejected requisition. Comment: "${comment}"`
+            }
+        }
+    } else {
+        return NextResponse.json({ error: 'No valid update action specified.' }, { status: 400 });
     }
+
+    requisition.updatedAt = new Date();
     
     const auditLogEntry = {
         id: `log-${Date.now()}-${Math.random()}`,
         timestamp: new Date(),
         user: user.name,
         role: user.role,
-        action: 'UPDATE_STATUS',
+        action: 'UPDATE',
         entity: 'Requisition',
         entityId: id,
         details: auditDetails,

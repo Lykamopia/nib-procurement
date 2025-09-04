@@ -39,12 +39,14 @@ import {
   CircleAlert,
   CircleCheck,
   Info,
+  FileEdit,
 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Calendar } from './ui/calendar';
 import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
+import { useRouter } from 'next/navigation';
 
 
 const PAGE_SIZE = 10;
@@ -55,6 +57,7 @@ export function RequisitionsTable() {
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
   const { toast } = useToast();
+  const router = useRouter();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<RequisitionStatus | 'all'>('all');
@@ -281,10 +284,16 @@ export function RequisitionsTable() {
                       <BudgetStatusBadge status={req.budgetStatus}/>
                     </TableCell>
                     <TableCell>
-                      {req.status === 'Draft' && (
+                      {req.status === 'Draft' && req.requesterId === user?.id && (
                         <Button variant="outline" size="sm" onClick={() => handleSubmitForApproval(req.id)}>
                           <Send className="mr-2 h-4 w-4" />
                           Submit for Approval
+                        </Button>
+                      )}
+                      {req.status === 'Rejected' && req.requesterId === user?.id && (
+                        <Button variant="outline" size="sm" onClick={() => router.push(`/requisitions/${req.id}/edit`)}>
+                          <FileEdit className="mr-2 h-4 w-4" />
+                          Edit & Resubmit
                         </Button>
                       )}
                     </TableCell>

@@ -55,7 +55,7 @@ export type ContractDetails = {
 export type PurchaseRequisition = {
   id:string; // Will be UUID
   requesterId: string; // User ID
-  requesterName?: string;
+  requesterName: string;
   title: string;
   department: string;
   items: RequisitionItem[];

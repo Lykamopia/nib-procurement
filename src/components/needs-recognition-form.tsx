@@ -27,7 +27,7 @@ import {
   CardHeader,
   CardTitle,
 } from './ui/card';
-import { PlusCircle, Trash2, Loader2, Calendar as CalendarIcon } from 'lucide-react';
+import { PlusCircle, Trash2, Loader2, Calendar as CalendarIcon, Send } from 'lucide-react';
 import { Separator } from './ui/separator';
 import {
   Select,
@@ -39,11 +39,12 @@ import {
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/auth-context';
 import { cn } from '@/lib/utils';
-import { DepartmentBudget, QuestionType } from '@/lib/types';
+import { DepartmentBudget, PurchaseRequisition, QuestionType } from '@/lib/types';
 import { departmentBudgets } from '@/lib/data-store';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Calendar } from './ui/calendar';
 import { format } from 'date-fns';
+import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 
 const formSchema = z.object({
   requesterName: z.string().min(2, 'Name must be at least 2 characters.'),
@@ -59,6 +60,7 @@ const formSchema = z.object({
       z.object({
         name: z.string().min(2, 'Item name is required.'),
         quantity: z.coerce.number().min(1, 'Quantity must be at least 1.'),
+        unitPrice: z.coerce.number().optional(),
       })
     )
     .min(1, 'At least one item is required.'),
@@ -71,22 +73,42 @@ const formSchema = z.object({
   ).optional(),
 });
 
-export function NeedsRecognitionForm() {
+interface NeedsRecognitionFormProps {
+    existingRequisition?: PurchaseRequisition;
+    onSuccess?: () => void;
+}
+
+export function NeedsRecognitionForm({ existingRequisition, onSuccess }: NeedsRecognitionFormProps) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
-  const { user, role } = useAuth();
+  const { user } = useAuth();
   const [departments, setDepartments] = useState<DepartmentBudget[]>([]);
+  const isEditMode = !!existingRequisition;
 
 
   useEffect(() => {
-    // In a real-world app, you might fetch this from an API
     setDepartments(departmentBudgets);
   }, []);
 
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
+    defaultValues: isEditMode ? {
+        requesterName: existingRequisition.requesterName,
+        department: existingRequisition.department,
+        title: existingRequisition.title,
+        justification: existingRequisition.justification,
+        deadline: existingRequisition.deadline ? new Date(existingRequisition.deadline) : undefined,
+        items: existingRequisition.items.map(item => ({
+            name: item.name,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice
+        })),
+        customQuestions: existingRequisition.customQuestions?.map(q => ({
+            ...q,
+            options: q.options?.map(opt => ({ value: opt })) || []
+        }))
+    } : {
       requesterName: user?.name || '',
       department: '',
       title: '',
@@ -115,27 +137,36 @@ export function NeedsRecognitionForm() {
           ...q,
           options: q.options?.map(opt => opt.value)
         }))
-      }
+      };
 
+      const total = formattedValues.items.reduce((acc, item) => acc + ((item.unitPrice || 0) * item.quantity), 0);
+
+      const body = isEditMode ? 
+        { ...formattedValues, id: existingRequisition.id, status: 'Pending Approval', userId: user?.id, totalPrice: total } : 
+        formattedValues;
+      
       const response = await fetch('/api/requisitions', {
-        method: 'POST',
+        method: isEditMode ? 'PATCH' : 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formattedValues),
+        body: JSON.stringify(body),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to submit requisition');
+        throw new Error(`Failed to ${isEditMode ? 'update' : 'submit'} requisition`);
       }
 
       const result = await response.json();
-      console.log(result);
       toast({
-        title: 'Requisition Submitted',
-        description: `Your purchase requisition "${result.title}" has been successfully submitted as a draft.`,
+        title: `Requisition ${isEditMode ? 'Updated' : 'Submitted'}`,
+        description: `Your purchase requisition "${result.title}" has been successfully ${isEditMode ? 'resubmitted for approval' : 'saved as a draft'}.`,
       });
-      form.reset();
+      if (onSuccess) {
+          onSuccess();
+      } else {
+          form.reset();
+      }
     } catch (error) {
       toast({
         variant: 'destructive',
@@ -151,12 +182,18 @@ export function NeedsRecognitionForm() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>New Purchase Requisition</CardTitle>
+        <CardTitle>{isEditMode ? 'Edit Purchase Requisition' : 'New Purchase Requisition'}</CardTitle>
         <CardDescription>
-          Fill out the form below to request a new purchase.
+          {isEditMode ? `Editing requisition ${existingRequisition.id}. Make your changes and resubmit for approval.` : 'Fill out the form below to request a new purchase.'}
         </CardDescription>
       </CardHeader>
       <CardContent>
+         {isEditMode && existingRequisition.approverComment && (
+            <Alert variant="destructive" className="mb-6">
+                <AlertTitle>Rejection Reason from Approver</AlertTitle>
+                <AlertDescription>"{existingRequisition.approverComment}"</AlertDescription>
+            </Alert>
+         )}
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
             <div className="grid md:grid-cols-2 gap-8">
@@ -167,7 +204,7 @@ export function NeedsRecognitionForm() {
                   <FormItem>
                     <FormLabel>Your Name</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g. Jane Doe" {...field} />
+                      <Input placeholder="e.g. Jane Doe" {...field} disabled={isEditMode} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -224,12 +261,12 @@ export function NeedsRecognitionForm() {
                     key={field.id}
                     className="flex gap-4 items-end p-4 border rounded-lg relative"
                   >
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 flex-1">
+                    <div className="grid grid-cols-1 md:grid-cols-5 gap-4 flex-1">
                       <FormField
                         control={form.control}
                         name={`items.${index}.name`}
                         render={({ field }) => (
-                          <FormItem className="md:col-span-2">
+                          <FormItem className="md:col-span-3">
                             <FormLabel>Item Name</FormLabel>
                             <FormControl>
                               <Input
@@ -254,6 +291,19 @@ export function NeedsRecognitionForm() {
                           </FormItem>
                         )}
                       />
+                      <FormField
+                        control={form.control}
+                        name={`items.${index}.unitPrice`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Est. Unit Price</FormLabel>
+                            <FormControl>
+                              <Input type="number" placeholder="Optional" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                     </div>
                     <Button
                       type="button"
@@ -272,7 +322,7 @@ export function NeedsRecognitionForm() {
                     variant="outline"
                     size="sm"
                     onClick={() =>
-                    append({ name: '', quantity: 1 })
+                    append({ name: '', quantity: 1, unitPrice: undefined })
                     }
                 >
                     <PlusCircle className="mr-2 h-4 w-4" />
@@ -445,8 +495,12 @@ export function NeedsRecognitionForm() {
 
             <div className="flex justify-end items-center gap-4">
               <Button type="submit" disabled={loading}>
-                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Submit Requisition
+                {loading ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : isEditMode ? (
+                    <Send className="mr-2 h-4 w-4" />
+                ) : null}
+                {isEditMode ? 'Resubmit for Approval' : 'Save as Draft'}
               </Button>
             </div>
           </form>
@@ -456,7 +510,6 @@ export function NeedsRecognitionForm() {
   );
 }
 
-// Sub-component to manage options for multiple-choice questions
 function QuestionOptions({ index }: { index: number }) {
   const { control } = useFormContext();
   const { fields, append, remove } = useFieldArray({
