@@ -1,4 +1,5 @@
 
+
 import type { PurchaseRequisition, AuditLog, DepartmentBudget, Vendor, Quotation, PurchaseOrder, GoodsReceiptNote, Invoice, User } from './types';
 import { getInitialData, AppData } from './seed-data';
 

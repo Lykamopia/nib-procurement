@@ -32,12 +32,12 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, PlusCircle, Award, XCircle, FileSignature, FileText, Bot, Lightbulb, ArrowLeft, Star, Undo, Check, Send, Search, BadgeHelp, BadgeCheck, BadgeX, Crown, Medal, Trophy, RefreshCw, TimerOff, ClipboardList } from 'lucide-react';
-import { useForm, useFieldArray } from 'react-hook-form';
+import { Loader2, PlusCircle, Award, XCircle, FileSignature, FileText, Bot, Lightbulb, ArrowLeft, Star, Undo, Check, Send, Search, BadgeHelp, BadgeCheck, BadgeX, Crown, Medal, Trophy, RefreshCw, TimerOff, ClipboardList, TrendingUp, Scale, Edit2 } from 'lucide-react';
+import { useForm, useFieldArray, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { PurchaseOrder, PurchaseRequisition, Quotation, Vendor, QuotationStatus, EvaluationCriteria } from '@/lib/types';
+import { PurchaseOrder, PurchaseRequisition, Quotation, Vendor, QuotationStatus, EvaluationCriteria, User, CommitteeScoreSet } from '@/lib/types';
 import { format, formatDistanceToNow, isBefore } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
@@ -55,6 +55,7 @@ import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+import { Slider } from '@/components/ui/slider';
 
 const quoteFormSchema = z.object({
   vendorId: z.string().min(1, "Vendor is required."),
@@ -220,7 +221,7 @@ function AddQuoteForm({ requisition, vendors, onQuoteAdded }: { requisition: Pur
     );
 }
 
-const QuoteComparison = ({ quotes, requisition, recommendation }: { quotes: Quotation[], requisition: PurchaseRequisition, recommendation?: QuoteAnalysisOutput | null }) => {
+const QuoteComparison = ({ quotes, requisition, recommendation, onScore }: { quotes: Quotation[], requisition: PurchaseRequisition, recommendation?: QuoteAnalysisOutput | null, onScore: (quote: Quotation) => void }) => {
     if (quotes.length === 0) {
         return (
             <div className="h-24 flex items-center justify-center text-muted-foreground">
@@ -306,7 +307,19 @@ const QuoteComparison = ({ quotes, requisition, recommendation }: { quotes: Quot
                                     <p className="text-muted-foreground text-xs italic">{quote.notes}</p>
                                 </div>
                             )}
+                             {quote.finalAverageScore !== undefined && (
+                                 <div className="text-center pt-2 border-t">
+                                    <h4 className="font-semibold text-sm">Final Score</h4>
+                                    <p className="text-2xl font-bold text-primary">{quote.finalAverageScore.toFixed(2)}</p>
+                                 </div>
+                             )}
                         </CardContent>
+                         <CardFooter>
+                            <Button className="w-full" variant="outline" onClick={() => onScore(quote)}>
+                                <Edit2 className="mr-2 h-4 w-4" />
+                                View / Edit Scores
+                            </Button>
+                        </CardFooter>
                     </Card>
                 )
             })}
@@ -701,7 +714,7 @@ const WorkflowStepper = ({ step }: { step: 'rfq' | 'award' | 'finalize' | 'compl
                 <div className={cn("flex h-6 w-6 items-center justify-center rounded-full border text-xs font-semibold", stateClasses[awardState])}>
                     {awardState === 'completed' ? <Check className="h-4 w-4"/> : '2'}
                 </div>
-                <span className={cn("font-medium", textClasses[awardState])}>Compare & Award</span>
+                <span className={cn("font-medium", textClasses[awardState])}>Score & Award</span>
             </div>
             <div className={cn("h-px w-16 bg-border transition-colors", (finalizeState === 'active' || finalizeState === 'completed' || step === 'completed') && "bg-primary")}></div>
              <div className="flex items-center gap-2">
@@ -714,156 +727,192 @@ const WorkflowStepper = ({ step }: { step: 'rfq' | 'award' | 'finalize' | 'compl
     );
 };
 
-type AwardRanking = {
-    quoteId: string;
-    rank: 1 | 2 | 3;
-    status: 'Awarded' | 'Standby';
-}
+const scoreFormSchema = z.object({
+  committeeComment: z.string().optional(),
+  financialScores: z.array(z.object({
+      criterionId: z.string(),
+      score: z.coerce.number().min(0, "Min score is 0").max(100, "Max score is 100"),
+      comment: z.string().optional()
+  })),
+  technicalScores: z.array(z.object({
+      criterionId: z.string(),
+      score: z.coerce.number().min(0, "Min score is 0").max(100, "Max score is 100"),
+      comment: z.string().optional()
+  })),
+});
+type ScoreFormValues = z.infer<typeof scoreFormSchema>;
 
-const ManageAwardsDialog = ({ quotes, requisition, aiRecommendation, onAwardsConfirmed, onCancel }: { quotes: Quotation[], requisition: PurchaseRequisition, aiRecommendation: QuoteAnalysisOutput | null, onAwardsConfirmed: (updates: any[]) => void, onCancel: () => void }) => {
-    
-    const deadline = requisition.deadline ? new Date(requisition.deadline) : null;
-    const isDeadlinePassed = deadline ? !isBefore(new Date(), deadline) : true;
-    
-    const getInitialValue = (rank: number) => {
-        if (aiRecommendation && aiRecommendation.recommendations.length >= rank) {
-            const recommendedQuoteId = aiRecommendation.recommendations[rank - 1].quoteId;
-            // Ensure the recommended quote is actually in the list of available quotes
-            if (quotes.some(q => q.id === recommendedQuoteId)) {
-                return recommendedQuoteId;
+const ScoringDialog = ({ 
+    quote, 
+    requisition, 
+    user, 
+    onScoreSubmitted 
+}: { 
+    quote: Quotation; 
+    requisition: PurchaseRequisition; 
+    user: User; 
+    onScoreSubmitted: () => void;
+}) => {
+    const { toast } = useToast();
+    const [isSubmitting, setSubmitting] = useState(false);
+    const existingScore = useMemo(() => quote.scores?.find(s => s.scorerId === user.id), [quote.scores, user.id]);
+
+    const form = useForm<ScoreFormValues>({
+        resolver: zodResolver(scoreFormSchema),
+        defaultValues: {
+            committeeComment: existingScore?.committeeComment || "",
+            financialScores: requisition.evaluationCriteria?.financialCriteria.map(c => {
+                const existing = existingScore?.financialScores.find(s => s.criterionId === c.id);
+                return { criterionId: c.id, score: existing?.score || 0, comment: existing?.comment || "" };
+            }) || [],
+            technicalScores: requisition.evaluationCriteria?.technicalCriteria.map(c => {
+                const existing = existingScore?.technicalScores.find(s => s.criterionId === c.id);
+                return { criterionId: c.id, score: existing?.score || 0, comment: existing?.comment || "" };
+            }) || [],
+        },
+    });
+
+    const onSubmit = async (values: ScoreFormValues) => {
+        setSubmitting(true);
+        try {
+            const response = await fetch(`/api/quotations/${quote.id}/score`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ scores: values, userId: user.id }),
+            });
+             if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to submit scores.');
             }
+
+            toast({ title: "Scores Submitted", description: "Your evaluation has been recorded." });
+            onScoreSubmitted();
+
+        } catch (error) {
+             toast({
+                variant: 'destructive',
+                title: 'Error',
+                description: error instanceof Error ? error.message : 'An unknown error occurred.',
+            });
+        } finally {
+            setSubmitting(false);
         }
-        return quotes.find(q => q.rank === rank)?.id;
-    }
+    };
     
-    const [first, setFirst] = useState<string | undefined>(getInitialValue(1));
-    const [second, setSecond] = useState<string | undefined>(getInitialValue(2));
-    const [third, setThird] = useState<string | undefined>(getInitialValue(3));
+    if (!requisition.evaluationCriteria) return null;
 
-    // Re-sync with AI recs when dialog opens/re-renders with new props
-    useEffect(() => {
-        setFirst(getInitialValue(1));
-        setSecond(getInitialValue(2));
-        setThird(getInitialValue(3));
-    }, [aiRecommendation, quotes]);
+    const renderCriteria = (type: 'financial' | 'technical') => {
+        const criteria = type === 'financial' ? requisition.evaluationCriteria!.financialCriteria : requisition.evaluationCriteria!.technicalCriteria;
+        const fields = type === 'financial' ? form.getValues('financialScores') : form.getValues('technicalScores');
 
-
-    const availableForSecond = useMemo(() => quotes.filter(q => q.id !== first), [first, quotes]);
-    const availableForThird = useMemo(() => quotes.filter(q => q.id !== first && q.id !== second), [first, second, quotes]);
-
-    const handleConfirm = () => {
-        const updates = [];
-        if (first) updates.push({ quoteId: first, rank: 1, status: 'Awarded' });
-        if (second) updates.push({ quoteId: second, rank: 2, status: 'Standby' });
-        if (third) updates.push({ quoteId: third, rank: 3, status: 'Standby' });
-        
-        onAwardsConfirmed(updates);
-    }
-    
-    const isAnyAwarded = quotes.some(q => q.status === 'Awarded');
-
-    const AwardSelect = ({ label, value, onChange, options, rank, isAiSuggested }: { label: string, value?: string, onChange: (v?: string) => void, options: Quotation[], rank: number, isAiSuggested: boolean }) => (
-        <div className="grid grid-cols-3 gap-4 items-center">
-            <Label className="text-right flex justify-end items-center gap-2">
-                <span>{label}</span>
-                {isAiSuggested && (
-                    <TooltipProvider>
-                        <Tooltip>
-                            <TooltipTrigger>
-                                <Star className="h-4 w-4 text-green-500 fill-green-500" />
-                            </TooltipTrigger>
-                            <TooltipContent>
-                                <p>AI Suggested</p>
-                            </TooltipContent>
-                        </Tooltip>
-                    </TooltipProvider>
-                )}
-            </Label>
-            <Select value={value} onValueChange={(v) => onChange(v)}>
-                <SelectTrigger className="col-span-2"><SelectValue placeholder={`Select vendor for rank #${rank}`}/></SelectTrigger>
-                <SelectContent>
-                    {options.map(q => <SelectItem key={q.id} value={q.id}>{q.vendorName} ({q.totalPrice.toLocaleString()} ETB)</SelectItem>)}
-                </SelectContent>
-            </Select>
-        </div>
-    );
-    
-    if (isAnyAwarded) {
-        return (
-             <DialogContent>
-                 <DialogHeader>
-                     <DialogTitle>Awards Managed</DialogTitle>
-                     <DialogDescription>An award has already been made for this requisition. To change it, use the "Change Award Decision" button.</DialogDescription>
-                 </DialogHeader>
-                 <DialogFooter>
-                    <Button onClick={onCancel}>Close</Button>
-                </DialogFooter>
-             </DialogContent>
-        )
-    }
-
-    if (!isDeadlinePassed) {
-        return (
-             <DialogContent>
-                 <DialogHeader>
-                     <DialogTitle>Cannot Manage Awards Yet</DialogTitle>
-                     <DialogDescription>
-                        The deadline for this requisition has not passed yet. Please wait until {format(deadline!, "PPpp")} to manage awards.
-                     </DialogDescription>
-                 </DialogHeader>
-                 <DialogFooter>
-                    <Button onClick={onCancel}>Close</Button>
-                </DialogFooter>
-             </DialogContent>
-        )
-    }
+        return criteria.map((criterion, index) => (
+            <div key={criterion.id} className="space-y-2 rounded-md border p-4">
+                <div className="flex justify-between items-center">
+                    <FormLabel>{criterion.name}</FormLabel>
+                    <Badge variant="secondary">Weight: {criterion.weight}%</Badge>
+                </div>
+                 <FormField
+                    control={form.control}
+                    name={`${type}Scores.${index}.score`}
+                    render={({ field }) => (
+                         <FormItem>
+                            <FormControl>
+                                <div className="flex items-center gap-4">
+                                <Slider
+                                    defaultValue={[field.value]}
+                                    max={100}
+                                    step={5}
+                                    onValueChange={(v) => field.onChange(v[0])}
+                                    disabled={!!existingScore}
+                                />
+                                <Input type="number" {...field} className="w-24" disabled={!!existingScore} />
+                                </div>
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                 />
+                 <FormField
+                    control={form.control}
+                    name={`${type}Scores.${index}.comment`}
+                    render={({ field }) => (
+                         <FormItem>
+                             <FormControl>
+                                <Textarea placeholder="Optional comment for this criterion..." {...field} rows={2} disabled={!!existingScore} />
+                             </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                 />
+            </div>
+        ));
+    };
 
     return (
-        <DialogContent>
+         <DialogContent className="max-w-4xl">
             <DialogHeader>
-                <DialogTitle>Manage Quote Awards</DialogTitle>
-                <DialogDescription>Select up to 3 vendors for the award and standby positions. Unselected quotes will be rejected.</DialogDescription>
+                <DialogTitle>Score Quotation from {quote.vendorName}</DialogTitle>
+                <DialogDescription>Evaluate this quote against the requester's criteria. Your scores will be combined with other committee members' to determine the final ranking.</DialogDescription>
             </DialogHeader>
-            <div className="py-4 space-y-4">
-                <AwardSelect
-                    label="1st Choice (Awarded)"
-                    value={first}
-                    onChange={setFirst}
-                    options={quotes}
-                    rank={1}
-                    isAiSuggested={!!aiRecommendation && !!first && aiRecommendation.recommendations[0]?.quoteId === first}
-                />
-                
-                {quotes.length > 1 && (
-                     <AwardSelect
-                        label="2nd Choice (Standby)"
-                        value={second}
-                        onChange={setSecond}
-                        options={availableForSecond}
-                        rank={2}
-                        isAiSuggested={!!aiRecommendation && !!second && aiRecommendation.recommendations[1]?.quoteId === second}
-                    />
-                )}
-                
-                {quotes.length > 2 && (
-                    <AwardSelect
-                        label="3rd Choice (Standby)"
-                        value={third}
-                        onChange={setThird}
-                        options={availableForThird}
-                        rank={3}
-                        isAiSuggested={!!aiRecommendation && !!third && aiRecommendation.recommendations[2]?.quoteId === third}
-                    />
-                )}
-            </div>
-            <DialogFooter>
-                <Button variant="ghost" onClick={onCancel}>Cancel</Button>
-                <Button onClick={handleConfirm} disabled={!first}>Confirm Awards</Button>
+            <FormProvider {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)}>
+            <ScrollArea className="h-[60vh]">
+                <div className="p-1 space-y-6">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-xl flex items-center gap-2">
+                                <Scale /> Financial Evaluation ({requisition.evaluationCriteria.financialWeight}%)
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                             {renderCriteria('financial')}
+                        </CardContent>
+                    </Card>
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-xl flex items-center gap-2">
+                                <TrendingUp /> Technical Evaluation ({requisition.evaluationCriteria.technicalWeight}%)
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            {renderCriteria('technical')}
+                        </CardContent>
+                    </Card>
+                     <Card>
+                        <CardHeader><CardTitle className="text-xl">Overall Comment</CardTitle></CardHeader>
+                        <CardContent>
+                             <FormField
+                                control={form.control}
+                                name="committeeComment"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormControl>
+                                            <Textarea placeholder="Provide an overall summary or justification for your scores..." {...field} rows={4} disabled={!!existingScore} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                             />
+                        </CardContent>
+                    </Card>
+                </div>
+            </ScrollArea>
+             <DialogFooter className="pt-4">
+                <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
+                 {existingScore ? (
+                    <p className="text-sm text-muted-foreground">You have already scored this quote.</p>
+                 ) : (
+                    <Button type="submit" disabled={isSubmitting}>
+                        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Submit Score
+                    </Button>
+                 )}
             </DialogFooter>
+            </form>
+            </FormProvider>
         </DialogContent>
     );
 };
-
 
 export default function QuotationDetailsPage() {
   const [requisition, setRequisition] = useState<PurchaseRequisition | null>(null);
@@ -871,7 +920,8 @@ export default function QuotationDetailsPage() {
   const [quotations, setQuotations] = useState<Quotation[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAddFormOpen, setAddFormOpen] = useState(false);
-  const [isAwardFormOpen, setAwardFormOpen] = useState(false);
+  const [isScoringFormOpen, setScoringFormOpen] = useState(false);
+  const [selectedQuoteForScoring, setSelectedQuoteForScoring] = useState<Quotation | null>(null);
   const [lastPOCreated, setLastPOCreated] = useState<PurchaseOrder | null>(null);
   const [aiRecommendation, setAiRecommendation] = useState<QuoteAnalysisOutput | null>(null);
   const [isChangingAward, setIsChangingAward] = useState(false);
@@ -972,39 +1022,19 @@ export default function QuotationDetailsPage() {
         setIsChangingAward(false);
     }
   }
+
+  const handleScoreButtonClick = (quote: Quotation) => {
+    setSelectedQuoteForScoring(quote);
+    setScoringFormOpen(true);
+  }
   
-  const handleAwardsConfirmed = async (updates: any[]) => {
-     if (!user || !id) return;
-     
-     try {
-        const response = await fetch(`/api/quotations/${id}/status`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ updates, userId: user.id }),
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || 'Failed to update quote statuses.');
-        }
-        
-        toast({
-            title: 'Awards Updated',
-            description: 'The quote statuses have been successfully updated.'
-        });
-        setAwardFormOpen(false);
-        fetchRequisitionAndQuotes();
-
-     } catch (error) {
-          toast({
-            variant: 'destructive',
-            title: 'Error',
-            description: error instanceof Error ? error.message : 'An unknown error occurred.',
-        });
-     }
+  const handleScoreSubmitted = () => {
+      setScoringFormOpen(false);
+      setSelectedQuoteForScoring(null);
+      fetchRequisitionAndQuotes();
   }
 
-  if (loading) {
+  if (loading || !user) {
      return <div className="flex items-center justify-center p-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
   
@@ -1124,21 +1154,6 @@ export default function QuotationDetailsPage() {
                                 </AlertDialogContent>
                             </AlertDialog>
                         )}
-                         <Dialog open={isAwardFormOpen} onOpenChange={setAwardFormOpen}>
-                            <DialogTrigger asChild>
-                                 <Button disabled={requisition.status === 'PO Created' || isAwarded}>
-                                    <Award className="mr-2 h-4 w-4" />
-                                    Manage Awards
-                                </Button>
-                            </DialogTrigger>
-                            <ManageAwardsDialog 
-                                quotes={quotations} 
-                                requisition={requisition}
-                                aiRecommendation={aiRecommendation}
-                                onAwardsConfirmed={handleAwardsConfirmed} 
-                                onCancel={() => setAwardFormOpen(false)} 
-                            />
-                         </Dialog>
                         <Dialog open={isAddFormOpen} onOpenChange={setAddFormOpen}>
                             <DialogTrigger asChild>
                                 <Button disabled={isAwarded} variant="outline"><PlusCircle className="mr-2 h-4 w-4"/>Add Quote</Button>
@@ -1177,9 +1192,20 @@ export default function QuotationDetailsPage() {
                         quotes={quotations} 
                         requisition={requisition}
                         recommendation={aiRecommendation}
+                        onScore={handleScoreButtonClick}
                     />
                 )}
                 </CardContent>
+                 <Dialog open={isScoringFormOpen} onOpenChange={setScoringFormOpen}>
+                    {selectedQuoteForScoring && requisition && user && (
+                        <ScoringDialog 
+                            quote={selectedQuoteForScoring} 
+                            requisition={requisition} 
+                            user={user} 
+                            onScoreSubmitted={handleScoreSubmitted} 
+                        />
+                    )}
+                </Dialog>
             </Card>
         )}
         
@@ -1207,6 +1233,7 @@ export default function QuotationDetailsPage() {
     </div>
   );
 }
+
 
 
 

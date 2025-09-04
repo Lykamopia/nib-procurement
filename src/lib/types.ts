@@ -152,6 +152,15 @@ export type Score = {
   comment?: string;
 }
 
+export type CommitteeScoreSet = {
+    scorerId: string;
+    scorerName: string;
+    financialScores: Score[];
+    technicalScores: Score[];
+    finalScore: number;
+    committeeComment?: string;
+}
+
 export type Quotation = {
     id: string;
     requisitionId: string;
@@ -165,10 +174,8 @@ export type Quotation = {
     notes?: string;
     rank?: 1 | 2 | 3;
     answers?: QuoteAnswer[];
-    financialScores?: Score[];
-    technicalScores?: Score[];
-    committeeComment?: string;
-    finalScore?: number;
+    scores?: CommitteeScoreSet[];
+    finalAverageScore?: number;
 };
 
 export type POItem = {
