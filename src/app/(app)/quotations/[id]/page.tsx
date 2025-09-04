@@ -1227,7 +1227,7 @@ export default function QuotationDetailsPage() {
             </CardContent>
         )}
 
-        {isAwarded && requisition.status !== 'PO Created' && (
+        {isAwarded && requisition.status !== 'PO Created' && user.role !== 'Committee Member' && (
             <>
                 <Separator className="my-6"/>
                 <ContractManagement requisition={requisition} onContractFinalized={handleContractFinalized} onPOCreated={handlePOCreated}/>
@@ -1237,9 +1237,3 @@ export default function QuotationDetailsPage() {
     </div>
   );
 }
-
-
-
-
-
-
