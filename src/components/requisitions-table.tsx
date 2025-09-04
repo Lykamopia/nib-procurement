@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -250,7 +251,6 @@ export function RequisitionsTable() {
                 <TableHead>Requester</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Created At</TableHead>
-                <TableHead>Budget</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -281,9 +281,6 @@ export function RequisitionsTable() {
                     </TableCell>
                     <TableCell>{format(new Date(req.createdAt), 'PP')}</TableCell>
                     <TableCell>
-                      <BudgetStatusBadge status={req.budgetStatus}/>
-                    </TableCell>
-                    <TableCell>
                       {req.status === 'Draft' && req.requesterId === user?.id && (
                         <Button variant="outline" size="sm" onClick={() => handleSubmitForApproval(req.id)}>
                           <Send className="mr-2 h-4 w-4" />
@@ -301,7 +298,7 @@ export function RequisitionsTable() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={8} className="h-24 text-center">
+                  <TableCell colSpan={7} className="h-24 text-center">
                     No results found.
                   </TableCell>
                 </TableRow>

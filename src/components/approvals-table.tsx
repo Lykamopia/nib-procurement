@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -98,9 +99,6 @@ function CollapsibleTableRow({ req, onAction, isOpen, onToggle, index }: { req: 
                 <TableCell>
                 <BudgetStatusBadge status={req.budgetStatus}/>
                 </TableCell>
-                <TableCell className="text-right">
-                  {req.totalPrice && req.totalPrice > 0 ? `${req.totalPrice.toLocaleString()} ETB` : 'N/A'}
-                </TableCell>
                 <TableCell>{format(new Date(req.createdAt), 'PP')}</TableCell>
                 <TableCell>
                 <div className="flex gap-2">
@@ -117,7 +115,7 @@ function CollapsibleTableRow({ req, onAction, isOpen, onToggle, index }: { req: 
             </TableRow>
             {isOpen && (
                 <TableRow className="bg-muted/50 hover:bg-muted/50">
-                    <TableCell colSpan={9} className="p-0">
+                    <TableCell colSpan={8} className="p-0">
                             <div className="p-6">
                             <h4 className="font-semibold mb-2">Requisition Details:</h4>
                             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 text-sm">
@@ -130,8 +128,7 @@ function CollapsibleTableRow({ req, onAction, isOpen, onToggle, index }: { req: 
                                     <ul className="list-disc pl-5 text-muted-foreground space-y-1">
                                         {req.items.map(item => (
                                         <li key={item.id}>
-                                            {item.quantity} x {item.name} 
-                                            {item.unitPrice && ` @ ${item.unitPrice.toLocaleString()} ETB each`}
+                                            {item.quantity} x {item.name}
                                         </li>
                                         ))}
                                     </ul>
@@ -265,7 +262,6 @@ export function ApprovalsTable() {
                 <TableHead>Title</TableHead>
                 <TableHead>Requester</TableHead>
                 <TableHead>Budget</TableHead>
-                <TableHead className="text-right">Total Price</TableHead>
                 <TableHead>Created At</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
@@ -284,7 +280,7 @@ export function ApprovalsTable() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={9} className="h-24 text-center">
+                  <TableCell colSpan={8} className="h-24 text-center">
                     No requisitions pending approval.
                   </TableCell>
                 </TableRow>
@@ -379,5 +375,3 @@ export function ApprovalsTable() {
     </Card>
   );
 }
-
-    

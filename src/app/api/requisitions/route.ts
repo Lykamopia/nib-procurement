@@ -114,23 +114,23 @@ export async function PATCH(
         requisition.justification = body.justification;
         requisition.evaluationCriteria = body.evaluationCriteria;
         
-        const total = requisition.items.reduce((acc, item) => acc + ((item.unitPrice || 0) * item.quantity), 0);
+        const total = 0; // Price is no longer estimated here
         requisition.totalPrice = total;
         requisition.budgetStatus = checkBudget(requisition.department, requisition.totalPrice || 0);
         
         requisition.status = 'Pending Approval';
         requisition.approverId = undefined;
         requisition.approverComment = undefined;
-        auditDetails = `Edited and resubmitted for approval. Total Price: ${total}. Budget status: ${requisition.budgetStatus}`;
+        auditDetails = `Edited and resubmitted for approval.`;
     } else if (status) { // This handles normal status changes (draft -> pending, pending -> approved/rejected)
         requisition.status = status as RequisitionStatus;
         auditDetails = `Changed status from "${oldStatus}" to "${status}"`;
 
         if (status === 'Pending Approval') {
-            const total = requisition.items.reduce((acc, item) => acc + ((item.unitPrice || 0) * item.quantity), 0);
+            const total = 0; // Price is no longer estimated here
             requisition.totalPrice = total;
             requisition.budgetStatus = checkBudget(requisition.department, requisition.totalPrice || 0);
-            auditDetails = `Submitted for approval. Total Price: ${total}. Budget status: ${requisition.budgetStatus}`
+            auditDetails = `Submitted for approval.`
         }
 
         if (status === 'Approved' || status === 'Rejected') {

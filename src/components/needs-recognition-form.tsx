@@ -116,7 +116,7 @@ export function NeedsRecognitionForm({ existingRequisition, onSuccess }: NeedsRe
       title: '',
       justification: '',
       evaluationCriteria: 'Best value for money, considering price, quality, and delivery time.',
-      items: [{ name: '', quantity: 1 }],
+      items: [{ name: '', quantity: 1, unitPrice: 0 }],
       customQuestions: [],
     },
   });
@@ -136,16 +136,15 @@ export function NeedsRecognitionForm({ existingRequisition, onSuccess }: NeedsRe
     try {
       const formattedValues = {
         ...values,
+        items: values.items.map(item => ({...item, unitPrice: undefined })), // Ensure unitPrice is not sent
         customQuestions: values.customQuestions?.map(q => ({
           ...q,
           options: q.options?.map(opt => opt.value)
         }))
       };
 
-      const total = formattedValues.items.reduce((acc, item) => acc + ((item.unitPrice || 0) * item.quantity), 0);
-
       const body = isEditMode ? 
-        { ...formattedValues, id: existingRequisition.id, status: 'Pending Approval', userId: user?.id, totalPrice: total } : 
+        { ...formattedValues, id: existingRequisition.id, status: 'Pending Approval', userId: user?.id, totalPrice: 0 } : 
         formattedValues;
       
       const response = await fetch('/api/requisitions', {
@@ -269,7 +268,7 @@ export function NeedsRecognitionForm({ existingRequisition, onSuccess }: NeedsRe
                         control={form.control}
                         name={`items.${index}.name`}
                         render={({ field }) => (
-                          <FormItem className="md:col-span-3">
+                          <FormItem className="md:col-span-4">
                             <FormLabel>Item Name</FormLabel>
                             <FormControl>
                               <Input
@@ -294,19 +293,6 @@ export function NeedsRecognitionForm({ existingRequisition, onSuccess }: NeedsRe
                           </FormItem>
                         )}
                       />
-                      <FormField
-                        control={form.control}
-                        name={`items.${index}.unitPrice`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Est. Unit Price</FormLabel>
-                            <FormControl>
-                              <Input type="number" placeholder="Optional" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
                     </div>
                     <Button
                       type="button"
@@ -325,7 +311,7 @@ export function NeedsRecognitionForm({ existingRequisition, onSuccess }: NeedsRe
                     variant="outline"
                     size="sm"
                     onClick={() =>
-                    append({ name: '', quantity: 1, unitPrice: undefined })
+                    append({ name: '', quantity: 1, unitPrice: 0 })
                     }
                 >
                     <PlusCircle className="mr-2 h-4 w-4" />
