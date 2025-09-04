@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -46,6 +45,7 @@ import { Calendar } from './ui/calendar';
 import { format } from 'date-fns';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { Slider } from './ui/slider';
+import { Badge } from './ui/badge';
 
 const evaluationCriteriaSchema = z.object({
       id: z.string(),
