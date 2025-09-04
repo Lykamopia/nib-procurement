@@ -160,7 +160,7 @@ export default function AppLayout({
                 </Link>
               </SidebarMenuItem>
             )}
-             {(role === 'Procurement Officer' || role === 'Committee Member') && (
+             {(role === 'Procurement Officer' || role === 'Committee Member' || role === 'Committee') && (
               <>
                 <SidebarMenuItem>
                   <Link href="/vendors">

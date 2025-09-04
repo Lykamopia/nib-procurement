@@ -8,7 +8,8 @@ export type UserRole =
   | 'Admin'
   | 'Receiving'
   | 'Vendor'
-  | 'Committee Member';
+  | 'Committee Member'
+  | 'Committee';
 
 export type User = {
   id: string;
@@ -90,6 +91,7 @@ export type PurchaseRequisition = {
   customQuestions?: CustomQuestion[];
   deadline?: Date;
   evaluationCriteria?: EvaluationCriteria;
+  committeeMemberIds?: string[];
 };
 
 export type AuditLog = {

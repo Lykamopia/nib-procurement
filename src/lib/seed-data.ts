@@ -1,4 +1,5 @@
 
+
 import type { PurchaseRequisition, AuditLog, DepartmentBudget, Vendor, Quotation, PurchaseOrder, GoodsReceiptNote, Invoice, User } from './types';
 
 export interface AppData {
@@ -96,6 +97,7 @@ const seedData: AppData = {
             createdAt: new Date('2023-10-01T10:00:00Z'),
             updatedAt: new Date('2023-10-05T11:30:00Z'),
             quotations: [],
+            committeeMemberIds: ['9', '10'],
         },
         {
             id: `REQ-1672617600`,
@@ -214,5 +216,6 @@ const seedData: AppData = {
         { id: '8', name: 'Office Depot', email: 'vendor@officedepot.com', password: 'password123', role: 'Vendor', vendorId: 'VENDOR-003' },
         { id: '9', name: 'Fiona', email: 'fiona@example.com', password: 'password123', role: 'Committee Member' },
         { id: '10', name: 'George', email: 'george@example.com', password: 'password123', role: 'Committee Member' },
+        { id: '11', name: 'Hannah', email: 'hannah@example.com', password: 'password123', role: 'Committee' },
     ]
 };
