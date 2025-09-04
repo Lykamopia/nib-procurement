@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -197,10 +196,11 @@ function QuoteSubmissionForm({ requisition, quote, onQuoteSubmitted }: { requisi
         name: "answers",
     });
 
-    const addAlternative = (index: number) => {
-        const originalItem = form.getValues(`items.${index}`);
+    const addItem = () => {
         append({
-            ...originalItem,
+            requisitionItemId: 'NEW-ITEM',
+            name: '', // Empty name for new/alternative items
+            quantity: 1,
             unitPrice: 0,
             leadTimeDays: 0,
             brandDetails: '',
@@ -269,7 +269,7 @@ function QuoteSubmissionForm({ requisition, quote, onQuoteSubmitted }: { requisi
                                         <p className="font-semibold mb-2">{field.name} (Qty: {field.quantity})</p>
                                         <p className="text-xs text-muted-foreground">Original Item ID: {field.requisitionItemId}</p>
                                       </div>
-                                       {fields.filter(f => f.requisitionItemId === field.requisitionItemId).length > 1 && (
+                                       {fields.length > 1 && (
                                             <Button type="button" variant="ghost" size="icon" className="h-6 w-6 absolute top-2 right-2" onClick={() => remove(index)}>
                                                 <Trash2 className="h-4 w-4" />
                                             </Button>
@@ -312,14 +312,15 @@ function QuoteSubmissionForm({ requisition, quote, onQuoteSubmitted }: { requisi
                                             )}
                                         />
                                     </div>
-                                    <div className="mt-4 flex justify-end">
-                                      <Button type="button" variant="outline" size="sm" onClick={() => addAlternative(index)}>
-                                          <PlusCircle className="mr-2 h-4 w-4" />
-                                          Add Alternative Offer
-                                      </Button>
-                                    </div>
                                 </Card>
                             ))}
+                        </div>
+
+                         <div className="mt-4 flex justify-start">
+                            <Button type="button" variant="outline" size="sm" onClick={addItem}>
+                                <PlusCircle className="mr-2 h-4 w-4" />
+                                Add Item to Quote
+                            </Button>
                         </div>
 
                          {requisition.customQuestions && requisition.customQuestions.length > 0 && (
