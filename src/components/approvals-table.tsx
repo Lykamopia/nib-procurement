@@ -47,6 +47,7 @@ import { Label } from './ui/label';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 import { Checkbox } from './ui/checkbox';
 import { cn } from '@/lib/utils';
+import { Separator } from './ui/separator';
 
 
 const PAGE_SIZE = 10;
@@ -117,24 +118,40 @@ function CollapsibleTableRow({ req, onAction, isOpen, onToggle, index }: { req: 
             {isOpen && (
                 <TableRow className="bg-muted/50 hover:bg-muted/50">
                     <TableCell colSpan={9} className="p-0">
-                            <div className="p-4">
+                            <div className="p-6">
                             <h4 className="font-semibold mb-2">Requisition Details:</h4>
-                            <div className="grid md:grid-cols-2 gap-4 text-sm">
-                                <div>
-                                <p className="font-medium">Justification:</p>
-                                <p className="text-muted-foreground">{req.justification}</p>
+                            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 text-sm">
+                                <div className="space-y-4">
+                                    <p className="font-medium">Justification:</p>
+                                    <p className="text-muted-foreground">{req.justification}</p>
                                 </div>
-                                <div>
-                                <p className="font-medium">Items:</p>
-                                <ul className="list-disc pl-5 text-muted-foreground">
-                                    {req.items.map(item => (
-                                    <li key={item.id}>
-                                        {item.quantity} x {item.name} 
-                                        {item.unitPrice && ` @ ${item.unitPrice.toLocaleString()} ETB each`}
-                                    </li>
-                                    ))}
-                                </ul>
+                                <div className="space-y-4">
+                                    <p className="font-medium">Items:</p>
+                                    <ul className="list-disc pl-5 text-muted-foreground space-y-1">
+                                        {req.items.map(item => (
+                                        <li key={item.id}>
+                                            {item.quantity} x {item.name} 
+                                            {item.unitPrice && ` @ ${item.unitPrice.toLocaleString()} ETB each`}
+                                        </li>
+                                        ))}
+                                    </ul>
                                 </div>
+                                 <div className="space-y-4">
+                                     {req.deadline && (
+                                         <div>
+                                            <p className="font-medium">Quotation Deadline:</p>
+                                            <p className="text-muted-foreground">{format(new Date(req.deadline), 'PPpp')}</p>
+                                         </div>
+                                     )}
+                                     {req.customQuestions && req.customQuestions.length > 0 && (
+                                        <div>
+                                            <p className="font-medium">Custom Questions for Vendors:</p>
+                                            <ul className="list-disc pl-5 text-muted-foreground space-y-1">
+                                                {req.customQuestions.map(q => <li key={q.id}>{q.questionText}</li>)}
+                                            </ul>
+                                        </div>
+                                     )}
+                                 </div>
                             </div>
                             </div>
                     </TableCell>
@@ -362,3 +379,5 @@ export function ApprovalsTable() {
     </Card>
   );
 }
+
+    
