@@ -54,7 +54,7 @@ export async function POST(request: Request) {
     const awardedQuote = quotations.find(q => 
         q.requisitionId === po.requisitionId && 
         q.vendorId === vendorId &&
-        q.status === 'Awarded'
+        (q.status === 'Awarded' || q.status === 'Invoice Submitted')
     );
 
     if (awardedQuote) {

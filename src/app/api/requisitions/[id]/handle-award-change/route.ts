@@ -38,7 +38,7 @@ export async function POST(
         if (!currentAwarded || !secondStandby) {
           return NextResponse.json({ error: 'Invalid state for promoting second vendor.' }, { status: 400 });
         }
-        currentAwarded.status = 'Rejected'; // Or a new 'Failed' status could be added
+        currentAwarded.status = 'Failed'; // Or a new 'Failed' status could be added
         secondStandby.status = 'Awarded';
         secondStandby.rank = 1;
         // Demote 3rd to 2nd if it exists
@@ -52,7 +52,7 @@ export async function POST(
         if (!currentAwarded || !thirdStandby) {
           return NextResponse.json({ error: 'Invalid state for promoting third vendor.' }, { status: 400 });
         }
-        currentAwarded.status = 'Rejected';
+        currentAwarded.status = 'Failed';
         thirdStandby.status = 'Awarded';
         thirdStandby.rank = 1; // The new primary
         if(secondStandby) {
