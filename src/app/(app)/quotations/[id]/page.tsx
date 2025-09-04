@@ -37,7 +37,7 @@ import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { PurchaseOrder, PurchaseRequisition, Quotation, Vendor, QuotationStatus } from '@/lib/types';
+import { PurchaseOrder, PurchaseRequisition, Quotation, Vendor, QuotationStatus, EvaluationCriteria } from '@/lib/types';
 import { format, formatDistanceToNow, isBefore } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
@@ -1023,6 +1023,30 @@ export default function QuotationDetailsPage() {
   const currentStep = getCurrentStep();
   
   const isDeadlinePassed = requisition.deadline ? !isBefore(new Date(), new Date(requisition.deadline)) : true;
+  
+    const formatEvaluationCriteria = (criteria?: EvaluationCriteria) => {
+        if (!criteria) return "No specific criteria defined.";
+
+        const formatSection = (title: string, weight: number, items: any[]) => {
+            const itemDetails = items.map(item => `- ${item.name} (${item.weight}%)`).join('\n');
+            return `${title} (Overall Weight: ${weight}%):\n${itemDetails}`;
+        };
+
+        const financialPart = formatSection(
+            'Financial Criteria',
+            criteria.financialWeight,
+            criteria.financialCriteria
+        );
+
+        const technicalPart = formatSection(
+            'Technical Criteria',
+            criteria.technicalWeight,
+            criteria.technicalCriteria
+        );
+
+        return `${financialPart}\n\n${technicalPart}`;
+    };
+
 
   return (
     <div className="space-y-6">
@@ -1042,7 +1066,7 @@ export default function QuotationDetailsPage() {
                     <CardDescription>The following criteria were set by the requester to guide quote evaluation.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <p className="text-sm text-muted-foreground p-4 bg-muted/50 rounded-md whitespace-pre-wrap">{requisition.evaluationCriteria}</p>
+                    <p className="text-sm text-muted-foreground p-4 bg-muted/50 rounded-md whitespace-pre-wrap">{formatEvaluationCriteria(requisition.evaluationCriteria)}</p>
                 </CardContent>
             </Card>
         )}
@@ -1183,6 +1207,7 @@ export default function QuotationDetailsPage() {
     </div>
   );
 }
+
 
 
 
