@@ -53,6 +53,7 @@ const formSchema = z.object({
   justification: z
     .string()
     .min(10, 'Justification must be at least 10 characters.'),
+  evaluationCriteria: z.string().optional(),
   deadline: z.date().optional(),
   attachments: z.any().optional(),
   items: z
@@ -98,6 +99,7 @@ export function NeedsRecognitionForm({ existingRequisition, onSuccess }: NeedsRe
         department: existingRequisition.department,
         title: existingRequisition.title,
         justification: existingRequisition.justification,
+        evaluationCriteria: existingRequisition.evaluationCriteria,
         deadline: existingRequisition.deadline ? new Date(existingRequisition.deadline) : undefined,
         items: existingRequisition.items.map(item => ({
             name: item.name,
@@ -113,6 +115,7 @@ export function NeedsRecognitionForm({ existingRequisition, onSuccess }: NeedsRe
       department: '',
       title: '',
       justification: '',
+      evaluationCriteria: 'Best value for money, considering price, quality, and delivery time.',
       items: [{ name: '', quantity: 1 }],
       customQuestions: [],
     },
@@ -411,6 +414,50 @@ export function NeedsRecognitionForm({ existingRequisition, onSuccess }: NeedsRe
             </div>
 
             <Separator />
+            
+             <FormField
+              control={form.control}
+              name="justification"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Business Justification</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Explain why this purchase is necessary..."
+                      className="min-h-[100px]"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <Separator />
+            
+            <FormField
+              control={form.control}
+              name="evaluationCriteria"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Evaluation Criteria</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Describe the financial and technical metrics for evaluation..."
+                      className="min-h-[100px]"
+                      {...field}
+                    />
+                  </FormControl>
+                   <FormDescription>
+                     This will be shown to the procurement committee to guide their decision.
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <Separator />
+
 
             <div className="grid md:grid-cols-2 gap-8">
               <FormField
@@ -474,25 +521,7 @@ export function NeedsRecognitionForm({ existingRequisition, onSuccess }: NeedsRe
                 )}
               />
             </div>
-
-            <FormField
-              control={form.control}
-              name="justification"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Business Justification</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Explain why this purchase is necessary..."
-                      className="min-h-[100px]"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
+            
             <div className="flex justify-end items-center gap-4">
               <Button type="submit" disabled={loading}>
                 {loading ? (

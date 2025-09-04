@@ -41,6 +41,7 @@ export async function POST(request: Request) {
       items: itemsWithIds,
       customQuestions: questionsWithIds,
       deadline: body.deadline ? new Date(body.deadline) : undefined,
+      evaluationCriteria: body.evaluationCriteria,
       totalPrice: total,
       justification: body.justification,
       status: 'Draft',
@@ -111,6 +112,7 @@ export async function PATCH(
         requisition.customQuestions = body.customQuestions;
         requisition.deadline = body.deadline ? new Date(body.deadline) : undefined;
         requisition.justification = body.justification;
+        requisition.evaluationCriteria = body.evaluationCriteria;
         
         const total = requisition.items.reduce((acc, item) => acc + ((item.unitPrice || 0) * item.quantity), 0);
         requisition.totalPrice = total;

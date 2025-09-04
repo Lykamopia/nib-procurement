@@ -32,7 +32,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, PlusCircle, Award, XCircle, FileSignature, FileText, Bot, Lightbulb, ArrowLeft, Star, Undo, Check, Send, Search, BadgeHelp, BadgeCheck, BadgeX, Crown, Medal, Trophy, RefreshCw, TimerOff } from 'lucide-react';
+import { Loader2, PlusCircle, Award, XCircle, FileSignature, FileText, Bot, Lightbulb, ArrowLeft, Star, Undo, Check, Send, Search, BadgeHelp, BadgeCheck, BadgeX, Crown, Medal, Trophy, RefreshCw, TimerOff, ClipboardList } from 'lucide-react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -1034,6 +1034,18 @@ export default function QuotationDetailsPage() {
         <Card className="p-4 sm:p-6">
             <WorkflowStepper step={currentStep} />
         </Card>
+        
+        {requisition.evaluationCriteria && (
+            <Card>
+                 <CardHeader>
+                    <CardTitle className="flex items-center gap-2"><ClipboardList /> Evaluation Criteria</CardTitle>
+                    <CardDescription>The following criteria were set by the requester to guide quote evaluation.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <p className="text-sm text-muted-foreground p-4 bg-muted/50 rounded-md whitespace-pre-wrap">{requisition.evaluationCriteria}</p>
+                </CardContent>
+            </Card>
+        )}
 
         {requisition.status === 'Approved' && (
             <RFQDistribution requisition={requisition} vendors={vendors} onRfqSent={handleRfqSent} />
@@ -1171,5 +1183,6 @@ export default function QuotationDetailsPage() {
     </div>
   );
 }
+
 
 
