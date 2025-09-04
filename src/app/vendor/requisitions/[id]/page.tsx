@@ -558,7 +558,7 @@ export default function VendorRequisitionPage() {
                             </div>
                             {item.brandDetails && (
                                 <div className="mt-2 text-xs border-t pt-2">
-                                    <p className="font-bold">Your notes:</p>
+                                    <p className="font-bold">Brand/Model Details:</p>
                                     <p className="text-muted-foreground italic">{item.brandDetails}</p>
                                 </div>
                             )}
