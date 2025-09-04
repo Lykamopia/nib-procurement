@@ -52,6 +52,20 @@ export type ContractDetails = {
     uploadDate: Date;
 }
 
+export type EvaluationCriterion = {
+  id: string;
+  name: string;
+  weight: number;
+}
+
+export type EvaluationCriteria = {
+  financialWeight: number;
+  technicalWeight: number;
+  financialCriteria: EvaluationCriterion[];
+  technicalCriteria: EvaluationCriterion[];
+};
+
+
 export type PurchaseRequisition = {
   id:string; // Will be UUID
   requesterId: string; // User ID
@@ -74,7 +88,7 @@ export type PurchaseRequisition = {
   allowedVendorIds?: 'all' | string[];
   customQuestions?: CustomQuestion[];
   deadline?: Date;
-  evaluationCriteria?: string;
+  evaluationCriteria?: EvaluationCriteria;
 };
 
 export type AuditLog = {
@@ -131,6 +145,11 @@ export type QuoteAnswer = {
 
 export type QuotationStatus = 'Submitted' | 'Awarded' | 'Rejected' | 'Standby' | 'Invoice Submitted' | 'Failed';
 
+export type Score = {
+  criterionId: string;
+  score: number; // 0-100
+  comment?: string;
+}
 
 export type Quotation = {
     id: string;
@@ -145,6 +164,10 @@ export type Quotation = {
     notes?: string;
     rank?: 1 | 2 | 3;
     answers?: QuoteAnswer[];
+    financialScores?: Score[];
+    technicalScores?: Score[];
+    committeeComment?: string;
+    finalScore?: number;
 };
 
 export type POItem = {

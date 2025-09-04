@@ -27,7 +27,7 @@ import {
   CardHeader,
   CardTitle,
 } from './ui/card';
-import { PlusCircle, Trash2, Loader2, Calendar as CalendarIcon, Send } from 'lucide-react';
+import { PlusCircle, Trash2, Loader2, Calendar as CalendarIcon, Send, Percent, Info } from 'lucide-react';
 import { Separator } from './ui/separator';
 import {
   Select,
@@ -45,6 +45,13 @@ import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Calendar } from './ui/calendar';
 import { format } from 'date-fns';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
+import { Slider } from './ui/slider';
+
+const evaluationCriteriaSchema = z.object({
+      id: z.string(),
+      name: z.string().min(1, "Criterion name is required."),
+      weight: z.coerce.number().min(1, "Weight must be at least 1%.").max(100, "Weight cannot exceed 100%."),
+});
 
 const formSchema = z.object({
   requesterName: z.string().min(2, 'Name must be at least 2 characters.'),
@@ -53,7 +60,6 @@ const formSchema = z.object({
   justification: z
     .string()
     .min(10, 'Justification must be at least 10 characters.'),
-  evaluationCriteria: z.string().optional(),
   deadline: z.date().optional(),
   attachments: z.any().optional(),
   items: z
@@ -65,6 +71,12 @@ const formSchema = z.object({
       })
     )
     .min(1, 'At least one item is required.'),
+  evaluationCriteria: z.object({
+    financialWeight: z.number().min(0).max(100),
+    technicalWeight: z.number().min(0).max(100),
+    financialCriteria: z.array(evaluationCriteriaSchema).min(1, "At least one financial criterion is required."),
+    technicalCriteria: z.array(evaluationCriteriaSchema).min(1, "At least one technical criterion is required."),
+  }),
   customQuestions: z.array(
     z.object({
       questionText: z.string().min(5, 'Question must be at least 5 characters.'),
@@ -72,6 +84,15 @@ const formSchema = z.object({
       options: z.array(z.object({ value: z.string().min(1, "Option cannot be empty.") })).optional(),
     })
   ).optional(),
+}).refine(data => data.evaluationCriteria.financialWeight + data.evaluationCriteria.technicalWeight === 100, {
+    message: "Total weight for Financial and Technical criteria must be 100%.",
+    path: ["evaluationCriteria.financialWeight"],
+}).refine(data => data.evaluationCriteria.financialCriteria.reduce((acc, c) => acc + c.weight, 0) === 100, {
+    message: "Total weight for financial criteria must be 100%.",
+    path: ["evaluationCriteria.financialCriteria"],
+}).refine(data => data.evaluationCriteria.technicalCriteria.reduce((acc, c) => acc + c.weight, 0) === 100, {
+    message: "Total weight for technical criteria must be 100%.",
+    path: ["evaluationCriteria.technicalCriteria"],
 });
 
 interface NeedsRecognitionFormProps {
@@ -115,7 +136,15 @@ export function NeedsRecognitionForm({ existingRequisition, onSuccess }: NeedsRe
       department: '',
       title: '',
       justification: '',
-      evaluationCriteria: 'Best value for money, considering price, quality, and delivery time.',
+      evaluationCriteria: {
+          financialWeight: 40,
+          technicalWeight: 60,
+          financialCriteria: [{ id: `FIN-${Date.now()}`, name: 'Total Cost of Ownership', weight: 100 }],
+          technicalCriteria: [
+              { id: `TEC-${Date.now()}`, name: 'Adherence to Specifications', weight: 50 },
+              { id: `TEC-${Date.now()+1}`, name: 'Warranty and Support', weight: 50 },
+          ],
+      },
       items: [{ name: '', quantity: 1, unitPrice: 0 }],
       customQuestions: [],
     },
@@ -129,6 +158,13 @@ export function NeedsRecognitionForm({ existingRequisition, onSuccess }: NeedsRe
   const { fields: questionFields, append: appendQuestion, remove: removeQuestion } = useFieldArray({
       control: form.control,
       name: "customQuestions",
+  });
+  
+  const { fields: financialFields, append: appendFinancial, remove: removeFinancial } = useFieldArray({
+    control: form.control, name: "evaluationCriteria.financialCriteria",
+  });
+  const { fields: technicalFields, append: appendTechnical, remove: removeTechnical } = useFieldArray({
+      control: form.control, name: "evaluationCriteria.technicalCriteria",
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
@@ -180,6 +216,10 @@ export function NeedsRecognitionForm({ existingRequisition, onSuccess }: NeedsRe
       setLoading(false);
     }
   }
+
+  const financialWeight = form.watch('evaluationCriteria.financialWeight');
+  const financialTotal = form.watch('evaluationCriteria.financialCriteria').reduce((acc, c) => acc + (c.weight || 0), 0);
+  const technicalTotal = form.watch('evaluationCriteria.technicalCriteria').reduce((acc, c) => acc + (c.weight || 0), 0);
 
   return (
     <Card>
@@ -320,6 +360,100 @@ export function NeedsRecognitionForm({ existingRequisition, onSuccess }: NeedsRe
               </div>
             </div>
 
+             <Separator />
+
+            <div className="space-y-6">
+                 <h3 className="text-lg font-medium">Evaluation Criteria</h3>
+                 <FormDescription>Define how vendor quotes will be scored by the committee.</FormDescription>
+                
+                 <FormField
+                    control={form.control}
+                    name="evaluationCriteria.financialWeight"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Overall Weighting</FormLabel>
+                            <div className="flex items-center gap-4">
+                                <span className="text-sm font-medium">Financial: {field.value}%</span>
+                                 <Slider
+                                    defaultValue={[field.value]}
+                                    max={100}
+                                    step={5}
+                                    onValueChange={(value) => {
+                                        field.onChange(value[0]);
+                                        form.setValue('evaluationCriteria.technicalWeight', 100 - value[0]);
+                                    }}
+                                    className="w-64"
+                                />
+                                <span className="text-sm font-medium">Technical: {100 - field.value}%</span>
+                            </div>
+                             <FormMessage />
+                        </FormItem>
+                    )}
+                 />
+
+                <div className="grid md:grid-cols-2 gap-8">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-base flex justify-between">
+                                <span>Financial Criteria</span>
+                                <Badge variant={financialTotal === 100 ? "default" : "destructive"}>{financialTotal}%</Badge>
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            {financialFields.map((field, index) => (
+                                <div key={field.id} className="flex gap-2 items-end">
+                                    <FormField control={form.control} name={`evaluationCriteria.financialCriteria.${index}.name`} render={({field}) => (
+                                        <FormItem className="flex-1"><FormLabel className={cn(index>0 && "sr-only")}>Criterion</FormLabel><FormControl><Input {...field} placeholder="e.g., Price Competitiveness"/></FormControl><FormMessage/></FormItem>
+                                    )}/>
+                                    <FormField control={form.control} name={`evaluationCriteria.financialCriteria.${index}.weight`} render={({field}) => (
+                                        <FormItem className="w-28"><FormLabel className={cn(index>0 && "sr-only")}>Weight</FormLabel><FormControl><div className="relative"><Input type="number" {...field} className="pr-7"/><Percent className="absolute right-2 top-2.5 h-4 w-4 text-muted-foreground"/></div></FormControl><FormMessage/></FormItem>
+                                    )}/>
+                                    <Button type="button" variant="ghost" size="icon" onClick={() => removeFinancial(index)}><Trash2 className="h-4 w-4"/></Button>
+                                </div>
+                            ))}
+                            <Button type="button" variant="outline" size="sm" onClick={() => appendFinancial({ id: `FIN-${Date.now()}`, name: '', weight: 0})}><PlusCircle className="mr-2"/>Add Financial Criterion</Button>
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardHeader>
+                           <CardTitle className="text-base flex justify-between">
+                                <span>Technical Criteria</span>
+                                <Badge variant={technicalTotal === 100 ? "default" : "destructive"}>{technicalTotal}%</Badge>
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            {technicalFields.map((field, index) => (
+                                <div key={field.id} className="flex gap-2 items-end">
+                                    <FormField control={form.control} name={`evaluationCriteria.technicalCriteria.${index}.name`} render={({field}) => (
+                                        <FormItem className="flex-1"><FormLabel className={cn(index>0 && "sr-only")}>Criterion</FormLabel><FormControl><Input {...field} placeholder="e.g., Product Quality"/></FormControl><FormMessage/></FormItem>
+                                    )}/>
+                                    <FormField control={form.control} name={`evaluationCriteria.technicalCriteria.${index}.weight`} render={({field}) => (
+                                        <FormItem className="w-28"><FormLabel className={cn(index>0 && "sr-only")}>Weight</FormLabel><FormControl><div className="relative"><Input type="number" {...field} className="pr-7"/><Percent className="absolute right-2 top-2.5 h-4 w-4 text-muted-foreground"/></div></FormControl><FormMessage/></FormItem>
+                                    )}/>
+                                    <Button type="button" variant="ghost" size="icon" onClick={() => removeTechnical(index)}><Trash2 className="h-4 w-4"/></Button>
+                                </div>
+                            ))}
+                             <Button type="button" variant="outline" size="sm" onClick={() => appendTechnical({ id: `TEC-${Date.now()}`, name: '', weight: 0})}><PlusCircle className="mr-2"/>Add Technical Criterion</Button>
+                        </CardContent>
+                    </Card>
+                </div>
+                 {form.formState.errors.evaluationCriteria?.financialCriteria && (
+                    <Alert variant="destructive" className="mt-2">
+                        <Info className="h-4 w-4" />
+                        <AlertTitle>Error in Financial Criteria</AlertTitle>
+                        <AlertDescription>{form.formState.errors.evaluationCriteria.financialCriteria.root?.message}</AlertDescription>
+                    </Alert>
+                )}
+                 {form.formState.errors.evaluationCriteria?.technicalCriteria && (
+                    <Alert variant="destructive" className="mt-2">
+                        <Info className="h-4 w-4" />
+                        <AlertTitle>Error in Technical Criteria</AlertTitle>
+                        <AlertDescription>{form.formState.errors.evaluationCriteria.technicalCriteria.root?.message}</AlertDescription>
+                    </Alert>
+                )}
+            </div>
+
             <Separator />
             
             <div>
@@ -418,32 +552,8 @@ export function NeedsRecognitionForm({ existingRequisition, onSuccess }: NeedsRe
                 </FormItem>
               )}
             />
-
-            <Separator />
             
-            <FormField
-              control={form.control}
-              name="evaluationCriteria"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Evaluation Criteria</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Describe the financial and technical metrics for evaluation..."
-                      className="min-h-[100px]"
-                      {...field}
-                    />
-                  </FormControl>
-                   <FormDescription>
-                     This will be shown to the procurement committee to guide their decision.
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
             <Separator />
-
 
             <div className="grid md:grid-cols-2 gap-8">
               <FormField

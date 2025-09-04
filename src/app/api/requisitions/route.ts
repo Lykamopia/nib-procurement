@@ -30,8 +30,7 @@ export async function POST(request: Request) {
 
     const itemsWithIds = body.items.map((item: any, index: number) => ({...item, id: `ITEM-${Date.now()}-${index}`}));
     const questionsWithIds = body.customQuestions?.map((q: any, index: number) => ({...q, id: `Q-${Date.now()}-${index}`})) || [];
-    const total = itemsWithIds.reduce((acc: number, item: any) => acc + ((item.unitPrice || 0) * item.quantity), 0);
-
+    
     const newRequisition: PurchaseRequisition = {
       id: `REQ-${Date.now()}`,
       requesterId: user?.id || 'temp-user-id',
@@ -42,10 +41,10 @@ export async function POST(request: Request) {
       customQuestions: questionsWithIds,
       deadline: body.deadline ? new Date(body.deadline) : undefined,
       evaluationCriteria: body.evaluationCriteria,
-      totalPrice: total,
+      totalPrice: 0,
       justification: body.justification,
       status: 'Draft',
-      budgetStatus: checkBudget(body.department, total),
+      budgetStatus: 'OK',
       createdAt: new Date(),
       updatedAt: new Date(),
       quotations: [], // Initialize quotations array
