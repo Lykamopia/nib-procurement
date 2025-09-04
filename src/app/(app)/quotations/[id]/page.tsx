@@ -1124,7 +1124,7 @@ export default function QuotationDetailsPage() {
                         </CardDescription>
                     </div>
                     <div className="flex items-center gap-2">
-                        {isAwarded && requisition.status !== 'PO Created' && (
+                        {isAwarded && requisition.status !== 'PO Created' && user.role === 'Procurement Officer' && (
                              <AlertDialog>
                                 <AlertDialogTrigger asChild>
                                     <Button variant="outline" disabled={isChangingAward}>
