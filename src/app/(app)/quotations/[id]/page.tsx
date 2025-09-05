@@ -540,6 +540,7 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent, onCommitteeUpdated }
     const { user, allUsers } = useAuth();
     const { toast } = useToast();
     const [isCommitteeDialogOpen, setCommitteeDialogOpen] = useState(false);
+    const [committeeSearch, setCommitteeSearch] = useState("");
     
     const committeeMembers = allUsers.filter(u => u.role === 'Committee Member');
     const [selectedCommittee, setSelectedCommittee] = useState<string[]>(requisition.committeeMemberIds || []);
@@ -592,10 +593,10 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent, onCommitteeUpdated }
                     committeeMemberIds: selectedCommittee,
                 }),
             });
+            const responseData = await response.json();
 
             if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || 'Failed to assign committee.');
+                throw new Error(responseData.error || 'Failed to assign committee.');
             }
 
             toast({ title: 'Committee Updated!', description: 'The evaluation committee has been assigned.' });
@@ -624,6 +625,17 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent, onCommitteeUpdated }
             vendor.contactPerson.toLowerCase().includes(lowercasedSearch)
         );
     }, [vendors, vendorSearch]);
+    
+    const filteredCommitteeMembers = useMemo(() => {
+        if (!committeeSearch) {
+            return committeeMembers;
+        }
+        const lowercasedSearch = committeeSearch.toLowerCase();
+        return committeeMembers.filter(member =>
+            member.name.toLowerCase().includes(lowercasedSearch) ||
+            member.email.toLowerCase().includes(lowercasedSearch)
+        );
+    }, [committeeMembers, committeeSearch]);
 
 
     return (
@@ -639,14 +651,23 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent, onCommitteeUpdated }
                     <DialogTrigger asChild>
                         <Button variant="outline"><Users className="mr-2 h-4 w-4" /> Assign Evaluation Committee</Button>
                     </DialogTrigger>
-                    <DialogContent>
+                    <DialogContent className="max-w-2xl">
                         <DialogHeader>
                             <DialogTitle>Assign Committee Members</DialogTitle>
                             <DialogDescription>Select the members who will score the quotations for this requisition.</DialogDescription>
                         </DialogHeader>
-                         <ScrollArea className="h-60">
+                         <div className="relative mt-2">
+                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                            <Input 
+                                placeholder="Search members by name or email..." 
+                                className="pl-8 w-full"
+                                value={committeeSearch}
+                                onChange={(e) => setCommitteeSearch(e.target.value)}
+                            />
+                        </div>
+                         <ScrollArea className="h-72">
                             <div className="space-y-4 p-1">
-                            {committeeMembers.map(member => (
+                            {filteredCommitteeMembers.map(member => (
                                 <div key={member.id} className="flex items-start space-x-4 rounded-md border p-4 has-[:checked]:bg-muted">
                                     <Checkbox 
                                         id={`member-${member.id}`} 
@@ -672,6 +693,11 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent, onCommitteeUpdated }
                                     </div>
                                 </div>
                             ))}
+                             {filteredCommitteeMembers.length === 0 && (
+                                    <div className="text-center text-muted-foreground py-10">
+                                        No committee members found matching your search.
+                                    </div>
+                                )}
                             </div>
                         </ScrollArea>
                         <DialogFooter>
@@ -1457,7 +1483,7 @@ export default function QuotationDetailsPage() {
             </CardContent>
         )}
 
-        {isAwarded && requisition.status !== 'PO Created' && (user.role !== 'Committee Member' && user.role !== 'Committee') && (
+        {isAwarded && requisition.status !== 'PO Created' && (user.role === 'Procurement Officer' || user.role === 'Committee') && (
             <>
                 <Separator className="my-6"/>
                 <ContractManagement requisition={requisition} onContractFinalized={handleContractFinalized} onPOCreated={handlePOCreated}/>
