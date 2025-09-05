@@ -161,6 +161,7 @@ export type CommitteeScoreSet = {
     technicalScores: Score[];
     finalScore: number;
     committeeComment?: string;
+    submittedAt: Date;
 }
 
 export type Quotation = {

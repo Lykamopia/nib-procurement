@@ -4,8 +4,6 @@
 import { NextResponse } from 'next/server';
 import { auditLogs, quotations, requisitions, users } from '@/lib/data-store';
 import { CommitteeScoreSet, EvaluationCriterion, Score } from '@/lib/types';
-import { tallyAndAwardScores } from '@/services/scoring-service';
-
 
 function calculateFinalScore(scores: { financialScores: Score[], technicalScores: Score[] }, criteria: any): number {
     let totalFinancialScore = 0;
@@ -70,12 +68,10 @@ export async function POST(
         technicalScores: scores.technicalScores,
         committeeComment: scores.committeeComment,
         finalScore,
+        submittedAt: new Date(),
     };
     
     quoteToUpdate.scores.push(newScoreSet);
-
-    // After scoring, run the tally and award logic
-    tallyAndAwardScores(quoteToUpdate.requisitionId);
 
     auditLogs.unshift({
         id: `log-${Date.now()}`,

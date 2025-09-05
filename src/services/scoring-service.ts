@@ -3,37 +3,21 @@
 import { quotations, requisitions, auditLogs } from '@/lib/data-store';
 import { EvaluationCriteria, Quotation } from '@/lib/types';
 
-function calculateFinalScore(quote: Quotation, criteria: EvaluationCriteria): number {
-    let totalFinancialScore = 0;
-    let totalTechnicalScore = 0;
 
-    criteria.financialCriteria.forEach(c => {
-        const score = quote.scores?.find(s => s.financialScores.some(fs => fs.criterionId === c.id))
-                         ?.financialScores.find(fs => fs.criterionId === c.id)?.score || 0;
-        totalFinancialScore += score * (c.weight / 100);
-    });
-
-    criteria.technicalCriteria.forEach(c => {
-         const score = quote.scores?.find(s => s.technicalScores.some(ts => ts.criterionId === c.id))
-                         ?.technicalScores.find(ts => ts.criterionId === c.id)?.score || 0;
-        totalTechnicalScore += score * (c.weight / 100);
-    });
-
-    const finalScore = (totalFinancialScore * (criteria.financialWeight / 100)) + 
-                       (totalTechnicalScore * (criteria.technicalWeight / 100));
-
-    return finalScore;
-}
-
-
-export function tallyAndAwardScores(requisitionId: string) {
+export function tallyAndAwardScores(requisitionId: string): { success: boolean, message: string, winner: string } {
     const requisition = requisitions.find(r => r.id === requisitionId);
-    if (!requisition || !requisition.evaluationCriteria) {
-        console.error("Scoring service: Requisition or its criteria not found.");
-        return;
+    if (!requisition) {
+        return { success: false, message: "Scoring service: Requisition not found.", winner: 'N/A' };
+    }
+    
+    if (!requisition.evaluationCriteria) {
+        return { success: false, message: "Scoring service: Requisition evaluation criteria not found.", winner: 'N/A' };
     }
 
     const relevantQuotes = quotations.filter(q => q.requisitionId === requisitionId);
+    if (relevantQuotes.length === 0) {
+        return { success: true, message: "No quotes to score.", winner: 'N/A' };
+    }
 
     relevantQuotes.forEach(quote => {
         if (!quote.scores || quote.scores.length === 0) {
@@ -66,14 +50,7 @@ export function tallyAndAwardScores(requisitionId: string) {
     requisition.status = 'RFQ In Progress';
     requisition.updatedAt = new Date();
 
-    auditLogs.unshift({
-        id: `log-${Date.now()}`,
-        timestamp: new Date(),
-        user: 'System',
-        role: 'Admin',
-        action: 'AUTO_AWARD',
-        entity: 'Requisition',
-        entityId: requisitionId,
-        details: `Automatically awarded quotes based on committee scores. Winner: ${relevantQuotes[0]?.vendorName || 'N/A'}.`,
-    });
+    const winnerName = relevantQuotes[0]?.vendorName || 'N/A';
+    
+    return { success: true, message: "Scores tallied and awards processed.", winner: winnerName };
 }

@@ -32,7 +32,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, PlusCircle, Award, XCircle, FileSignature, FileText, Bot, Lightbulb, ArrowLeft, Star, Undo, Check, Send, Search, BadgeHelp, BadgeCheck, BadgeX, Crown, Medal, Trophy, RefreshCw, TimerOff, ClipboardList, TrendingUp, Scale, Edit2 } from 'lucide-react';
+import { Loader2, PlusCircle, Award, XCircle, FileSignature, FileText, Bot, Lightbulb, ArrowLeft, Star, Undo, Check, Send, Search, BadgeHelp, BadgeCheck, BadgeX, Crown, Medal, Trophy, RefreshCw, TimerOff, ClipboardList, TrendingUp, Scale, Edit2, Users, GanttChart } from 'lucide-react';
 import { useForm, useFieldArray, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -532,13 +532,17 @@ const ContractManagement = ({ requisition, onContractFinalized, onPOCreated }: {
     )
 }
 
-const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: PurchaseRequisition; vendors: Vendor[]; onRfqSent: () => void; }) => {
+const RFQDistribution = ({ requisition, vendors, onRfqSent, onCommitteeUpdated }: { requisition: PurchaseRequisition; vendors: Vendor[]; onRfqSent: () => void; onCommitteeUpdated: () => void; }) => {
     const [distributionType, setDistributionType] = useState<'all' | 'select'>('all');
     const [selectedVendors, setSelectedVendors] = useState<string[]>([]);
     const [vendorSearch, setVendorSearch] = useState('');
     const [isSubmitting, setSubmitting] = useState(false);
-    const { user } = useAuth();
+    const { user, allUsers } = useAuth();
     const { toast } = useToast();
+    const [isCommitteeDialogOpen, setCommitteeDialogOpen] = useState(false);
+    
+    const committeeMembers = allUsers.filter(u => u.role === 'Committee Member');
+    const [selectedCommittee, setSelectedCommittee] = useState<string[]>(requisition.committeeMemberIds || []);
 
     const handleSendRFQ = async () => {
         if (!user) return;
@@ -576,6 +580,38 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
         }
     }
     
+    const handleSaveCommittee = async () => {
+         if (!user) return;
+        setSubmitting(true);
+        try {
+            const response = await fetch(`/api/requisitions/${requisition.id}/assign-committee`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    userId: user.id, 
+                    committeeMemberIds: selectedCommittee,
+                }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to assign committee.');
+            }
+
+            toast({ title: 'Committee Updated!', description: 'The evaluation committee has been assigned.' });
+            setCommitteeDialogOpen(false);
+            onCommitteeUpdated();
+        } catch (error) {
+             toast({
+                variant: 'destructive',
+                title: 'Error',
+                description: error instanceof Error ? error.message : 'An unknown error occurred.',
+            });
+        } finally {
+            setSubmitting(false);
+        }
+    }
+    
     const filteredVendors = useMemo(() => {
         const verifiedVendors = vendors.filter(v => v.kycStatus === 'Verified');
         if (!vendorSearch) {
@@ -593,12 +629,63 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
     return (
         <Card className="mt-6 border-dashed">
             <CardHeader>
-                <CardTitle>RFQ Distribution</CardTitle>
+                <CardTitle>RFQ & Committee Setup</CardTitle>
                 <CardDescription>
-                    This requisition is approved. Send the Request for Quotation to vendors to begin receiving bids.
+                    This requisition is approved. Assign an evaluation committee and send the Request for Quotation to vendors to begin receiving bids.
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+                 <Dialog open={isCommitteeDialogOpen} onOpenChange={setCommitteeDialogOpen}>
+                    <DialogTrigger asChild>
+                        <Button variant="outline"><Users className="mr-2 h-4 w-4" /> Assign Evaluation Committee</Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Assign Committee Members</DialogTitle>
+                            <DialogDescription>Select the members who will score the quotations for this requisition.</DialogDescription>
+                        </DialogHeader>
+                         <ScrollArea className="h-60">
+                            <div className="space-y-4 p-1">
+                            {committeeMembers.map(member => (
+                                <div key={member.id} className="flex items-start space-x-4 rounded-md border p-4 has-[:checked]:bg-muted">
+                                    <Checkbox 
+                                        id={`member-${member.id}`} 
+                                        checked={selectedCommittee.includes(member.id)}
+                                        onCheckedChange={(checked) => {
+                                            setSelectedCommittee(prev => 
+                                                checked ? [...prev, member.id] : prev.filter(id => id !== member.id)
+                                            )
+                                        }}
+                                        className="mt-1"
+                                    />
+                                    <div className="flex items-start gap-4 flex-1">
+                                        <Avatar>
+                                            <AvatarImage src={`https://picsum.photos/seed/${member.id}/40/40`} data-ai-hint="profile picture" />
+                                            <AvatarFallback>{member.name.charAt(0)}</AvatarFallback>
+                                        </Avatar>
+                                        <div className="grid gap-1">
+                                            <Label htmlFor={`member-${member.id}`} className="font-semibold cursor-pointer">
+                                                {member.name}
+                                            </Label>
+                                            <p className="text-xs text-muted-foreground">{member.email}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                            </div>
+                        </ScrollArea>
+                        <DialogFooter>
+                            <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
+                            <Button onClick={handleSaveCommittee} disabled={isSubmitting}>
+                                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                                Save Committee
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+                
+                <Separator />
+                
                 <Select value={distributionType} onValueChange={(v) => setDistributionType(v as any)}>
                     <SelectTrigger className="w-[300px]">
                         <SelectValue />
@@ -665,7 +752,7 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
                 )}
             </CardContent>
             <CardFooter>
-                <Button onClick={handleSendRFQ} disabled={isSubmitting}>
+                <Button onClick={handleSendRFQ} disabled={isSubmitting || !requisition.committeeMemberIds || requisition.committeeMemberIds.length === 0}>
                     {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
                     Send RFQ
                 </Button>
@@ -913,6 +1000,106 @@ const ScoringDialog = ({
     );
 };
 
+const ScoringProgressTracker = ({
+  requisition,
+  quotations,
+  allUsers,
+  onFinalize,
+  isFinalizing
+}: {
+  requisition: PurchaseRequisition;
+  quotations: Quotation[];
+  allUsers: User[];
+  onFinalize: () => void;
+  isFinalizing: boolean;
+}) => {
+    const assignedCommitteeMembers = useMemo(() => {
+        return allUsers.filter(u => requisition.committeeMemberIds?.includes(u.id));
+    }, [allUsers, requisition.committeeMemberIds]);
+
+    const scoringStatus = useMemo(() => {
+        return assignedCommitteeMembers.map(member => {
+            const hasScoredAll = quotations.every(quote => quote.scores?.some(score => score.scorerId === member.id));
+            const firstScore = quotations
+                .flatMap(q => q.scores || [])
+                .filter(s => s.scorerId === member.id)
+                .sort((a,b) => new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime())[0];
+
+            return {
+                ...member,
+                hasScoredAll,
+                submittedAt: hasScoredAll ? firstScore?.submittedAt : null,
+            };
+        }).sort((a, b) => {
+             if (a.submittedAt && b.submittedAt) return new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime();
+             if (a.submittedAt) return -1;
+             if (b.submittedAt) return 1;
+             return 0;
+        });
+    }, [assignedCommitteeMembers, quotations]);
+
+    const allHaveScored = scoringStatus.every(s => s.hasScoredAll);
+
+    return (
+        <Card className="mt-6">
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2"><GanttChart /> Scoring Progress</CardTitle>
+                <CardDescription>Track the committee's scoring progress. The award can be finalized once all members have submitted their scores for all quotations.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <ul className="space-y-3">
+                    {scoringStatus.map(member => (
+                        <li key={member.id} className="flex items-center justify-between p-3 rounded-md border">
+                           <div className="flex items-center gap-3">
+                                <Avatar>
+                                    <AvatarImage src={`https://picsum.photos/seed/${member.id}/40/40`} data-ai-hint="profile picture" />
+                                    <AvatarFallback>{member.name.charAt(0)}</AvatarFallback>
+                                </Avatar>
+                                <div>
+                                    <p className="font-semibold">{member.name}</p>
+                                    <p className="text-xs text-muted-foreground">{member.email}</p>
+                                </div>
+                           </div>
+                            {member.hasScoredAll && member.submittedAt ? (
+                                <div className="text-right">
+                                    <Badge variant="default" className="bg-green-600"><Check className="mr-1 h-3 w-3" /> Submitted</Badge>
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                        {formatDistanceToNow(new Date(member.submittedAt), { addSuffix: true })}
+                                    </p>
+                                </div>
+                            ) : (
+                                 <Badge variant="secondary">Pending</Badge>
+                            )}
+                        </li>
+                    ))}
+                </ul>
+            </CardContent>
+            <CardFooter>
+                 <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                        <Button disabled={!allHaveScored || isFinalizing}>
+                            {isFinalizing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            Finalize Scores & Award
+                        </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Finalize Awards?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                This will tally all scores and automatically assign "Awarded", "Standby", and "Rejected" statuses to the quotations. This action cannot be undone.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={onFinalize}>Proceed</AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+            </CardFooter>
+        </Card>
+    );
+}
+
 export default function QuotationDetailsPage() {
   const [requisition, setRequisition] = useState<PurchaseRequisition | null>(null);
   const [vendors, setVendors] = useState<Vendor[]>([]);
@@ -920,12 +1107,13 @@ export default function QuotationDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [isAddFormOpen, setAddFormOpen] = useState(false);
   const [isScoringFormOpen, setScoringFormOpen] = useState(false);
+  const [isFinalizing, setIsFinalizing] = useState(false);
   const [selectedQuoteForScoring, setSelectedQuoteForScoring] = useState<Quotation | null>(null);
   const [lastPOCreated, setLastPOCreated] = useState<PurchaseOrder | null>(null);
   const [aiRecommendation, setAiRecommendation] = useState<QuoteAnalysisOutput | null>(null);
   const [isChangingAward, setIsChangingAward] = useState(false);
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, allUsers } = useAuth();
   const params = useParams();
   const router = useRouter();
   const id = params.id as string;
@@ -990,6 +1178,33 @@ export default function QuotationDetailsPage() {
     fetchRequisitionAndQuotes();
     setLastPOCreated(po);
   }
+  
+   const handleFinalizeScores = async () => {
+        if (!user || !requisition) return;
+        setIsFinalizing(true);
+        try {
+             const response = await fetch(`/api/requisitions/${requisition.id}/finalize-scores`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: user.id }),
+            });
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to finalize scores.');
+            }
+            toast({ title: 'Success', description: 'Scores have been finalized and awards distributed.' });
+            fetchRequisitionAndQuotes();
+        } catch(error) {
+             toast({
+                variant: 'destructive',
+                title: 'Error',
+                description: error instanceof Error ? error.message : 'An unknown error occurred.',
+            });
+        } finally {
+            setIsFinalizing(false);
+        }
+    }
+
 
   const handleAwardChange = async (action: 'promote_second' | 'promote_third' | 'restart_rfq') => {
     if (!user || !id) return;
@@ -1101,8 +1316,13 @@ export default function QuotationDetailsPage() {
             </Card>
         )}
 
-        {requisition.status === 'Approved' && (
-            <RFQDistribution requisition={requisition} vendors={vendors} onRfqSent={handleRfqSent} />
+        {requisition.status === 'Approved' && (user.role === 'Procurement Officer' || user.role === 'Committee') && (
+            <RFQDistribution 
+                requisition={requisition} 
+                vendors={vendors} 
+                onRfqSent={fetchRequisitionAndQuotes}
+                onCommitteeUpdated={fetchRequisitionAndQuotes}
+            />
         )}
 
         {(currentStep === 'award' || currentStep === 'finalize' || currentStep === 'completed') && (
@@ -1121,7 +1341,7 @@ export default function QuotationDetailsPage() {
                         </CardDescription>
                     </div>
                     <div className="flex items-center gap-2">
-                        {isAwarded && requisition.status !== 'PO Created' && user.role === 'Procurement Officer' && (
+                        {isAwarded && requisition.status !== 'PO Created' && (user.role === 'Procurement Officer' || user.role === 'Committee') && (
                              <AlertDialog>
                                 <AlertDialogTrigger asChild>
                                     <Button variant="outline" disabled={isChangingAward}>
@@ -1213,6 +1433,16 @@ export default function QuotationDetailsPage() {
             </Card>
         )}
         
+        {isDeadlinePassed && !isAwarded && (user.role === 'Procurement Officer' || user.role === 'Committee') && quotations.length > 0 && (
+             <ScoringProgressTracker 
+                requisition={requisition}
+                quotations={quotations}
+                allUsers={allUsers}
+                onFinalize={handleFinalizeScores}
+                isFinalizing={isFinalizing}
+            />
+        )}
+
         {lastPOCreated && (
             <CardContent>
                 <Alert>
@@ -1227,7 +1457,7 @@ export default function QuotationDetailsPage() {
             </CardContent>
         )}
 
-        {isAwarded && requisition.status !== 'PO Created' && user.role !== 'Committee Member' && (
+        {isAwarded && requisition.status !== 'PO Created' && (user.role !== 'Committee Member' && user.role !== 'Committee') && (
             <>
                 <Separator className="my-6"/>
                 <ContractManagement requisition={requisition} onContractFinalized={handleContractFinalized} onPOCreated={handlePOCreated}/>
