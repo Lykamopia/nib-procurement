@@ -41,7 +41,7 @@ export function RequisitionDetailsDialog({ reuisition, isOpen, onClose }: Requis
                         <div><p className="font-medium">Title</p><p className="text-muted-foreground">{reuisition.title}</p></div>
                         <div><p className="font-medium">Department</p><p className="text-muted-foreground">{reuisition.department}</p></div>
                         <div><p className="font-medium">Created</p><p className="text-muted-foreground">{format(new Date(reuisition.createdAt), 'PP')}</p></div>
-                        <div><p className="font-medium">Status</p><p><Badge>{reuisition.status}</Badge></p></div>
+                        <div><p className="font-medium">Status</p><div><Badge>{reuisition.status}</Badge></div></div>
                          {reuisition.deadline && (
                             <div className="md:col-span-2"><p className="font-medium">Quotation Deadline</p><p className="text-muted-foreground">{format(new Date(reuisition.deadline), 'PPpp')}</p></div>
                          )}
