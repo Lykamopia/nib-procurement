@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -686,7 +687,12 @@ export default function VendorRequisitionPage() {
                 <Card>
                     <CardHeader>
                         <CardTitle>Requisition Details</CardTitle>
-                        <CardDescription>ID: {requisition.id}</CardDescription>
+                        <CardDescription>
+                            ID: {requisition.id}
+                             {requisition.deadline && (
+                                <p className="text-xs text-destructive mt-1">Deadline: {format(new Date(requisition.deadline), 'PPpp')}</p>
+                            )}
+                        </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
                         <div>

@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -183,6 +184,11 @@ export default function VendorDashboardPage() {
                                                 <div>
                                                     <span className="font-semibold text-foreground">Posted:</span> {formatDistanceToNow(new Date(req.createdAt), { addSuffix: true })}
                                                 </div>
+                                                {req.deadline && (
+                                                    <div>
+                                                        <span className="font-semibold text-foreground">Deadline:</span> {format(new Date(req.deadline), 'PPpp')}
+                                                    </div>
+                                                )}
                                             </div>
                                         </CardContent>
                                         <CardFooter>
@@ -222,5 +228,3 @@ export default function VendorDashboardPage() {
         </div>
     )
 }
-
-    
