@@ -32,7 +32,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, PlusCircle, Award, XCircle, FileSignature, FileText, Bot, Lightbulb, ArrowLeft, Star, Undo, Check, Send, Search, BadgeHelp, BadgeCheck, BadgeX, Crown, Medal, Trophy, RefreshCw, TimerOff, ClipboardList, TrendingUp, Scale, Edit2, Users, GanttChart } from 'lucide-react';
+import { Loader2, PlusCircle, Award, XCircle, FileSignature, FileText, Bot, Lightbulb, ArrowLeft, Star, Undo, Check, Send, Search, BadgeHelp, BadgeCheck, BadgeX, Crown, Medal, Trophy, RefreshCw, TimerOff, ClipboardList, TrendingUp, Scale, Edit2, Users, GanttChart, Eye } from 'lucide-react';
 import { useForm, useFieldArray, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -56,6 +56,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { Slider } from '@/components/ui/slider';
+import { RequisitionDetailsDialog } from '@/components/requisition-details-dialog';
 
 const quoteFormSchema = z.object({
   vendorId: z.string().min(1, "Vendor is required."),
@@ -1138,6 +1139,7 @@ export default function QuotationDetailsPage() {
   const [lastPOCreated, setLastPOCreated] = useState<PurchaseOrder | null>(null);
   const [aiRecommendation, setAiRecommendation] = useState<QuoteAnalysisOutput | null>(null);
   const [isChangingAward, setIsChangingAward] = useState(false);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const { toast } = useToast();
   const { user, allUsers } = useAuth();
   const params = useParams();
@@ -1332,9 +1334,15 @@ export default function QuotationDetailsPage() {
         
         {requisition.evaluationCriteria && (
             <Card>
-                 <CardHeader>
-                    <CardTitle className="flex items-center gap-2"><ClipboardList /> Evaluation Criteria</CardTitle>
-                    <CardDescription>The following criteria were set by the requester to guide quote evaluation.</CardDescription>
+                 <CardHeader className="flex flex-row items-center justify-between">
+                    <div>
+                        <CardTitle className="flex items-center gap-2"><ClipboardList /> Evaluation Criteria</CardTitle>
+                        <CardDescription>The following criteria were set by the requester to guide quote evaluation.</CardDescription>
+                    </div>
+                     <Button variant="outline" onClick={() => setIsDetailsOpen(true)}>
+                        <Eye className="mr-2 h-4 w-4" />
+                        View Requisition Details
+                    </Button>
                 </CardHeader>
                 <CardContent>
                     <p className="text-sm text-muted-foreground p-4 bg-muted/50 rounded-md whitespace-pre-wrap">{formatEvaluationCriteria(requisition.evaluationCriteria)}</p>
@@ -1367,7 +1375,7 @@ export default function QuotationDetailsPage() {
                         </CardDescription>
                     </div>
                     <div className="flex items-center gap-2">
-                        {isAwarded && requisition.status !== 'PO Created' && (user.role === 'Procurement Officer' || user.role === 'Committee') && (
+                        {isAwarded && requisition.status !== 'PO Created' && user.role === 'Procurement Officer' && (
                              <AlertDialog>
                                 <AlertDialogTrigger asChild>
                                     <Button variant="outline" disabled={isChangingAward}>
@@ -1483,13 +1491,19 @@ export default function QuotationDetailsPage() {
             </CardContent>
         )}
 
-        {isAwarded && requisition.status !== 'PO Created' && (user.role === 'Procurement Officer' || user.role === 'Committee') && (
+        {isAwarded && requisition.status !== 'PO Created' && user.role !== 'Committee Member' && (
             <>
                 <Separator className="my-6"/>
                 <ContractManagement requisition={requisition} onContractFinalized={handleContractFinalized} onPOCreated={handlePOCreated}/>
             </>
         )}
-
+         {requisition && (
+            <RequisitionDetailsDialog 
+                reuisition={requisition} 
+                isOpen={isDetailsOpen} 
+                onClose={() => setIsDetailsOpen(false)} 
+            />
+        )}
     </div>
   );
 }
