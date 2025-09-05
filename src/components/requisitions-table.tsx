@@ -41,6 +41,7 @@ import {
   CircleCheck,
   Info,
   FileEdit,
+  Eye,
 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Calendar } from './ui/calendar';
@@ -48,6 +49,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 import { useRouter } from 'next/navigation';
+import { RequisitionDetailsDialog } from './requisition-details-dialog';
 
 
 const PAGE_SIZE = 10;
@@ -65,6 +67,9 @@ export function RequisitionsTable() {
   const [requesterFilter, setRequesterFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState<Date | undefined>(undefined);
   const [currentPage, setCurrentPage] = useState(1);
+  
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [selectedRequisition, setSelectedRequisition] = useState<PurchaseRequisition | null>(null);
 
   const fetchRequisitions = async () => {
     try {
@@ -107,6 +112,11 @@ export function RequisitionsTable() {
       });
     }
   };
+  
+  const handleViewDetails = (req: PurchaseRequisition) => {
+      setSelectedRequisition(req);
+      setIsDetailsOpen(true);
+  }
 
   const uniqueRequesters = useMemo(() => {
     const requesters = new Set(requisitions.map(r => r.requesterName).filter(Boolean));
@@ -183,6 +193,7 @@ export function RequisitionsTable() {
   if (error) return <div className="text-destructive">Error: {error}</div>;
 
   return (
+    <>
     <Card>
       <CardHeader>
         <CardTitle>All Requisitions</CardTitle>
@@ -285,18 +296,23 @@ export function RequisitionsTable() {
                         {req.deadline ? format(new Date(req.deadline), 'PP') : 'N/A'}
                     </TableCell>
                     <TableCell>
-                      {req.status === 'Draft' && req.requesterId === user?.id && (
-                        <Button variant="outline" size="sm" onClick={() => handleSubmitForApproval(req.id)}>
-                          <Send className="mr-2 h-4 w-4" />
-                          Submit for Approval
-                        </Button>
-                      )}
-                      {req.status === 'Rejected' && req.requesterId === user?.id && (
-                        <Button variant="outline" size="sm" onClick={() => router.push(`/requisitions/${req.id}/edit`)}>
-                          <FileEdit className="mr-2 h-4 w-4" />
-                          Edit & Resubmit
-                        </Button>
-                      )}
+                        <div className="flex gap-2">
+                            <Button variant="outline" size="sm" onClick={() => handleViewDetails(req)}>
+                                <Eye className="mr-2 h-4 w-4" /> View
+                            </Button>
+                            {req.status === 'Draft' && req.requesterId === user?.id && (
+                                <Button variant="outline" size="sm" onClick={() => handleSubmitForApproval(req.id)}>
+                                <Send className="mr-2 h-4 w-4" />
+                                Submit
+                                </Button>
+                            )}
+                            {req.status === 'Rejected' && req.requesterId === user?.id && (
+                                <Button variant="outline" size="sm" onClick={() => router.push(`/requisitions/${req.id}/edit`)}>
+                                <FileEdit className="mr-2 h-4 w-4" />
+                                Edit
+                                </Button>
+                            )}
+                        </div>
                     </TableCell>
                   </TableRow>
                 ))
@@ -354,5 +370,13 @@ export function RequisitionsTable() {
         </div>
       </CardContent>
     </Card>
+    {selectedRequisition && (
+        <RequisitionDetailsDialog
+            isOpen={isDetailsOpen}
+            onClose={() => setIsDetailsOpen(false)}
+            reuisition={selectedRequisition}
+        />
+    )}
+    </>
   );
 }

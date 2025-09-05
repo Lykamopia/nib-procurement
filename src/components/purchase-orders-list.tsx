@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -18,34 +19,51 @@ import {
   CardDescription,
 } from './ui/card';
 import { Badge } from './ui/badge';
-import { PurchaseOrder } from '@/lib/types';
+import { PurchaseOrder, PurchaseRequisition } from '@/lib/types';
 import { format } from 'date-fns';
 import { Button } from './ui/button';
 import Link from 'next/link';
-import { ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight } from 'lucide-react';
+import { ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, Eye } from 'lucide-react';
+import { RequisitionDetailsDialog } from './requisition-details-dialog';
 
 const PAGE_SIZE = 10;
 
 export function PurchaseOrdersList() {
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
+  const [requisitions, setRequisitions] = useState<PurchaseRequisition[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [selectedRequisition, setSelectedRequisition] = useState<PurchaseRequisition | null>(null);
 
   useEffect(() => {
-    const fetchPOs = async () => {
+    const fetchData = async () => {
       setLoading(true);
       try {
-        const response = await fetch('/api/purchase-orders');
-        const data: PurchaseOrder[] = await response.json();
-        setPurchaseOrders(data);
+        const [poResponse, reqResponse] = await Promise.all([
+          fetch('/api/purchase-orders'),
+          fetch('/api/requisitions')
+        ]);
+        const poData: PurchaseOrder[] = await poResponse.json();
+        const reqData: PurchaseRequisition[] = await reqResponse.json();
+        setPurchaseOrders(poData);
+        setRequisitions(reqData);
       } catch (error) {
-        console.error("Failed to fetch purchase orders", error);
+        console.error("Failed to fetch data", error);
       } finally {
         setLoading(false);
       }
     };
-    fetchPOs();
+    fetchData();
   }, []);
+  
+  const handleViewReqDetails = (reqId: string) => {
+    const req = requisitions.find(r => r.id === reqId);
+    if(req) {
+      setSelectedRequisition(req);
+      setIsDetailsOpen(true);
+    }
+  }
 
   const totalPages = Math.ceil(purchaseOrders.length / PAGE_SIZE);
   const paginatedPOs = useMemo(() => {
@@ -58,6 +76,7 @@ export function PurchaseOrdersList() {
   }
 
   return (
+    <>
     <Card>
       <CardHeader>
         <CardTitle>Purchase Orders</CardTitle>
@@ -86,7 +105,11 @@ export function PurchaseOrdersList() {
                   <TableRow key={po.id}>
                     <TableCell className="text-muted-foreground">{(currentPage - 1) * PAGE_SIZE + index + 1}</TableCell>
                     <TableCell className="font-medium text-primary">{po.id}</TableCell>
-                    <TableCell>{po.requisitionTitle}</TableCell>
+                    <TableCell>
+                      <Button variant="link" className="p-0 h-auto" onClick={() => handleViewReqDetails(po.requisitionId)}>
+                        {po.requisitionTitle}
+                      </Button>
+                    </TableCell>
                     <TableCell>{po.vendor.name}</TableCell>
                     <TableCell>{format(new Date(po.createdAt), 'PP')}</TableCell>
                     <TableCell className="text-right">{po.totalAmount.toLocaleString()} ETB</TableCell>
@@ -123,5 +146,13 @@ export function PurchaseOrdersList() {
         </div>
       </CardContent>
     </Card>
+    {selectedRequisition && (
+        <RequisitionDetailsDialog
+            isOpen={isDetailsOpen}
+            onClose={() => setIsDetailsOpen(false)}
+            reuisition={selectedRequisition}
+        />
+    )}
+    </>
   );
 }

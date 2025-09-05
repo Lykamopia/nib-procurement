@@ -31,6 +31,7 @@ import {
   ChevronsRight,
   CircleAlert,
   CircleCheck,
+  Eye,
   X,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
@@ -49,6 +50,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/t
 import { Checkbox } from './ui/checkbox';
 import { cn } from '@/lib/utils';
 import { Separator } from './ui/separator';
+import { RequisitionDetailsDialog } from './requisition-details-dialog';
 
 
 const PAGE_SIZE = 10;
@@ -82,17 +84,11 @@ const BudgetStatusBadge = ({ status }: { status: BudgetStatus }) => {
   }
 }
 
-function CollapsibleTableRow({ req, onAction, isOpen, onToggle, index }: { req: PurchaseRequisition, onAction: (req: PurchaseRequisition, type: 'approve' | 'reject') => void, isOpen: boolean, onToggle: () => void, index: number }) {
+function CollapsibleTableRow({ req, onAction, onToggle, onShowDetails, index }: { req: PurchaseRequisition, onAction: (req: PurchaseRequisition, type: 'approve' | 'reject') => void, onToggle: () => void, onShowDetails: () => void, index: number }) {
     return (
         <>
             <TableRow>
                 <TableCell className="text-muted-foreground">{index + 1}</TableCell>
-                <TableCell>
-                    <Button variant="ghost" size="sm" className="w-9 p-0" onClick={onToggle}>
-                        <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", isOpen && "rotate-180")} />
-                        <span className="sr-only">Toggle details</span>
-                    </Button>
-                </TableCell>
                 <TableCell className="font-medium text-primary">{req.id}</TableCell>
                 <TableCell>{req.title}</TableCell>
                 <TableCell>{req.requesterName}</TableCell>
@@ -102,58 +98,18 @@ function CollapsibleTableRow({ req, onAction, isOpen, onToggle, index }: { req: 
                 <TableCell>{format(new Date(req.createdAt), 'PP')}</TableCell>
                 <TableCell>
                 <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={onShowDetails}>
+                        <Eye className="mr-2 h-4 w-4" /> View Details
+                    </Button>
                     <Button variant="outline" size="sm" onClick={() => onAction(req, 'approve')}>
-                    <Check className="mr-2 h-4 w-4" />
-                    Approve
+                        <Check className="mr-2 h-4 w-4" /> Approve
                     </Button>
                     <Button variant="destructive" size="sm" onClick={() => onAction(req, 'reject')}>
-                    <X className="mr-2 h-4 w-4" />
-                    Reject
+                        <X className="mr-2 h-4 w-4" /> Reject
                     </Button>
                 </div>
                 </TableCell>
             </TableRow>
-            {isOpen && (
-                <TableRow className="bg-muted/50 hover:bg-muted/50">
-                    <TableCell colSpan={8} className="p-0">
-                            <div className="p-6">
-                            <h4 className="font-semibold mb-2">Requisition Details:</h4>
-                            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 text-sm">
-                                <div className="space-y-4">
-                                    <p className="font-medium">Justification:</p>
-                                    <p className="text-muted-foreground">{req.justification}</p>
-                                </div>
-                                <div className="space-y-4">
-                                    <p className="font-medium">Items:</p>
-                                    <ul className="list-disc pl-5 text-muted-foreground space-y-1">
-                                        {req.items.map(item => (
-                                        <li key={item.id}>
-                                            {item.quantity} x {item.name}
-                                        </li>
-                                        ))}
-                                    </ul>
-                                </div>
-                                 <div className="space-y-4">
-                                     {req.deadline && (
-                                         <div>
-                                            <p className="font-medium">Quotation Deadline:</p>
-                                            <p className="text-muted-foreground">{format(new Date(req.deadline), 'PPpp')}</p>
-                                         </div>
-                                     )}
-                                     {req.customQuestions && req.customQuestions.length > 0 && (
-                                        <div>
-                                            <p className="font-medium">Custom Questions for Vendors:</p>
-                                            <ul className="list-disc pl-5 text-muted-foreground space-y-1">
-                                                {req.customQuestions.map(q => <li key={q.id}>{q.questionText}</li>)}
-                                            </ul>
-                                        </div>
-                                     )}
-                                 </div>
-                            </div>
-                            </div>
-                    </TableCell>
-                </TableRow>
-            )}
         </>
     )
 }
@@ -168,7 +124,8 @@ export function ApprovalsTable() {
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedRequisition, setSelectedRequisition] = useState<PurchaseRequisition | null>(null);
   const [comment, setComment] = useState('');
-  const [isDialogOpen, setDialogOpen] = useState(false);
+  const [isActionDialogOpen, setActionDialogOpen] = useState(false);
+  const [isDetailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [actionType, setActionType] = useState<'approve' | 'reject' | null>(null);
   const [overrideBudget, setOverrideBudget] = useState(false);
   const [openRequisitionId, setOpenRequisitionId] = useState<string | null>(null);
@@ -198,8 +155,13 @@ export function ApprovalsTable() {
   const handleAction = (req: PurchaseRequisition, type: 'approve' | 'reject') => {
     setSelectedRequisition(req);
     setActionType(type);
-    setDialogOpen(true);
+    setActionDialogOpen(true);
     setOverrideBudget(false);
+  }
+
+  const handleShowDetails = (req: PurchaseRequisition) => {
+    setSelectedRequisition(req);
+    setDetailsDialogOpen(true);
   }
   
   const submitAction = async () => {
@@ -226,7 +188,7 @@ export function ApprovalsTable() {
         description: error instanceof Error ? error.message : "An unknown error occurred.",
       });
     } finally {
-        setDialogOpen(false);
+        setActionDialogOpen(false);
         setComment('');
         setSelectedRequisition(null);
         setActionType(null);
@@ -244,6 +206,7 @@ export function ApprovalsTable() {
   if (error) return <div className="text-destructive">Error: {error}</div>;
 
   return (
+    <>
     <Card>
       <CardHeader>
         <CardTitle>Pending Approvals</CardTitle>
@@ -257,7 +220,6 @@ export function ApprovalsTable() {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-10">#</TableHead>
-                <TableHead className="w-12"></TableHead>
                 <TableHead>Req. ID</TableHead>
                 <TableHead>Title</TableHead>
                 <TableHead>Requester</TableHead>
@@ -274,13 +236,13 @@ export function ApprovalsTable() {
                     req={req}
                     index={(currentPage - 1) * PAGE_SIZE + index}
                     onAction={handleAction} 
-                    isOpen={openRequisitionId === req.id}
+                    onShowDetails={() => handleShowDetails(req)}
                     onToggle={() => setOpenRequisitionId(openRequisitionId === req.id ? null : req.id)}
                   />
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={8} className="h-24 text-center">
+                  <TableCell colSpan={7} className="h-24 text-center">
                     No requisitions pending approval.
                   </TableCell>
                 </TableRow>
@@ -331,7 +293,7 @@ export function ApprovalsTable() {
           </div>
         </div>
       </CardContent>
-       <Dialog open={isDialogOpen} onOpenChange={setDialogOpen}>
+       <Dialog open={isActionDialogOpen} onOpenChange={setActionDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
@@ -361,7 +323,7 @@ export function ApprovalsTable() {
             )}
           </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setDialogOpen(false)}>Cancel</Button>
+            <Button variant="ghost" onClick={() => setActionDialogOpen(false)}>Cancel</Button>
             <Button 
                 onClick={submitAction} 
                 variant={actionType === 'approve' ? 'default' : 'destructive'}
@@ -373,5 +335,13 @@ export function ApprovalsTable() {
         </DialogContent>
       </Dialog>
     </Card>
+    {selectedRequisition && (
+        <RequisitionDetailsDialog 
+            reuisition={selectedRequisition} 
+            isOpen={isDetailsDialogOpen} 
+            onClose={() => setDetailsDialogOpen(false)} 
+        />
+    )}
+    </>
   );
 }
