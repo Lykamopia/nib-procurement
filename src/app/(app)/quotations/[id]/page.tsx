@@ -533,18 +533,224 @@ const ContractManagement = ({ requisition, onContractFinalized, onPOCreated }: {
     )
 }
 
-const RFQDistribution = ({ requisition, vendors, onRfqSent, onCommitteeUpdated }: { requisition: PurchaseRequisition; vendors: Vendor[]; onRfqSent: () => void; onCommitteeUpdated: () => void; }) => {
+const committeeFormSchema = z.object({
+  committeeName: z.string().min(3, "Committee name is required."),
+  committeePurpose: z.string().min(10, "Purpose is required."),
+  committeeMemberIds: z.array(z.string()).min(1, "At least one member is required."),
+});
+
+type CommitteeFormValues = z.infer<typeof committeeFormSchema>;
+
+const CommitteeManagement = ({ requisition, onCommitteeUpdated }: { requisition: PurchaseRequisition; onCommitteeUpdated: () => void; }) => {
+    const { user, allUsers } = useAuth();
+    const { toast } = useToast();
+    const [isSubmitting, setSubmitting] = useState(false);
+    const [isCommitteeDialogOpen, setCommitteeDialogOpen] = useState(false);
+    const [committeeSearch, setCommitteeSearch] = useState("");
+
+    const form = useForm<CommitteeFormValues>({
+        resolver: zodResolver(committeeFormSchema),
+        defaultValues: {
+            committeeName: requisition.committeeName || "",
+            committeePurpose: requisition.committeePurpose || "",
+            committeeMemberIds: requisition.committeeMemberIds || [],
+        },
+    });
+
+    useEffect(() => {
+        form.reset({
+             committeeName: requisition.committeeName || "",
+            committeePurpose: requisition.committeePurpose || "",
+            committeeMemberIds: requisition.committeeMemberIds || [],
+        });
+    }, [requisition, form]);
+
+    const handleSaveCommittee = async (values: CommitteeFormValues) => {
+        if (!user) return;
+        setSubmitting(true);
+        try {
+            const response = await fetch(`/api/requisitions/${requisition.id}/assign-committee`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    userId: user.id, 
+                    ...values
+                }),
+            });
+            const responseData = await response.json();
+
+            if (!response.ok) {
+                throw new Error(responseData.error || 'Failed to assign committee.');
+            }
+
+            toast({ title: 'Committee Updated!', description: 'The evaluation committee has been updated.' });
+            setCommitteeDialogOpen(false);
+            onCommitteeUpdated();
+        } catch (error) {
+             toast({
+                variant: 'destructive',
+                title: 'Error',
+                description: error instanceof Error ? error.message : 'An unknown error occurred.',
+            });
+        } finally {
+            setSubmitting(false);
+        }
+    }
+    
+    const committeeMembers = allUsers.filter(u => u.role === 'Committee Member');
+    const assignedMembers = allUsers.filter(u => requisition.committeeMemberIds?.includes(u.id));
+
+     const filteredCommitteeMembers = useMemo(() => {
+        if (!committeeSearch) {
+            return committeeMembers;
+        }
+        const lowercasedSearch = committeeSearch.toLowerCase();
+        return committeeMembers.filter(member =>
+            member.name.toLowerCase().includes(lowercasedSearch) ||
+            member.email.toLowerCase().includes(lowercasedSearch)
+        );
+    }, [committeeMembers, committeeSearch]);
+
+    const selectedCommittee = form.watch('committeeMemberIds');
+
+
+    return (
+        <Card className="border-dashed">
+            <CardHeader className="flex flex-row items-start justify-between">
+                <div>
+                    <CardTitle>Evaluation Committee</CardTitle>
+                    <CardDescription>
+                        {requisition.committeeName ? `"${requisition.committeeName}"` : "Assign a committee to evaluate quotations."}
+                    </CardDescription>
+                </div>
+                 <Dialog open={isCommitteeDialogOpen} onOpenChange={setCommitteeDialogOpen}>
+                    <DialogTrigger asChild>
+                        <Button variant="outline">
+                            {requisition.committeeMemberIds && requisition.committeeMemberIds.length > 0 ? (
+                                <><Edit2 className="mr-2 h-4 w-4" /> Edit Committee</>
+                            ) : (
+                                <><Users className="mr-2 h-4 w-4" /> Assign Committee</>
+                            )}
+                        </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-2xl">
+                        <DialogHeader>
+                            <DialogTitle>Evaluation Committee</DialogTitle>
+                        </DialogHeader>
+                        <Form {...form}>
+                        <form onSubmit={form.handleSubmit(handleSaveCommittee)} className="space-y-4">
+                            <FormField
+                                control={form.control}
+                                name="committeeName"
+                                render={({ field }) => (
+                                    <FormItem><FormLabel>Committee Name</FormLabel><FormControl><Input {...field} placeholder="e.g., Q4 Laptop Procurement Committee" /></FormControl><FormMessage /></FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={form.control}
+                                name="committeePurpose"
+                                render={({ field }) => (
+                                    <FormItem><FormLabel>Purpose / Mandate</FormLabel><FormControl><Textarea {...field} placeholder="e.g., To evaluate vendor submissions for REQ-..." /></FormControl><FormMessage /></FormItem>
+                                )}
+                            />
+
+                             <div className="relative pt-2">
+                                <FormLabel>Members</FormLabel>
+                                <Search className="absolute left-2.5 top-11 h-4 w-4 text-muted-foreground" />
+                                <Input 
+                                    placeholder="Search members by name or email..." 
+                                    className="pl-8 w-full mt-2"
+                                    value={committeeSearch}
+                                    onChange={(e) => setCommitteeSearch(e.target.value)}
+                                />
+                            </div>
+                            <FormField
+                                control={form.control}
+                                name="committeeMemberIds"
+                                render={() => (
+                                <FormItem>
+                                    <ScrollArea className="h-60">
+                                        <div className="space-y-2 p-1">
+                                        {filteredCommitteeMembers.map(member => (
+                                            <FormField
+                                                key={member.id}
+                                                control={form.control}
+                                                name="committeeMemberIds"
+                                                render={({ field }) => (
+                                                    <FormItem className="flex items-start space-x-4 rounded-md border p-3 has-[:checked]:bg-muted">
+                                                         <FormControl>
+                                                            <Checkbox
+                                                                checked={field.value?.includes(member.id)}
+                                                                onCheckedChange={(checked) => {
+                                                                    return checked
+                                                                    ? field.onChange([...field.value, member.id])
+                                                                    : field.onChange(field.value?.filter((id) => id !== member.id))
+                                                                }}
+                                                            />
+                                                        </FormControl>
+                                                        <div className="flex items-start gap-3 flex-1">
+                                                            <Avatar>
+                                                                <AvatarImage src={`https://picsum.photos/seed/${member.id}/40/40`} data-ai-hint="profile picture" />
+                                                                <AvatarFallback>{member.name.charAt(0)}</AvatarFallback>
+                                                            </Avatar>
+                                                            <div className="grid gap-0.5">
+                                                                <Label className="font-normal cursor-pointer">{member.name}</Label>
+                                                                <p className="text-xs text-muted-foreground">{member.email}</p>
+                                                            </div>
+                                                        </div>
+                                                    </FormItem>
+                                                )}
+                                            />
+                                        ))}
+                                        {filteredCommitteeMembers.length === 0 && (
+                                                <div className="text-center text-muted-foreground py-10">No committee members found.</div>
+                                            )}
+                                        </div>
+                                    </ScrollArea>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                             />
+                            <DialogFooter>
+                                <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
+                                <Button type="submit" disabled={isSubmitting}>
+                                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                                    Save Committee
+                                </Button>
+                            </DialogFooter>
+                        </form>
+                        </Form>
+                    </DialogContent>
+                </Dialog>
+            </CardHeader>
+            {requisition.committeeMemberIds && requisition.committeeMemberIds.length > 0 && (
+                <CardContent>
+                    <p className="text-sm text-muted-foreground italic mb-4">"{requisition.committeePurpose}"</p>
+                    <div className="flex flex-wrap gap-4">
+                        {assignedMembers.map(member => (
+                            <div key={member.id} className="flex items-center gap-2">
+                                <Avatar className="h-8 w-8">
+                                    <AvatarImage src={`https://picsum.photos/seed/${member.id}/40/40`} data-ai-hint="profile picture" />
+                                    <AvatarFallback>{member.name.charAt(0)}</AvatarFallback>
+                                </Avatar>
+                                <span className="text-sm font-medium">{member.name}</span>
+                            </div>
+                        ))}
+                    </div>
+                </CardContent>
+            )}
+        </Card>
+    );
+};
+
+
+const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: PurchaseRequisition; vendors: Vendor[]; onRfqSent: () => void; }) => {
     const [distributionType, setDistributionType] = useState<'all' | 'select'>('all');
     const [selectedVendors, setSelectedVendors] = useState<string[]>([]);
     const [vendorSearch, setVendorSearch] = useState('');
     const [isSubmitting, setSubmitting] = useState(false);
-    const { user, allUsers } = useAuth();
+    const { user } = useAuth();
     const { toast } = useToast();
-    const [isCommitteeDialogOpen, setCommitteeDialogOpen] = useState(false);
-    const [committeeSearch, setCommitteeSearch] = useState("");
-    
-    const committeeMembers = allUsers.filter(u => u.role === 'Committee Member');
-    const [selectedCommittee, setSelectedCommittee] = useState<string[]>(requisition.committeeMemberIds || []);
 
     const handleSendRFQ = async () => {
         if (!user) return;
@@ -582,37 +788,6 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent, onCommitteeUpdated }
         }
     }
     
-    const handleSaveCommittee = async () => {
-         if (!user) return;
-        setSubmitting(true);
-        try {
-            const response = await fetch(`/api/requisitions/${requisition.id}/assign-committee`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    userId: user.id, 
-                    committeeMemberIds: selectedCommittee,
-                }),
-            });
-            const responseData = await response.json();
-
-            if (!response.ok) {
-                throw new Error(responseData.error || 'Failed to assign committee.');
-            }
-
-            toast({ title: 'Committee Updated!', description: 'The evaluation committee has been assigned.' });
-            setCommitteeDialogOpen(false);
-            onCommitteeUpdated();
-        } catch (error) {
-             toast({
-                variant: 'destructive',
-                title: 'Error',
-                description: error instanceof Error ? error.message : 'An unknown error occurred.',
-            });
-        } finally {
-            setSubmitting(false);
-        }
-    }
     
     const filteredVendors = useMemo(() => {
         const verifiedVendors = vendors.filter(v => v.kycStatus === 'Verified');
@@ -626,93 +801,17 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent, onCommitteeUpdated }
             vendor.contactPerson.toLowerCase().includes(lowercasedSearch)
         );
     }, [vendors, vendorSearch]);
-    
-    const filteredCommitteeMembers = useMemo(() => {
-        if (!committeeSearch) {
-            return committeeMembers;
-        }
-        const lowercasedSearch = committeeSearch.toLowerCase();
-        return committeeMembers.filter(member =>
-            member.name.toLowerCase().includes(lowercasedSearch) ||
-            member.email.toLowerCase().includes(lowercasedSearch)
-        );
-    }, [committeeMembers, committeeSearch]);
 
 
     return (
-        <Card className="mt-6 border-dashed">
+        <Card className="mt-6">
             <CardHeader>
-                <CardTitle>RFQ & Committee Setup</CardTitle>
+                <CardTitle>RFQ Distribution</CardTitle>
                 <CardDescription>
-                    This requisition is approved. Assign an evaluation committee and send the Request for Quotation to vendors to begin receiving bids.
+                    Send the Request for Quotation to vendors to begin receiving bids.
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-                 <Dialog open={isCommitteeDialogOpen} onOpenChange={setCommitteeDialogOpen}>
-                    <DialogTrigger asChild>
-                        <Button variant="outline"><Users className="mr-2 h-4 w-4" /> Assign Evaluation Committee</Button>
-                    </DialogTrigger>
-                    <DialogContent className="max-w-2xl">
-                        <DialogHeader>
-                            <DialogTitle>Assign Committee Members</DialogTitle>
-                            <DialogDescription>Select the members who will score the quotations for this requisition.</DialogDescription>
-                        </DialogHeader>
-                         <div className="relative mt-2">
-                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                            <Input 
-                                placeholder="Search members by name or email..." 
-                                className="pl-8 w-full"
-                                value={committeeSearch}
-                                onChange={(e) => setCommitteeSearch(e.target.value)}
-                            />
-                        </div>
-                         <ScrollArea className="h-72">
-                            <div className="space-y-4 p-1">
-                            {filteredCommitteeMembers.map(member => (
-                                <div key={member.id} className="flex items-start space-x-4 rounded-md border p-4 has-[:checked]:bg-muted">
-                                    <Checkbox 
-                                        id={`member-${member.id}`} 
-                                        checked={selectedCommittee.includes(member.id)}
-                                        onCheckedChange={(checked) => {
-                                            setSelectedCommittee(prev => 
-                                                checked ? [...prev, member.id] : prev.filter(id => id !== member.id)
-                                            )
-                                        }}
-                                        className="mt-1"
-                                    />
-                                    <div className="flex items-start gap-4 flex-1">
-                                        <Avatar>
-                                            <AvatarImage src={`https://picsum.photos/seed/${member.id}/40/40`} data-ai-hint="profile picture" />
-                                            <AvatarFallback>{member.name.charAt(0)}</AvatarFallback>
-                                        </Avatar>
-                                        <div className="grid gap-1">
-                                            <Label htmlFor={`member-${member.id}`} className="font-semibold cursor-pointer">
-                                                {member.name}
-                                            </Label>
-                                            <p className="text-xs text-muted-foreground">{member.email}</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                             {filteredCommitteeMembers.length === 0 && (
-                                    <div className="text-center text-muted-foreground py-10">
-                                        No committee members found matching your search.
-                                    </div>
-                                )}
-                            </div>
-                        </ScrollArea>
-                        <DialogFooter>
-                            <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
-                            <Button onClick={handleSaveCommittee} disabled={isSubmitting}>
-                                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
-                                Save Committee
-                            </Button>
-                        </DialogFooter>
-                    </DialogContent>
-                </Dialog>
-                
-                <Separator />
-                
                 <Select value={distributionType} onValueChange={(v) => setDistributionType(v as any)}>
                     <SelectTrigger className="w-[300px]">
                         <SelectValue />
@@ -783,6 +882,9 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent, onCommitteeUpdated }
                     {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
                     Send RFQ
                 </Button>
+                 {!requisition.committeeMemberIds || requisition.committeeMemberIds.length === 0 && (
+                    <p className="text-xs text-muted-foreground ml-4">An evaluation committee must be assigned before sending the RFQ.</p>
+                )}
             </CardFooter>
         </Card>
     );
@@ -1351,12 +1453,17 @@ export default function QuotationDetailsPage() {
         )}
 
         {requisition.status === 'Approved' && (user.role === 'Procurement Officer' || user.role === 'Committee') && (
-            <RFQDistribution 
-                requisition={requisition} 
-                vendors={vendors} 
-                onRfqSent={fetchRequisitionAndQuotes}
-                onCommitteeUpdated={fetchRequisitionAndQuotes}
-            />
+            <div className="grid md:grid-cols-2 gap-6">
+                <CommitteeManagement
+                    requisition={requisition} 
+                    onCommitteeUpdated={fetchRequisitionAndQuotes}
+                />
+                <RFQDistribution 
+                    requisition={requisition} 
+                    vendors={vendors} 
+                    onRfqSent={fetchRequisitionAndQuotes}
+                />
+            </div>
         )}
 
         {(currentStep === 'award' || currentStep === 'finalize' || currentStep === 'completed') && (

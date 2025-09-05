@@ -92,6 +92,8 @@ export type PurchaseRequisition = {
   deadline?: Date;
   evaluationCriteria?: EvaluationCriteria;
   committeeMemberIds?: string[];
+  committeeName?: string;
+  committeePurpose?: string;
 };
 
 export type AuditLog = {

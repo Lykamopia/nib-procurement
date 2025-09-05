@@ -11,7 +11,7 @@ export async function POST(
   try {
     const { id } = params;
     const body = await request.json();
-    const { userId, committeeMemberIds } = body;
+    const { userId, committeeMemberIds, committeeName, committeePurpose } = body;
 
     const requisition = requisitions.find((r) => r.id === id);
     if (!requisition) {
@@ -24,6 +24,8 @@ export async function POST(
     }
 
     requisition.committeeMemberIds = committeeMemberIds;
+    requisition.committeeName = committeeName;
+    requisition.committeePurpose = committeePurpose;
     requisition.updatedAt = new Date();
 
     const committeeNames = users.filter(u => committeeMemberIds.includes(u.id)).map(u => u.name);
@@ -36,7 +38,7 @@ export async function POST(
         action: 'ASSIGN_COMMITTEE',
         entity: 'Requisition',
         entityId: id,
-        details: `Assigned committee members: ${committeeNames.join(', ')}.`,
+        details: `Assigned committee "${committeeName}" with members: ${committeeNames.join(', ')}.`,
     };
     auditLogs.unshift(auditLogEntry);
 
