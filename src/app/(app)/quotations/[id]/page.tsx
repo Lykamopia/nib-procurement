@@ -221,7 +221,7 @@ function AddQuoteForm({ requisition, vendors, onQuoteAdded }: { requisition: Pur
     );
 }
 
-const QuoteComparison = ({ quotes, requisition, recommendation, onScore, userRole }: { quotes: Quotation[], requisition: PurchaseRequisition, recommendation?: QuoteAnalysisOutput | null, onScore: (quote: Quotation) => void, userRole: User['role'] }) => {
+const QuoteComparison = ({ quotes, requisition, recommendation, onScore, userRole, isDeadlinePassed }: { quotes: Quotation[], requisition: PurchaseRequisition, recommendation?: QuoteAnalysisOutput | null, onScore: (quote: Quotation) => void, userRole: User['role'], isDeadlinePassed: boolean }) => {
     if (quotes.length === 0) {
         return (
             <div className="h-24 flex items-center justify-center text-muted-foreground">
@@ -229,9 +229,6 @@ const QuoteComparison = ({ quotes, requisition, recommendation, onScore, userRol
             </div>
         );
     }
-    
-    const deadline = requisition.deadline ? new Date(requisition.deadline) : null;
-    const isDeadlinePassed = deadline ? !isBefore(new Date(), deadline) : true;
     
     const getStatusVariant = (status: QuotationStatus) => {
         switch (status) {
@@ -266,13 +263,13 @@ const QuoteComparison = ({ quotes, requisition, recommendation, onScore, userRol
                        <CardHeader>
                             <CardTitle className="flex justify-between items-start">
                                <div className="flex items-center gap-2">
-                                 {getRankIcon(quote.rank)}
+                                 {isDeadlinePassed && getRankIcon(quote.rank)}
                                  <span>{quote.vendorName}</span>
                                </div>
                                <Badge variant={getStatusVariant(quote.status)}>{quote.status}</Badge>
                             </CardTitle>
                             <CardDescription>
-                                {isRecommended && (
+                                {isDeadlinePassed && isRecommended && (
                                      <span className="flex items-center gap-1 text-xs text-green-600 font-semibold"><Star className="h-3 w-3 fill-green-500" /> AI Rec #{aiRank + 1}</span>
                                 )}
                                 <span className="text-xs">Submitted {formatDistanceToNow(new Date(quote.createdAt), { addSuffix: true })}</span>
@@ -296,18 +293,18 @@ const QuoteComparison = ({ quotes, requisition, recommendation, onScore, userRol
                             ) : (
                                 <div className="text-center py-8">
                                     <TimerOff className="h-8 w-8 mx-auto text-muted-foreground" />
-                                    <p className="font-semibold mt-2">Price Masked</p>
-                                    <p className="text-sm text-muted-foreground">Revealed after {format(deadline!, 'PP')}</p>
+                                    <p className="font-semibold mt-2">Details Masked</p>
+                                    <p className="text-sm text-muted-foreground">Revealed after {format(new Date(requisition.deadline!), 'PP')}</p>
                                 </div>
                             )}
 
-                            {quote.notes && (
+                            {isDeadlinePassed && quote.notes && (
                                 <div className="text-sm space-y-1 pt-2 border-t">
                                     <h4 className="font-semibold">Notes:</h4>
                                     <p className="text-muted-foreground text-xs italic">{quote.notes}</p>
                                 </div>
                             )}
-                             {quote.finalAverageScore !== undefined && (
+                             {isDeadlinePassed && quote.finalAverageScore !== undefined && (
                                  <div className="text-center pt-2 border-t">
                                     <h4 className="font-semibold text-sm">Final Score</h4>
                                     <p className="text-2xl font-bold text-primary">{quote.finalAverageScore.toFixed(2)}</p>
@@ -316,7 +313,7 @@ const QuoteComparison = ({ quotes, requisition, recommendation, onScore, userRol
                         </CardContent>
                         {userRole === 'Committee Member' && (
                             <CardFooter>
-                                <Button className="w-full" variant="outline" onClick={() => onScore(quote)}>
+                                <Button className="w-full" variant="outline" onClick={() => onScore(quote)} disabled={!isDeadlinePassed}>
                                     <Edit2 className="mr-2 h-4 w-4" />
                                     View / Edit Scores
                                 </Button>
@@ -1157,12 +1154,14 @@ export default function QuotationDetailsPage() {
                                 </AlertDialogContent>
                             </AlertDialog>
                         )}
-                        <Dialog open={isAddFormOpen} onOpenChange={setAddFormOpen}>
-                            <DialogTrigger asChild>
-                                <Button disabled={isAwarded} variant="outline"><PlusCircle className="mr-2 h-4 w-4"/>Add Quote</Button>
-                            </DialogTrigger>
-                            {requisition && <AddQuoteForm requisition={requisition} vendors={vendors} onQuoteAdded={handleQuoteAdded} />}
-                        </Dialog>
+                        {user.role !== 'Committee Member' && (
+                             <Dialog open={isAddFormOpen} onOpenChange={setAddFormOpen}>
+                                <DialogTrigger asChild>
+                                    <Button disabled={isAwarded} variant="outline"><PlusCircle className="mr-2 h-4 w-4"/>Add Quote</Button>
+                                </DialogTrigger>
+                                {requisition && <AddQuoteForm requisition={requisition} vendors={vendors} onQuoteAdded={handleQuoteAdded} />}
+                            </Dialog>
+                        )}
                     </div>
                 </CardHeader>
                 <CardContent>
@@ -1197,6 +1196,7 @@ export default function QuotationDetailsPage() {
                         recommendation={aiRecommendation}
                         onScore={handleScoreButtonClick}
                         userRole={user.role}
+                        isDeadlinePassed={isDeadlinePassed}
                     />
                 )}
                 </CardContent>
