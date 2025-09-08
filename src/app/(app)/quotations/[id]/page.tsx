@@ -371,9 +371,9 @@ const AIQuoteAdvisor = ({ requisition, quotes, onRecommendation }: { requisition
                 <CardTitle className="flex items-center gap-2"><Bot /> AI Quote Advisor</CardTitle>
                 <CardDescription>Select a metric and let AI recommend the best quote.</CardDescription>
             </CardHeader>
-            <CardContent className="flex items-center gap-4">
+            <CardContent className="flex flex-col sm:flex-row items-center gap-4">
                  <Select value={metric} onValueChange={(v) => setMetric(v as any)}>
-                    <SelectTrigger className="w-[200px]">
+                    <SelectTrigger className="w-full sm:w-[200px]">
                         <SelectValue placeholder="Select a metric" />
                     </SelectTrigger>
                     <SelectContent>
@@ -382,7 +382,7 @@ const AIQuoteAdvisor = ({ requisition, quotes, onRecommendation }: { requisition
                         <SelectItem value="Fastest Delivery">Fastest Delivery</SelectItem>
                     </SelectContent>
                 </Select>
-                <Button onClick={handleAnalysis} disabled={loading || quotes.length < 2}>
+                <Button onClick={handleAnalysis} disabled={loading || quotes.length < 2} className="w-full sm:w-auto">
                     {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Get AI Recommendation
                 </Button>
@@ -448,7 +448,7 @@ const ContractManagement = ({ requisition }: { requisition: PurchaseRequisition 
                         <Textarea id="notes" name="notes" rows={5} placeholder="Record key negotiation points, final terms, etc." />
                     </div>
                 </CardContent>
-                <CardFooter className="justify-between">
+                <CardFooter className="flex-col sm:flex-row justify-between gap-2">
                     <Button type="submit" disabled={isSubmitting}>
                         {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileSignature className="mr-2 h-4 w-4" />}
                         Save Contract Details
@@ -548,7 +548,7 @@ const CommitteeManagement = ({ requisition, onCommitteeUpdated }: { requisition:
 
     return (
         <Card className="border-dashed">
-            <CardHeader className="flex flex-row items-start justify-between">
+            <CardHeader className="flex flex-col sm:flex-row items-start justify-between gap-2">
                 <div>
                     <CardTitle>Evaluation Committee</CardTitle>
                      <CardDescription>
@@ -557,7 +557,7 @@ const CommitteeManagement = ({ requisition, onCommitteeUpdated }: { requisition:
                 </div>
                  <Dialog open={isCommitteeDialogOpen} onOpenChange={setCommitteeDialogOpen}>
                     <DialogTrigger asChild>
-                        <Button variant="outline">
+                        <Button variant="outline" className="w-full sm:w-auto">
                             {requisition.committeeMemberIds && requisition.committeeMemberIds.length > 0 ? (
                                 <><Edit2 className="mr-2 h-4 w-4" /> Edit Committee</>
                             ) : (
@@ -924,7 +924,7 @@ const WorkflowStepper = ({ step }: { step: 'committee' | 'rfq' | 'award' | 'fina
     }
 
     return (
-        <div className="flex items-center justify-center space-x-1 sm:space-x-2">
+        <div className="flex items-center justify-center space-x-1 sm:space-x-2 flex-wrap">
             <div className="flex items-center gap-2">
                 <div className={cn("flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold", stateClasses[committeeState])}>
                     {committeeState === 'completed' ? <Check className="h-4 w-4"/> : '1'}
@@ -1544,12 +1544,12 @@ export default function QuotationDetailsPage() {
         
         {requisition.evaluationCriteria && (
             <Card>
-                 <CardHeader className="flex flex-row items-center justify-between">
+                 <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div>
                         <CardTitle className="flex items-center gap-2"><ClipboardList /> Evaluation Criteria</CardTitle>
                         <CardDescription>The following criteria were set by the requester to guide quote evaluation.</CardDescription>
                     </div>
-                     <Button variant="outline" onClick={() => setIsDetailsOpen(true)}>
+                     <Button variant="outline" onClick={() => setIsDetailsOpen(true)} className="w-full sm:w-auto">
                         <Eye className="mr-2 h-4 w-4" />
                         View Requisition Details
                     </Button>
@@ -1584,7 +1584,7 @@ export default function QuotationDetailsPage() {
 
         {(currentStep === 'award' || currentStep === 'finalize' || currentStep === 'completed') && (
             <Card>
-                <CardHeader className="flex flex-row items-start sm:items-center justify-between">
+                <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div>
                         <CardTitle>Quotations for {requisition.id}</CardTitle>
                         <CardDescription>{requisition.title}</CardDescription>
@@ -1603,11 +1603,11 @@ export default function QuotationDetailsPage() {
                             )}
                         </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 w-full sm:w-auto">
                         {isAwarded && requisition.status !== 'PO Created' && user.role === 'Procurement Officer' && (
                              <AlertDialog>
                                 <AlertDialogTrigger asChild>
-                                    <Button variant="outline" disabled={isChangingAward}>
+                                    <Button variant="outline" disabled={isChangingAward} className="w-full">
                                         {isChangingAward ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Undo className="mr-2 h-4 w-4"/>}
                                         Change Award Decision
                                     </Button>
@@ -1640,7 +1640,7 @@ export default function QuotationDetailsPage() {
                         {user.role !== 'Committee Member' && (
                              <Dialog open={isAddFormOpen} onOpenChange={setAddFormOpen}>
                                 <DialogTrigger asChild>
-                                    <Button disabled={isAwarded} variant="outline"><PlusCircle className="mr-2 h-4 w-4"/>Add Quote</Button>
+                                    <Button disabled={isAwarded} variant="outline" className="w-full"><PlusCircle className="mr-2 h-4 w-4"/>Add Quote</Button>
                                 </DialogTrigger>
                                 {requisition && <AddQuoteForm requisition={requisition} vendors={vendors} onQuoteAdded={handleQuoteAdded} />}
                             </Dialog>
