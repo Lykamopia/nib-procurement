@@ -10,7 +10,7 @@ export async function POST(
   try {
     const { id } = params;
     const body = await request.json();
-    const { userId, vendorIds } = body;
+    const { userId, vendorIds, scoringDeadline } = body;
 
     const requisition = requisitions.find((r) => r.id === id);
     if (!requisition) {
@@ -28,6 +28,7 @@ export async function POST(
 
     requisition.status = 'RFQ In Progress';
     requisition.allowedVendorIds = vendorIds;
+    requisition.scoringDeadline = scoringDeadline ? new Date(scoringDeadline) : undefined;
     requisition.updatedAt = new Date();
 
     const auditDetails = vendorIds === 'all' 

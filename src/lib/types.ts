@@ -90,6 +90,7 @@ export type PurchaseRequisition = {
   allowedVendorIds?: 'all' | string[];
   customQuestions?: CustomQuestion[];
   deadline?: Date;
+  scoringDeadline?: Date;
   evaluationCriteria?: EvaluationCriteria;
   committeeMemberIds?: string[];
   committeeName?: string;

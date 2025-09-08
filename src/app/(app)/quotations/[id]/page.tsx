@@ -32,7 +32,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, PlusCircle, Award, XCircle, FileSignature, FileText, Bot, Lightbulb, ArrowLeft, Star, Undo, Check, Send, Search, BadgeHelp, BadgeCheck, BadgeX, Crown, Medal, Trophy, RefreshCw, TimerOff, ClipboardList, TrendingUp, Scale, Edit2, Users, GanttChart, Eye, CheckCircle } from 'lucide-react';
+import { Loader2, PlusCircle, Award, XCircle, FileSignature, FileText, Bot, Lightbulb, ArrowLeft, Star, Undo, Check, Send, Search, BadgeHelp, BadgeCheck, BadgeX, Crown, Medal, Trophy, RefreshCw, TimerOff, ClipboardList, TrendingUp, Scale, Edit2, Users, GanttChart, Eye, CheckCircle, CalendarIcon } from 'lucide-react';
 import { useForm, useFieldArray, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -57,6 +57,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { Slider } from '@/components/ui/slider';
 import { RequisitionDetailsDialog } from '@/components/requisition-details-dialog';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
 
 const quoteFormSchema = z.object({
   vendorId: z.string().min(1, "Vendor is required."),
@@ -676,6 +678,7 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
     const [selectedVendors, setSelectedVendors] = useState<string[]>([]);
     const [vendorSearch, setVendorSearch] = useState('');
     const [isSubmitting, setSubmitting] = useState(false);
+    const [scoringDeadline, setScoringDeadline] = useState<Date | undefined>();
     const { user } = useAuth();
     const { toast } = useToast();
 
@@ -693,7 +696,8 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
                     userId: user.id, 
-                    vendorIds: distributionType === 'all' ? 'all' : selectedVendors 
+                    vendorIds: distributionType === 'all' ? 'all' : selectedVendors,
+                    scoringDeadline
                 }),
             });
 
@@ -739,15 +743,42 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-                <Select value={distributionType} onValueChange={(v) => setDistributionType(v as any)}>
-                    <SelectTrigger className="w-[300px]">
-                        <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">Send to all verified vendors</SelectItem>
-                        <SelectItem value="select">Send to selected vendors</SelectItem>
-                    </SelectContent>
-                </Select>
+                <div className="grid md:grid-cols-2 gap-4">
+                    <Select value={distributionType} onValueChange={(v) => setDistributionType(v as any)}>
+                        <SelectTrigger>
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">Send to all verified vendors</SelectItem>
+                            <SelectItem value="select">Send to selected vendors</SelectItem>
+                        </SelectContent>
+                    </Select>
+                     <Popover>
+                        <PopoverTrigger asChild>
+                            <Button
+                                variant={"outline"}
+                                className={cn(
+                                "justify-start text-left font-normal",
+                                !scoringDeadline && "text-muted-foreground"
+                                )}
+                            >
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {scoringDeadline ? format(scoringDeadline, "PPP") : <span>Set scoring deadline</span>}
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0">
+                            <Calendar
+                                mode="single"
+                                selected={scoringDeadline}
+                                onSelect={setScoringDeadline}
+                                disabled={(date) =>
+                                    date < new Date()
+                                }
+                                initialFocus
+                            />
+                        </PopoverContent>
+                    </Popover>
+                </div>
 
                 {distributionType === 'select' && (
                     <Card>
@@ -1456,12 +1487,14 @@ export default function QuotationDetailsPage() {
                         <CardTitle>Quotations for {requisition.id}</CardTitle>
                         <CardDescription>
                             {requisition.title}
-                            {requisition.deadline && (
-                                <>
-                                 <br/>
-                                 <span className="text-xs">Deadline: {format(new Date(requisition.deadline), "PPpp")}</span>
-                                </>
-                            )}
+                            <div className="flex gap-4 text-xs mt-1">
+                                {requisition.deadline && (
+                                    <span>Vendor Deadline: {format(new Date(requisition.deadline), "PPpp")}</span>
+                                )}
+                                {requisition.scoringDeadline && (
+                                     <span className="font-semibold">Scoring Deadline: {format(new Date(requisition.scoringDeadline), "PPpp")}</span>
+                                )}
+                            </div>
                         </CardDescription>
                     </div>
                     <div className="flex items-center gap-2">
