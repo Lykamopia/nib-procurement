@@ -48,7 +48,7 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 import { analyzeQuotes } from '@/ai/flows/quote-analysis';
 import type { QuoteAnalysisInput, QuoteAnalysisOutput } from '@/ai/flows/quote-analysis.types';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Label } from '@/components/ui/label';
@@ -466,6 +466,7 @@ const committeeFormSchema = z.object({
   committeeName: z.string().min(3, "Committee name is required."),
   committeePurpose: z.string().min(10, "Purpose is required."),
   committeeMemberIds: z.array(z.string()).min(1, "At least one member is required."),
+  scoringDeadline: z.date().optional(),
 });
 
 type CommitteeFormValues = z.infer<typeof committeeFormSchema>;
@@ -483,14 +484,16 @@ const CommitteeManagement = ({ requisition, onCommitteeUpdated }: { requisition:
             committeeName: requisition.committeeName || "",
             committeePurpose: requisition.committeePurpose || "",
             committeeMemberIds: requisition.committeeMemberIds || [],
+            scoringDeadline: requisition.scoringDeadline ? new Date(requisition.scoringDeadline) : undefined,
         },
     });
 
     useEffect(() => {
         form.reset({
-             committeeName: requisition.committeeName || "",
+            committeeName: requisition.committeeName || "",
             committeePurpose: requisition.committeePurpose || "",
             committeeMemberIds: requisition.committeeMemberIds || [],
+            scoringDeadline: requisition.scoringDeadline ? new Date(requisition.scoringDeadline) : undefined,
         });
     }, [requisition, form]);
 
@@ -548,8 +551,8 @@ const CommitteeManagement = ({ requisition, onCommitteeUpdated }: { requisition:
             <CardHeader className="flex flex-row items-start justify-between">
                 <div>
                     <CardTitle>Evaluation Committee</CardTitle>
-                    <CardDescription>
-                        {requisition.committeeName ? `"${requisition.committeeName}"` : "Assign a committee to evaluate quotations."}
+                     <CardDescription>
+                         {requisition.scoringDeadline ? `Scoring Deadline: ${format(new Date(requisition.scoringDeadline), 'PP')}` : 'Assign a committee to evaluate quotations.'}
                     </CardDescription>
                 </div>
                  <Dialog open={isCommitteeDialogOpen} onOpenChange={setCommitteeDialogOpen}>
@@ -568,13 +571,54 @@ const CommitteeManagement = ({ requisition, onCommitteeUpdated }: { requisition:
                         </DialogHeader>
                         <Form {...form}>
                         <form onSubmit={form.handleSubmit(handleSaveCommittee)} className="space-y-4">
-                            <FormField
-                                control={form.control}
-                                name="committeeName"
-                                render={({ field }) => (
-                                    <FormItem><FormLabel>Committee Name</FormLabel><FormControl><Input {...field} placeholder="e.g., Q4 Laptop Procurement Committee" /></FormControl><FormMessage /></FormItem>
-                                )}
-                            />
+                             <div className="grid md:grid-cols-2 gap-4">
+                                <FormField
+                                    control={form.control}
+                                    name="committeeName"
+                                    render={({ field }) => (
+                                        <FormItem><FormLabel>Committee Name</FormLabel><FormControl><Input {...field} placeholder="e.g., Q4 Laptop Procurement Committee" /></FormControl><FormMessage /></FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="scoringDeadline"
+                                    render={({ field }) => (
+                                        <FormItem className="flex flex-col pt-2">
+                                            <FormLabel>Committee Scoring Deadline</FormLabel>
+                                            <Popover>
+                                                <PopoverTrigger asChild>
+                                                <FormControl>
+                                                    <Button
+                                                        variant={"outline"}
+                                                        className={cn(
+                                                        "w-full pl-3 text-left font-normal",
+                                                        !field.value && "text-muted-foreground"
+                                                        )}
+                                                    >
+                                                        {field.value ? (
+                                                        format(field.value, "PPP")
+                                                        ) : (
+                                                        <span>Set a scoring deadline</span>
+                                                        )}
+                                                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                                    </Button>
+                                                </FormControl>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-auto p-0" align="start">
+                                                <Calendar
+                                                    mode="single"
+                                                    selected={field.value}
+                                                    onSelect={field.onChange}
+                                                    disabled={(date) => date < new Date()}
+                                                    initialFocus
+                                                />
+                                                </PopoverContent>
+                                            </Popover>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            </div>
                             <FormField
                                 control={form.control}
                                 name="committeePurpose"
@@ -678,7 +722,6 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
     const [selectedVendors, setSelectedVendors] = useState<string[]>([]);
     const [vendorSearch, setVendorSearch] = useState('');
     const [isSubmitting, setSubmitting] = useState(false);
-    const [scoringDeadline, setScoringDeadline] = useState<Date | undefined>(requisition.scoringDeadline ? new Date(requisition.scoringDeadline) : undefined);
     const [deadline, setDeadline] = useState<Date | undefined>(requisition.deadline ? new Date(requisition.deadline) : undefined);
     const { user } = useAuth();
     const { toast } = useToast();
@@ -698,7 +741,6 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
                 body: JSON.stringify({ 
                     userId: user.id, 
                     vendorIds: distributionType === 'all' ? 'all' : selectedVendors,
-                    scoringDeadline,
                     deadline
                 }),
             });
@@ -741,7 +783,7 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
             <CardHeader>
                 <CardTitle>RFQ Distribution</CardTitle>
                 <CardDescription>
-                    Send the Request for Quotation to vendors to begin receiving bids. Set the deadlines for the process.
+                    Send the Request for Quotation to vendors to begin receiving bids.
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -779,32 +821,6 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
                                     selected={deadline}
                                     onSelect={setDeadline}
                                     disabled={(date) => date < new Date()}
-                                    initialFocus
-                                />
-                            </PopoverContent>
-                        </Popover>
-                    </div>
-                    <div className="space-y-2">
-                        <Label>Committee Scoring Deadline</Label>
-                         <Popover>
-                            <PopoverTrigger asChild>
-                                <Button
-                                    variant={"outline"}
-                                    className={cn(
-                                    "w-full justify-start text-left font-normal",
-                                    !scoringDeadline && "text-muted-foreground"
-                                    )}
-                                >
-                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                    {scoringDeadline ? format(scoringDeadline, "PPP") : <span>Set a scoring deadline</span>}
-                                </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0">
-                                <Calendar
-                                    mode="single"
-                                    selected={scoringDeadline}
-                                    onSelect={setScoringDeadline}
-                                    disabled={(date) => date < (deadline || new Date())}
                                     initialFocus
                                 />
                             </PopoverContent>
