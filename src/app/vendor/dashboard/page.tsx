@@ -14,10 +14,10 @@ import {
   CardFooter,
 } from "@/components/ui/card"
 import { Badge } from '@/components/ui/badge';
-import { format, formatDistanceToNow } from 'date-fns';
+import { format, formatDistanceToNow, isPast } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { ArrowRight, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, Award } from 'lucide-react';
+import { ArrowRight, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, Award, Timer } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 
@@ -127,31 +127,42 @@ export default function VendorDashboardPage() {
                                 <Award className="h-5 w-5 !text-primary" />
                                 <AlertTitle className="text-xl font-bold">Congratulations! You've Been Awarded</AlertTitle>
                                 <AlertDescription className="text-primary/90">
-                                    The following requisitions have been awarded to you. Please await the official Purchase Order from the procurement team.
+                                    You have been awarded the following requisitions. Please respond before the deadline.
                                 </AlertDescription>
                             </Alert>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                {awardedRequisitions.map(req => (
-                                    <Card key={req.id} className="border-primary ring-2 ring-primary/50 bg-primary/5 relative">
-                                        <VendorStatusBadge status="Awarded" />
-                                        <CardHeader>
-                                            <CardTitle>{req.title}</CardTitle>
-                                            <CardDescription>From {req.department} Department</CardDescription>
-                                        </CardHeader>
-                                        <CardContent>
-                                            <div className="text-sm text-muted-foreground space-y-2">
-                                                <div><span className="font-semibold text-foreground">Requisition ID:</span> {req.id}</div>
-                                            </div>
-                                        </CardContent>
-                                        <CardFooter>
-                                            <Button asChild className="w-full" variant="secondary">
-                                                <Link href={`/vendor/requisitions/${req.id}`}>
-                                                    View Details <ArrowRight className="ml-2 h-4 w-4" />
-                                                </Link>
-                                            </Button>
-                                        </CardFooter>
-                                    </Card>
-                                ))}
+                                {awardedRequisitions.map(req => {
+                                    const isExpired = req.awardResponseDeadline && isPast(new Date(req.awardResponseDeadline));
+                                    return (
+                                        <Card key={req.id} className={cn("border-primary ring-2 ring-primary/50 bg-primary/5 relative", isExpired && "opacity-60")}>
+                                            <VendorStatusBadge status="Awarded" />
+                                            <CardHeader>
+                                                <CardTitle>{req.title}</CardTitle>
+                                                <CardDescription>From {req.department} Department</CardDescription>
+                                            </CardHeader>
+                                            <CardContent>
+                                                <div className="text-sm text-muted-foreground space-y-2">
+                                                    <div><span className="font-semibold text-foreground">Requisition ID:</span> {req.id}</div>
+                                                    {req.awardResponseDeadline && (
+                                                        <div className={cn("flex items-center gap-1", isExpired ? "text-destructive" : "text-amber-600")}>
+                                                            <Timer className="h-4 w-4" />
+                                                            <span className="font-semibold">
+                                                                Respond by: {format(new Date(req.awardResponseDeadline), 'PPpp')}
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </CardContent>
+                                            <CardFooter>
+                                                <Button asChild className="w-full" variant="secondary" disabled={isExpired}>
+                                                    <Link href={`/vendor/requisitions/${req.id}`}>
+                                                        {isExpired ? "Offer Expired" : "Respond to Award"} <ArrowRight className="ml-2 h-4 w-4" />
+                                                    </Link>
+                                                </Button>
+                                            </CardFooter>
+                                        </Card>
+                                    )
+                                })}
                             </div>
                         </div>
                     )}

@@ -15,7 +15,7 @@ export async function POST(
     const requisitionId = params.id;
     const body = await request.json();
     console.log('Request body:', body);
-    const { userId, action } = body as { userId: string; action: AwardAction };
+    const { userId, action, newDeadline } = body as { userId: string; action: AwardAction, newDeadline?: string };
 
     const user = users.find(u => u.id === userId);
     if (!user) {
@@ -74,6 +74,7 @@ export async function POST(
         return NextResponse.json({ error: 'Invalid action specified.' }, { status: 400 });
     }
     
+    requisition.awardResponseDeadline = newDeadline ? new Date(newDeadline) : undefined;
     requisition.updatedAt = new Date();
 
     const auditLogEntry = {

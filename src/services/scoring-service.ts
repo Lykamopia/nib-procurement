@@ -4,7 +4,7 @@ import { quotations, requisitions, auditLogs } from '@/lib/data-store';
 import { EvaluationCriteria, Quotation } from '@/lib/types';
 
 
-export function tallyAndAwardScores(requisitionId: string): { success: boolean, message: string, winner: string } {
+export function tallyAndAwardScores(requisitionId: string, awardResponseDeadline?: Date): { success: boolean, message: string, winner: string } {
     const requisition = requisitions.find(r => r.id === requisitionId);
     if (!requisition) {
         return { success: false, message: "Scoring service: Requisition not found.", winner: 'N/A' };
@@ -48,6 +48,7 @@ export function tallyAndAwardScores(requisitionId: string): { success: boolean, 
     });
     
     requisition.status = 'RFQ In Progress';
+    requisition.awardResponseDeadline = awardResponseDeadline;
     requisition.updatedAt = new Date();
 
     const winnerName = relevantQuotes[0]?.vendorName || 'N/A';

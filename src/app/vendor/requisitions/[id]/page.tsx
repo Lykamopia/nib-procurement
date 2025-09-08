@@ -15,16 +15,17 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Loader2, Send, ArrowLeft, CheckCircle, FileText, BadgeInfo, FileUp, CircleCheck, Info, Edit, FileEdit, PlusCircle, Trash2, ThumbsDown, ThumbsUp } from 'lucide-react';
+import { Loader2, Send, ArrowLeft, CheckCircle, FileText, BadgeInfo, FileUp, CircleCheck, Info, Edit, FileEdit, PlusCircle, Trash2, ThumbsDown, ThumbsUp, Timer } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import Link from 'next/link';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { format } from 'date-fns';
+import { format, isPast } from 'date-fns';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { cn } from '@/lib/utils';
 
 const quoteFormSchema = z.object({
   notes: z.string().optional(),
@@ -530,6 +531,7 @@ export default function VendorRequisitionPage() {
     const isAccepted = submittedQuote?.status === 'Accepted';
     const hasResponded = submittedQuote?.status === 'Accepted' || submittedQuote?.status === 'Declined';
     const hasSubmittedInvoice = submittedQuote?.status === 'Invoice Submitted';
+    const isResponseDeadlineExpired = requisition.awardResponseDeadline && isPast(new Date(requisition.awardResponseDeadline));
 
     const QuoteDisplayCard = ({ quote }: { quote: Quotation }) => (
          <Card>
@@ -628,12 +630,20 @@ export default function VendorRequisitionPage() {
                  <Card>
                     <CardHeader>
                         <CardTitle className="text-green-600">Congratulations! You've Been Awarded!</CardTitle>
-                        <CardDescription>Please review and respond to this award. If you accept, a Purchase Order will be generated.</CardDescription>
+                        <CardDescription>
+                            Please review and respond to this award.
+                             {requisition.awardResponseDeadline && (
+                                <p className={cn("text-sm font-semibold mt-2 flex items-center gap-2", isResponseDeadlineExpired ? "text-destructive" : "text-amber-600")}>
+                                    <Timer className="h-4 w-4" />
+                                    <span>Respond by: {format(new Date(requisition.awardResponseDeadline), 'PPpp')}</span>
+                                </p>
+                             )}
+                        </CardDescription>
                     </CardHeader>
                     <CardFooter className="gap-4">
                         <AlertDialog>
                             <AlertDialogTrigger asChild>
-                                <Button className="flex-1" disabled={isResponding}>
+                                <Button className="flex-1" disabled={isResponding || isResponseDeadlineExpired}>
                                     {isResponding ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ThumbsUp className="mr-2 h-4 w-4"/>} Accept Award
                                 </Button>
                             </AlertDialogTrigger>
@@ -652,7 +662,7 @@ export default function VendorRequisitionPage() {
                         </AlertDialog>
                         <AlertDialog>
                             <AlertDialogTrigger asChild>
-                                <Button className="flex-1" variant="destructive" disabled={isResponding}>
+                                <Button className="flex-1" variant="destructive" disabled={isResponding || isResponseDeadlineExpired}>
                                     {isResponding ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ThumbsDown className="mr-2 h-4 w-4"/>} Decline Award
                                 </Button>
                             </AlertDialogTrigger>
@@ -690,7 +700,7 @@ export default function VendorRequisitionPage() {
                         <CardDescription>
                             ID: {requisition.id}
                              {requisition.deadline && (
-                                <p className="text-xs text-destructive mt-1">Deadline: {format(new Date(requisition.deadline), 'PPpp')}</p>
+                                <p className="text-xs text-destructive mt-1">Quotation Deadline: {format(new Date(requisition.deadline), 'PPpp')}</p>
                             )}
                         </CardDescription>
                     </CardHeader>

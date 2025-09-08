@@ -91,6 +91,7 @@ export type PurchaseRequisition = {
   customQuestions?: CustomQuestion[];
   deadline?: Date;
   scoringDeadline?: Date;
+  awardResponseDeadline?: Date;
   evaluationCriteria?: EvaluationCriteria;
   committeeMemberIds?: string[];
   committeeName?: string;

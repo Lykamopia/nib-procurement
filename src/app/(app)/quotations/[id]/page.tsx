@@ -32,13 +32,13 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, PlusCircle, Award, XCircle, FileSignature, FileText, Bot, Lightbulb, ArrowLeft, Star, Undo, Check, Send, Search, BadgeHelp, BadgeCheck, BadgeX, Crown, Medal, Trophy, RefreshCw, TimerOff, ClipboardList, TrendingUp, Scale, Edit2, Users, GanttChart, Eye, CheckCircle, CalendarIcon } from 'lucide-react';
+import { Loader2, PlusCircle, Award, XCircle, FileSignature, FileText, Bot, Lightbulb, ArrowLeft, Star, Undo, Check, Send, Search, BadgeHelp, BadgeCheck, BadgeX, Crown, Medal, Trophy, RefreshCw, TimerOff, ClipboardList, TrendingUp, Scale, Edit2, Users, GanttChart, Eye, CheckCircle, CalendarIcon, Timer } from 'lucide-react';
 import { useForm, useFieldArray, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { PurchaseOrder, PurchaseRequisition, Quotation, Vendor, QuotationStatus, EvaluationCriteria, User, CommitteeScoreSet } from '@/lib/types';
-import { format, formatDistanceToNow, isBefore } from 'date-fns';
+import { format, formatDistanceToNow, isBefore, isPast } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/contexts/auth-context';
@@ -1152,9 +1152,11 @@ const ScoringProgressTracker = ({
   requisition: PurchaseRequisition;
   quotations: Quotation[];
   allUsers: User[];
-  onFinalize: () => void;
+  onFinalize: (awardResponseDeadline?: Date) => void;
   isFinalizing: boolean;
 }) => {
+    const [awardResponseDeadline, setAwardResponseDeadline] = useState<Date | undefined>();
+
     const assignedCommitteeMembers = useMemo(() => {
         return allUsers.filter(u => requisition.committeeMemberIds?.includes(u.id));
     }, [allUsers, requisition.committeeMemberIds]);
@@ -1228,12 +1230,41 @@ const ScoringProgressTracker = ({
                         <AlertDialogHeader>
                             <AlertDialogTitle>Finalize Awards?</AlertDialogTitle>
                             <AlertDialogDescription>
-                                This will tally all scores and automatically assign "Awarded", "Standby", and "Rejected" statuses to the quotations. This action cannot be undone.
+                                This will tally all scores and automatically assign statuses. Set a deadline for the winning vendor to respond.
                             </AlertDialogDescription>
                         </AlertDialogHeader>
+                         <div className="py-4">
+                            <Label htmlFor='award-response-deadline'>Award Response Deadline</Label>
+                             <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button
+                                        id="award-response-deadline"
+                                        variant={"outline"}
+                                        className={cn(
+                                        "w-full justify-start text-left font-normal mt-2",
+                                        !awardResponseDeadline && "text-muted-foreground"
+                                        )}
+                                    >
+                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                        {awardResponseDeadline ? format(awardResponseDeadline, "PPP") : <span>Pick a date</span>}
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0">
+                                    <Calendar
+                                        mode="single"
+                                        selected={awardResponseDeadline}
+                                        onSelect={setAwardResponseDeadline}
+                                        disabled={(date) => date < new Date()}
+                                        initialFocus
+                                    />
+                                </PopoverContent>
+                            </Popover>
+                        </div>
                         <AlertDialogFooter>
                             <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={onFinalize}>Proceed</AlertDialogAction>
+                            <AlertDialogAction onClick={() => onFinalize(awardResponseDeadline)} disabled={!awardResponseDeadline}>
+                                Proceed
+                            </AlertDialogAction>
                         </AlertDialogFooter>
                     </AlertDialogContent>
                 </AlertDialog>
@@ -1323,14 +1354,14 @@ export default function QuotationDetailsPage() {
     setLastPOCreated(po);
   }
   
-   const handleFinalizeScores = async () => {
+   const handleFinalizeScores = async (awardResponseDeadline?: Date) => {
         if (!user || !requisition) return;
         setIsFinalizing(true);
         try {
              const response = await fetch(`/api/requisitions/${requisition.id}/finalize-scores`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId: user.id }),
+                body: JSON.stringify({ userId: user.id, awardResponseDeadline }),
             });
             if (!response.ok) {
                 const errorData = await response.json();

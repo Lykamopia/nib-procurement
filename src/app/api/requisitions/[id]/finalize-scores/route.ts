@@ -12,7 +12,7 @@ export async function POST(
   const requisitionId = params.id;
   try {
     const body = await request.json();
-    const { userId } = body;
+    const { userId, awardResponseDeadline } = body;
 
     const user = users.find(u => u.id === userId);
     if (!user) {
@@ -23,7 +23,7 @@ export async function POST(
         return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    const result = tallyAndAwardScores(requisitionId);
+    const result = tallyAndAwardScores(requisitionId, awardResponseDeadline ? new Date(awardResponseDeadline) : undefined);
 
     if (!result.success) {
         throw new Error(result.message);
