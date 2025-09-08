@@ -552,7 +552,7 @@ const CommitteeManagement = ({ requisition, onCommitteeUpdated }: { requisition:
                 <div>
                     <CardTitle>Evaluation Committee</CardTitle>
                      <CardDescription>
-                         {requisition.scoringDeadline ? `Scoring Deadline: ${format(new Date(requisition.scoringDeadline), 'PP')}` : 'Assign a committee to evaluate quotations.'}
+                         {requisition.committeePurpose ? `Purpose: ${requisition.committeePurpose}` : 'Assign a committee to evaluate quotations.'}
                     </CardDescription>
                 </div>
                  <Dialog open={isCommitteeDialogOpen} onOpenChange={setCommitteeDialogOpen}>
@@ -698,8 +698,7 @@ const CommitteeManagement = ({ requisition, onCommitteeUpdated }: { requisition:
             </CardHeader>
             {requisition.committeeMemberIds && requisition.committeeMemberIds.length > 0 && (
                 <CardContent>
-                    <p className="text-sm text-muted-foreground italic mb-4">"{requisition.committeePurpose}"</p>
-                    <div className="flex flex-wrap gap-4">
+                    <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
                         {assignedMembers.map(member => (
                             <div key={member.id} className="flex items-center gap-2">
                                 <Avatar className="h-8 w-8">
@@ -884,12 +883,15 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
                 )}
             </CardContent>
             <CardFooter>
-                <Button onClick={handleSendRFQ} disabled={isSubmitting || !requisition.committeeMemberIds || requisition.committeeMemberIds.length === 0}>
+                <Button onClick={handleSendRFQ} disabled={isSubmitting || !requisition.committeeMemberIds || requisition.committeeMemberIds.length === 0 || !deadline}>
                     {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
                     Send RFQ
                 </Button>
                  {!requisition.committeeMemberIds || requisition.committeeMemberIds.length === 0 && (
                     <p className="text-xs text-muted-foreground ml-4">An evaluation committee must be assigned before sending the RFQ.</p>
+                )}
+                {!deadline && (
+                    <p className="text-xs text-muted-foreground ml-4">A quotation deadline must be set before sending the RFQ.</p>
                 )}
             </CardFooter>
         </Card>
