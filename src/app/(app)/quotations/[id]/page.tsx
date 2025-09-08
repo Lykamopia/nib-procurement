@@ -746,65 +746,70 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
             </CardHeader>
             <CardContent className="space-y-4">
                 <div className="grid md:grid-cols-3 gap-4">
-                    <Select value={distributionType} onValueChange={(v) => setDistributionType(v as any)}>
-                        <SelectTrigger>
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">Send to all verified vendors</SelectItem>
-                            <SelectItem value="select">Send to selected vendors</SelectItem>
-                        </SelectContent>
-                    </Select>
-                     <Popover>
-                        <PopoverTrigger asChild>
-                            <Button
-                                variant={"outline"}
-                                className={cn(
-                                "justify-start text-left font-normal",
-                                !deadline && "text-muted-foreground"
-                                )}
-                            >
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                {deadline ? format(deadline, "PPP") : <span>Set Quotation Deadline</span>}
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0">
-                            <Calendar
-                                mode="single"
-                                selected={deadline}
-                                onSelect={setDeadline}
-                                disabled={(date) =>
-                                    date < new Date()
-                                }
-                                initialFocus
-                            />
-                        </PopoverContent>
-                    </Popover>
-                     <Popover>
-                        <PopoverTrigger asChild>
-                            <Button
-                                variant={"outline"}
-                                className={cn(
-                                "justify-start text-left font-normal",
-                                !scoringDeadline && "text-muted-foreground"
-                                )}
-                            >
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                {scoringDeadline ? format(scoringDeadline, "PPP") : <span>Set Scoring Deadline</span>}
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0">
-                            <Calendar
-                                mode="single"
-                                selected={scoringDeadline}
-                                onSelect={setScoringDeadline}
-                                disabled={(date) =>
-                                    date < new Date()
-                                }
-                                initialFocus
-                            />
-                        </PopoverContent>
-                    </Popover>
+                    <div className="space-y-2">
+                        <Label>Distribution Type</Label>
+                        <Select value={distributionType} onValueChange={(v) => setDistributionType(v as any)}>
+                            <SelectTrigger>
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">Send to all verified vendors</SelectItem>
+                                <SelectItem value="select">Send to selected vendors</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                     <div className="space-y-2">
+                        <Label>Quotation Deadline</Label>
+                         <Popover>
+                            <PopoverTrigger asChild>
+                                <Button
+                                    variant={"outline"}
+                                    className={cn(
+                                    "w-full justify-start text-left font-normal",
+                                    !deadline && "text-muted-foreground"
+                                    )}
+                                >
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {deadline ? format(deadline, "PPP") : <span>Set a deadline</span>}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0">
+                                <Calendar
+                                    mode="single"
+                                    selected={deadline}
+                                    onSelect={setDeadline}
+                                    disabled={(date) => date < new Date()}
+                                    initialFocus
+                                />
+                            </PopoverContent>
+                        </Popover>
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Scoring Deadline</Label>
+                         <Popover>
+                            <PopoverTrigger asChild>
+                                <Button
+                                    variant={"outline"}
+                                    className={cn(
+                                    "w-full justify-start text-left font-normal",
+                                    !scoringDeadline && "text-muted-foreground"
+                                    )}
+                                >
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {scoringDeadline ? format(scoringDeadline, "PPP") : <span>Set a deadline</span>}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0">
+                                <Calendar
+                                    mode="single"
+                                    selected={scoringDeadline}
+                                    onSelect={setScoringDeadline}
+                                    disabled={(date) => date < new Date()}
+                                    initialFocus
+                                />
+                            </PopoverContent>
+                        </Popover>
+                    </div>
                 </div>
 
                 {distributionType === 'select' && (
@@ -1543,17 +1548,7 @@ export default function QuotationDetailsPage() {
                 <CardHeader className="flex flex-row items-start sm:items-center justify-between">
                     <div>
                         <CardTitle>Quotations for {requisition.id}</CardTitle>
-                        <CardDescription>
-                            {requisition.title}
-                            <div className="flex gap-4 text-xs mt-1">
-                                {requisition.deadline && (
-                                    <span>Vendor Deadline: {format(new Date(requisition.deadline), "PPpp")}</span>
-                                )}
-                                {requisition.scoringDeadline && (
-                                     <span className="font-semibold">Scoring Deadline: {format(new Date(requisition.scoringDeadline), "PPpp")}</span>
-                                )}
-                            </div>
-                        </CardDescription>
+                        <CardDescription>{requisition.title}</CardDescription>
                     </div>
                     <div className="flex items-center gap-2">
                         {isAwarded && requisition.status !== 'PO Created' && user.role === 'Procurement Officer' && (
