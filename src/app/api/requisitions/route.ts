@@ -38,7 +38,6 @@ export async function POST(request: Request) {
       department: body.department,
       items: itemsWithIds,
       customQuestions: questionsWithIds,
-      deadline: body.deadline ? new Date(body.deadline) : undefined,
       evaluationCriteria: body.evaluationCriteria,
       totalPrice: 0,
       justification: body.justification,
@@ -108,7 +107,6 @@ export async function PATCH(
         requisition.department = body.department;
         requisition.items = body.items;
         requisition.customQuestions = body.customQuestions;
-        requisition.deadline = body.deadline ? new Date(body.deadline) : undefined;
         requisition.justification = body.justification;
         requisition.evaluationCriteria = body.evaluationCriteria;
         

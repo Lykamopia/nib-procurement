@@ -679,6 +679,7 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
     const [vendorSearch, setVendorSearch] = useState('');
     const [isSubmitting, setSubmitting] = useState(false);
     const [scoringDeadline, setScoringDeadline] = useState<Date | undefined>();
+    const [deadline, setDeadline] = useState<Date | undefined>();
     const { user } = useAuth();
     const { toast } = useToast();
 
@@ -697,7 +698,8 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
                 body: JSON.stringify({ 
                     userId: user.id, 
                     vendorIds: distributionType === 'all' ? 'all' : selectedVendors,
-                    scoringDeadline
+                    scoringDeadline,
+                    deadline
                 }),
             });
 
@@ -743,7 +745,7 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-                <div className="grid md:grid-cols-2 gap-4">
+                <div className="grid md:grid-cols-3 gap-4">
                     <Select value={distributionType} onValueChange={(v) => setDistributionType(v as any)}>
                         <SelectTrigger>
                             <SelectValue />
@@ -759,11 +761,36 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
                                 variant={"outline"}
                                 className={cn(
                                 "justify-start text-left font-normal",
+                                !deadline && "text-muted-foreground"
+                                )}
+                            >
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {deadline ? format(deadline, "PPP") : <span>Set Quotation Deadline</span>}
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0">
+                            <Calendar
+                                mode="single"
+                                selected={deadline}
+                                onSelect={setDeadline}
+                                disabled={(date) =>
+                                    date < new Date()
+                                }
+                                initialFocus
+                            />
+                        </PopoverContent>
+                    </Popover>
+                     <Popover>
+                        <PopoverTrigger asChild>
+                            <Button
+                                variant={"outline"}
+                                className={cn(
+                                "justify-start text-left font-normal",
                                 !scoringDeadline && "text-muted-foreground"
                                 )}
                             >
                                 <CalendarIcon className="mr-2 h-4 w-4" />
-                                {scoringDeadline ? format(scoringDeadline, "PPP") : <span>Set scoring deadline</span>}
+                                {scoringDeadline ? format(scoringDeadline, "PPP") : <span>Set Scoring Deadline</span>}
                             </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0">
@@ -1054,8 +1081,8 @@ const ScoringDialog = ({
             </DialogHeader>
             <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)}>
-            <ScrollArea className="h-[60vh]">
-                <div className="p-1 space-y-6">
+            <ScrollArea className="h-[60vh] p-1">
+                <div className="space-y-6">
                     <Card>
                         <CardHeader>
                             <CardTitle className="text-xl flex items-center gap-2">
