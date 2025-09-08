@@ -32,7 +32,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, PlusCircle, Award, XCircle, FileSignature, FileText, Bot, Lightbulb, ArrowLeft, Star, Undo, Check, Send, Search, BadgeHelp, BadgeCheck, BadgeX, Crown, Medal, Trophy, RefreshCw, TimerOff, ClipboardList, TrendingUp, Scale, Edit2, Users, GanttChart, Eye } from 'lucide-react';
+import { Loader2, PlusCircle, Award, XCircle, FileSignature, FileText, Bot, Lightbulb, ArrowLeft, Star, Undo, Check, Send, Search, BadgeHelp, BadgeCheck, BadgeX, Crown, Medal, Trophy, RefreshCw, TimerOff, ClipboardList, TrendingUp, Scale, Edit2, Users, GanttChart, Eye, CheckCircle } from 'lucide-react';
 import { useForm, useFieldArray, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -234,9 +234,13 @@ const QuoteComparison = ({ quotes, requisition, recommendation, onScore, user, i
     const getStatusVariant = (status: QuotationStatus) => {
         switch (status) {
             case 'Awarded': return 'default';
+            case 'Accepted': return 'default';
             case 'Standby': return 'secondary';
             case 'Submitted': return 'outline';
             case 'Rejected': return 'destructive';
+            case 'Declined': return 'destructive';
+            case 'Failed': return 'destructive';
+            case 'Invoice Submitted': return 'outline';
         }
     }
 
@@ -261,7 +265,7 @@ const QuoteComparison = ({ quotes, requisition, recommendation, onScore, user, i
                 const isRecommended = aiRank > -1;
                 const hasUserScored = quote.scores?.some(s => s.scorerId === user.id);
                 return (
-                    <Card key={quote.id} className={cn("flex flex-col", quote.status === 'Awarded' && 'border-primary ring-2 ring-primary')}>
+                    <Card key={quote.id} className={cn("flex flex-col", (quote.status === 'Awarded' || quote.status === 'Accepted') && 'border-primary ring-2 ring-primary')}>
                        <CardHeader>
                             <CardTitle className="flex justify-between items-start">
                                <div className="flex items-center gap-2">
@@ -386,41 +390,29 @@ const AIQuoteAdvisor = ({ requisition, quotes, onRecommendation }: { requisition
 }
 
 
-const ContractManagement = ({ requisition, onContractFinalized, onPOCreated }: { requisition: PurchaseRequisition, onContractFinalized: () => void, onPOCreated: (po: PurchaseOrder) => void }) => {
-    const [isContractSubmitting, setContractSubmitting] = useState(false);
-    const [isPOSubmitting, setPOSubmitting] = useState(false);
+const ContractManagement = ({ requisition }: { requisition: PurchaseRequisition }) => {
+    const [isSubmitting, setSubmitting] = useState(false);
     const { toast } = useToast();
     const { user } = useAuth();
-    const [fileName, setFileName] = useState(requisition.contract?.fileName || '');
 
-    const contractForm = useForm<z.infer<typeof contractFormSchema>>({
-        resolver: zodResolver(contractFormSchema),
-        defaultValues: {
-            fileName: requisition.contract?.fileName || "",
-            notes: requisition.negotiationNotes || "",
-        }
-    });
+    const awardedQuote = requisition.quotations?.find(q => q.status === 'Accepted');
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files.length > 0) {
-            const file = e.target.files[0];
-            setFileName(file.name);
-            contractForm.setValue('fileName', file.name);
-        }
-    }
+    const onContractSubmit = async (event: React.FormEvent) => {
+        event.preventDefault();
+        if (!user || !awardedQuote) return;
+        setSubmitting(true);
+        // This is a simplified submission. In a real app, you'd handle file uploads.
+        const fileName = (event.target as any).fileName.value;
+        const notes = (event.target as any).notes.value;
 
-    const onContractSubmit = async (values: z.infer<typeof contractFormSchema>) => {
-        if (!user) return;
-        setContractSubmitting(true);
         try {
             const response = await fetch(`/api/requisitions/${requisition.id}/contract`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ...values, userId: user.id }),
+                body: JSON.stringify({ fileName, notes, userId: user.id }),
             });
-            if (!response.ok) throw new Error("Failed to finalize contract.");
-            toast({ title: "Contract Finalized!", description: "The contract has been attached and notes saved." });
-            onContractFinalized();
+            if (!response.ok) throw new Error("Failed to save contract details.");
+            toast({ title: "Contract Details Saved!", description: "The PO can now be formally sent to the vendor." });
         } catch (error) {
              toast({
                 variant: 'destructive',
@@ -428,108 +420,42 @@ const ContractManagement = ({ requisition, onContractFinalized, onPOCreated }: {
                 description: error instanceof Error ? error.message : 'An unknown error occurred.',
             });
         } finally {
-            setContractSubmitting(false);
+            setSubmitting(false);
         }
     }
-
-    const handleCreatePO = async () => {
-        if (!user) return;
-        setPOSubmitting(true);
-        try {
-            const response = await fetch(`/api/purchase-orders`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ requisitionId: requisition.id, userId: user.id }),
-            });
-            const newPO = await response.json();
-            if (!response.ok) throw new Error(newPO.error || "Failed to create Purchase Order.");
-            
-            toast({ title: "Purchase Order Created!", description: `PO ${newPO.id} has been successfully created.` });
-            onPOCreated(newPO);
-        } catch (error) {
-             toast({
-                variant: 'destructive',
-                title: 'Error',
-                description: error instanceof Error ? error.message : 'An unknown error occurred.',
-            });
-        } finally {
-            setPOSubmitting(false);
-        }
-    }
-
-    const awardedQuote = requisition.quotations?.find(q => q.status === 'Awarded');
+    
+    if (!awardedQuote) return null;
 
     return (
         <Card className="mt-6 border-primary/50">
             <CardHeader>
                 <CardTitle>Contract & PO Finalization</CardTitle>
                 <CardDescription>
-                    Finalize the contract for {requisition.id} with <span className="font-semibold">{awardedQuote?.vendorName}</span> and generate the Purchase Order.
+                    The vendor <span className="font-semibold">{awardedQuote?.vendorName}</span> has accepted the award. 
+                    A PO (<span className="font-mono">{requisition.purchaseOrderId}</span>) has been generated. Please finalize and send the documents.
                 </CardDescription>
             </CardHeader>
-            <Form {...contractForm}>
-                <form onSubmit={contractForm.handleSubmit(onContractSubmit)}>
-                    <CardContent className="space-y-4">
-                        <FormField
-                            control={contractForm.control}
-                            name="fileName"
-                            render={({ field }) => (
-                                <FormItem>
-                                <FormLabel>Contract Document</FormLabel>
-                                 <FormControl>
-                                    <Input id="contract-file" type="file" onChange={handleFileChange} className="hidden" />
-                                 </FormControl>
-                                 <div className="flex items-center gap-2">
-                                    <Button asChild variant="outline">
-                                        <label htmlFor="contract-file" className={cn(!!field.value && "hidden")}>Upload File</label>
-                                    </Button>
-                                    {field.value && (
-                                        <div className="flex items-center gap-2 text-sm text-muted-foreground p-2 border rounded-md">
-                                            <FileText className="h-4 w-4" />
-                                            <span>{field.value}</span>
-                                            <Button variant="ghost" size="sm" onClick={() => { setFileName(''); contractForm.setValue('fileName', '');}}>Change</Button>
-                                        </div>
-                                    )}
-                                 </div>
-                                <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={contractForm.control}
-                            name="notes"
-                            render={({ field }) => (
-                                <FormItem>
-                                <FormLabel>Negotiation & Finalization Notes</FormLabel>
-                                <FormControl>
-                                    <Textarea rows={5} placeholder="Record key negotiation points, final terms, and any other relevant contract details..." {...field} />
-                                </FormControl>
-                                <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                    </CardContent>
-                    <CardFooter>
-                         <Button type="submit" disabled={isContractSubmitting || !contractForm.formState.isDirty}>
-                            {isContractSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileSignature className="mr-2 h-4 w-4" />}
-                            Save Contract Details
-                        </Button>
-                    </CardFooter>
-                </form>
-            </Form>
-             <Separator className="my-4" />
-             <CardContent>
-                <div className="flex items-center justify-between rounded-lg border p-4">
-                    <div>
-                        <h4 className="font-semibold">Generate Purchase Order</h4>
-                        <p className="text-sm text-muted-foreground">Once contract details are saved, create the official PO.</p>
+            <form onSubmit={onContractSubmit}>
+                <CardContent className="space-y-4">
+                     <div>
+                        <Label htmlFor="fileName">Final Contract Document</Label>
+                        <Input id="fileName" name="fileName" type="file" />
                     </div>
-                    <Button onClick={handleCreatePO} disabled={isPOSubmitting || !requisition.contract}>
-                        {isPOSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Create PO
+                    <div>
+                        <Label htmlFor="notes">Negotiation & Finalization Notes</Label>
+                        <Textarea id="notes" name="notes" rows={5} placeholder="Record key negotiation points, final terms, etc." />
+                    </div>
+                </CardContent>
+                <CardFooter className="justify-between">
+                    <Button type="submit" disabled={isSubmitting}>
+                        {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileSignature className="mr-2 h-4 w-4" />}
+                        Save Contract Details
                     </Button>
-                </div>
-            </CardContent>
+                    <Button asChild variant="secondary">
+                        <Link href={`/purchase-orders/${requisition.purchaseOrderId}`} target="_blank">View Purchase Order</Link>
+                    </Button>
+                </CardFooter>
+            </form>
         </Card>
     )
 }
@@ -1304,7 +1230,8 @@ export default function QuotationDetailsPage() {
   const router = useRouter();
   const id = params.id as string;
   
-  const isAwarded = quotations.some(q => q.status === 'Awarded');
+  const isAwarded = quotations.some(q => q.status === 'Awarded' || q.status === 'Accepted' || q.status === 'Declined');
+  const isAccepted = quotations.some(q => q.status === 'Accepted');
   const secondStandby = useMemo(() => quotations.find(q => q.rank === 2), [quotations]);
   const thirdStandby = useMemo(() => quotations.find(q => q.rank === 3), [quotations]);
 
@@ -1444,7 +1371,7 @@ export default function QuotationDetailsPage() {
   
   const getCurrentStep = (): 'rfq' | 'award' | 'finalize' | 'completed' => {
     if (requisition.status === 'Approved') return 'rfq';
-    if (isAwarded) {
+    if (isAccepted) {
         if (requisition.status === 'PO Created') return 'completed';
         return 'finalize';
     }
@@ -1627,6 +1554,17 @@ export default function QuotationDetailsPage() {
                         />
                     )}
                 </Dialog>
+                 {isAccepted && (
+                    <CardFooter>
+                         <Alert variant="default" className="w-full border-green-600">
+                            <CheckCircle className="h-4 w-4 text-green-600" />
+                            <AlertTitle>Award Accepted</AlertTitle>
+                            <AlertDescription>
+                                The vendor has accepted the award. The PO has been generated.
+                            </AlertDescription>
+                        </Alert>
+                    </CardFooter>
+                )}
             </Card>
         )}
         
@@ -1640,25 +1578,8 @@ export default function QuotationDetailsPage() {
             />
         )}
 
-        {lastPOCreated && (
-            <CardContent>
-                <Alert>
-                    <AlertTitle>Success!</AlertTitle>
-                    <AlertDescription className="flex items-center justify-between">
-                        <span>Purchase Order {lastPOCreated.id} was created.</span>
-                        <Button asChild variant="link">
-                            <Link href={`/purchase-orders/${lastPOCreated.id}`} target="_blank">View PO</Link>
-                        </Button>
-                    </AlertDescription>
-                </Alert>
-            </CardContent>
-        )}
-
-        {isAwarded && requisition.status !== 'PO Created' && user.role !== 'Committee Member' && (
-            <>
-                <Separator className="my-6"/>
-                <ContractManagement requisition={requisition} onContractFinalized={handleContractFinalized} onPOCreated={handlePOCreated}/>
-            </>
+        {isAccepted && requisition.status !== 'PO Created' && user.role !== 'Committee Member' && (
+            <ContractManagement requisition={requisition} />
         )}
          {requisition && (
             <RequisitionDetailsDialog 
@@ -1670,4 +1591,3 @@ export default function QuotationDetailsPage() {
     </div>
   );
 }
-

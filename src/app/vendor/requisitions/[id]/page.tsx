@@ -721,8 +721,8 @@ export default function VendorRequisitionPage() {
                                 <div>
                                     <h3 className="font-semibold text-sm mb-2">Additional Questions from Requester</h3>
                                     <div className="space-y-3 text-sm">
-                                        {requisition.customQuestions.map(q => (
-                                            <div key={q.id}>
+                                        {requisition.customQuestions.map((q,i) => (
+                                            <div key={`${q.id}-${i}`}>
                                                 <p className="font-medium">{q.questionText}</p>
                                                 {q.questionType === 'boolean' && <p className="text-muted-foreground text-xs italic">Please answer with True/False.</p>}
                                                 {q.questionType === 'multiple-choice' && (
