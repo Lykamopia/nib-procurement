@@ -880,9 +880,9 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
     );
 };
 
-const WorkflowStepper = ({ step }: { step: 'rfq' | 'award' | 'finalize' | 'completed' }) => {
+const WorkflowStepper = ({ step }: { step: 'committee' | 'rfq' | 'award' | 'finalize' | 'completed' }) => {
      const getStepClass = (currentStep: string, targetStep: string) => {
-        const stepOrder = ['rfq', 'award', 'finalize', 'completed'];
+        const stepOrder = ['committee', 'rfq', 'award', 'finalize', 'completed'];
         const currentIndex = stepOrder.indexOf(currentStep);
         const targetIndex = stepOrder.indexOf(targetStep);
         if (currentIndex > targetIndex) return 'completed';
@@ -890,6 +890,7 @@ const WorkflowStepper = ({ step }: { step: 'rfq' | 'award' | 'finalize' | 'compl
         return 'inactive';
     };
 
+    const committeeState = getStepClass(step, 'committee');
     const rfqState = getStepClass(step, 'rfq');
     const awardState = getStepClass(step, 'award');
     const finalizeState = getStepClass(step, 'finalize');
@@ -907,26 +908,35 @@ const WorkflowStepper = ({ step }: { step: 'rfq' | 'award' | 'finalize' | 'compl
     }
 
     return (
-        <div className="flex items-center justify-center space-x-2 sm:space-x-4">
+        <div className="flex items-center justify-center space-x-1 sm:space-x-2">
             <div className="flex items-center gap-2">
-                <div className={cn("flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold", stateClasses[rfqState])}>
-                    {rfqState === 'completed' ? <Check className="h-4 w-4"/> : '1'}
+                <div className={cn("flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold", stateClasses[committeeState])}>
+                    {committeeState === 'completed' ? <Check className="h-4 w-4"/> : '1'}
+                </div>
+                <span className={cn("font-medium", textClasses[committeeState])}>Assign Committee</span>
+            </div>
+             <div className={cn("h-px flex-1 bg-border transition-colors", (rfqState === 'active' || rfqState === 'completed') && "bg-primary")}></div>
+
+            <div className="flex items-center gap-2">
+                <div className={cn("flex h-6 w-6 items-center justify-center rounded-full border text-xs font-semibold", stateClasses[rfqState])}>
+                    {rfqState === 'completed' ? <Check className="h-4 w-4"/> : '2'}
                 </div>
                 <span className={cn("font-medium", textClasses[rfqState])}>Send RFQ</span>
             </div>
-            <div className={cn("h-px w-16 bg-border transition-colors", (awardState === 'active' || awardState === 'completed' || step === 'finalize') && "bg-primary")}></div>
+             <div className={cn("h-px flex-1 bg-border transition-colors", (awardState === 'active' || awardState === 'completed') && "bg-primary")}></div>
+
             <div className="flex items-center gap-2">
                 <div className={cn("flex h-6 w-6 items-center justify-center rounded-full border text-xs font-semibold", stateClasses[awardState])}>
-                    {awardState === 'completed' ? <Check className="h-4 w-4"/> : '2'}
+                    {awardState === 'completed' ? <Check className="h-4 w-4"/> : '3'}
                 </div>
                 <span className={cn("font-medium", textClasses[awardState])}>Score & Award</span>
             </div>
-            <div className={cn("h-px w-16 bg-border transition-colors", (finalizeState === 'active' || finalizeState === 'completed' || step === 'completed') && "bg-primary")}></div>
+            <div className={cn("h-px flex-1 bg-border transition-colors", (finalizeState === 'active' || finalizeState === 'completed') && "bg-primary")}></div>
              <div className="flex items-center gap-2">
                 <div className={cn("flex h-6 w-6 items-center justify-center rounded-full border text-xs font-semibold", stateClasses[finalizeState])}>
-                    {finalizeState === 'completed' ? <Check className="h-4 w-4"/> : '3'}
+                    {finalizeState === 'completed' ? <Check className="h-4 w-4"/> : '4'}
                 </div>
-                <span className={cn("font-medium", textClasses[finalizeState])}>Finalize Contract & PO</span>
+                <span className={cn("font-medium", textClasses[finalizeState])}>Finalize</span>
             </div>
         </div>
     );
@@ -1463,8 +1473,13 @@ export default function QuotationDetailsPage() {
      return <div className="text-center p-8">Requisition not found.</div>;
   }
   
-  const getCurrentStep = (): 'rfq' | 'award' | 'finalize' | 'completed' => {
-    if (requisition.status === 'Approved') return 'rfq';
+  const getCurrentStep = (): 'committee' | 'rfq' | 'award' | 'finalize' | 'completed' => {
+      if (requisition.status === 'Approved') {
+        if (!requisition.committeeMemberIds || requisition.committeeMemberIds.length === 0) {
+            return 'committee';
+        }
+        return 'rfq';
+    }
     if (isAccepted) {
         if (requisition.status === 'PO Created') return 'completed';
         return 'finalize';
@@ -1529,9 +1544,17 @@ export default function QuotationDetailsPage() {
             </Card>
         )}
 
-        {requisition.status === 'Approved' && (user.role === 'Procurement Officer' || user.role === 'Committee') && (
-            <div className="grid md:grid-cols-2 gap-6">
-                <CommitteeManagement
+        {currentStep === 'committee' && (user.role === 'Procurement Officer' || user.role === 'Committee') && (
+             <CommitteeManagement
+                    requisition={requisition} 
+                    onCommitteeUpdated={fetchRequisitionAndQuotes}
+                />
+        )}
+
+
+        {currentStep === 'rfq' && (user.role === 'Procurement Officer' || user.role === 'Committee') && (
+            <div className="grid md:grid-cols-2 gap-6 items-start">
+                 <CommitteeManagement
                     requisition={requisition} 
                     onCommitteeUpdated={fetchRequisitionAndQuotes}
                 />
