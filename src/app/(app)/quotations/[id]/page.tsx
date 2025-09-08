@@ -48,7 +48,7 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 import { analyzeQuotes } from '@/ai/flows/quote-analysis';
 import type { QuoteAnalysisInput, QuoteAnalysisOutput } from '@/ai/flows/quote-analysis.types';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Label } from '@/components/ui/label';
@@ -678,8 +678,8 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
     const [selectedVendors, setSelectedVendors] = useState<string[]>([]);
     const [vendorSearch, setVendorSearch] = useState('');
     const [isSubmitting, setSubmitting] = useState(false);
-    const [scoringDeadline, setScoringDeadline] = useState<Date | undefined>();
-    const [deadline, setDeadline] = useState<Date | undefined>();
+    const [scoringDeadline, setScoringDeadline] = useState<Date | undefined>(requisition.scoringDeadline ? new Date(requisition.scoringDeadline) : undefined);
+    const [deadline, setDeadline] = useState<Date | undefined>(requisition.deadline ? new Date(requisition.deadline) : undefined);
     const { user } = useAuth();
     const { toast } = useToast();
 
@@ -741,11 +741,11 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
             <CardHeader>
                 <CardTitle>RFQ Distribution</CardTitle>
                 <CardDescription>
-                    Send the Request for Quotation to vendors to begin receiving bids.
+                    Send the Request for Quotation to vendors to begin receiving bids. Set the deadlines for the process.
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-                <div className="grid md:grid-cols-3 gap-4">
+                <div className="grid md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                         <Label>Distribution Type</Label>
                         <Select value={distributionType} onValueChange={(v) => setDistributionType(v as any)}>
@@ -778,32 +778,6 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
                                     mode="single"
                                     selected={deadline}
                                     onSelect={setDeadline}
-                                    disabled={(date) => date < new Date()}
-                                    initialFocus
-                                />
-                            </PopoverContent>
-                        </Popover>
-                    </div>
-                    <div className="space-y-2">
-                        <Label>Scoring Deadline</Label>
-                         <Popover>
-                            <PopoverTrigger asChild>
-                                <Button
-                                    variant={"outline"}
-                                    className={cn(
-                                    "w-full justify-start text-left font-normal",
-                                    !scoringDeadline && "text-muted-foreground"
-                                    )}
-                                >
-                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                    {scoringDeadline ? format(scoringDeadline, "PPP") : <span>Set a deadline</span>}
-                                </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0">
-                                <Calendar
-                                    mode="single"
-                                    selected={scoringDeadline}
-                                    onSelect={setScoringDeadline}
                                     disabled={(date) => date < new Date()}
                                     initialFocus
                                 />
