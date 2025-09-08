@@ -222,7 +222,7 @@ function AddQuoteForm({ requisition, vendors, onQuoteAdded }: { requisition: Pur
     );
 }
 
-const QuoteComparison = ({ quotes, requisition, recommendation, onScore, userRole, isDeadlinePassed }: { quotes: Quotation[], requisition: PurchaseRequisition, recommendation?: QuoteAnalysisOutput | null, onScore: (quote: Quotation) => void, userRole: User['role'], isDeadlinePassed: boolean }) => {
+const QuoteComparison = ({ quotes, requisition, recommendation, onScore, user, isDeadlinePassed }: { quotes: Quotation[], requisition: PurchaseRequisition, recommendation?: QuoteAnalysisOutput | null, onScore: (quote: Quotation) => void, user: User, isDeadlinePassed: boolean }) => {
     if (quotes.length === 0) {
         return (
             <div className="h-24 flex items-center justify-center text-muted-foreground">
@@ -259,6 +259,7 @@ const QuoteComparison = ({ quotes, requisition, recommendation, onScore, userRol
             {quotes.sort((a, b) => (a.rank || 4) - (b.rank || 4)).map(quote => {
                 const aiRank = getRecommendationRank(quote.id);
                 const isRecommended = aiRank > -1;
+                const hasUserScored = quote.scores?.some(s => s.scorerId === user.id);
                 return (
                     <Card key={quote.id} className={cn("flex flex-col", quote.status === 'Awarded' && 'border-primary ring-2 ring-primary')}>
                        <CardHeader>
@@ -312,11 +313,11 @@ const QuoteComparison = ({ quotes, requisition, recommendation, onScore, userRol
                                  </div>
                              )}
                         </CardContent>
-                        {userRole === 'Committee Member' && (
+                        {user.role === 'Committee Member' && (
                             <CardFooter>
-                                <Button className="w-full" variant="outline" onClick={() => onScore(quote)} disabled={!isDeadlinePassed}>
-                                    <Edit2 className="mr-2 h-4 w-4" />
-                                    View / Edit Scores
+                                <Button className="w-full" variant={hasUserScored ? "secondary" : "outline"} onClick={() => onScore(quote)} disabled={!isDeadlinePassed}>
+                                    {hasUserScored ? <Check className="mr-2 h-4 w-4"/> : <Edit2 className="mr-2 h-4 w-4" />}
+                                    {hasUserScored ? 'View Your Score' : 'Score this Quote'}
                                 </Button>
                             </CardFooter>
                         )}
@@ -957,6 +958,30 @@ const scoreFormSchema = z.object({
 });
 type ScoreFormValues = z.infer<typeof scoreFormSchema>;
 
+
+const clientSideScoreCalculator = (scores: ScoreFormValues, criteria: EvaluationCriteria): number => {
+    if (!criteria) return 0;
+    
+    let totalFinancialScore = 0;
+    let totalTechnicalScore = 0;
+
+    criteria.financialCriteria.forEach((c) => {
+        const score = scores.financialScores.find(s => s.criterionId === c.id)?.score || 0;
+        totalFinancialScore += score * (c.weight / 100);
+    });
+
+    criteria.technicalCriteria.forEach((c) => {
+        const score = scores.technicalScores.find(s => s.criterionId === c.id)?.score || 0;
+        totalTechnicalScore += score * (c.weight / 100);
+    });
+
+    const finalScore = (totalFinancialScore * (criteria.financialWeight / 100)) + 
+                       (totalTechnicalScore * (criteria.technicalWeight / 100));
+
+    return finalScore;
+}
+
+
 const ScoringDialog = ({ 
     quote, 
     requisition, 
@@ -1018,8 +1043,6 @@ const ScoringDialog = ({
 
     const renderCriteria = (type: 'financial' | 'technical') => {
         const criteria = type === 'financial' ? requisition.evaluationCriteria!.financialCriteria : requisition.evaluationCriteria!.technicalCriteria;
-        const fields = type === 'financial' ? form.getValues('financialScores') : form.getValues('technicalScores');
-
         return criteria.map((criterion, index) => (
             <div key={criterion.id} className="space-y-2 rounded-md border p-4">
                 <div className="flex justify-between items-center">
@@ -1062,6 +1085,9 @@ const ScoringDialog = ({
             </div>
         ));
     };
+    
+    const currentValues = form.watch();
+    const calculatedScore = clientSideScoreCalculator(currentValues, requisition.evaluationCriteria);
 
     return (
          <DialogContent className="max-w-4xl">
@@ -1069,7 +1095,7 @@ const ScoringDialog = ({
                 <DialogTitle>Score Quotation from {quote.vendorName}</DialogTitle>
                 <DialogDescription>Evaluate this quote against the requester's criteria. Your scores will be combined with other committee members' to determine the final ranking.</DialogDescription>
             </DialogHeader>
-            <FormProvider {...form}>
+            <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)}>
             <ScrollArea className="h-[60vh]">
                 <div className="p-1 space-y-6">
@@ -1112,19 +1138,49 @@ const ScoringDialog = ({
                     </Card>
                 </div>
             </ScrollArea>
-             <DialogFooter className="pt-4">
-                <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
+             <DialogFooter className="pt-4 flex items-center justify-between">
+                <Button type="button" onClick={() => form.reset()} variant="ghost">Reset Form</Button>
                  {existingScore ? (
                     <p className="text-sm text-muted-foreground">You have already scored this quote.</p>
                  ) : (
-                    <Button type="submit" disabled={isSubmitting}>
-                        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Submit Score
-                    </Button>
+                    <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                            <Button type="button">
+                                Submit Score
+                            </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>Confirm Your Score</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    Please review your evaluation before submitting. This action cannot be undone.
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <Card className="my-4">
+                                <CardContent className="pt-6 space-y-2">
+                                    <div className="flex justify-between items-center text-lg">
+                                        <span className="font-semibold">Calculated Final Score:</span>
+                                        <span className="text-2xl font-bold text-primary">{calculatedScore.toFixed(2)} / 100</span>
+                                    </div>
+                                     <div className="text-sm text-muted-foreground italic">
+                                        <p className="font-semibold">Your Comment:</p>
+                                        <p>"{currentValues.committeeComment || 'No comment provided.'}"</p>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel>Go Back & Edit</AlertDialogCancel>
+                                <AlertDialogAction onClick={form.handleSubmit(onSubmit)} disabled={isSubmitting}>
+                                     {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                    Confirm & Submit
+                                </AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
                  )}
             </DialogFooter>
             </form>
-            </FormProvider>
+            </Form>
         </DialogContent>
     );
 };
@@ -1556,7 +1612,7 @@ export default function QuotationDetailsPage() {
                         requisition={requisition}
                         recommendation={aiRecommendation}
                         onScore={handleScoreButtonClick}
-                        userRole={user.role}
+                        user={user}
                         isDeadlinePassed={isDeadlinePassed}
                     />
                 )}
@@ -1614,3 +1670,4 @@ export default function QuotationDetailsPage() {
     </div>
   );
 }
+
