@@ -29,10 +29,16 @@ import {
   ChevronsLeft,
   ChevronLeft,
   ChevronRight,
-  ChevronsRight
+  ChevronsRight,
+  CheckCircle,
+  FilePlus,
+  ThumbsUp,
+  XCircle,
+  Edit,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from './ui/dialog';
+import { cn } from '@/lib/utils';
 
 const PAGE_SIZE = 15;
 
@@ -44,40 +50,50 @@ const getStatusVariant = (status: string) => {
     return 'outline';
 };
 
+const getActionIcon = (action: string) => {
+    const lowerAction = action.toLowerCase();
+    if (lowerAction.includes('create')) return <FilePlus className="h-4 w-4" />;
+    if (lowerAction.includes('approve')) return <ThumbsUp className="h-4 w-4" />;
+    if (lowerAction.includes('reject')) return <XCircle className="h-4 w-4" />;
+    if (lowerAction.includes('update') || lowerAction.includes('edit')) return <Edit className="h-4 w-4" />;
+    if (lowerAction.includes('submit')) return <CheckCircle className="h-4 w-4" />;
+    return <History className="h-4 w-4" />;
+}
+
 const AuditTrailDialog = ({ document, auditTrail }: { document: DocumentRecord, auditTrail: AuditLogType[] }) => {
     return (
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="max-w-2xl">
             <DialogHeader>
                 <DialogTitle>Audit Trail for {document.type}: {document.id}</DialogTitle>
                 <DialogDescription>
-                    Showing all events related to this document.
+                    Showing all events related to this document, from newest to oldest.
                 </DialogDescription>
             </DialogHeader>
-            <div className="max-h-[60vh] overflow-y-auto">
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Timestamp</TableHead>
-                            <TableHead>User (Role)</TableHead>
-                            <TableHead>Action</TableHead>
-                            <TableHead>Details</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {auditTrail.length > 0 ? auditTrail.map(log => (
-                            <TableRow key={log.id}>
-                                <TableCell className="text-xs text-muted-foreground">{formatDistanceToNow(new Date(log.timestamp), { addSuffix: true })}</TableCell>
-                                <TableCell>{log.user} ({log.role})</TableCell>
-                                <TableCell><Badge variant={log.action.includes('CREATE') ? 'default' : 'secondary'}>{log.action}</Badge></TableCell>
-                                <TableCell className="text-sm">{log.details}</TableCell>
-                            </TableRow>
-                        )) : (
-                            <TableRow>
-                                <TableCell colSpan={4} className="text-center h-24">No audit history found for this document.</TableCell>
-                            </TableRow>
-                        )}
-                    </TableBody>
-                </Table>
+            <div className="max-h-[60vh] overflow-y-auto p-1">
+                {auditTrail.length > 0 ? (
+                    <div className="relative pl-6">
+                        <div className="absolute left-6 top-0 h-full w-0.5 bg-border -translate-x-1/2"></div>
+                        {auditTrail.map((log, index) => (
+                           <div key={log.id} className="relative mb-8">
+                               <div className="absolute -left-3 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-secondary">
+                                   <div className="h-3 w-3 rounded-full bg-primary"></div>
+                               </div>
+                               <div className="pl-8">
+                                   <div className="flex items-center justify-between">
+                                        <Badge variant={log.action.includes('CREATE') ? 'default' : 'secondary'}>{log.action}</Badge>
+                                        <time className="text-xs text-muted-foreground">{format(new Date(log.timestamp), 'PPpp')}</time>
+                                   </div>
+                                    <p className="mt-2 text-sm text-muted-foreground">{log.details}</p>
+                                    <p className="mt-2 text-xs text-muted-foreground">
+                                        By <span className="font-semibold text-foreground">{log.user}</span> ({log.role})
+                                    </p>
+                               </div>
+                           </div>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="text-center h-24 flex items-center justify-center">No audit history found for this document.</div>
+                )}
             </div>
         </DialogContent>
     )
