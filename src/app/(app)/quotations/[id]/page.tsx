@@ -598,7 +598,7 @@ const CommitteeManagement = ({ requisition, onCommitteeUpdated }: { requisition:
                                 name="committeeMemberIds"
                                 render={() => (
                                 <FormItem>
-                                    <ScrollArea className="h-60">
+                                    <ScrollArea className="h-60 rounded-md border">
                                         <div className="space-y-2 p-1">
                                         {filteredCommitteeMembers.map(member => (
                                             <FormField
@@ -1549,6 +1549,20 @@ export default function QuotationDetailsPage() {
                     <div>
                         <CardTitle>Quotations for {requisition.id}</CardTitle>
                         <CardDescription>{requisition.title}</CardDescription>
+                         <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs">
+                             {requisition.deadline && (
+                                <div className="flex items-center gap-1.5">
+                                    <span className="font-semibold text-muted-foreground">QUOTE DEADLINE:</span>
+                                    <span className="font-medium text-foreground">{format(new Date(requisition.deadline), 'PP')}</span>
+                                </div>
+                            )}
+                             {requisition.scoringDeadline && (
+                                <div className="flex items-center gap-1.5">
+                                    <span className="font-semibold text-muted-foreground">SCORING DEADLINE:</span>
+                                    <span className="font-medium text-foreground">{format(new Date(requisition.scoringDeadline), 'PP')}</span>
+                                </div>
+                            )}
+                        </div>
                     </div>
                     <div className="flex items-center gap-2">
                         {isAwarded && requisition.status !== 'PO Created' && user.role === 'Procurement Officer' && (
