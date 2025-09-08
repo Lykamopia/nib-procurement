@@ -745,7 +745,7 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-                <div className="grid md:grid-cols-2 gap-4">
+                <div className="grid md:grid-cols-2 gap-6">
                     <div className="space-y-2">
                         <Label>Distribution Type</Label>
                         <Select value={distributionType} onValueChange={(v) => setDistributionType(v as any)}>
@@ -759,7 +759,7 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
                         </Select>
                     </div>
                      <div className="space-y-2">
-                        <Label>Quotation Deadline</Label>
+                        <Label>Quotation Submission Deadline</Label>
                          <Popover>
                             <PopoverTrigger asChild>
                                 <Button
@@ -779,6 +779,32 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
                                     selected={deadline}
                                     onSelect={setDeadline}
                                     disabled={(date) => date < new Date()}
+                                    initialFocus
+                                />
+                            </PopoverContent>
+                        </Popover>
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Committee Scoring Deadline</Label>
+                         <Popover>
+                            <PopoverTrigger asChild>
+                                <Button
+                                    variant={"outline"}
+                                    className={cn(
+                                    "w-full justify-start text-left font-normal",
+                                    !scoringDeadline && "text-muted-foreground"
+                                    )}
+                                >
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {scoringDeadline ? format(scoringDeadline, "PPP") : <span>Set a scoring deadline</span>}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0">
+                                <Calendar
+                                    mode="single"
+                                    selected={scoringDeadline}
+                                    onSelect={setScoringDeadline}
+                                    disabled={(date) => date < (deadline || new Date())}
                                     initialFocus
                                 />
                             </PopoverContent>
