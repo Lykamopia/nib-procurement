@@ -568,7 +568,7 @@ export default function VendorRequisitionPage() {
     const isAccepted = submittedQuote?.status === 'Accepted';
     const hasResponded = submittedQuote?.status === 'Accepted' || submittedQuote?.status === 'Declined';
     const hasSubmittedInvoice = submittedQuote?.status === 'Invoice Submitted';
-    const isResponseDeadlineExpired = requisition.awardResponseDeadline && isPast(new Date(requisition.awardResponseDeadline));
+    const isResponseDeadlineExpired = requisition.awardResponseDeadline ? isPast(new Date(requisition.awardResponseDeadline)) : false;
 
     const QuoteDisplayCard = ({ quote }: { quote: Quotation }) => (
          <Card>
@@ -817,5 +817,7 @@ export default function VendorRequisitionPage() {
         </div>
     )
 }
+
+    
 
     
