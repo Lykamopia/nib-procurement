@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -598,7 +599,7 @@ const CommitteeManagement = ({ requisition, onCommitteeUpdated }: { requisition:
                                                                     {field.value ? (
                                                                     format(field.value, "PPP p")
                                                                     ) : (
-                                                                    <span>Set a scoring deadline</span>
+                                                                    <span>Pick a date and time</span>
                                                                     )}
                                                                     <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                                                                 </Button>
@@ -617,7 +618,7 @@ const CommitteeManagement = ({ requisition, onCommitteeUpdated }: { requisition:
                                                                 <div className="flex gap-2">
                                                                 <Input
                                                                     type="time"
-                                                                    defaultValue={field.value ? format(field.value, 'HH:mm') : '17:00'}
+                                                                    defaultValue={field.value ? format(field.value, 'HH:mm') : ''}
                                                                     onChange={(e) => {
                                                                         const [hours, minutes] = e.target.value.split(':').map(Number);
                                                                         field.onChange(setMinutes(setHours(field.value || new Date(), hours), minutes));
@@ -746,13 +747,15 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
     const [selectedVendors, setSelectedVendors] = useState<string[]>([]);
     const [vendorSearch, setVendorSearch] = useState('');
     const [isSubmitting, setSubmitting] = useState(false);
-    const [deadline, setDeadline] = useState<Date | undefined>(requisition.deadline ? new Date(requisition.deadline) : undefined);
+    const [deadline, setDeadline] = useState<Date | undefined>(undefined);
+    const [time, setTime] = useState<string>('');
     const [cpoAmount, setCpoAmount] = useState<number | undefined>(requisition.cpoAmount);
     const { user } = useAuth();
     const { toast } = useToast();
     
     useEffect(() => {
         setDeadline(requisition.deadline ? new Date(requisition.deadline) : undefined);
+        setTime(requisition.deadline ? format(new Date(requisition.deadline), 'HH:mm') : '');
         setCpoAmount(requisition.cpoAmount);
     }, [requisition]);
 
@@ -772,7 +775,6 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
                     userId: user.id, 
                     vendorIds: distributionType === 'all' ? 'all' : selectedVendors,
                     deadline,
-                    scoringDeadline: requisition.scoringDeadline,
                     cpoAmount
                 }),
             });
@@ -831,14 +833,22 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
                                 )}
                             >
                                 <CalendarIcon className="mr-2 h-4 w-4" />
-                                {deadline ? format(deadline, "PPP p") : <span>Set a deadline</span>}
+                                {deadline ? format(deadline, "PPP p") : <span>Pick a date and time</span>}
                             </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0">
                             <Calendar
                                 mode="single"
                                 selected={deadline}
-                                onSelect={setDeadline}
+                                onSelect={(day) => {
+                                    const newDate = day || new Date();
+                                    const [hours, minutes] = time.split(':').map(Number);
+                                    if (!isNaN(hours) && !isNaN(minutes)) {
+                                       setDeadline(setMinutes(setHours(newDate, hours), minutes));
+                                    } else {
+                                       setDeadline(newDate);
+                                    }
+                                }}
                                 disabled={(date) => date < new Date(new Date().setHours(0,0,0,0))}
                                 initialFocus
                             />
@@ -847,10 +857,15 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
                                 <div className="flex gap-2">
                                 <Input
                                     type="time"
-                                    defaultValue={deadline ? format(deadline, 'HH:mm') : '17:00'}
+                                    value={time}
                                     onChange={(e) => {
-                                        const [hours, minutes] = e.target.value.split(':').map(Number);
-                                        setDeadline(d => setMinutes(setHours(d || new Date(), hours), minutes));
+                                        setTime(e.target.value);
+                                        if (deadline) {
+                                            const [hours, minutes] = e.target.value.split(':').map(Number);
+                                            if (!isNaN(hours) && !isNaN(minutes)) {
+                                                setDeadline(d => setMinutes(setHours(d || new Date(), hours), minutes));
+                                            }
+                                        }
                                     }}
                                 />
                                 </div>
@@ -1365,7 +1380,7 @@ const ScoringProgressTracker = ({
                                         )}
                                     >
                                         <CalendarIcon className="mr-2 h-4 w-4" />
-                                        {awardResponseDeadline ? format(awardResponseDeadline, "PPP p") : <span>Pick a date</span>}
+                                        {awardResponseDeadline ? format(awardResponseDeadline, "PPP p") : <span>Pick a date and time</span>}
                                     </Button>
                                 </PopoverTrigger>
                                 <PopoverContent className="w-auto p-0">
