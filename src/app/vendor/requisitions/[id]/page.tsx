@@ -41,7 +41,16 @@ const quoteFormSchema = z.object({
       questionId: z.string(),
       answer: z.string().min(1, "This question requires an answer."),
   })).optional(),
-});
+  cpoDocumentUrl: z.string().optional(),
+}).refine(
+    (data, ctx) => {
+        // This is a placeholder for the actual requisition data
+        // In a real app, you'd pass the requisition data to the validation context
+        // For now, we'll make cpoDocumentUrl optional and handle the logic in the component
+        return true;
+    }
+);
+
 
 const invoiceFormSchema = z.object({
     documentUrl: z.string().min(1, "Invoice document is required"),
@@ -174,7 +183,8 @@ function QuoteSubmissionForm({ requisition, quote, onQuoteSubmitted }: { requisi
                 requisitionItemId: item.requisitionItemId,
                 brandDetails: item.brandDetails || '',
             })),
-            answers: quote.answers || requisition.customQuestions?.map(q => ({ questionId: q.id, answer: '' }))
+            answers: quote.answers || requisition.customQuestions?.map(q => ({ questionId: q.id, answer: '' })),
+            cpoDocumentUrl: quote.cpoDocumentUrl || ''
         } : {
             notes: "",
             items: requisition.items.map(item => ({
@@ -185,7 +195,8 @@ function QuoteSubmissionForm({ requisition, quote, onQuoteSubmitted }: { requisi
                 leadTimeDays: 0,
                 brandDetails: '',
             })),
-            answers: requisition.customQuestions?.map(q => ({ questionId: q.id, answer: '' }))
+            answers: requisition.customQuestions?.map(q => ({ questionId: q.id, answer: '' })),
+            cpoDocumentUrl: ''
         },
     });
 
@@ -212,6 +223,11 @@ function QuoteSubmissionForm({ requisition, quote, onQuoteSubmitted }: { requisi
 
     const onSubmit = async (values: z.infer<typeof quoteFormSchema>) => {
         if (!user || !requisition) return;
+
+        if (requisition.cpoAmount && requisition.cpoAmount > 0 && !values.cpoDocumentUrl) {
+            form.setError("cpoDocumentUrl", { type: "manual", message: "CPO Document is required." });
+            return;
+        }
 
         setSubmitting(true);
         try {
@@ -252,6 +268,9 @@ function QuoteSubmissionForm({ requisition, quote, onQuoteSubmitted }: { requisi
     };
     
     const totalQuotePrice = form.watch('items').reduce((acc, item) => acc + (item.quantity * (item.unitPrice || 0)), 0);
+    const cpoDocumentValue = form.watch('cpoDocumentUrl');
+    const isCpoRequired = !!(requisition.cpoAmount && requisition.cpoAmount > 0);
+    const canSubmit = !isCpoRequired || (isCpoRequired && !!cpoDocumentValue);
 
     return (
         <Card>
@@ -264,6 +283,25 @@ function QuoteSubmissionForm({ requisition, quote, onQuoteSubmitted }: { requisi
             <CardContent>
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                        {isCpoRequired && (
+                             <FormField
+                                control={form.control}
+                                name="cpoDocumentUrl"
+                                render={({ field }) => (
+                                    <FormItem>
+                                    <FormLabel>CPO Document (Required)</FormLabel>
+                                    <FormControl>
+                                        <Input type="file" accept=".pdf" onChange={(e) => field.onChange(e.target.files?.[0]?.name || "")} />
+                                    </FormControl>
+                                    <FormDescription>
+                                        A CPO of {requisition.cpoAmount?.toLocaleString()} ETB is required for this requisition.
+                                    </FormDescription>
+                                    <FormMessage />
+                                    </FormItem>
+                                )}
+                             />
+                        )}
+
                         <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
                             {fields.map((field, index) => (
                                 <Card key={field.id} className="p-4 relative">
@@ -416,7 +454,7 @@ function QuoteSubmissionForm({ requisition, quote, onQuoteSubmitted }: { requisi
                         </div>
                         <div className="flex justify-end gap-2">
                             <Button type="button" variant="ghost" asChild><Link href="/vendor/dashboard">Cancel</Link></Button>
-                            <Button type="submit" disabled={isSubmitting}>
+                            <Button type="submit" disabled={isSubmitting || !canSubmit}>
                                 {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
                                 {quote ? 'Update Quotation' : 'Submit Quotation'}
                             </Button>
@@ -549,6 +587,15 @@ export default function VendorRequisitionPage() {
                 )}
             </CardHeader>
             <CardContent className="space-y-4">
+                {quote.cpoDocumentUrl && (
+                     <div className="text-sm">
+                        <h3 className="font-semibold">CPO Document</h3>
+                        <div className="flex items-center gap-2 p-2 mt-1 border rounded-md bg-muted/50 text-muted-foreground">
+                            <FileText className="h-4 w-4 text-primary"/>
+                            <span>{quote.cpoDocumentUrl}</span>
+                        </div>
+                    </div>
+                )}
                 <div className="space-y-2">
                     {quote.items.map((item, index) => (
                         <Card key={`${item.requisitionItemId}-${index}`} className="p-3">
@@ -705,6 +752,15 @@ export default function VendorRequisitionPage() {
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
+                        {requisition.cpoAmount && requisition.cpoAmount > 0 && (
+                             <Alert variant="default">
+                                <BadgeInfo className="h-4 w-4" />
+                                <AlertTitle>CPO Required</AlertTitle>
+                                <AlertDescription>
+                                A CPO of {requisition.cpoAmount.toLocaleString()} ETB is required to submit a quotation for this requisition.
+                                </AlertDescription>
+                            </Alert>
+                        )}
                         <div>
                             <h3 className="font-semibold text-sm">Title</h3>
                             <p className="text-muted-foreground">{requisition.title}</p>

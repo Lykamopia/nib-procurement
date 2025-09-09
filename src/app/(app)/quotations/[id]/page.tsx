@@ -32,7 +32,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, PlusCircle, Award, XCircle, FileSignature, FileText, Bot, Lightbulb, ArrowLeft, Star, Undo, Check, Send, Search, BadgeHelp, BadgeCheck, BadgeX, Crown, Medal, Trophy, RefreshCw, TimerOff, ClipboardList, TrendingUp, Scale, Edit2, Users, GanttChart, Eye, CheckCircle, CalendarIcon, Timer } from 'lucide-react';
+import { Loader2, PlusCircle, Award, XCircle, FileSignature, FileText, Bot, Lightbulb, ArrowLeft, Star, Undo, Check, Send, Search, BadgeHelp, BadgeCheck, BadgeX, Crown, Medal, Trophy, RefreshCw, TimerOff, ClipboardList, TrendingUp, Scale, Edit2, Users, GanttChart, Eye, CheckCircle, CalendarIcon, Timer, Landmark } from 'lucide-react';
 import { useForm, useFieldArray, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -722,11 +722,12 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
     const [vendorSearch, setVendorSearch] = useState('');
     const [isSubmitting, setSubmitting] = useState(false);
     const [deadline, setDeadline] = useState<Date | undefined>(requisition.deadline ? new Date(requisition.deadline) : undefined);
+    const [cpoAmount, setCpoAmount] = useState<number | undefined>(requisition.cpoAmount);
     const { user } = useAuth();
     const { toast } = useToast();
 
     const handleSendRFQ = async () => {
-        if (!user) return;
+        if (!user || !deadline) return;
         if (distributionType === 'select' && selectedVendors.length === 0) {
             toast({ variant: 'destructive', title: 'Error', description: 'Please select at least one vendor.' });
             return;
@@ -740,7 +741,9 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
                 body: JSON.stringify({ 
                     userId: user.id, 
                     vendorIds: distributionType === 'all' ? 'all' : selectedVendors,
-                    deadline
+                    deadline,
+                    scoringDeadline: requisition.scoringDeadline,
+                    cpoAmount
                 }),
             });
 
@@ -825,6 +828,22 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
                             </PopoverContent>
                         </Popover>
                     </div>
+                </div>
+                
+                 <div className="space-y-2">
+                    <Label htmlFor="cpoAmount">CPO Amount (ETB)</Label>
+                     <div className="relative">
+                        <Landmark className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input 
+                            id="cpoAmount"
+                            type="number"
+                            placeholder="Enter required CPO amount" 
+                            className="pl-10"
+                            value={cpoAmount || ''}
+                            onChange={(e) => setCpoAmount(Number(e.target.value))}
+                        />
+                     </div>
+                    <p className="text-xs text-muted-foreground">Optional. If set, vendors must submit a CPO of this amount to qualify.</p>
                 </div>
 
                 {distributionType === 'select' && (
@@ -1591,16 +1610,18 @@ export default function QuotationDetailsPage() {
                         <CardTitle>Quotations for {requisition.id}</CardTitle>
                         <CardDescription>{requisition.title}</CardDescription>
                          <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs">
-                             {requisition.deadline && (
-                                <div className="flex items-center gap-1.5">
-                                    <span className="font-semibold text-muted-foreground">QUOTE DEADLINE:</span>
-                                    <span className="font-medium text-foreground">{format(new Date(requisition.deadline), 'PP')}</span>
+                            {requisition.deadline && (
+                                <div className="flex items-center gap-1.5 font-medium text-muted-foreground">
+                                    <CalendarIcon className="h-4 w-4"/>
+                                    <span>Quote Deadline:</span>
+                                    <span className="font-semibold text-foreground">{format(new Date(requisition.deadline), 'PP')}</span>
                                 </div>
                             )}
                              {requisition.scoringDeadline && (
-                                <div className="flex items-center gap-1.5">
-                                    <span className="font-semibold text-muted-foreground">SCORING DEADLINE:</span>
-                                    <span className="font-medium text-foreground">{format(new Date(requisition.scoringDeadline), 'PP')}</span>
+                                <div className="flex items-center gap-1.5 font-medium text-muted-foreground">
+                                    <Timer className="h-4 w-4"/>
+                                    <span>Scoring Deadline:</span>
+                                    <span className="font-semibold text-foreground">{format(new Date(requisition.scoringDeadline), 'PP')}</span>
                                 </div>
                             )}
                         </div>

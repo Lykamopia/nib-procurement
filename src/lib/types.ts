@@ -96,6 +96,7 @@ export type PurchaseRequisition = {
   committeeMemberIds?: string[];
   committeeName?: string;
   committeePurpose?: string;
+  cpoAmount?: number;
 };
 
 export type AuditLog = {
@@ -183,6 +184,7 @@ export type Quotation = {
     answers?: QuoteAnswer[];
     scores?: CommitteeScoreSet[];
     finalAverageScore?: number;
+    cpoDocumentUrl?: string;
 };
 
 export type POItem = {

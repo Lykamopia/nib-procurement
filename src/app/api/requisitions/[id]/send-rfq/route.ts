@@ -10,7 +10,7 @@ export async function POST(
   try {
     const { id } = params;
     const body = await request.json();
-    const { userId, vendorIds, scoringDeadline, deadline } = body;
+    const { userId, vendorIds, scoringDeadline, deadline, cpoAmount } = body;
 
     const requisition = requisitions.find((r) => r.id === id);
     if (!requisition) {
@@ -30,11 +30,16 @@ export async function POST(
     requisition.allowedVendorIds = vendorIds;
     requisition.scoringDeadline = scoringDeadline ? new Date(scoringDeadline) : undefined;
     requisition.deadline = deadline ? new Date(deadline) : undefined;
+    requisition.cpoAmount = cpoAmount;
     requisition.updatedAt = new Date();
 
-    const auditDetails = vendorIds === 'all' 
+    let auditDetails = vendorIds === 'all' 
         ? `Sent RFQ to all vendors.`
         : `Sent RFQ to selected vendors: ${vendorIds.join(', ')}.`;
+    
+    if (cpoAmount) {
+        auditDetails += ` CPO of ${cpoAmount} ETB required.`;
+    }
 
     const auditLogEntry = {
         id: `log-${Date.now()}-${Math.random()}`,
