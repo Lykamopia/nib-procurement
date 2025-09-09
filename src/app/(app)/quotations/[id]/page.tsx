@@ -566,13 +566,13 @@ const CommitteeManagement = ({ requisition, onCommitteeUpdated }: { requisition:
                         </Button>
                     </DialogTrigger>
                     <DialogContent className="max-w-2xl">
-                        <DialogHeader>
-                            <DialogTitle>Evaluation Committee</DialogTitle>
-                        </DialogHeader>
-                        <Form {...form}>
-                        <form onSubmit={form.handleSubmit(handleSaveCommittee)}>
+                         <Form {...form}>
+                         <form onSubmit={form.handleSubmit(handleSaveCommittee)}>
+                            <DialogHeader>
+                                <DialogTitle>Evaluation Committee</DialogTitle>
+                            </DialogHeader>
                             <ScrollArea className="max-h-[70vh] p-1">
-                                <div className="space-y-4 px-4">
+                                <div className="space-y-4 px-4 py-2">
                                     <div className="grid md:grid-cols-2 gap-4">
                                         <FormField
                                             control={form.control}
@@ -688,7 +688,7 @@ const CommitteeManagement = ({ requisition, onCommitteeUpdated }: { requisition:
                                     />
                                 </div>
                             </ScrollArea>
-                            <DialogFooter className="pt-4">
+                            <DialogFooter className="pt-4 border-t mt-4">
                                 <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
                                 <Button type="submit" disabled={isSubmitting}>
                                     {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
@@ -700,10 +700,10 @@ const CommitteeManagement = ({ requisition, onCommitteeUpdated }: { requisition:
                     </DialogContent>
                 </Dialog>
             </CardHeader>
-            {requisition.committeeMemberIds && requisition.committeeMemberIds.length > 0 && (
-                <CardContent>
-                    <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-                        {assignedMembers.map(member => (
+            <CardContent>
+                <div className="flex flex-wrap items-center gap-x-6 gap-y-4">
+                    {assignedMembers.length > 0 ? (
+                        assignedMembers.map(member => (
                             <div key={member.id} className="flex items-center gap-2">
                                 <Avatar className="h-8 w-8">
                                     <AvatarImage src={`https://picsum.photos/seed/${member.id}/40/40`} data-ai-hint="profile picture" />
@@ -711,10 +711,19 @@ const CommitteeManagement = ({ requisition, onCommitteeUpdated }: { requisition:
                                 </Avatar>
                                 <span className="text-sm font-medium">{member.name}</span>
                             </div>
-                        ))}
+                        ))
+                    ) : (
+                        <p className="text-sm text-muted-foreground">No committee members assigned.</p>
+                    )}
+                </div>
+                 {requisition.scoringDeadline && (
+                    <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground border-t pt-4">
+                        <Timer className="h-4 w-4"/>
+                        <span className="font-semibold">Scoring Deadline:</span>
+                        <span>{format(new Date(requisition.scoringDeadline), 'PP')}</span>
                     </div>
-                </CardContent>
-            )}
+                )}
+            </CardContent>
         </Card>
     );
 };
@@ -1754,3 +1763,4 @@ export default function QuotationDetailsPage() {
     </div>
   );
 }
+
