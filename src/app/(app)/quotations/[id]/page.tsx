@@ -570,121 +570,125 @@ const CommitteeManagement = ({ requisition, onCommitteeUpdated }: { requisition:
                             <DialogTitle>Evaluation Committee</DialogTitle>
                         </DialogHeader>
                         <Form {...form}>
-                        <form onSubmit={form.handleSubmit(handleSaveCommittee)} className="space-y-4">
-                             <div className="grid md:grid-cols-2 gap-4">
-                                <FormField
-                                    control={form.control}
-                                    name="committeeName"
-                                    render={({ field }) => (
-                                        <FormItem><FormLabel>Committee Name</FormLabel><FormControl><Input {...field} placeholder="e.g., Q4 Laptop Procurement Committee" /></FormControl><FormMessage /></FormItem>
-                                    )}
-                                />
-                                <FormField
-                                    control={form.control}
-                                    name="scoringDeadline"
-                                    render={({ field }) => (
-                                        <FormItem className="flex flex-col pt-2">
-                                            <FormLabel>Committee Scoring Deadline</FormLabel>
-                                            <Popover>
-                                                <PopoverTrigger asChild>
-                                                <FormControl>
-                                                    <Button
-                                                        variant={"outline"}
-                                                        className={cn(
-                                                        "w-full pl-3 text-left font-normal",
-                                                        !field.value && "text-muted-foreground"
+                        <form onSubmit={form.handleSubmit(handleSaveCommittee)}>
+                            <ScrollArea className="max-h-[70vh] p-1">
+                                <div className="space-y-4 px-4">
+                                    <div className="grid md:grid-cols-2 gap-4">
+                                        <FormField
+                                            control={form.control}
+                                            name="committeeName"
+                                            render={({ field }) => (
+                                                <FormItem><FormLabel>Committee Name</FormLabel><FormControl><Input {...field} placeholder="e.g., Q4 Laptop Procurement Committee" /></FormControl><FormMessage /></FormItem>
+                                            )}
+                                        />
+                                        <FormField
+                                            control={form.control}
+                                            name="scoringDeadline"
+                                            render={({ field }) => (
+                                                <FormItem className="flex flex-col pt-2">
+                                                    <FormLabel>Committee Scoring Deadline</FormLabel>
+                                                    <Popover>
+                                                        <PopoverTrigger asChild>
+                                                        <FormControl>
+                                                            <Button
+                                                                variant={"outline"}
+                                                                className={cn(
+                                                                "w-full pl-3 text-left font-normal",
+                                                                !field.value && "text-muted-foreground"
+                                                                )}
+                                                            >
+                                                                {field.value ? (
+                                                                format(field.value, "PPP")
+                                                                ) : (
+                                                                <span>Set a scoring deadline</span>
+                                                                )}
+                                                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                                            </Button>
+                                                        </FormControl>
+                                                        </PopoverTrigger>
+                                                        <PopoverContent className="w-auto p-0" align="start">
+                                                        <Calendar
+                                                            mode="single"
+                                                            selected={field.value}
+                                                            onSelect={field.onChange}
+                                                            disabled={(date) => date < new Date()}
+                                                            initialFocus
+                                                        />
+                                                        </PopoverContent>
+                                                    </Popover>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                    </div>
+                                    <FormField
+                                        control={form.control}
+                                        name="committeePurpose"
+                                        render={({ field }) => (
+                                            <FormItem><FormLabel>Purpose / Mandate</FormLabel><FormControl><Textarea {...field} placeholder="e.g., To evaluate vendor submissions for REQ-..." /></FormControl><FormMessage /></FormItem>
+                                        )}
+                                    />
+
+                                    <div className="relative pt-2">
+                                        <FormLabel>Members</FormLabel>
+                                        <Search className="absolute left-2.5 top-11 h-4 w-4 text-muted-foreground" />
+                                        <Input 
+                                            placeholder="Search members by name or email..." 
+                                            className="pl-8 w-full mt-2"
+                                            value={committeeSearch}
+                                            onChange={(e) => setCommitteeSearch(e.target.value)}
+                                        />
+                                    </div>
+                                    <FormField
+                                        control={form.control}
+                                        name="committeeMemberIds"
+                                        render={() => (
+                                        <FormItem>
+                                            <ScrollArea className="h-60 rounded-md border">
+                                                <div className="space-y-2 p-1">
+                                                {filteredCommitteeMembers.map(member => (
+                                                    <FormField
+                                                        key={member.id}
+                                                        control={form.control}
+                                                        name="committeeMemberIds"
+                                                        render={({ field }) => (
+                                                            <FormItem className="flex items-start space-x-4 rounded-md border p-3 has-[:checked]:bg-muted">
+                                                                <FormControl>
+                                                                    <Checkbox
+                                                                        checked={field.value?.includes(member.id)}
+                                                                        onCheckedChange={(checked) => {
+                                                                            return checked
+                                                                            ? field.onChange([...field.value, member.id])
+                                                                            : field.onChange(field.value?.filter((id) => id !== member.id))
+                                                                        }}
+                                                                    />
+                                                                </FormControl>
+                                                                <div className="flex items-start gap-3 flex-1">
+                                                                    <Avatar>
+                                                                        <AvatarImage src={`https://picsum.photos/seed/${member.id}/40/40`} data-ai-hint="profile picture" />
+                                                                        <AvatarFallback>{member.name.charAt(0)}</AvatarFallback>
+                                                                    </Avatar>
+                                                                    <div className="grid gap-0.5">
+                                                                        <Label className="font-normal cursor-pointer">{member.name}</Label>
+                                                                        <p className="text-xs text-muted-foreground">{member.email}</p>
+                                                                    </div>
+                                                                </div>
+                                                            </FormItem>
                                                         )}
-                                                    >
-                                                        {field.value ? (
-                                                        format(field.value, "PPP")
-                                                        ) : (
-                                                        <span>Set a scoring deadline</span>
-                                                        )}
-                                                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                                    </Button>
-                                                </FormControl>
-                                                </PopoverTrigger>
-                                                <PopoverContent className="w-auto p-0" align="start">
-                                                <Calendar
-                                                    mode="single"
-                                                    selected={field.value}
-                                                    onSelect={field.onChange}
-                                                    disabled={(date) => date < new Date()}
-                                                    initialFocus
-                                                />
-                                                </PopoverContent>
-                                            </Popover>
+                                                    />
+                                                ))}
+                                                {filteredCommitteeMembers.length === 0 && (
+                                                        <div className="text-center text-muted-foreground py-10">No committee members found.</div>
+                                                    )}
+                                                </div>
+                                            </ScrollArea>
                                             <FormMessage />
                                         </FormItem>
-                                    )}
-                                />
-                            </div>
-                            <FormField
-                                control={form.control}
-                                name="committeePurpose"
-                                render={({ field }) => (
-                                    <FormItem><FormLabel>Purpose / Mandate</FormLabel><FormControl><Textarea {...field} placeholder="e.g., To evaluate vendor submissions for REQ-..." /></FormControl><FormMessage /></FormItem>
-                                )}
-                            />
-
-                             <div className="relative pt-2">
-                                <FormLabel>Members</FormLabel>
-                                <Search className="absolute left-2.5 top-11 h-4 w-4 text-muted-foreground" />
-                                <Input 
-                                    placeholder="Search members by name or email..." 
-                                    className="pl-8 w-full mt-2"
-                                    value={committeeSearch}
-                                    onChange={(e) => setCommitteeSearch(e.target.value)}
-                                />
-                            </div>
-                            <FormField
-                                control={form.control}
-                                name="committeeMemberIds"
-                                render={() => (
-                                <FormItem>
-                                    <ScrollArea className="h-60 rounded-md border">
-                                        <div className="space-y-2 p-1">
-                                        {filteredCommitteeMembers.map(member => (
-                                            <FormField
-                                                key={member.id}
-                                                control={form.control}
-                                                name="committeeMemberIds"
-                                                render={({ field }) => (
-                                                    <FormItem className="flex items-start space-x-4 rounded-md border p-3 has-[:checked]:bg-muted">
-                                                         <FormControl>
-                                                            <Checkbox
-                                                                checked={field.value?.includes(member.id)}
-                                                                onCheckedChange={(checked) => {
-                                                                    return checked
-                                                                    ? field.onChange([...field.value, member.id])
-                                                                    : field.onChange(field.value?.filter((id) => id !== member.id))
-                                                                }}
-                                                            />
-                                                        </FormControl>
-                                                        <div className="flex items-start gap-3 flex-1">
-                                                            <Avatar>
-                                                                <AvatarImage src={`https://picsum.photos/seed/${member.id}/40/40`} data-ai-hint="profile picture" />
-                                                                <AvatarFallback>{member.name.charAt(0)}</AvatarFallback>
-                                                            </Avatar>
-                                                            <div className="grid gap-0.5">
-                                                                <Label className="font-normal cursor-pointer">{member.name}</Label>
-                                                                <p className="text-xs text-muted-foreground">{member.email}</p>
-                                                            </div>
-                                                        </div>
-                                                    </FormItem>
-                                                )}
-                                            />
-                                        ))}
-                                        {filteredCommitteeMembers.length === 0 && (
-                                                <div className="text-center text-muted-foreground py-10">No committee members found.</div>
-                                            )}
-                                        </div>
-                                    </ScrollArea>
-                                    <FormMessage />
-                                </FormItem>
-                                )}
-                             />
-                            <DialogFooter>
+                                        )}
+                                    />
+                                </div>
+                            </ScrollArea>
+                            <DialogFooter className="pt-4">
                                 <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
                                 <Button type="submit" disabled={isSubmitting}>
                                     {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
@@ -789,47 +793,44 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-                <div className="grid md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                        <Label>Distribution Type</Label>
-                        <Select value={distributionType} onValueChange={(v) => setDistributionType(v as any)}>
-                            <SelectTrigger>
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">Send to all verified vendors</SelectItem>
-                                <SelectItem value="select">Send to selected vendors</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                     <div className="space-y-2">
-                        <Label>Quotation Submission Deadline</Label>
-                         <Popover>
-                            <PopoverTrigger asChild>
-                                <Button
-                                    variant={"outline"}
-                                    className={cn(
-                                    "w-full justify-start text-left font-normal",
-                                    !deadline && "text-muted-foreground"
-                                    )}
-                                >
-                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                    {deadline ? format(deadline, "PPP") : <span>Set a deadline</span>}
-                                </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0">
-                                <Calendar
-                                    mode="single"
-                                    selected={deadline}
-                                    onSelect={setDeadline}
-                                    disabled={(date) => date < new Date()}
-                                    initialFocus
-                                />
-                            </PopoverContent>
-                        </Popover>
-                    </div>
+                 <div className="space-y-2">
+                    <Label>Quotation Submission Deadline</Label>
+                        <Popover>
+                        <PopoverTrigger asChild>
+                            <Button
+                                variant={"outline"}
+                                className={cn(
+                                "w-full justify-start text-left font-normal",
+                                !deadline && "text-muted-foreground"
+                                )}
+                            >
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {deadline ? format(deadline, "PPP") : <span>Set a deadline</span>}
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0">
+                            <Calendar
+                                mode="single"
+                                selected={deadline}
+                                onSelect={setDeadline}
+                                disabled={(date) => date < new Date()}
+                                initialFocus
+                            />
+                        </PopoverContent>
+                    </Popover>
                 </div>
-                
+                <div className="space-y-2">
+                    <Label>Distribution Type</Label>
+                    <Select value={distributionType} onValueChange={(v) => setDistributionType(v as any)}>
+                        <SelectTrigger>
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">Send to all verified vendors</SelectItem>
+                            <SelectItem value="select">Send to selected vendors</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
                  <div className="space-y-2">
                     <Label htmlFor="cpoAmount">CPO Amount (ETB)</Label>
                      <div className="relative">
