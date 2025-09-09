@@ -477,6 +477,8 @@ const CommitteeManagement = ({ requisition, onCommitteeUpdated }: { requisition:
     const [isSubmitting, setSubmitting] = useState(false);
     const [isCommitteeDialogOpen, setCommitteeDialogOpen] = useState(false);
     const [committeeSearch, setCommitteeSearch] = useState("");
+    const [scoringDate, setScoringDate] = useState<Date | undefined>(requisition.scoringDeadline ? new Date(requisition.scoringDeadline) : undefined);
+    const [scoringTime, setScoringTime] = useState<string>(requisition.scoringDeadline ? format(new Date(requisition.scoringDeadline), 'HH:mm') : '');
 
     const form = useForm<CommitteeFormValues>({
         resolver: zodResolver(committeeFormSchema),
@@ -484,17 +486,27 @@ const CommitteeManagement = ({ requisition, onCommitteeUpdated }: { requisition:
             committeeName: requisition.committeeName || "",
             committeePurpose: requisition.committeePurpose || "",
             committeeMemberIds: requisition.committeeMemberIds || [],
-            scoringDeadline: requisition.scoringDeadline ? new Date(requisition.scoringDeadline) : undefined,
         },
     });
+    
+    useEffect(() => {
+        if(scoringDate && scoringTime) {
+            const [hours, minutes] = scoringTime.split(':').map(Number);
+            const newDate = setMinutes(setHours(scoringDate, hours), minutes);
+            form.setValue('scoringDeadline', newDate);
+        } else {
+            form.setValue('scoringDeadline', undefined);
+        }
+    }, [scoringDate, scoringTime, form]);
 
     useEffect(() => {
         form.reset({
             committeeName: requisition.committeeName || "",
             committeePurpose: requisition.committeePurpose || "",
             committeeMemberIds: requisition.committeeMemberIds || [],
-            scoringDeadline: requisition.scoringDeadline ? new Date(requisition.scoringDeadline) : undefined,
         });
+        setScoringDate(requisition.scoringDeadline ? new Date(requisition.scoringDeadline) : undefined);
+        setScoringTime(requisition.scoringDeadline ? format(new Date(requisition.scoringDeadline), 'HH:mm') : '');
     }, [requisition, form]);
 
     const handleSaveCommittee = async (values: CommitteeFormValues) => {
@@ -564,152 +576,135 @@ const CommitteeManagement = ({ requisition, onCommitteeUpdated }: { requisition:
                         </Button>
                     </DialogTrigger>
                     <DialogContent className="max-w-2xl">
+                         <Form {...form}>
+                         <form onSubmit={form.handleSubmit(handleSaveCommittee)}>
+                        <DialogHeader>
+                            <DialogTitle>Evaluation Committee</DialogTitle>
+                        </DialogHeader>
                         <ScrollArea className="max-h-[70vh]">
-                            <div className="p-1">
-                                <Form {...form}>
-                                <form onSubmit={form.handleSubmit(handleSaveCommittee)}>
-                                    <DialogHeader>
-                                        <DialogTitle>Evaluation Committee</DialogTitle>
-                                    </DialogHeader>
-                                    <div className="space-y-4 px-4 py-2">
-                                        <div className="grid md:grid-cols-2 gap-4">
-                                            <FormField
-                                                control={form.control}
-                                                name="committeeName"
-                                                render={({ field }) => (
-                                                    <FormItem><FormLabel>Committee Name</FormLabel><FormControl><Input {...field} placeholder="e.g., Q4 Laptop Procurement Committee" /></FormControl><FormMessage /></FormItem>
-                                                )}
-                                            />
-                                            <FormField
-                                                control={form.control}
-                                                name="scoringDeadline"
-                                                render={({ field }) => (
-                                                    <FormItem className="flex flex-col pt-2">
-                                                        <FormLabel>Committee Scoring Deadline</FormLabel>
-                                                        <Popover>
-                                                            <PopoverTrigger asChild>
-                                                            <FormControl>
-                                                                <Button
-                                                                    variant={"outline"}
-                                                                    className={cn(
-                                                                    "w-full pl-3 text-left font-normal",
-                                                                    !field.value && "text-muted-foreground"
-                                                                    )}
-                                                                >
-                                                                    {field.value ? (
-                                                                    format(field.value, "PPP p")
-                                                                    ) : (
-                                                                    <span>Pick a date and time</span>
-                                                                    )}
-                                                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                                                </Button>
-                                                            </FormControl>
-                                                            </PopoverTrigger>
-                                                            <PopoverContent className="w-auto p-0" align="start">
-                                                            <Calendar
-                                                                mode="single"
-                                                                selected={field.value}
-                                                                onSelect={field.onChange}
-                                                                disabled={(date) => date < new Date(new Date().setHours(0,0,0,0))}
-                                                                initialFocus
-                                                            />
-                                                             <div className="p-2 border-t border-border">
-                                                                <p className="text-xs text-muted-foreground text-center mb-2">Set Time</p>
-                                                                <div className="flex gap-2">
-                                                                <Input
-                                                                    type="time"
-                                                                    defaultValue={field.value ? format(field.value, 'HH:mm') : ''}
-                                                                    onChange={(e) => {
-                                                                        const [hours, minutes] = e.target.value.split(':').map(Number);
-                                                                        field.onChange(setMinutes(setHours(field.value || new Date(), hours), minutes));
-                                                                    }}
-                                                                />
-                                                                </div>
-                                                            </div>
-                                                            </PopoverContent>
-                                                        </Popover>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )}
-                                            />
-                                        </div>
-                                        <FormField
-                                            control={form.control}
-                                            name="committeePurpose"
-                                            render={({ field }) => (
-                                                <FormItem><FormLabel>Purpose / Mandate</FormLabel><FormControl><Textarea {...field} placeholder="e.g., To evaluate vendor submissions for REQ-..." /></FormControl><FormMessage /></FormItem>
-                                            )}
-                                        />
+                            <div className="space-y-4 px-4 py-2">
+                                <div className="grid md:grid-cols-2 gap-4">
+                                    <FormField
+                                        control={form.control}
+                                        name="committeeName"
+                                        render={({ field }) => (
+                                            <FormItem><FormLabel>Committee Name</FormLabel><FormControl><Input {...field} placeholder="e.g., Q4 Laptop Procurement Committee" /></FormControl><FormMessage /></FormItem>
+                                        )}
+                                    />
+                                </div>
+                                <FormField
+                                    control={form.control}
+                                    name="committeePurpose"
+                                    render={({ field }) => (
+                                        <FormItem><FormLabel>Purpose / Mandate</FormLabel><FormControl><Textarea {...field} placeholder="e.g., To evaluate vendor submissions for REQ-..." /></FormControl><FormMessage /></FormItem>
+                                    )}
+                                />
 
-                                        <div className="relative pt-2">
-                                            <FormLabel>Members</FormLabel>
-                                            <Search className="absolute left-2.5 top-11 h-4 w-4 text-muted-foreground" />
-                                            <Input 
-                                                placeholder="Search members by name or email..." 
-                                                className="pl-8 w-full mt-2"
-                                                value={committeeSearch}
-                                                onChange={(e) => setCommitteeSearch(e.target.value)}
-                                            />
-                                        </div>
-                                        <FormField
-                                            control={form.control}
-                                            name="committeeMemberIds"
-                                            render={() => (
-                                            <FormItem>
-                                                <ScrollArea className="h-60 rounded-md border">
-                                                    <div className="space-y-2 p-1">
-                                                    {filteredCommitteeMembers.map(member => (
-                                                        <FormField
-                                                            key={member.id}
-                                                            control={form.control}
-                                                            name="committeeMemberIds"
-                                                            render={({ field }) => (
-                                                                <FormItem className="flex items-start space-x-4 rounded-md border p-3 has-[:checked]:bg-muted">
-                                                                    <FormControl>
-                                                                        <Checkbox
-                                                                            checked={field.value?.includes(member.id)}
-                                                                            onCheckedChange={(checked) => {
-                                                                                return checked
-                                                                                ? field.onChange([...(field.value || []), member.id])
-                                                                                : field.onChange(field.value?.filter((id) => id !== member.id))
-                                                                            }}
-                                                                        />
-                                                                    </FormControl>
-                                                                    <div className="flex items-start gap-3 flex-1">
-                                                                        <Avatar>
-                                                                            <AvatarImage src={`https://picsum.photos/seed/${member.id}/40/40`} data-ai-hint="profile picture" />
-                                                                            <AvatarFallback>{member.name.charAt(0)}</AvatarFallback>
-                                                                        </Avatar>
-                                                                        <div className="grid gap-0.5">
-                                                                            <Label className="font-normal cursor-pointer">{member.name}</Label>
-                                                                            <p className="text-xs text-muted-foreground">{member.email}</p>
-                                                                        </div>
-                                                                    </div>
-                                                                </FormItem>
-                                                            )}
-                                                        />
-                                                    ))}
-                                                    {filteredCommitteeMembers.length === 0 && (
-                                                            <div className="text-center text-muted-foreground py-10">No committee members found.</div>
-                                                        )}
-                                                    </div>
-                                                </ScrollArea>
-                                                <FormMessage />
-                                            </FormItem>
-                                            )}
+                                <div className="space-y-2">
+                                    <FormLabel>Committee Scoring Deadline</FormLabel>
+                                    <div className="flex gap-2">
+                                         <Popover>
+                                            <PopoverTrigger asChild>
+                                                <Button
+                                                    variant={"outline"}
+                                                    className={cn(
+                                                    "w-full justify-start text-left font-normal",
+                                                    !scoringDate && "text-muted-foreground"
+                                                    )}
+                                                >
+                                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                                    {scoringDate ? format(scoringDate, "PPP") : <span>Pick a date</span>}
+                                                </Button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-auto p-0" align="start">
+                                                <Calendar
+                                                    mode="single"
+                                                    selected={scoringDate}
+                                                    onSelect={setScoringDate}
+                                                    disabled={(date) => date < new Date(new Date().setHours(0,0,0,0))}
+                                                    initialFocus
+                                                />
+                                            </PopoverContent>
+                                        </Popover>
+                                        <Input
+                                            type="time"
+                                            value={scoringTime}
+                                            onChange={(e) => setScoringTime(e.target.value)}
+                                            className="w-32"
                                         />
                                     </div>
-                                    <DialogFooter className="pt-4 border-t mt-4">
-                                        <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
-                                        <Button type="submit" disabled={isSubmitting}>
-                                            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
-                                            Save Committee
-                                        </Button>
-                                    </DialogFooter>
-                                </form>
-                                </Form>
+                                    {form.formState.errors.scoringDeadline && <p className="text-sm font-medium text-destructive">{form.formState.errors.scoringDeadline.message}</p>}
+                                </div>
+
+
+                                <div className="relative pt-2">
+                                    <FormLabel>Members</FormLabel>
+                                    <Search className="absolute left-2.5 top-11 h-4 w-4 text-muted-foreground" />
+                                    <Input 
+                                        placeholder="Search members by name or email..." 
+                                        className="pl-8 w-full mt-2"
+                                        value={committeeSearch}
+                                        onChange={(e) => setCommitteeSearch(e.target.value)}
+                                    />
+                                </div>
+                                <FormField
+                                    control={form.control}
+                                    name="committeeMemberIds"
+                                    render={() => (
+                                    <FormItem>
+                                        <ScrollArea className="h-60 rounded-md border">
+                                            <div className="space-y-2 p-1">
+                                            {filteredCommitteeMembers.map(member => (
+                                                <FormField
+                                                    key={member.id}
+                                                    control={form.control}
+                                                    name="committeeMemberIds"
+                                                    render={({ field }) => (
+                                                        <FormItem className="flex items-start space-x-4 rounded-md border p-3 has-[:checked]:bg-muted">
+                                                            <FormControl>
+                                                                <Checkbox
+                                                                    checked={field.value?.includes(member.id)}
+                                                                    onCheckedChange={(checked) => {
+                                                                        return checked
+                                                                        ? field.onChange([...(field.value || []), member.id])
+                                                                        : field.onChange(field.value?.filter((id) => id !== member.id))
+                                                                    }}
+                                                                />
+                                                            </FormControl>
+                                                            <div className="flex items-start gap-3 flex-1">
+                                                                <Avatar>
+                                                                    <AvatarImage src={`https://picsum.photos/seed/${member.id}/40/40`} data-ai-hint="profile picture" />
+                                                                    <AvatarFallback>{member.name.charAt(0)}</AvatarFallback>
+                                                                </Avatar>
+                                                                <div className="grid gap-0.5">
+                                                                    <Label className="font-normal cursor-pointer">{member.name}</Label>
+                                                                    <p className="text-xs text-muted-foreground">{member.email}</p>
+                                                                </div>
+                                                            </div>
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                            ))}
+                                            {filteredCommitteeMembers.length === 0 && (
+                                                    <div className="text-center text-muted-foreground py-10">No committee members found.</div>
+                                                )}
+                                            </div>
+                                        </ScrollArea>
+                                        <FormMessage />
+                                    </FormItem>
+                                    )}
+                                />
                             </div>
                         </ScrollArea>
+                        <DialogFooter className="pt-4 border-t mt-4">
+                            <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
+                            <Button type="submit" disabled={isSubmitting}>
+                                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                                Save Committee
+                            </Button>
+                        </DialogFooter>
+                        </form>
+                        </Form>
                     </DialogContent>
                 </Dialog>
             </CardHeader>
@@ -747,17 +742,29 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
     const [selectedVendors, setSelectedVendors] = useState<string[]>([]);
     const [vendorSearch, setVendorSearch] = useState('');
     const [isSubmitting, setSubmitting] = useState(false);
-    const [deadline, setDeadline] = useState<Date | undefined>(undefined);
-    const [time, setTime] = useState<string>('');
+    const [deadlineDate, setDeadlineDate] = useState<Date|undefined>();
+    const [deadlineTime, setDeadlineTime] = useState<string>('');
     const [cpoAmount, setCpoAmount] = useState<number | undefined>(requisition.cpoAmount);
     const { user } = useAuth();
     const { toast } = useToast();
     
-    useEffect(() => {
-        setDeadline(requisition.deadline ? new Date(requisition.deadline) : undefined);
-        setTime(requisition.deadline ? format(new Date(requisition.deadline), 'HH:mm') : '');
+     useEffect(() => {
+        if (requisition.deadline) {
+            setDeadlineDate(new Date(requisition.deadline));
+            setDeadlineTime(format(new Date(requisition.deadline), 'HH:mm'));
+        } else {
+            setDeadlineDate(undefined);
+            setDeadlineTime('');
+        }
         setCpoAmount(requisition.cpoAmount);
     }, [requisition]);
+
+    const deadline = useMemo(() => {
+        if (!deadlineDate || !deadlineTime) return undefined;
+        const [hours, minutes] = deadlineTime.split(':').map(Number);
+        return setMinutes(setHours(deadlineDate, hours), minutes);
+    }, [deadlineDate, deadlineTime]);
+
 
     const handleSendRFQ = async () => {
         if (!user || !deadline) return;
@@ -823,55 +830,37 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
             <CardContent className="space-y-4">
                  <div className="space-y-2">
                     <Label>Quotation Submission Deadline</Label>
-                        <Popover>
-                        <PopoverTrigger asChild>
-                            <Button
-                                variant={"outline"}
-                                className={cn(
-                                "w-full justify-start text-left font-normal",
-                                !deadline && "text-muted-foreground"
-                                )}
-                            >
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                {deadline ? format(deadline, "PPP p") : <span>Pick a date and time</span>}
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0">
-                            <Calendar
-                                mode="single"
-                                selected={deadline}
-                                onSelect={(day) => {
-                                    const newDate = day || new Date();
-                                    const [hours, minutes] = time.split(':').map(Number);
-                                    if (!isNaN(hours) && !isNaN(minutes)) {
-                                       setDeadline(setMinutes(setHours(newDate, hours), minutes));
-                                    } else {
-                                       setDeadline(newDate);
-                                    }
-                                }}
-                                disabled={(date) => date < new Date(new Date().setHours(0,0,0,0))}
-                                initialFocus
-                            />
-                             <div className="p-2 border-t border-border">
-                                <p className="text-xs text-muted-foreground text-center mb-2">Set Time</p>
-                                <div className="flex gap-2">
-                                <Input
-                                    type="time"
-                                    value={time}
-                                    onChange={(e) => {
-                                        setTime(e.target.value);
-                                        if (deadline) {
-                                            const [hours, minutes] = e.target.value.split(':').map(Number);
-                                            if (!isNaN(hours) && !isNaN(minutes)) {
-                                                setDeadline(d => setMinutes(setHours(d || new Date(), hours), minutes));
-                                            }
-                                        }
-                                    }}
+                     <div className="flex gap-2">
+                         <Popover>
+                            <PopoverTrigger asChild>
+                                <Button
+                                    variant={"outline"}
+                                    className={cn(
+                                    "w-full justify-start text-left font-normal",
+                                    !deadlineDate && "text-muted-foreground"
+                                    )}
+                                >
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {deadlineDate ? format(deadlineDate, "PPP") : <span>Pick a date</span>}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0">
+                                <Calendar
+                                    mode="single"
+                                    selected={deadlineDate}
+                                    onSelect={setDeadlineDate}
+                                    disabled={(date) => date < new Date(new Date().setHours(0,0,0,0))}
+                                    initialFocus
                                 />
-                                </div>
-                            </div>
-                        </PopoverContent>
-                    </Popover>
+                            </PopoverContent>
+                        </Popover>
+                        <Input 
+                            type="time" 
+                            className="w-32"
+                            value={deadlineTime}
+                            onChange={(e) => setDeadlineTime(e.target.value)}
+                        />
+                    </div>
                 </div>
                 <div className="space-y-2">
                     <Label>Distribution Type</Label>
@@ -1824,5 +1813,3 @@ export default function QuotationDetailsPage() {
     </div>
   );
 }
-
-    
