@@ -1,5 +1,4 @@
 
-
 export type UserRole =
   | 'Requester'
   | 'Approver'
@@ -294,3 +293,5 @@ export type DocumentRecord = {
     relatedTo: string[];
     auditTrail?: AuditLog[];
 }
+
+    

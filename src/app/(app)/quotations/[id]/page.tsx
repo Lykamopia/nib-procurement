@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -613,6 +612,19 @@ const CommitteeManagement = ({ requisition, onCommitteeUpdated }: { requisition:
                                                                 disabled={(date) => date < new Date(new Date().setHours(0,0,0,0))}
                                                                 initialFocus
                                                             />
+                                                             <div className="p-2 border-t border-border">
+                                                                <p className="text-xs text-muted-foreground text-center mb-2">Set Time</p>
+                                                                <div className="flex gap-2">
+                                                                <Input
+                                                                    type="time"
+                                                                    defaultValue={field.value ? format(field.value, 'HH:mm') : '17:00'}
+                                                                    onChange={(e) => {
+                                                                        const [hours, minutes] = e.target.value.split(':').map(Number);
+                                                                        field.onChange(setMinutes(setHours(field.value || new Date(), hours), minutes));
+                                                                    }}
+                                                                />
+                                                                </div>
+                                                            </div>
                                                             </PopoverContent>
                                                         </Popover>
                                                         <FormMessage />
@@ -1797,3 +1809,5 @@ export default function QuotationDetailsPage() {
     </div>
   );
 }
+
+    
