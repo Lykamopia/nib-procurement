@@ -2,7 +2,6 @@
 "use client"
 
 import * as React from "react"
-import { useEffect, useState } from "react"
 
 type Theme = "dark" | "light" | "system"
 
@@ -30,14 +29,20 @@ export function ThemeProvider({
   storageKey = "vite-ui-theme",
   ...props
 }: ThemeProviderProps) {
-  const [theme, setTheme] = useState<Theme>("system")
+  const [theme, setTheme] = React.useState<Theme>(() => {
+    if (typeof window === 'undefined') {
+      return defaultTheme;
+    }
+    try {
+      return (localStorage.getItem(storageKey) as Theme) || defaultTheme
+    } catch (e) {
+      console.error("Failed to access localStorage:", e)
+      return defaultTheme
+    }
+  });
 
-  useEffect(() => {
-    const storedTheme = (localStorage.getItem(storageKey) as Theme) || defaultTheme
-    setTheme(storedTheme)
-  }, [storageKey, defaultTheme])
 
-  useEffect(() => {
+  React.useEffect(() => {
     const root = window.document.documentElement
 
     root.classList.remove("light", "dark")
@@ -58,7 +63,11 @@ export function ThemeProvider({
   const value = {
     theme,
     setTheme: (theme: Theme) => {
-      localStorage.setItem(storageKey, theme)
+      try {
+        localStorage.setItem(storageKey, theme)
+      } catch(e) {
+        console.error("Failed to set theme in localStorage:", e);
+      }
       setTheme(theme)
     },
   }
