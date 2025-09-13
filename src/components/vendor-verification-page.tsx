@@ -139,6 +139,7 @@ export function VendorVerificationPage() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-10">#</TableHead>
                   <TableHead>Vendor Name</TableHead>
                   <TableHead>Contact</TableHead>
                   <TableHead>Status</TableHead>
@@ -147,8 +148,9 @@ export function VendorVerificationPage() {
               </TableHeader>
               <TableBody>
                 {vendors.length > 0 ? (
-                  vendors.map(vendor => (
+                  vendors.map((vendor, index) => (
                     <TableRow key={vendor.id}>
+                      <TableCell>{index + 1}</TableCell>
                       <TableCell className="font-medium">{vendor.name}</TableCell>
                       <TableCell>
                         <div>{vendor.contactPerson}</div>
@@ -164,7 +166,7 @@ export function VendorVerificationPage() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={4} className="h-48 text-center">
+                    <TableCell colSpan={5} className="h-48 text-center">
                         <div className="flex flex-col items-center gap-4">
                             <ShieldX className="h-16 w-16 text-muted-foreground/50" />
                             <div className="space-y-1">

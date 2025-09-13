@@ -158,13 +158,15 @@ export function RoleManagementEditor() {
             <Table>
                 <TableHeader>
                     <TableRow>
+                        <TableHead className="w-16">#</TableHead>
                         <TableHead>Role Name</TableHead>
                         <TableHead className="text-right w-40">Actions</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {roles.length > 0 ? roles.map(role => (
+                    {roles.length > 0 ? roles.map((role, index) => (
                         <TableRow key={role}>
+                            <TableCell className="text-muted-foreground">{index + 1}</TableCell>
                             <TableCell className="font-semibold">{role}</TableCell>
                             <TableCell className="text-right">
                                 <div className="flex gap-2 justify-end">
@@ -201,7 +203,7 @@ export function RoleManagementEditor() {
                         </TableRow>
                     )) : (
                          <TableRow>
-                            <TableCell colSpan={2} className="h-24 text-center text-muted-foreground">
+                            <TableCell colSpan={3} className="h-24 text-center text-muted-foreground">
                                 No roles found.
                             </TableCell>
                         </TableRow>

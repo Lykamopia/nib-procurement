@@ -25,6 +25,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 const quoteFormSchema = z.object({
   notes: z.string().optional(),
@@ -771,13 +772,23 @@ export default function VendorRequisitionPage() {
                         <Separator />
                         <div>
                             <h3 className="font-semibold text-sm mb-2">Items Requested</h3>
-                            <div className="space-y-2">
-                                {requisition.items.map((item, i) => (
-                                    <div key={`${item.id}-${i}`} className="flex justify-between p-2 border rounded-md bg-muted/50">
-                                        <span>{item.name}</span>
-                                        <span className="font-semibold">Qty: {item.quantity}</span>
-                                    </div>
-                                ))}
+                            <div className="border rounded-md">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Item Name</TableHead>
+                                            <TableHead className="text-right">Quantity</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {requisition.items.map((item, i) => (
+                                            <TableRow key={`${item.id}-${i}`}>
+                                                <TableCell>{item.name}</TableCell>
+                                                <TableCell className="text-right">{item.quantity}</TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
                             </div>
                         </div>
                          {requisition.customQuestions && requisition.customQuestions.length > 0 && (
@@ -817,7 +828,3 @@ export default function VendorRequisitionPage() {
         </div>
     )
 }
-
-    
-
-    

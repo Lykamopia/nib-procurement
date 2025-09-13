@@ -511,7 +511,7 @@ export function InvoicesPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>#</TableHead>
+                <TableHead className="w-10">#</TableHead>
                 <TableHead>Invoice ID</TableHead>
                 <TableHead>PO Number</TableHead>
                 <TableHead>Date</TableHead>

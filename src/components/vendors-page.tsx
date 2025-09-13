@@ -270,7 +270,7 @@ export function VendorsPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>#</TableHead>
+                <TableHead className="w-10">#</TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>Contact Person</TableHead>
                 <TableHead>Email</TableHead>

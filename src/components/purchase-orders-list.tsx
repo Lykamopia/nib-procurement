@@ -89,7 +89,7 @@ export function PurchaseOrdersList() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>#</TableHead>
+                <TableHead className="w-10">#</TableHead>
                 <TableHead>PO Number</TableHead>
                 <TableHead>Requisition</TableHead>
                 <TableHead>Vendor</TableHead>

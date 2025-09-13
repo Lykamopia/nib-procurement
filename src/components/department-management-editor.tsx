@@ -198,6 +198,7 @@ export function DepartmentManagementEditor() {
             <Table>
                 <TableHeader>
                     <TableRow>
+                        <TableHead className="w-16">#</TableHead>
                         <TableHead>Department Name</TableHead>
                         <TableHead className="text-right w-40">Actions</TableHead>
                     </TableRow>
@@ -205,13 +206,14 @@ export function DepartmentManagementEditor() {
                 <TableBody>
                     {isLoading && departments.length === 0 ? (
                          <TableRow>
-                            <TableCell colSpan={2} className="h-24 text-center">
+                            <TableCell colSpan={3} className="h-24 text-center">
                                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground mx-auto" />
                             </TableCell>
                         </TableRow>
                     ) : departments.length > 0 ? (
-                        departments.map(dept => (
+                        departments.map((dept, index) => (
                             <TableRow key={dept.id}>
+                                <TableCell className="text-muted-foreground">{index + 1}</TableCell>
                                 <TableCell className="font-semibold">{dept.name}</TableCell>
                                 <TableCell className="text-right">
                                     <div className="flex gap-2 justify-end">
@@ -248,7 +250,7 @@ export function DepartmentManagementEditor() {
                         ))
                     ) : (
                          <TableRow>
-                            <TableCell colSpan={2} className="h-24 text-center text-muted-foreground">
+                            <TableCell colSpan={3} className="h-24 text-center text-muted-foreground">
                                 No departments found.
                             </TableCell>
                         </TableRow>
