@@ -20,6 +20,11 @@ export type User = {
   vendorId?: string;
 };
 
+export type Department = {
+  id: string;
+  name: string;
+};
+
 export type RequisitionStatus =
   | 'Draft'
   | 'Pending Approval'

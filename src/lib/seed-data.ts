@@ -1,6 +1,6 @@
 
 
-import type { PurchaseRequisition, AuditLog, Vendor, Quotation, PurchaseOrder, GoodsReceiptNote, Invoice, User } from './types';
+import type { PurchaseRequisition, AuditLog, Vendor, Quotation, PurchaseOrder, GoodsReceiptNote, Invoice, User, Department } from './types';
 
 export interface AppData {
     vendors: Vendor[];
@@ -11,6 +11,7 @@ export interface AppData {
     goodsReceipts: GoodsReceiptNote[];
     invoices: Invoice[];
     users: User[];
+    departments: Department[];
 }
 
 export function getInitialData(): AppData {
@@ -206,5 +207,13 @@ const seedData: AppData = {
         { id: '9', name: 'Fiona', email: 'fiona@example.com', password: 'password123', role: 'Committee Member' },
         { id: '10', name: 'George', email: 'george@example.com', password: 'password123', role: 'Committee Member' },
         { id: '11', name: 'Hannah', email: 'hannah@example.com', password: 'password123', role: 'Committee' },
+    ],
+    departments: [
+        { id: 'DEPT-1', name: 'Design' },
+        { id: 'DEPT-2', name: 'Operations' },
+        { id: 'DEPT-3', name: 'IT' },
+        { id: 'DEPT-4', name: 'Marketing' },
+        { id: 'DEPT-5', name: 'Finance' },
+        { id: 'DEPT-6', name: 'Human Resources' },
     ]
 };
