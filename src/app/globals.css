@@ -29,14 +29,14 @@
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
     --radius: 0.5rem;
-    --sidebar-background: 222.2 84% 4.9%;
-    --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 210 40% 98%;
-    --sidebar-primary-foreground: 222.2 47.4% 11.2%;
-    --sidebar-accent: 217.2 32.6% 17.5%;
-    --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 217.2 32.6% 17.5%;
-    --sidebar-ring: 215 20.2% 65.1%;
+    --sidebar-background: 40 89% 96%; /* Honey-toned background */
+    --sidebar-foreground: 24 9.8% 10%;
+    --sidebar-primary: 35 91% 55%;
+    --sidebar-primary-foreground: 24 9.8% 10%;
+    --sidebar-accent: 40 89% 92%;
+    --sidebar-accent-foreground: 24 9.8% 10%;
+    --sidebar-border: 40 89% 90%;
+    --sidebar-ring: 35 91% 55%;
   }
 
   .dark {
