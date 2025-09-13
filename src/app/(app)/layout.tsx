@@ -261,17 +261,19 @@ export default function AppLayout({
                 </SidebarMenuButton>
               </Link>
             </SidebarMenuItem>
-            <SidebarMenuItem>
-              <Link href="/audit-log">
-                <SidebarMenuButton
-                  isActive={pathname === '/audit-log'}
-                  tooltip="Audit Log"
-                >
-                  <History />
-                  <span>Audit Log</span>
-                </SidebarMenuButton>
-              </Link>
-            </SidebarMenuItem>
+            {role === 'Procurement Officer' && (
+                <SidebarMenuItem>
+                <Link href="/audit-log">
+                    <SidebarMenuButton
+                    isActive={pathname === '/audit-log'}
+                    tooltip="Audit Log"
+                    >
+                    <History />
+                    <span>Audit Log</span>
+                    </SidebarMenuButton>
+                </Link>
+                </SidebarMenuItem>
+            )}
           </SidebarMenu>
         </SidebarContent>
         <SidebarFooter>
@@ -310,5 +312,3 @@ export default function AppLayout({
     </SidebarProvider>
   );
 }
-
-    

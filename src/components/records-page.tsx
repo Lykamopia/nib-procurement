@@ -132,6 +132,7 @@ export function RecordsPage() {
   const filteredRecords = useMemo(() => {
     return records.filter(record => {
         if (role !== 'Procurement Officer' && user) {
+            // This is a simplified check. A robust implementation would check against user ID.
             if (record.user !== user.name) {
                 return false;
             }

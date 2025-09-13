@@ -64,12 +64,6 @@ export function AuditLog() {
   const filteredLogs = useMemo(() => {
     return logs
       .filter(log => {
-        if (role !== 'Procurement Officer' && user) {
-          return log.user === user.name;
-        }
-        return true;
-      })
-      .filter(log => {
         const lowerSearch = searchTerm.toLowerCase();
         return (
           log.user.toLowerCase().includes(lowerSearch) ||
@@ -81,7 +75,7 @@ export function AuditLog() {
       .filter(log => filters.role === 'all' || log.role === filters.role)
       .filter(log => filters.action === 'all' || log.action === filters.action)
       .filter(log => !filters.date || new Date(log.timestamp).toDateString() === filters.date.toDateString());
-  }, [logs, searchTerm, filters, user, role]);
+  }, [logs, searchTerm, filters]);
 
   const totalPages = Math.ceil(filteredLogs.length / PAGE_SIZE);
   const paginatedLogs = useMemo(() => {
@@ -112,6 +106,19 @@ export function AuditLog() {
     if (lowerAction.includes('reject') || lowerAction.includes('dispute')) return 'destructive';
     return 'outline';
   };
+  
+   if (role !== 'Procurement Officer') {
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>Access Denied</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <p>You do not have permission to view the audit log.</p>
+            </CardContent>
+        </Card>
+    )
+  }
 
   if (loading) {
     return <p>Loading audit log...</p>;
