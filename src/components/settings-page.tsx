@@ -10,6 +10,7 @@ import {
 } from './ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RolePermissionsEditor } from './role-permissions-editor';
+import { RoleManagementEditor } from './role-management-editor';
 
 
 export function SettingsPage() {
@@ -18,6 +19,7 @@ export function SettingsPage() {
       <TabsList>
         <TabsTrigger value="general">General</TabsTrigger>
         <TabsTrigger value="permissions">Role Permissions</TabsTrigger>
+        <TabsTrigger value="roles">Role Management</TabsTrigger>
         <TabsTrigger value="notifications">Notifications</TabsTrigger>
       </TabsList>
       <TabsContent value="general">
@@ -35,6 +37,9 @@ export function SettingsPage() {
       </TabsContent>
       <TabsContent value="permissions">
         <RolePermissionsEditor />
+      </TabsContent>
+       <TabsContent value="roles">
+        <RoleManagementEditor />
       </TabsContent>
       <TabsContent value="notifications">
          <Card>
