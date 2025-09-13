@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   Card,
   CardContent,
@@ -11,19 +11,12 @@ import {
   CardFooter
 } from '@/components/ui/card';
 import { Button } from './ui/button';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import { Checkbox } from './ui/checkbox';
 import { navItems, rolePermissions as initialRolePermissions } from '@/lib/roles';
 import { UserRole } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
+import { Label } from './ui/label';
 
 type PermissionsState = Record<UserRole, string[]>;
 
@@ -32,7 +25,6 @@ export function RolePermissionsEditor() {
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
 
-  // Exclude Vendor and Admin roles from being edited
   const editableRoles = Object.keys(permissions).filter(
     role => role !== 'Vendor' && role !== 'Admin'
   ) as UserRole[];
@@ -55,7 +47,6 @@ export function RolePermissionsEditor() {
     setIsSaving(true);
     // In a real app, you would make an API call to save the new permissions.
     console.log('Saving new permissions:', permissions);
-    // For this demo, we'll just simulate a save.
     setTimeout(() => {
       toast({
         title: 'Permissions Saved',
@@ -73,36 +64,33 @@ export function RolePermissionsEditor() {
           Define which pages each user role can access in the application.
         </CardDescription>
       </CardHeader>
-      <CardContent>
-        <div className="border rounded-lg overflow-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="sticky left-0 bg-card z-10">Role</TableHead>
-                {navItems.map(item => (
-                  <TableHead key={item.path} className="text-center">{item.label}</TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {editableRoles.map(role => (
-                <TableRow key={role}>
-                  <TableCell className="font-semibold sticky left-0 bg-card z-10">{role}</TableCell>
-                  {navItems.map(item => (
-                    <TableCell key={`${role}-${item.path}`} className="text-center">
-                      <Checkbox
-                        checked={permissions[role]?.includes(item.path)}
-                        onCheckedChange={checked =>
-                          handlePermissionChange(role, item.path, !!checked)
-                        }
-                      />
-                    </TableCell>
-                  ))}
-                </TableRow>
+      <CardContent className="space-y-6">
+        {editableRoles.map(role => (
+          <Card key={role}>
+            <CardHeader>
+              <CardTitle className="text-lg">{role}</CardTitle>
+            </CardHeader>
+            <CardContent className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+              {navItems.map(item => (
+                <div key={item.path} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={`${role}-${item.path}`}
+                    checked={permissions[role]?.includes(item.path)}
+                    onCheckedChange={checked =>
+                      handlePermissionChange(role, item.path, !!checked)
+                    }
+                  />
+                  <Label
+                    htmlFor={`${role}-${item.path}`}
+                    className="text-sm font-normal"
+                  >
+                    {item.label}
+                  </Label>
+                </div>
               ))}
-            </TableBody>
-          </Table>
-        </div>
+            </CardContent>
+          </Card>
+        ))}
       </CardContent>
       <CardFooter>
         <Button onClick={handleSave} disabled={isSaving}>
