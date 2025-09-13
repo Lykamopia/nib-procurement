@@ -53,15 +53,19 @@ export default function AppLayout({
   // Page-level access check
   useEffect(() => {
     if (!loading && role) {
+      const currentPath = pathname.split('?')[0];
       const allowedPaths = rolePermissions[role] || [];
       // Allow access to sub-pages like /purchase-orders/[id]
-      const isAllowed = allowedPaths.some(path => pathname.startsWith(path));
+      const isAllowed = allowedPaths.some(path => currentPath.startsWith(path));
 
       if (!isAllowed) {
         // Redirect to the first accessible page or dashboard if available
         const defaultPath = allowedPaths.includes('/dashboard') ? '/dashboard' : allowedPaths[0];
         if(defaultPath) {
           router.push(defaultPath);
+        } else if (role !== 'Vendor') {
+          // If no default path and not a vendor, maybe they have no permissions
+           router.push('/login');
         }
       }
     }
@@ -111,6 +115,32 @@ export default function AppLayout({
                     </Link>
                 </SidebarMenuItem>
             ))}
+             {role === 'Procurement Officer' && (
+              <>
+                <SidebarMenuItem>
+                  <Link href="/records">
+                    <SidebarMenuButton
+                      isActive={pathname === '/records'}
+                      tooltip="Records"
+                    >
+                      <navItems.find(i => i.path === '/records')?.icon />
+                      <span>Records</span>
+                    </SidebarMenuButton>
+                  </Link>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <Link href="/audit-log">
+                    <SidebarMenuButton
+                      isActive={pathname === '/audit-log'}
+                      tooltip="Audit Log"
+                    >
+                      <navItems.find(i => i.path === '/audit-log')?.icon />
+                      <span>Audit Log</span>
+                    </SidebarMenuButton>
+                  </Link>
+                </SidebarMenuItem>
+              </>
+            )}
           </SidebarMenu>
         </SidebarContent>
         <SidebarFooter>
@@ -125,7 +155,7 @@ export default function AppLayout({
         </SidebarFooter>
       </Sidebar>
       <SidebarInset>
-        <header className="flex h-14 items-center justify-between border-b bg-card px-4 lg:px-6">
+        <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b bg-card px-4 lg:px-6">
           <div className="flex items-center gap-4">
             <SidebarTrigger className="md:hidden" />
             <h1 className="text-xl font-semibold">{pageTitle}</h1>
