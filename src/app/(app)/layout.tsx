@@ -123,7 +123,7 @@ export default function AppLayout({
                       isActive={pathname === '/records'}
                       tooltip="Records"
                     >
-                      <navItems.find(i => i.path === '/records')?.icon />
+                      <navItems.find(i => i.path === '/records')!.icon />
                       <span>Records</span>
                     </SidebarMenuButton>
                   </Link>
@@ -134,7 +134,7 @@ export default function AppLayout({
                       isActive={pathname === '/audit-log'}
                       tooltip="Audit Log"
                     >
-                      <navItems.find(i => i.path === '/audit-log')?.icon />
+                      <navItems.find(i => i.path === '/audit-log')!.icon />
                       <span>Audit Log</span>
                     </SidebarMenuButton>
                   </Link>
