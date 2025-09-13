@@ -2,6 +2,7 @@
 'use client';
 
 import React, { useEffect } from 'react';
+import Image from 'next/image';
 import {
   LogOut,
   User as UserIcon,
@@ -48,7 +49,7 @@ export default function VendorLayout({
             href="#"
             className="flex items-center gap-2 text-lg font-semibold md:text-base"
           >
-            <Icons.logo className="h-6 w-6" />
+            <Image src="/logo.png" alt="Nib Procurement Logo" width={24} height={24} className="h-6 w-6" />
             <span className="">Nib Procurement Vendor Portal</span>
           </a>
         </nav>

@@ -1,7 +1,9 @@
 
+
 'use client';
 
 import { PurchaseOrder } from '@/lib/types';
+import Image from 'next/image';
 import {
   Card,
   CardContent,
@@ -41,10 +43,12 @@ export function PurchaseOrderDocument({ po }: { po: PurchaseOrder }) {
       )}
       <Card className="p-4 sm:p-6 md:p-8">
         <CardHeader className="flex flex-row items-start justify-between space-y-0">
-          <div>
-            <Icons.logo className="size-10 text-primary" />
-            <h2 className="text-2xl font-bold">Nib Procurement Inc.</h2>
-            <p className="text-muted-foreground">123 Procurement Lane, Suite 456, BizTown, BT 54321</p>
+          <div className='flex items-center gap-2'>
+            <Image src="/logo.png" alt="Nib Procurement Logo" width={40} height={40} className="size-10" />
+            <div>
+                <h2 className="text-2xl font-bold">Nib Procurement Inc.</h2>
+                <p className="text-muted-foreground">123 Procurement Lane, Suite 456, BizTown, BT 54321</p>
+            </div>
           </div>
           <div className="text-right">
             <h1 className="text-4xl font-bold tracking-tight uppercase text-primary">Purchase Order</h1>

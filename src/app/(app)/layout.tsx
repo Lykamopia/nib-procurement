@@ -3,6 +3,7 @@
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
+import Image from 'next/image';
 import {
   SidebarProvider,
   Sidebar,
@@ -108,7 +109,7 @@ export default function AppLayout({
       <Sidebar variant="inset" collapsible="icon">
         <SidebarHeader>
           <div className="flex items-center gap-2">
-            <Icons.logo className="size-7 text-primary" />
+            <Image src="/logo.png" alt="Nib Procurement Logo" width={28} height={28} className="size-7" />
             <span className="text-lg font-semibold">Nib Procurement</span>
           </div>
         </SidebarHeader>
@@ -245,22 +246,24 @@ export default function AppLayout({
                   </Link>
                 </SidebarMenuItem>
             )}
+            {role === 'Procurement Officer' && (
+              <SidebarMenuItem>
+                <Link href="/records">
+                  <SidebarMenuButton
+                    isActive={pathname === '/records'}
+                    tooltip="Records"
+                  >
+                    <Archive />
+                    <span>Records</span>
+                  </SidebarMenuButton>
+                </Link>
+              </SidebarMenuItem>
+            )}
           </SidebarMenu>
 
           <Separator className="my-2" />
 
           <SidebarMenu>
-             <SidebarMenuItem>
-              <Link href="/records">
-                <SidebarMenuButton
-                  isActive={pathname === '/records'}
-                  tooltip="Records"
-                >
-                  <Archive />
-                  <span>Records</span>
-                </SidebarMenuButton>
-              </Link>
-            </SidebarMenuItem>
             {role === 'Procurement Officer' && (
                 <SidebarMenuItem>
                 <Link href="/audit-log">
