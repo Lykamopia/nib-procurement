@@ -15,6 +15,7 @@ import {
   Archive,
   History,
   Settings,
+  Wallet,
 } from 'lucide-react';
 import { ComponentType } from 'react';
 
@@ -34,7 +35,8 @@ export const navItems: NavItem[] = [
   { path: '/quotations', label: 'Quotations', icon: FileBadge },
   { path: '/contracts', label: 'Contracts', icon: FileSignature },
   { path: '/purchase-orders', label: 'Purchase Orders', icon: FileStack },
-  { path: '/invoices', label: 'Invoices & Matching', icon: Landmark },
+  { path: '/invoice-matching', label: 'Invoice Matching', icon: Wallet },
+  { path: '/invoices', label: 'Invoices', icon: Landmark },
   { path: '/receive-goods', label: 'Receive Goods', icon: PackageCheck },
   { path: '/records', label: 'Records', icon: Archive },
   { path: '/audit-log', label: 'Audit Log', icon: History },
@@ -52,6 +54,7 @@ export const rolePermissions: Record<UserRole, string[]> = {
     '/quotations',
     '/contracts',
     '/purchase-orders',
+    '/invoice-matching',
     '/invoices',
     '/records',
     '/audit-log',
@@ -66,6 +69,7 @@ export const rolePermissions: Record<UserRole, string[]> = {
     '/quotations',
     '/contracts',
     '/purchase-orders',
+    '/invoice-matching',
     '/invoices',
     '/records',
     '/audit-log',
@@ -83,6 +87,7 @@ export const rolePermissions: Record<UserRole, string[]> = {
   Finance: [
     '/dashboard',
     '/invoices',
+    '/invoice-matching',
     '/records',
   ],
   Receiving: [
