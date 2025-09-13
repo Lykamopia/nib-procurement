@@ -18,6 +18,8 @@ export type User = {
   password?: string; // Should not be sent to client
   role: UserRole;
   vendorId?: string;
+  department?: string;
+  departmentId?: string;
 };
 
 export type Department = {

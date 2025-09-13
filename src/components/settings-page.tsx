@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RolePermissionsEditor } from './role-permissions-editor';
 import { RoleManagementEditor } from './role-management-editor';
 import { DepartmentManagementEditor } from './department-management-editor';
+import { UserManagementEditor } from './user-management-editor';
 
 
 export function SettingsPage() {
@@ -21,6 +22,7 @@ export function SettingsPage() {
         <TabsTrigger value="general">General</TabsTrigger>
         <TabsTrigger value="permissions">Role Permissions</TabsTrigger>
         <TabsTrigger value="roles">Role Management</TabsTrigger>
+        <TabsTrigger value="users">User Management</TabsTrigger>
         <TabsTrigger value="departments">Departments</TabsTrigger>
         <TabsTrigger value="notifications">Notifications</TabsTrigger>
       </TabsList>
@@ -42,6 +44,9 @@ export function SettingsPage() {
       </TabsContent>
        <TabsContent value="roles">
         <RoleManagementEditor />
+      </TabsContent>
+       <TabsContent value="users">
+        <UserManagementEditor />
       </TabsContent>
        <TabsContent value="departments">
         <DepartmentManagementEditor />
