@@ -23,7 +23,7 @@ import { PurchaseRequisition } from '@/lib/types';
 import { format } from 'date-fns';
 import { Badge } from './ui/badge';
 import { useRouter } from 'next/navigation';
-import { ArrowRight, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, FileX2 } from 'lucide-react';
+import { ArrowRight, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, FileX2, Loader2 } from 'lucide-react';
 
 const PAGE_SIZE = 10;
 
@@ -75,7 +75,7 @@ export function RequisitionsForQuotingTable() {
     return 'default';
   }
 
-  if (loading) return <div>Loading requisitions...</div>;
+  if (loading) return <div className="flex h-64 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   if (error) return <div className="text-destructive">Error: {error}</div>;
 
   return (

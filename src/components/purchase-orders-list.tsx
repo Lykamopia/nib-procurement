@@ -23,7 +23,7 @@ import { PurchaseOrder, PurchaseRequisition } from '@/lib/types';
 import { format } from 'date-fns';
 import { Button } from './ui/button';
 import Link from 'next/link';
-import { ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, Eye, FileX2 } from 'lucide-react';
+import { ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, Eye, FileX2, Loader2 } from 'lucide-react';
 import { RequisitionDetailsDialog } from './requisition-details-dialog';
 
 const PAGE_SIZE = 10;
@@ -72,7 +72,7 @@ export function PurchaseOrdersList() {
   }, [purchaseOrders, currentPage]);
 
   if (loading) {
-    return <p>Loading purchase orders...</p>;
+    return <div className="flex h-64 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
 
   return (

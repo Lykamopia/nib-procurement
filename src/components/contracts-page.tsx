@@ -21,7 +21,7 @@ import {
 import { Badge } from './ui/badge';
 import { PurchaseRequisition } from '@/lib/types';
 import { format } from 'date-fns';
-import { FileText, CircleCheck, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, FileX2 } from 'lucide-react';
+import { FileText, CircleCheck, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, FileX2, Loader2 } from 'lucide-react';
 import { Button } from './ui/button';
 
 const PAGE_SIZE = 10;
@@ -56,7 +56,7 @@ export function ContractsPage() {
   }, [contractedReqs, currentPage]);
 
   if (loading) {
-    return <p>Loading contracts...</p>;
+    return <div className="flex h-64 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
 
   return (

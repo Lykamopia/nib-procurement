@@ -37,6 +37,7 @@ import {
   XCircle,
   Edit,
   ArchiveX,
+  Loader2,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from './ui/dialog';
@@ -164,7 +165,7 @@ export function RecordsPage() {
     console.log("Simulating download for:", record);
   }
 
-  if (loading) return <div>Loading records...</div>;
+  if (loading) return <div className="flex h-64 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
 
   return (
     <Card>

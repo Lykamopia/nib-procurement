@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -133,8 +134,8 @@ export function Dashboard({ setActiveView }: DashboardProps) {
 
   if (loading) {
     return (
-      <div className="flex h-full w-full items-center justify-center">
-        <p>Loading dashboard...</p>
+      <div className="flex h-64 w-full items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }

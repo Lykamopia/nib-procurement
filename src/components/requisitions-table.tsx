@@ -43,6 +43,7 @@ import {
   FileEdit,
   Eye,
   ListX,
+  Loader2,
 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Calendar } from './ui/calendar';
@@ -198,7 +199,7 @@ export function RequisitionsTable() {
     }
   }
 
-  if (loading) return <div>Loading requisitions...</div>;
+  if (loading) return <div className="flex h-64 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   if (error) return <div className="text-destructive">Error: {error}</div>;
 
   return (

@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -27,6 +28,7 @@ import {
   ChevronsLeft,
   ChevronsRight,
   ListX,
+  Loader2,
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 import { useAuth } from '@/contexts/auth-context';
@@ -122,7 +124,7 @@ export function AuditLog() {
   }
 
   if (loading) {
-    return <p>Loading audit log...</p>;
+    return <div className="flex h-64 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
 
   return (
