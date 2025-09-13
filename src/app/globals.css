@@ -4,24 +4,24 @@
 
 @layer base {
   :root {
-    --background: 210 40% 98%;
-    --foreground: 210 40% 3.9%;
-    --card: 210 40% 98%;
-    --card-foreground: 210 40% 3.9%;
-    --popover: 210 40% 98%;
-    --popover-foreground: 210 40% 3.9%;
+    --background: 40 89% 96%;
+    --foreground: 24 9.8% 10%;
+    --card: 40 89% 96%;
+    --card-foreground: 24 9.8% 10%;
+    --popover: 40 89% 96%;
+    --popover-foreground: 24 9.8% 10%;
     --primary: 35 91% 55%; /* Yellowish Honey */
     --primary-foreground: 24 9.8% 10%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --secondary: 40 89% 92%;
+    --secondary-foreground: 24 9.8% 10%;
+    --muted: 40 89% 92%;
+    --muted-foreground: 24 9.8% 10%;
     --accent: 25 64% 38%; /* Dark Brownish Honey */
-    --accent-foreground: 210 40% 98%;
+    --accent-foreground: 40 89% 96%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
+    --border: 40 89% 90%;
+    --input: 40 89% 90%;
     --ring: 35 91% 55%;
     --chart-1: 35 91% 55%;
     --chart-2: 25 64% 38%;
