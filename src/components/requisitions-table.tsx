@@ -58,7 +58,7 @@ export function RequisitionsTable() {
   const [requisitions, setRequisitions] = useState<PurchaseRequisition[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { user } = useAuth();
+  const { user, role } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
 
@@ -124,7 +124,15 @@ export function RequisitionsTable() {
   }, [requisitions]);
 
   const filteredRequisitions = useMemo(() => {
-    return requisitions
+    let filtered = requisitions;
+
+    // Apply role-based filtering first
+    if (role === 'Requester' && user) {
+        filtered = filtered.filter(req => req.requesterId === user.id);
+    }
+
+    // Apply other filters
+    return filtered
       .filter(req => {
         const lowerCaseSearch = searchTerm.toLowerCase();
         return (
@@ -136,7 +144,7 @@ export function RequisitionsTable() {
       .filter(req => statusFilter === 'all' || req.status === statusFilter)
       .filter(req => requesterFilter === 'all' || req.requesterName === requesterFilter)
       .filter(req => !dateFilter || new Date(req.createdAt).toDateString() === dateFilter.toDateString());
-  }, [requisitions, searchTerm, statusFilter, requesterFilter, dateFilter]);
+  }, [requisitions, searchTerm, statusFilter, requesterFilter, dateFilter, role, user]);
 
   const totalPages = Math.ceil(filteredRequisitions.length / PAGE_SIZE);
   const paginatedRequisitions = useMemo(() => {
