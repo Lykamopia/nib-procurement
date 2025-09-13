@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -91,7 +92,7 @@ export default function AppLayout({
         return 'Audit Log';
       default:
         if (pathname?.startsWith('/purchase-orders/')) return 'Purchase Order';
-        return 'ProcurCtrl';
+        return 'Nib Procurement';
     }
   }, [pathname]);
 
@@ -109,7 +110,7 @@ export default function AppLayout({
         <SidebarHeader>
           <div className="flex items-center gap-2">
             <Icons.logo className="size-7 text-primary" />
-            <span className="text-lg font-semibold">ProcurCtrl</span>
+            <span className="text-lg font-semibold">Nib Procurement</span>
           </div>
         </SidebarHeader>
         <SidebarContent>
@@ -321,3 +322,5 @@ export default function AppLayout({
     </SidebarProvider>
   );
 }
+
+    

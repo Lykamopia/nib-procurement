@@ -49,7 +49,7 @@ export default function VendorLayout({
             className="flex items-center gap-2 text-lg font-semibold md:text-base"
           >
             <Icons.logo className="h-6 w-6" />
-            <span className="">ProcurCtrl Vendor Portal</span>
+            <span className="">Nib Procurement Vendor Portal</span>
           </a>
         </nav>
         <div className="flex w-full items-center gap-4 md:ml-auto md:gap-2 lg:gap-4">
@@ -76,3 +76,5 @@ export default function VendorLayout({
     </div>
   )
 }
+
+    

@@ -9,7 +9,7 @@ import { ThemeProvider } from '@/contexts/theme-context';
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
 
 export const metadata: Metadata = {
-  title: 'ProcurCtrl',
+  title: 'Nib Procurement',
   description: 'A modern Procurement Management System',
 };
 
@@ -36,3 +36,5 @@ export default function RootLayout({
     </html>
   );
 }
+
+    
