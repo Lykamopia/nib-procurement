@@ -14,6 +14,7 @@ import {
   PackageCheck,
   Archive,
   History,
+  Settings,
 } from 'lucide-react';
 import { ComponentType } from 'react';
 
@@ -37,6 +38,7 @@ export const navItems: NavItem[] = [
   { path: '/receive-goods', label: 'Receive Goods', icon: PackageCheck },
   { path: '/records', label: 'Records', icon: Archive },
   { path: '/audit-log', label: 'Audit Log', icon: History },
+  { path: '/settings', label: 'Settings', icon: Settings },
 ];
 
 export const rolePermissions: Record<UserRole, string[]> = {
@@ -53,6 +55,7 @@ export const rolePermissions: Record<UserRole, string[]> = {
     '/invoices',
     '/records',
     '/audit-log',
+    '/settings',
   ],
   'Committee': [
     '/dashboard',
