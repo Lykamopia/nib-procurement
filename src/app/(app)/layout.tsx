@@ -41,7 +41,17 @@ export default function AppLayout({
   const accessibleNavItems = useMemo(() => {
     if (!role) return [];
     const allowedPaths = rolePermissions[role] || [];
-    return navItems.filter(item => allowedPaths.includes(item.path));
+    return navItems.filter(item => {
+        // Hide settings unless Procurement Officer or Admin
+        if (item.path === '/settings') {
+            return role === 'Procurement Officer' || role === 'Admin';
+        }
+        // Hide audit log unless Procurement Officer
+        if (item.path === '/audit-log') {
+            return role === 'Procurement Officer';
+        }
+        return allowedPaths.includes(item.path);
+    });
   }, [role]);
 
   useEffect(() => {
@@ -115,32 +125,6 @@ export default function AppLayout({
                     </Link>
                 </SidebarMenuItem>
             ))}
-             {role === 'Procurement Officer' && (
-              <>
-                <SidebarMenuItem>
-                  <Link href="/records">
-                    <SidebarMenuButton
-                      isActive={pathname === '/records'}
-                      tooltip="Records"
-                    >
-                      <navItems.find(i => i.path === '/records')!.icon />
-                      <span>Records</span>
-                    </SidebarMenuButton>
-                  </Link>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <Link href="/audit-log">
-                    <SidebarMenuButton
-                      isActive={pathname === '/audit-log'}
-                      tooltip="Audit Log"
-                    >
-                      <navItems.find(i => i.path === '/audit-log')!.icon />
-                      <span>Audit Log</span>
-                    </SidebarMenuButton>
-                  </Link>
-                </SidebarMenuItem>
-              </>
-            )}
           </SidebarMenu>
         </SidebarContent>
         <SidebarFooter>
