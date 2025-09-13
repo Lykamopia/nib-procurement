@@ -39,6 +39,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from './ui/dialog';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/contexts/auth-context';
 
 const PAGE_SIZE = 15;
 
@@ -105,6 +106,7 @@ export function RecordsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const { toast } = useToast();
+  const { user, role } = useAuth();
 
 
   const fetchRecords = async () => {
@@ -129,6 +131,11 @@ export function RecordsPage() {
   
   const filteredRecords = useMemo(() => {
     return records.filter(record => {
+        if (role !== 'Procurement Officer' && user) {
+            if (record.user !== user.name) {
+                return false;
+            }
+        }
         const lowerSearch = searchTerm.toLowerCase();
         return (
             record.id.toLowerCase().includes(lowerSearch) ||
@@ -138,7 +145,7 @@ export function RecordsPage() {
             record.user.toLowerCase().includes(lowerSearch)
         )
     })
-  }, [records, searchTerm]);
+  }, [records, searchTerm, user, role]);
 
   const totalPages = Math.ceil(filteredRecords.length / PAGE_SIZE);
   const paginatedRecords = useMemo(() => {

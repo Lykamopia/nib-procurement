@@ -28,6 +28,7 @@ import {
   ChevronsRight,
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
+import { useAuth } from '@/contexts/auth-context';
 
 const PAGE_SIZE = 15;
 
@@ -39,6 +40,7 @@ export function AuditLog() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filters, setFilters] = useState<{ role: string; action: string; date?: Date }>({ role: 'all', action: 'all' });
   const [currentPage, setCurrentPage] = useState(1);
+  const { user, role } = useAuth();
 
   useEffect(() => {
     const fetchLogs = async () => {
@@ -62,6 +64,12 @@ export function AuditLog() {
   const filteredLogs = useMemo(() => {
     return logs
       .filter(log => {
+        if (role !== 'Procurement Officer' && user) {
+          return log.user === user.name;
+        }
+        return true;
+      })
+      .filter(log => {
         const lowerSearch = searchTerm.toLowerCase();
         return (
           log.user.toLowerCase().includes(lowerSearch) ||
@@ -73,7 +81,7 @@ export function AuditLog() {
       .filter(log => filters.role === 'all' || log.role === filters.role)
       .filter(log => filters.action === 'all' || log.action === filters.action)
       .filter(log => !filters.date || new Date(log.timestamp).toDateString() === filters.date.toDateString());
-  }, [logs, searchTerm, filters]);
+  }, [logs, searchTerm, filters, user, role]);
 
   const totalPages = Math.ceil(filteredLogs.length / PAGE_SIZE);
   const paginatedLogs = useMemo(() => {
