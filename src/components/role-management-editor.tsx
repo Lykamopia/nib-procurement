@@ -8,7 +8,6 @@ import {
   CardHeader,
   CardTitle,
   CardDescription,
-  CardFooter
 } from '@/components/ui/card';
 import { Button } from './ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -42,22 +41,60 @@ import { Label } from './ui/label';
 export function RoleManagementEditor() {
   const [roles, setRoles] = useState<UserRole[]>(Object.keys(rolePermissions) as UserRole[]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isAddDialogOpen, setAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setEditDialogOpen] = useState(false);
+  const [newRoleName, setNewRoleName] = useState('');
+  const [roleToEdit, setRoleToEdit] = useState<UserRole | null>(null);
+  const [editedRoleName, setEditedRoleName] = useState('');
   const { toast } = useToast();
 
   const handleAddNewRole = () => {
-    // In a real app, this would open a dialog to define the new role
-    toast({
-      title: 'Feature Coming Soon',
-      description: 'The ability to add new roles is under development.',
-    });
+    if (!newRoleName.trim()) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Role name cannot be empty.' });
+        return;
+    }
+    if (roles.includes(newRoleName as UserRole)) {
+         toast({ variant: 'destructive', title: 'Error', description: 'This role already exists.' });
+        return;
+    }
+    
+    // This is a simulation. In a real app, this would make an API call.
+    setIsLoading(true);
+    setTimeout(() => {
+        setRoles([...roles, newRoleName as UserRole]);
+        toast({
+            title: 'Role Added',
+            description: `The role "${newRoleName}" has been successfully added.`,
+        });
+        setNewRoleName('');
+        setAddDialogOpen(false);
+        setIsLoading(false);
+    }, 500);
   };
 
-  const handleEditRole = (role: UserRole) => {
-    toast({
-      title: 'Feature Coming Soon',
-      description: `Editing the "${role}" role is under development.`,
-    });
-  }
+  const handleEditRole = () => {
+    if (!roleToEdit || !editedRoleName.trim()) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Role name cannot be empty.' });
+      return;
+    }
+     if (roles.includes(editedRoleName as UserRole) && editedRoleName !== roleToEdit) {
+         toast({ variant: 'destructive', title: 'Error', description: 'This role name already exists.' });
+        return;
+    }
+
+    setIsLoading(true);
+    setTimeout(() => {
+        setRoles(roles.map(role => role === roleToEdit ? editedRoleName as UserRole : role));
+        toast({
+            title: 'Role Updated',
+            description: `The role "${roleToEdit}" has been renamed to "${editedRoleName}".`,
+        });
+        setRoleToEdit(null);
+        setEditedRoleName('');
+        setEditDialogOpen(false);
+        setIsLoading(false);
+    }, 500);
+  };
 
   const handleDeleteRole = (roleToDelete: UserRole) => {
     setIsLoading(true);
@@ -69,8 +106,14 @@ export function RoleManagementEditor() {
             description: `The role "${roleToDelete}" has been deleted.`,
         });
         setIsLoading(false);
-    }, 1000);
+    }, 500);
   };
+
+  const openEditDialog = (role: UserRole) => {
+    setRoleToEdit(role);
+    setEditedRoleName(role);
+    setEditDialogOpen(true);
+  }
 
 
   return (
@@ -83,7 +126,7 @@ export function RoleManagementEditor() {
                 Define, edit, and delete user roles in the application.
                 </CardDescription>
             </div>
-             <Dialog>
+             <Dialog open={isAddDialogOpen} onOpenChange={setAddDialogOpen}>
                 <DialogTrigger asChild>
                     <Button><PlusCircle className="mr-2"/> Add New Role</Button>
                 </DialogTrigger>
@@ -96,11 +139,14 @@ export function RoleManagementEditor() {
                     </DialogHeader>
                     <div className="py-4">
                         <Label htmlFor="role-name">Role Name</Label>
-                        <Input id="role-name" placeholder="e.g., Quality Assurance" />
+                        <Input id="role-name" placeholder="e.g., Quality Assurance" value={newRoleName} onChange={(e) => setNewRoleName(e.target.value)} />
                     </div>
                     <DialogFooter>
                         <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
-                        <Button onClick={handleAddNewRole}>Create Role</Button>
+                        <Button onClick={handleAddNewRole} disabled={isLoading}>
+                             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                            Create Role
+                        </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
@@ -111,7 +157,7 @@ export function RoleManagementEditor() {
             <Card key={role} className="flex justify-between items-center p-4">
                 <p className="font-semibold">{role}</p>
                 <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={() => handleEditRole(role)}>
+                    <Button variant="outline" size="sm" onClick={() => openEditDialog(role)}>
                         <Edit className="mr-2 h-4 w-4"/>
                         Edit
                     </Button>
@@ -143,6 +189,24 @@ export function RoleManagementEditor() {
             </Card>
         ))}
       </CardContent>
+       <Dialog open={isEditDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Edit Role: {roleToEdit}</DialogTitle>
+            </DialogHeader>
+            <div className="py-4">
+                <Label htmlFor="edit-role-name">New Role Name</Label>
+                <Input id="edit-role-name" value={editedRoleName} onChange={(e) => setEditedRoleName(e.target.value)} />
+            </div>
+            <DialogFooter>
+                <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
+                <Button onClick={handleEditRole} disabled={isLoading}>
+                    {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                    Save Changes
+                </Button>
+            </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
