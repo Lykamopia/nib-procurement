@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -35,6 +36,7 @@ import {
   ThumbsUp,
   XCircle,
   Edit,
+  ArchiveX,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from './ui/dialog';
@@ -232,8 +234,14 @@ export function RecordsPage() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={8} className="h-24 text-center">
-                    No records found.
+                  <TableCell colSpan={8} className="h-48 text-center">
+                    <div className="flex flex-col items-center gap-4">
+                      <ArchiveX className="h-16 w-16 text-muted-foreground/50" />
+                      <div className="space-y-1">
+                        <p className="font-semibold">No Records Found</p>
+                        <p className="text-muted-foreground">There are no documents matching your search.</p>
+                      </div>
+                    </div>
                   </TableCell>
                 </TableRow>
               )}

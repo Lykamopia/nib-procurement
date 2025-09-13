@@ -23,7 +23,7 @@ import { PurchaseOrder, PurchaseRequisition } from '@/lib/types';
 import { format } from 'date-fns';
 import { Button } from './ui/button';
 import Link from 'next/link';
-import { ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, Eye } from 'lucide-react';
+import { ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, Eye, FileX2 } from 'lucide-react';
 import { RequisitionDetailsDialog } from './requisition-details-dialog';
 
 const PAGE_SIZE = 10;
@@ -125,8 +125,14 @@ export function PurchaseOrdersList() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={8} className="h-24 text-center">
-                    No purchase orders found.
+                  <TableCell colSpan={8} className="h-48 text-center">
+                    <div className="flex flex-col items-center gap-4">
+                      <FileX2 className="h-16 w-16 text-muted-foreground/50" />
+                      <div className="space-y-1">
+                        <p className="font-semibold">No Purchase Orders Found</p>
+                        <p className="text-muted-foreground">There are no purchase orders to display.</p>
+                      </div>
+                    </div>
                   </TableCell>
                 </TableRow>
               )}

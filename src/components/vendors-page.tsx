@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -33,7 +34,7 @@ import {
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, PlusCircle, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, ShieldCheck, ShieldAlert, ShieldQuestion } from 'lucide-react';
+import { Loader2, PlusCircle, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, ShieldCheck, ShieldAlert, ShieldQuestion, Building2 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -291,8 +292,20 @@ export function VendorsPage() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={5} className="h-24 text-center">
-                    No vendors found.
+                  <TableCell colSpan={5} className="h-48 text-center">
+                    <div className="flex flex-col items-center gap-4">
+                      <Building2 className="h-16 w-16 text-muted-foreground/50" />
+                      <div className="space-y-1">
+                        <p className="font-semibold">No Vendors Found</p>
+                        <p className="text-muted-foreground">There are no vendors to display. Try adding one!</p>
+                      </div>
+                      <DialogTrigger asChild>
+                        <Button size="sm">
+                          <PlusCircle className="mr-2 h-4 w-4" />
+                          Add Vendor
+                        </Button>
+                      </DialogTrigger>
+                    </div>
                   </TableCell>
                 </TableRow>
               )}

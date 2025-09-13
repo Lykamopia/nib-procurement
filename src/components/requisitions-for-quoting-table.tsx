@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -22,7 +23,7 @@ import { PurchaseRequisition } from '@/lib/types';
 import { format } from 'date-fns';
 import { Badge } from './ui/badge';
 import { useRouter } from 'next/navigation';
-import { ArrowRight, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight } from 'lucide-react';
+import { ArrowRight, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, FileX2 } from 'lucide-react';
 
 const PAGE_SIZE = 10;
 
@@ -120,8 +121,14 @@ export function RequisitionsForQuotingTable() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={7} className="h-24 text-center">
-                    No requisitions are currently ready for quotation.
+                  <TableCell colSpan={7} className="h-48 text-center">
+                    <div className="flex flex-col items-center gap-4">
+                      <FileX2 className="h-16 w-16 text-muted-foreground/50" />
+                      <div className="space-y-1">
+                        <p className="font-semibold">No Requisitions Found</p>
+                        <p className="text-muted-foreground">There are no requisitions currently ready for quotation.</p>
+                      </div>
+                    </div>
                   </TableCell>
                 </TableRow>
               )}

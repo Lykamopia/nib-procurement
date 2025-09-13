@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -22,7 +23,7 @@ import { Button } from './ui/button';
 import { Vendor, KycStatus } from '@/lib/types';
 import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, CheckCircle, XCircle, FileText, ShieldQuestion } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle, FileText, ShieldQuestion, ShieldX } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -163,8 +164,14 @@ export function VendorVerificationPage() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={4} className="h-24 text-center">
-                      No vendors are currently pending verification.
+                    <TableCell colSpan={4} className="h-48 text-center">
+                        <div className="flex flex-col items-center gap-4">
+                            <ShieldX className="h-16 w-16 text-muted-foreground/50" />
+                            <div className="space-y-1">
+                                <p className="font-semibold">No Pending Verifications</p>
+                                <p className="text-muted-foreground">There are no new vendors to verify at this time.</p>
+                            </div>
+                        </div>
                     </TableCell>
                   </TableRow>
                 )}

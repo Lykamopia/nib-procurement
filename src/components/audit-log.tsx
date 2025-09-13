@@ -26,6 +26,7 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  ListX,
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 import { useAuth } from '@/contexts/auth-context';
@@ -214,7 +215,15 @@ export function AuditLog() {
                 </TableRow>
               )) : (
                 <TableRow>
-                    <TableCell colSpan={7} className="h-24 text-center">No logs found matching your criteria.</TableCell>
+                    <TableCell colSpan={7} className="h-48 text-center">
+                        <div className="flex flex-col items-center gap-4">
+                            <ListX className="h-16 w-16 text-muted-foreground/50" />
+                            <div className="space-y-1">
+                                <p className="font-semibold">No Logs Found</p>
+                                <p className="text-muted-foreground">There are no audit logs matching your current filters.</p>
+                            </div>
+                        </div>
+                    </TableCell>
                 </TableRow>
               )}
             </TableBody>

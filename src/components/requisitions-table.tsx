@@ -42,6 +42,7 @@ import {
   Info,
   FileEdit,
   Eye,
+  ListX,
 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Calendar } from './ui/calendar';
@@ -326,8 +327,14 @@ export function RequisitionsTable() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={8} className="h-24 text-center">
-                    No results found.
+                  <TableCell colSpan={8} className="h-48 text-center">
+                    <div className="flex flex-col items-center gap-4">
+                        <ListX className="h-16 w-16 text-muted-foreground/50" />
+                        <div className="space-y-1">
+                            <p className="font-semibold">No Results Found</p>
+                            <p className="text-muted-foreground">Your search or filter combination yielded no results.</p>
+                        </div>
+                    </div>
                   </TableCell>
                 </TableRow>
               )}

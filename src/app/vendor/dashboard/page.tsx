@@ -17,7 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import { format, formatDistanceToNow, isPast } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { ArrowRight, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, Award, Timer } from 'lucide-react';
+import { ArrowRight, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, Award, Timer, ShoppingCart } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 
@@ -215,9 +215,10 @@ export default function VendorDashboardPage() {
                             )}
                             </div>
                         ) : (
-                            <div className="flex flex-col items-center justify-center h-64 border border-dashed rounded-lg bg-muted/50">
-                                <h3 className="text-xl font-semibold">No Open Requisitions</h3>
-                                <p className="text-muted-foreground">There are no requisitions currently available for quotation.</p>
+                            <div className="flex flex-col items-center justify-center h-64 border-2 border-dashed rounded-lg bg-muted/30">
+                                <ShoppingCart className="h-16 w-16 text-muted-foreground/50" />
+                                <h3 className="mt-6 text-xl font-semibold">No Open Requisitions</h3>
+                                <p className="mt-2 text-sm text-muted-foreground">There are no requisitions currently available for quotation.</p>
                             </div>
                         )}
                         

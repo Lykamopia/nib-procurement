@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -20,7 +21,7 @@ import {
 import { Badge } from './ui/badge';
 import { PurchaseRequisition } from '@/lib/types';
 import { format } from 'date-fns';
-import { FileText, CircleCheck, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight } from 'lucide-react';
+import { FileText, CircleCheck, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, FileX2 } from 'lucide-react';
 import { Button } from './ui/button';
 
 const PAGE_SIZE = 10;
@@ -102,8 +103,14 @@ export function ContractsPage() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={7} className="h-24 text-center">
-                    No contracts found.
+                  <TableCell colSpan={7} className="h-48 text-center">
+                    <div className="flex flex-col items-center gap-4">
+                      <FileX2 className="h-16 w-16 text-muted-foreground/50" />
+                      <div className="space-y-1">
+                        <p className="font-semibold">No Contracts Found</p>
+                        <p className="text-muted-foreground">There are no finalized contracts to display.</p>
+                      </div>
+                    </div>
                   </TableCell>
                 </TableRow>
               )}

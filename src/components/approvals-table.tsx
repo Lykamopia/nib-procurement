@@ -31,7 +31,9 @@ import {
   ChevronsRight,
   CircleAlert,
   CircleCheck,
+  Empty,
   Eye,
+  Inbox,
   X,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
@@ -202,7 +204,7 @@ export function ApprovalsTable() {
   }, [requisitions, currentPage]);
 
 
-  if (loading) return <div>Loading approvals...</div>;
+  if (loading) return <div className="flex h-64 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   if (error) return <div className="text-destructive">Error: {error}</div>;
 
   return (
@@ -242,8 +244,14 @@ export function ApprovalsTable() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={7} className="h-24 text-center">
-                    No requisitions pending approval.
+                  <TableCell colSpan={7} className="h-48 text-center">
+                    <div className="flex flex-col items-center gap-4">
+                      <Inbox className="h-16 w-16 text-muted-foreground/50" />
+                      <div className="space-y-1">
+                        <p className="font-semibold">All caught up!</p>
+                        <p className="text-muted-foreground">No requisitions are currently pending your approval.</p>
+                      </div>
+                    </div>
                   </TableCell>
                 </TableRow>
               )}
