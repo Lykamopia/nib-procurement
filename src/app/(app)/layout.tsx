@@ -17,35 +17,17 @@ import {
   SidebarFooter,
 } from '@/components/ui/sidebar';
 import {
-  LayoutDashboard,
-  FilePlus,
-  Bot,
-  MailQuestion,
-  History,
   LogOut,
-  User as UserIcon,
-  FileText,
-  GanttChartSquare,
-  Building2,
-  FileBadge,
-  FileSignature,
-  FileStack,
-  PackageCheck,
-  Wallet,
-  Landmark,
-  Archive,
-  ShieldCheck,
 } from 'lucide-react';
-import { Icons } from '@/components/icons';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/contexts/auth-context';
 import { useRouter, usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { RoleSwitcher } from '@/components/role-switcher';
 import { ThemeSwitcher } from '@/components/theme-switcher';
+import { navItems, rolePermissions } from '@/lib/roles';
 
 export default function AppLayout({
   children,
@@ -56,44 +38,45 @@ export default function AppLayout({
   const router = useRouter();
   const pathname = usePathname();
 
+  const accessibleNavItems = useMemo(() => {
+    if (!role) return [];
+    const allowedPaths = rolePermissions[role] || [];
+    return navItems.filter(item => allowedPaths.includes(item.path));
+  }, [role]);
+
   useEffect(() => {
     if (!loading && !user) {
       router.push('/login');
     }
   }, [user, loading, router]);
+  
+  // Page-level access check
+  useEffect(() => {
+    if (!loading && role) {
+      const allowedPaths = rolePermissions[role] || [];
+      // Allow access to sub-pages like /purchase-orders/[id]
+      const isAllowed = allowedPaths.some(path => pathname.startsWith(path));
+
+      if (!isAllowed) {
+        // Redirect to the first accessible page or dashboard if available
+        const defaultPath = allowedPaths.includes('/dashboard') ? '/dashboard' : allowedPaths[0];
+        if(defaultPath) {
+          router.push(defaultPath);
+        }
+      }
+    }
+  }, [pathname, loading, role, router]);
 
   const pageTitle = useMemo(() => {
-    switch (pathname) {
-      case '/dashboard':
-        return 'Dashboard';
-      case '/new-requisition':
-        return 'Create Purchase Requisition';
-      case '/requisitions':
-        return 'View Requisitions';
-      case '/approvals':
-        return 'Approvals';
-      case '/vendors':
-        return 'Vendors';
-       case '/vendor-verification':
-        return 'Vendor Verification';
-       case '/quotations':
-        return 'Quotations';
-       case '/contracts':
-        return 'Contracts';
-      case '/purchase-orders':
-        return 'Purchase Orders'
-      case '/receive-goods':
-        return 'Receive Goods';
-       case '/invoices':
-        return 'Invoices & Matching';
-       case '/records':
-        return 'Document Records';
-      case '/audit-log':
-        return 'Audit Log';
-      default:
-        if (pathname?.startsWith('/purchase-orders/')) return 'Purchase Order';
-        return 'Nib Procurement';
-    }
+     const currentNavItem = navItems.find(item => {
+      // Handle dynamic routes like /purchase-orders/[id]
+      if (item.path.includes('[')) {
+        const basePath = item.path.split('/[')[0];
+        return pathname.startsWith(basePath);
+      }
+      return pathname === item.path;
+    });
+    return currentNavItem?.label || 'Nib Procurement';
   }, [pathname]);
 
   if (loading || !user) {
@@ -115,168 +98,19 @@ export default function AppLayout({
         </SidebarHeader>
         <SidebarContent>
           <SidebarMenu>
-            <SidebarMenuItem>
-              <Link href="/dashboard">
-                <SidebarMenuButton
-                  isActive={pathname === '/dashboard'}
-                  tooltip="Dashboard"
-                >
-                  <LayoutDashboard />
-                  <span>Dashboard</span>
-                </SidebarMenuButton>
-              </Link>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <Link href="/new-requisition">
-                <SidebarMenuButton
-                  isActive={pathname === '/new-requisition'}
-                  tooltip="New Requisition"
-                >
-                  <FilePlus />
-                  <span>New Requisition</span>
-                </SidebarMenuButton>
-              </Link>
-            </SidebarMenuItem>
-             <SidebarMenuItem>
-              <Link href="/requisitions">
-                <SidebarMenuButton
-                  isActive={pathname === '/requisitions'}
-                  tooltip="View Requisitions"
-                >
-                  <FileText />
-                  <span>Requisitions</span>
-                </SidebarMenuButton>
-              </Link>
-            </SidebarMenuItem>
-            {role === 'Approver' && (
-              <SidebarMenuItem>
-                <Link href="/approvals">
-                  <SidebarMenuButton
-                    isActive={pathname === '/approvals'}
-                    tooltip="Approvals"
-                  >
-                    <GanttChartSquare />
-                    <span>Approvals</span>
-                  </SidebarMenuButton>
-                </Link>
-              </SidebarMenuItem>
-            )}
-             {(role === 'Procurement Officer' || role === 'Committee Member' || role === 'Committee') && (
-              <>
-                <SidebarMenuItem>
-                  <Link href="/vendors">
-                    <SidebarMenuButton
-                      isActive={pathname === '/vendors'}
-                      tooltip="Vendors"
-                    >
-                      <Building2 />
-                      <span>Vendors</span>
-                    </SidebarMenuButton>
-                  </Link>
+            {accessibleNavItems.map(item => (
+                <SidebarMenuItem key={item.path}>
+                    <Link href={item.path}>
+                        <SidebarMenuButton
+                        isActive={pathname.startsWith(item.path)}
+                        tooltip={item.label}
+                        >
+                        <item.icon />
+                        <span>{item.label}</span>
+                        </SidebarMenuButton>
+                    </Link>
                 </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <Link href="/vendor-verification">
-                    <SidebarMenuButton
-                      isActive={pathname === '/vendor-verification'}
-                      tooltip="Vendor Verification"
-                    >
-                      <ShieldCheck />
-                      <span>Vendor Verification</span>
-                    </SidebarMenuButton>
-                  </Link>
-                </SidebarMenuItem>
-                 <SidebarMenuItem>
-                  <Link href="/quotations">
-                    <SidebarMenuButton
-                      isActive={pathname === '/quotations'}
-                      tooltip="Quotations"
-                    >
-                      <FileBadge />
-                      <span>Quotations</span>
-                    </SidebarMenuButton>
-                  </Link>
-                </SidebarMenuItem>
-                 <SidebarMenuItem>
-                  <Link href="/contracts">
-                    <SidebarMenuButton
-                      isActive={pathname === '/contracts'}
-                      tooltip="Contracts"
-                    >
-                      <FileSignature />
-                      <span>Contracts</span>
-                    </SidebarMenuButton>
-                  </Link>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <Link href="/purchase-orders">
-                    <SidebarMenuButton
-                      isActive={pathname === '/purchase-orders'}
-                      tooltip="Purchase Orders"
-                    >
-                      <FileStack />
-                      <span>Purchase Orders</span>
-                    </SidebarMenuButton>
-                  </Link>
-                </SidebarMenuItem>
-              </>
-            )}
-             {role === 'Finance' && (
-                <SidebarMenuItem>
-                  <Link href="/invoices">
-                    <SidebarMenuButton
-                      isActive={pathname === '/invoices'}
-                      tooltip="Invoices & Matching"
-                    >
-                      <Landmark />
-                      <span>Invoices & Matching</span>
-                    </SidebarMenuButton>
-                  </Link>
-                </SidebarMenuItem>
-             )}
-            {role === 'Receiving' && (
-               <SidebarMenuItem>
-                  <Link href="/receive-goods">
-                    <SidebarMenuButton
-                      isActive={pathname === '/receive-goods'}
-                      tooltip="Receive Goods"
-                    >
-                      <PackageCheck />
-                      <span>Receive Goods</span>
-                    </SidebarMenuButton>
-                  </Link>
-                </SidebarMenuItem>
-            )}
-            {role === 'Procurement Officer' && (
-              <SidebarMenuItem>
-                <Link href="/records">
-                  <SidebarMenuButton
-                    isActive={pathname === '/records'}
-                    tooltip="Records"
-                  >
-                    <Archive />
-                    <span>Records</span>
-                  </SidebarMenuButton>
-                </Link>
-              </SidebarMenuItem>
-            )}
-          </SidebarMenu>
-
-          <Separator className="my-2" />
-
-          <SidebarMenu>
-            {role === 'Procurement Officer' && (
-                <SidebarMenuItem>
-                <Link href="/audit-log">
-                    <SidebarMenuButton
-                    isActive={pathname === '/audit-log'}
-                    tooltip="Audit Log"
-                    >
-                    <History />
-                    <span>Audit Log</span>
-                    </SidebarMenuButton>
-                </Link>
-                </SidebarMenuItem>
-            )}
+            ))}
           </SidebarMenu>
         </SidebarContent>
         <SidebarFooter>
