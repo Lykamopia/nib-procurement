@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useEffect } from 'react';
@@ -6,6 +7,7 @@ import Image from 'next/image';
 import {
   LogOut,
   User as UserIcon,
+  Loader2,
 } from 'lucide-react';
 import { Icons } from '@/components/icons';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -36,7 +38,7 @@ export default function VendorLayout({
   if (loading || !user) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
-        <p>Loading...</p>
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -77,5 +79,3 @@ export default function VendorLayout({
     </div>
   )
 }
-
-    
