@@ -37,6 +37,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 
 export function RoleManagementEditor() {
   const [roles, setRoles] = useState<UserRole[]>(Object.keys(rolePermissions) as UserRole[]);
@@ -152,42 +153,62 @@ export function RoleManagementEditor() {
             </Dialog>
         </div>
       </CardHeader>
-      <CardContent className="space-y-4">
-        {roles.map(role => (
-            <Card key={role} className="flex justify-between items-center p-4">
-                <p className="font-semibold">{role}</p>
-                <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={() => openEditDialog(role)}>
-                        <Edit className="mr-2 h-4 w-4"/>
-                        Edit
-                    </Button>
-                    <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                            <Button variant="destructive" size="sm" disabled={role === 'Admin' || role === 'Procurement Officer'}>
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Delete
-                            </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                            <AlertDialogHeader>
-                                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                    This action cannot be undone. This will permanently delete the <strong>{role}</strong> role.
-                                    Any users with this role will lose their assigned permissions.
-                                </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => handleDeleteRole(role)} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
-                                    {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
-                                    Yes, delete role
-                                </AlertDialogAction>
-                            </AlertDialogFooter>
-                        </AlertDialogContent>
-                    </AlertDialog>
-                </div>
-            </Card>
-        ))}
+      <CardContent>
+         <div className="border rounded-md">
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead>Role Name</TableHead>
+                        <TableHead className="text-right w-40">Actions</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {roles.length > 0 ? roles.map(role => (
+                        <TableRow key={role}>
+                            <TableCell className="font-semibold">{role}</TableCell>
+                            <TableCell className="text-right">
+                                <div className="flex gap-2 justify-end">
+                                    <Button variant="outline" size="sm" onClick={() => openEditDialog(role)}>
+                                        <Edit className="mr-2 h-4 w-4"/>
+                                        Edit
+                                    </Button>
+                                    <AlertDialog>
+                                        <AlertDialogTrigger asChild>
+                                            <Button variant="destructive" size="sm" disabled={role === 'Admin' || role === 'Procurement Officer'}>
+                                                <Trash2 className="mr-2 h-4 w-4" />
+                                                Delete
+                                            </Button>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent>
+                                            <AlertDialogHeader>
+                                                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                                <AlertDialogDescription>
+                                                    This action cannot be undone. This will permanently delete the <strong>{role}</strong> role.
+                                                    Any users with this role will lose their assigned permissions.
+                                                </AlertDialogDescription>
+                                            </AlertDialogHeader>
+                                            <AlertDialogFooter>
+                                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                <AlertDialogAction onClick={() => handleDeleteRole(role)} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
+                                                    {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                                                    Yes, delete role
+                                                </AlertDialogAction>
+                                            </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
+                                </div>
+                            </TableCell>
+                        </TableRow>
+                    )) : (
+                         <TableRow>
+                            <TableCell colSpan={2} className="h-24 text-center text-muted-foreground">
+                                No roles found.
+                            </TableCell>
+                        </TableRow>
+                    )}
+                </TableBody>
+            </Table>
+        </div>
       </CardContent>
        <Dialog open={isEditDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogContent>

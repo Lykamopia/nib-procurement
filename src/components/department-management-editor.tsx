@@ -36,6 +36,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 
 export function DepartmentManagementEditor() {
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -192,47 +193,69 @@ export function DepartmentManagementEditor() {
             </Dialog>
         </div>
       </CardHeader>
-      <CardContent className="space-y-4">
-        {isLoading && departments.length === 0 ? (
-            <div className="flex justify-center items-center h-24">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            </div>
-        ) : (
-            departments.map(dept => (
-                <Card key={dept.id} className="flex justify-between items-center p-4">
-                    <p className="font-semibold">{dept.name}</p>
-                    <div className="flex gap-2">
-                        <Button variant="outline" size="sm" onClick={() => openEditDialog(dept)}>
-                            <Edit className="mr-2 h-4 w-4"/>
-                            Edit
-                        </Button>
-                        <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                                <Button variant="destructive" size="sm">
-                                    <Trash2 className="mr-2 h-4 w-4" />
-                                    Delete
-                                </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                                <AlertDialogHeader>
-                                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                        This action cannot be undone. This will permanently delete the <strong>{dept.name}</strong> department.
-                                    </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => handleDeleteDepartment(dept.id)} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
-                                        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
-                                        Yes, delete department
-                                    </AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                        </AlertDialog>
-                    </div>
-                </Card>
-            ))
-        )}
+      <CardContent>
+         <div className="border rounded-md">
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead>Department Name</TableHead>
+                        <TableHead className="text-right w-40">Actions</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {isLoading && departments.length === 0 ? (
+                         <TableRow>
+                            <TableCell colSpan={2} className="h-24 text-center">
+                                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground mx-auto" />
+                            </TableCell>
+                        </TableRow>
+                    ) : departments.length > 0 ? (
+                        departments.map(dept => (
+                            <TableRow key={dept.id}>
+                                <TableCell className="font-semibold">{dept.name}</TableCell>
+                                <TableCell className="text-right">
+                                    <div className="flex gap-2 justify-end">
+                                        <Button variant="outline" size="sm" onClick={() => openEditDialog(dept)}>
+                                            <Edit className="mr-2 h-4 w-4"/>
+                                            Edit
+                                        </Button>
+                                        <AlertDialog>
+                                            <AlertDialogTrigger asChild>
+                                                <Button variant="destructive" size="sm">
+                                                    <Trash2 className="mr-2 h-4 w-4" />
+                                                    Delete
+                                                </Button>
+                                            </AlertDialogTrigger>
+                                            <AlertDialogContent>
+                                                <AlertDialogHeader>
+                                                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                                    <AlertDialogDescription>
+                                                        This action cannot be undone. This will permanently delete the <strong>{dept.name}</strong> department.
+                                                    </AlertDialogDescription>
+                                                </AlertDialogHeader>
+                                                <AlertDialogFooter>
+                                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                    <AlertDialogAction onClick={() => handleDeleteDepartment(dept.id)} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
+                                                        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                                                        Yes, delete department
+                                                    </AlertDialogAction>
+                                                </AlertDialogFooter>
+                                            </AlertDialogContent>
+                                        </AlertDialog>
+                                    </div>
+                                </TableCell>
+                            </TableRow>
+                        ))
+                    ) : (
+                         <TableRow>
+                            <TableCell colSpan={2} className="h-24 text-center text-muted-foreground">
+                                No departments found.
+                            </TableCell>
+                        </TableRow>
+                    )}
+                </TableBody>
+            </Table>
+        </div>
       </CardContent>
        <Dialog open={isEditDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogContent>
