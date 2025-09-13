@@ -146,7 +146,6 @@
         "totalPrice": { "type": "number", "example": 16490 },
         "justification": { "type": "string" },
         "status": { "type": "string", "enum": ["Draft", "Pending Approval", "Approved", "Rejected", "RFQ In Progress", "PO Created", "Fulfilled", "Closed"] },
-        "budgetStatus": { "type": "string", "enum": ["Pending", "OK", "Exceeded"] },
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" },
         "approverId": { "type": "string", "example": "2" },
@@ -290,5 +289,3 @@
     }
   }
 }
-
-    

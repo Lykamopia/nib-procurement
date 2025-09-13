@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -20,12 +21,10 @@ import {
   Loader2,
   Banknote,
   AlertTriangle,
-  FileWarning,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
-import { Progress } from './ui/progress';
 import { useToast } from '@/hooks/use-toast';
-import { Invoice, PurchaseRequisition, MatchingResult, MatchingStatus } from '@/lib/types';
+import { Invoice, PurchaseRequisition } from '@/lib/types';
 import { Table, TableBody, TableCell, TableHeader, TableRow, TableHead } from './ui/table';
 import { Badge } from './ui/badge';
 import { format } from 'date-fns';
@@ -102,24 +101,19 @@ function ProcurementOfficerDashboard({ setActiveView }: { setActiveView: (view: 
         const openRequisitions = requisitions.filter(r => r.status !== 'Closed' && r.status !== 'Fulfilled').length;
         const pendingApprovals = requisitions.filter(r => r.status === 'Pending Approval').length;
         const pendingPayments = invoices.filter(i => i.status === 'Approved for Payment').length;
-        // Budget data is static for this example
-        const budget = { spent: 156345, total: 250000 };
 
-        return { openRequisitions, pendingApprovals, pendingPayments, budget };
+        return { openRequisitions, pendingApprovals, pendingPayments };
     }, [requisitions, invoices]);
     
     const alerts = useMemo(() => {
-        const budgetExceeded = requisitions.filter(r => r.budgetStatus === 'Exceeded' && r.status === 'Pending Approval');
         const mismatchedInvoices = invoices.filter(i => {
             // Simplified check, in a real app this would use the matching service result
             const po = { totalAmount: 1000, items: [{id: '1', quantity: 10}]};
             const grn = { items: [{poItemId: '1', quantityReceived: 9}]};
             return i.totalAmount !== po.totalAmount;
         });
-        return { budgetExceeded, mismatchedInvoices };
-    }, [requisitions, invoices]);
-
-    const budgetPercentage = (stats.budget.spent / stats.budget.total) * 100;
+        return { mismatchedInvoices };
+    }, [invoices]);
     
     const recentRequisitions = useMemo(() => {
         return [...requisitions]
@@ -133,7 +127,7 @@ function ProcurementOfficerDashboard({ setActiveView }: { setActiveView: (view: 
 
     return (
         <div className="space-y-6">
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                  <StatCard
                     title="Open Requisitions"
                     value={stats.openRequisitions.toString()}
@@ -150,20 +144,6 @@ function ProcurementOfficerDashboard({ setActiveView }: { setActiveView: (view: 
                      onClick={() => router.push('/approvals')}
                     cta="Review Approvals"
                 />
-                 <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium">Budget Status</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">
-                        {stats.budget.spent.toLocaleString()} ETB
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                         / {stats.budget.total.toLocaleString()} ETB total budget
-                        </p>
-                        <Progress value={budgetPercentage} className="mt-2" />
-                    </CardContent>
-                </Card>
                 <StatCard
                     title="Pending Payments"
                     value={stats.pendingPayments.toString()}
@@ -215,20 +195,6 @@ function ProcurementOfficerDashboard({ setActiveView }: { setActiveView: (view: 
                         <CardDescription>Items needing immediate attention.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                        {alerts.budgetExceeded.length > 0 && (
-                            <div className="space-y-2">
-                                <h4 className="font-semibold text-sm">Budget Overruns</h4>
-                                {alerts.budgetExceeded.map(req => (
-                                    <Button key={req.id} variant="outline" size="sm" className="w-full justify-between h-auto py-2" onClick={() => router.push('/approvals')}>
-                                        <div className="text-left">
-                                            <p>{req.id}</p>
-                                            <p className="text-xs text-muted-foreground">{req.title}</p>
-                                        </div>
-                                        <ArrowRight />
-                                    </Button>
-                                ))}
-                            </div>
-                        )}
                         {alerts.mismatchedInvoices.length > 0 && (
                              <div className="space-y-2">
                                 <h4 className="font-semibold text-sm">Mismatched Invoices</h4>
@@ -243,7 +209,7 @@ function ProcurementOfficerDashboard({ setActiveView }: { setActiveView: (view: 
                                 ))}
                             </div>
                         )}
-                        {alerts.budgetExceeded.length === 0 && alerts.mismatchedInvoices.length === 0 && (
+                        {alerts.mismatchedInvoices.length === 0 && (
                             <p className="text-sm text-muted-foreground text-center py-8">No urgent alerts.</p>
                         )}
                     </CardContent>
@@ -362,4 +328,3 @@ export function Dashboard({ setActiveView }: DashboardProps) {
     </div>
   );
 }
-

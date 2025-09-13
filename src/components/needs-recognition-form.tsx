@@ -21,12 +21,11 @@ import { useToast } from '@/hooks/use-toast';
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
+  CardDescription,
 } from './ui/card';
-import { PlusCircle, Trash2, Loader2, Calendar as CalendarIcon, Send, Percent, Info } from 'lucide-react';
+import { PlusCircle, Trash2, Loader2, Send, Percent, Info } from 'lucide-react';
 import { Separator } from './ui/separator';
 import {
   Select,
@@ -38,11 +37,7 @@ import {
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/auth-context';
 import { cn } from '@/lib/utils';
-import { DepartmentBudget, PurchaseRequisition, QuestionType } from '@/lib/types';
-import { departmentBudgets } from '@/lib/data-store';
-import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
-import { Calendar } from './ui/calendar';
-import { format } from 'date-fns';
+import { PurchaseRequisition } from '@/lib/types';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { Slider } from './ui/slider';
 import { Badge } from './ui/badge';
@@ -103,14 +98,8 @@ export function NeedsRecognitionForm({ existingRequisition, onSuccess }: NeedsRe
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const { user } = useAuth();
-  const [departments, setDepartments] = useState<DepartmentBudget[]>([]);
+  const [departments, setDepartments] = useState<string[]>(['Design', 'Operations', 'IT', 'Marketing']);
   const isEditMode = !!existingRequisition;
-
-
-  useEffect(() => {
-    setDepartments(departmentBudgets);
-  }, []);
-
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -263,7 +252,7 @@ export function NeedsRecognitionForm({ existingRequisition, onSuccess }: NeedsRe
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {departments.map(d => <SelectItem key={d.department} value={d.department}>{d.department}</SelectItem>)}
+                        {departments.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
                       </SelectContent>
                     </Select>
                     <FormMessage />

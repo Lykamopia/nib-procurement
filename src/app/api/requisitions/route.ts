@@ -3,16 +3,8 @@
 
 import { NextResponse } from 'next/server';
 import type { PurchaseRequisition, RequisitionStatus } from '@/lib/types';
-import { requisitions, auditLogs, departmentBudgets } from '@/lib/data-store';
+import { requisitions, auditLogs } from '@/lib/data-store';
 import { users } from '@/lib/data-store';
-
-function checkBudget(department: string, amount: number) {
-    if (amount === 0) return 'OK'; // No price yet, so budget is OK.
-    const budget = departmentBudgets.find(b => b.department === department);
-    if (!budget) return 'OK'; // Default to OK if no budget is defined
-    return (budget.spentBudget + amount) > budget.totalBudget ? 'Exceeded' : 'OK';
-}
-
 
 export async function GET() {
   console.log('GET /api/requisitions - Fetching all requisitions.');
@@ -42,7 +34,6 @@ export async function POST(request: Request) {
       totalPrice: 0,
       justification: body.justification,
       status: 'Draft',
-      budgetStatus: 'OK',
       createdAt: new Date(),
       updatedAt: new Date(),
       quotations: [], // Initialize quotations array
@@ -82,7 +73,7 @@ export async function PATCH(
   try {
     const body = await request.json();
     console.log('Request body:', body);
-    const { id, status, userId, comment, overrideBudget } = body;
+    const { id, status, userId, comment } = body;
 
     const requisitionIndex = requisitions.findIndex((r) => r.id === id);
     if (requisitionIndex === -1) {
@@ -112,7 +103,6 @@ export async function PATCH(
         
         const total = 0; // Price is no longer estimated here
         requisition.totalPrice = total;
-        requisition.budgetStatus = checkBudget(requisition.department, requisition.totalPrice || 0);
         
         requisition.status = 'Pending Approval';
         requisition.approverId = undefined;
@@ -125,7 +115,6 @@ export async function PATCH(
         if (status === 'Pending Approval') {
             const total = 0; // Price is no longer estimated here
             requisition.totalPrice = total;
-            requisition.budgetStatus = checkBudget(requisition.department, requisition.totalPrice || 0);
             auditDetails = `Submitted for approval.`
         }
 
@@ -134,14 +123,7 @@ export async function PATCH(
             requisition.approverComment = comment;
 
             if (status === 'Approved') {
-                const budget = departmentBudgets.find(b => b.department === requisition.department);
-                if (budget) {
-                    budget.spentBudget += requisition.totalPrice || 0;
-                }
                 auditDetails = `Approved requisition. Comment: "${comment}"`
-                if (overrideBudget) {
-                  auditDetails += ` (Budget Overridden)`
-                }
             } else {
                 auditDetails = `Rejected requisition. Comment: "${comment}"`
             }

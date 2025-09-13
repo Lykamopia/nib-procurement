@@ -15,9 +15,6 @@ const AutomatedPolicyCheckInputSchema = z.object({
   requisitionDetails: z
     .string()
     .describe("Detailed information about the purchase requisition, including items, quantities, and justification."),
-  budgetPolicies: z
-    .string()
-    .describe("The company's budget policies as a string."),
   compliancePolicies: z
     .string()
     .describe("The company's compliance policies as a string."),
@@ -40,12 +37,11 @@ const prompt = ai.definePrompt({
   name: 'automatedPolicyCheckPrompt',
   input: {schema: AutomatedPolicyCheckInputSchema},
   output: {schema: AutomatedPolicyCheckOutputSchema},
-  prompt: `You are an AI assistant designed to check purchase requisitions against budget and compliance policies.
+  prompt: `You are an AI assistant designed to check purchase requisitions against compliance policies.
 
-  Analyze the provided requisition details against the given budget and compliance policies to identify any potential exceptions.
+  Analyze the provided requisition details against the given compliance policies to identify any potential exceptions.
 
   Requisition Details: {{{requisitionDetails}}}
-  Budget Policies: {{{budgetPolicies}}}
   Compliance Policies: {{{compliancePolicies}}}
 
   Identify any exceptions and provide a summary of the policy check, including the compliance status.

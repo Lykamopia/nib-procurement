@@ -19,19 +19,14 @@ import {
   CardDescription,
 } from './ui/card';
 import { Button } from './ui/button';
-import { PurchaseRequisition, BudgetStatus } from '@/lib/types';
+import { PurchaseRequisition } from '@/lib/types';
 import { format } from 'date-fns';
-import { Badge } from './ui/badge';
 import {
   Check,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
-  CircleAlert,
-  CircleCheck,
-  Empty,
   Eye,
   Inbox,
   Loader2,
@@ -49,45 +44,12 @@ import {
 } from './ui/dialog';
 import { Textarea } from './ui/textarea';
 import { Label } from './ui/label';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
-import { Checkbox } from './ui/checkbox';
-import { cn } from '@/lib/utils';
-import { Separator } from './ui/separator';
 import { RequisitionDetailsDialog } from './requisition-details-dialog';
 
 
 const PAGE_SIZE = 10;
 
-const BudgetStatusBadge = ({ status }: { status: BudgetStatus }) => {
-  switch(status) {
-    case 'OK':
-      return (
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger>
-              <CircleCheck className="h-5 w-5 text-green-500" />
-            </TooltipTrigger>
-            <TooltipContent>Budget OK</TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      )
-    case 'Exceeded':
-      return (
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger>
-              <CircleAlert className="h-5 w-5 text-destructive" />
-            </TooltipTrigger>
-            <TooltipContent>Budget Exceeded</TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      )
-    default:
-      return null;
-  }
-}
-
-function CollapsibleTableRow({ req, onAction, onToggle, onShowDetails, index }: { req: PurchaseRequisition, onAction: (req: PurchaseRequisition, type: 'approve' | 'reject') => void, onToggle: () => void, onShowDetails: () => void, index: number }) {
+function CollapsibleTableRow({ req, onAction, onShowDetails, index }: { req: PurchaseRequisition, onAction: (req: PurchaseRequisition, type: 'approve' | 'reject') => void, onToggle: () => void, onShowDetails: () => void, index: number }) {
     return (
         <>
             <TableRow>
@@ -95,9 +57,6 @@ function CollapsibleTableRow({ req, onAction, onToggle, onShowDetails, index }: 
                 <TableCell className="font-medium text-primary">{req.id}</TableCell>
                 <TableCell>{req.title}</TableCell>
                 <TableCell>{req.requesterName}</TableCell>
-                <TableCell>
-                <BudgetStatusBadge status={req.budgetStatus}/>
-                </TableCell>
                 <TableCell>{format(new Date(req.createdAt), 'PP')}</TableCell>
                 <TableCell>
                 <div className="flex gap-2">
@@ -130,7 +89,6 @@ export function ApprovalsTable() {
   const [isActionDialogOpen, setActionDialogOpen] = useState(false);
   const [isDetailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [actionType, setActionType] = useState<'approve' | 'reject' | null>(null);
-  const [overrideBudget, setOverrideBudget] = useState(false);
   const [openRequisitionId, setOpenRequisitionId] = useState<string | null>(null);
 
 
@@ -159,7 +117,6 @@ export function ApprovalsTable() {
     setSelectedRequisition(req);
     setActionType(type);
     setActionDialogOpen(true);
-    setOverrideBudget(false);
   }
 
   const handleShowDetails = (req: PurchaseRequisition) => {
@@ -176,7 +133,7 @@ export function ApprovalsTable() {
       const response = await fetch(`/api/requisitions`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: selectedRequisition.id, status: newStatus, userId: user.id, comment, overrideBudget }),
+        body: JSON.stringify({ id: selectedRequisition.id, status: newStatus, userId: user.id, comment }),
       });
       if (!response.ok) throw new Error(`Failed to ${actionType} requisition`);
       toast({
@@ -226,7 +183,6 @@ export function ApprovalsTable() {
                 <TableHead>Req. ID</TableHead>
                 <TableHead>Title</TableHead>
                 <TableHead>Requester</TableHead>
-                <TableHead>Budget</TableHead>
                 <TableHead>Created At</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
@@ -245,7 +201,7 @@ export function ApprovalsTable() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={7} className="h-48 text-center">
+                  <TableCell colSpan={6} className="h-48 text-center">
                     <div className="flex flex-col items-center gap-4">
                       <Inbox className="h-16 w-16 text-muted-foreground/50" />
                       <div className="space-y-1">
@@ -322,21 +278,12 @@ export function ApprovalsTable() {
                 placeholder="Type your comment here..."
               />
             </div>
-            {selectedRequisition?.budgetStatus === 'Exceeded' && actionType === 'approve' && (
-                <div className="flex items-center space-x-2 rounded-md border border-destructive/50 bg-destructive/10 p-4">
-                    <Checkbox id="override" checked={overrideBudget} onCheckedChange={(checked) => setOverrideBudget(!!checked)} />
-                    <Label htmlFor="override" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                        Override budget warning
-                    </Label>
-                </div>
-            )}
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setActionDialogOpen(false)}>Cancel</Button>
             <Button 
                 onClick={submitAction} 
                 variant={actionType === 'approve' ? 'default' : 'destructive'}
-                disabled={actionType === 'approve' && selectedRequisition?.budgetStatus === 'Exceeded' && !overrideBudget}
             >
                 Submit {actionType === 'approve' ? 'Approval' : 'Rejection'}
             </Button>

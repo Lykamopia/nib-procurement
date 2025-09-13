@@ -5,10 +5,6 @@ export async function GET() {
   const mockData = {
     openRequisitions: 12,
     pendingApprovals: 8,
-    budgetStatus: {
-      spent: 156345,
-      total: 250000,
-    },
     pendingPayments: 4,
   };
 

@@ -1,9 +1,8 @@
 
 
-import type { PurchaseRequisition, AuditLog, DepartmentBudget, Vendor, Quotation, PurchaseOrder, GoodsReceiptNote, Invoice, User } from './types';
+import type { PurchaseRequisition, AuditLog, Vendor, Quotation, PurchaseOrder, GoodsReceiptNote, Invoice, User } from './types';
 
 export interface AppData {
-    departmentBudgets: DepartmentBudget[];
     vendors: Vendor[];
     requisitions: PurchaseRequisition[];
     auditLogs: AuditLog[];
@@ -27,13 +26,6 @@ export function getInitialData(): AppData {
 }
 
 const seedData: AppData = {
-    departmentBudgets: [
-        { department: 'Design', totalBudget: 50000, spentBudget: 16490 },
-        { department: 'Operations', totalBudget: 20000, spentBudget: 1050 },
-        { department: 'IT', totalBudget: 100000, spentBudget: 4800 },
-        { department: 'Marketing', totalBudget: 30000, spentBudget: 0 },
-    ],
-
     vendors: [
         {
             id: 'VENDOR-001',
@@ -93,7 +85,6 @@ const seedData: AppData = {
             totalPrice: 0,
             justification: 'Current laptops are over 5 years old and struggling with new design software.',
             status: 'Approved',
-            budgetStatus: 'OK',
             createdAt: new Date('2023-10-01T10:00:00Z'),
             updatedAt: new Date('2023-10-05T11:30:00Z'),
             quotations: [],
@@ -112,7 +103,6 @@ const seedData: AppData = {
             totalPrice: 0,
             justification: 'Standard quarterly replenishment of office supplies.',
             status: 'Pending Approval',
-            budgetStatus: 'OK',
             createdAt: new Date('2023-10-02T14:00:00Z'),
             updatedAt: new Date('2023-10-02T14:00:00Z'),
             quotations: [],
@@ -129,10 +119,9 @@ const seedData: AppData = {
             totalPrice: 0,
             justification: 'Annual renewal for critical project management software.',
             status: 'PO Created',
-            budgetStatus: 'OK',
+            purchaseOrderId: 'PO-SEED-001',
             createdAt: new Date('2023-09-15T09:20:00Z'),
             updatedAt: new Date('2023-09-25T16:00:00Z'),
-            purchaseOrderId: 'PO-SEED-001',
             quotations: [],
         },
     ],

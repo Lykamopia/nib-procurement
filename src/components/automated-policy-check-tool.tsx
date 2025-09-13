@@ -25,17 +25,12 @@ Items:
 Total Price: 500,000 ETB
 Justification: Current laptops are over 5 years old and struggling with new design software. New machines will improve productivity significantly.`;
 
-const exampleBudgetPolicies = `- All hardware purchases over 300,000 ETB require VP approval.
-- Individual workstations (laptop + monitor) should not exceed 100,000 ETB.
-- Unbudgeted expenses require a 2-week lead time for finance review.`;
-
 const exampleCompliancePolicies = `- All computing hardware must be sourced from approved vendors.
 - All data-handling equipment must be encrypted.`;
 
 
 export function AutomatedPolicyCheckTool() {
   const [requisitionDetails, setRequisitionDetails] = useState(exampleRequisition);
-  const [budgetPolicies, setBudgetPolicies] = useState(exampleBudgetPolicies);
   const [compliancePolicies, setCompliancePolicies] = useState(exampleCompliancePolicies);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<AutomatedPolicyCheckOutput | null>(null);
@@ -47,7 +42,6 @@ export function AutomatedPolicyCheckTool() {
     try {
       const output = await automatedPolicyCheck({
         requisitionDetails,
-        budgetPolicies,
         compliancePolicies,
       });
       setResult(output);
@@ -85,18 +79,6 @@ export function AutomatedPolicyCheckTool() {
               onChange={(e) => setRequisitionDetails(e.target.value)}
               rows={10}
               placeholder="Paste or type the requisition details here. You can use the example as a template."
-            />
-          </div>
-          <div>
-            <label htmlFor="budget" className="block text-sm font-medium mb-1">
-              Company Budget Policies
-            </label>
-            <Textarea
-              id="budget"
-              value={budgetPolicies}
-              onChange={(e) => setBudgetPolicies(e.target.value)}
-              rows={5}
-              placeholder="Enter one policy per line..."
             />
           </div>
           <div>
