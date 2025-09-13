@@ -29,6 +29,7 @@ import Link from 'next/link';
 import { RoleSwitcher } from '@/components/role-switcher';
 import { ThemeSwitcher } from '@/components/theme-switcher';
 import { navItems, rolePermissions } from '@/lib/roles';
+import { Breadcrumbs } from '@/components/breadcrumbs';
 
 export default function AppLayout({
   children,
@@ -143,7 +144,7 @@ export default function AppLayout({
         <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b bg-card px-4 lg:px-6">
           <div className="flex items-center gap-4">
             <SidebarTrigger className="md:hidden" />
-            <h1 className="text-xl font-semibold">{pageTitle}</h1>
+            <Breadcrumbs />
           </div>
           <div className="flex items-center gap-4">
             <ThemeSwitcher />
