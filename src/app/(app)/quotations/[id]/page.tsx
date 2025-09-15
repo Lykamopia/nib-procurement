@@ -227,8 +227,10 @@ function AddQuoteForm({ requisition, vendors, onQuoteAdded }: { requisition: Pur
 const QuoteComparison = ({ quotes, requisition, recommendation, onScore, user, isDeadlinePassed }: { quotes: Quotation[], requisition: PurchaseRequisition, recommendation?: QuoteAnalysisOutput | null, onScore: (quote: Quotation) => void, user: User, isDeadlinePassed: boolean }) => {
     if (quotes.length === 0) {
         return (
-            <div className="h-24 flex items-center justify-center text-muted-foreground">
-                No quotations submitted for this requisition yet.
+            <div className="flex flex-col items-center justify-center h-48 border-2 border-dashed rounded-lg bg-muted/30">
+                <BadgeHelp className="h-16 w-16 text-muted-foreground/50" />
+                <h3 className="mt-6 text-xl font-semibold">No Quotes Yet</h3>
+                <p className="mt-2 text-sm text-muted-foreground">No vendors have submitted a quotation for this requisition.</p>
             </div>
         );
     }
@@ -302,7 +304,7 @@ const QuoteComparison = ({ quotes, requisition, recommendation, onScore, user, i
                                 <div className="text-center py-8">
                                     <TimerOff className="h-8 w-8 mx-auto text-muted-foreground" />
                                     <p className="font-semibold mt-2">Details Masked</p>
-                                    <p className="text-sm text-muted-foreground">Revealed after {format(new Date(requisition.deadline!), 'PP')}</p>
+                                    <p className="text-sm text-muted-foreground">Revealed after {format(new Date(requisition.deadline!), 'PPp')}</p>
                                 </div>
                             )}
 
@@ -1750,7 +1752,7 @@ export default function QuotationDetailsPage() {
                 )}
                 <CardContent>
                 {loading ? (
-                    <div className="h-24 flex items-center justify-center">
+                    <div className="flex items-center justify-center h-24">
                         <Loader2 className="h-8 w-8 animate-spin text-primary" />
                     </div>
                 ) : (
