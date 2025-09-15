@@ -575,14 +575,13 @@ const CommitteeManagement = ({ requisition, onCommitteeUpdated }: { requisition:
                             )}
                         </Button>
                     </DialogTrigger>
-                    <DialogContent className="max-w-2xl">
+                    <DialogContent className="max-w-2xl flex flex-col max-h-[90vh]">
                          <Form {...form}>
-                         <form onSubmit={form.handleSubmit(handleSaveCommittee)}>
+                         <form onSubmit={form.handleSubmit(handleSaveCommittee)} className="flex flex-col flex-1 min-h-0">
                         <DialogHeader>
                             <DialogTitle>Evaluation Committee</DialogTitle>
                         </DialogHeader>
-                        <ScrollArea className="max-h-[70vh]">
-                            <div className="space-y-4 px-4 py-2">
+                        <div className="flex-1 overflow-y-auto space-y-4 p-1 -mx-1">
                                 <div className="grid md:grid-cols-2 gap-4">
                                     <FormField
                                         control={form.control}
@@ -651,8 +650,8 @@ const CommitteeManagement = ({ requisition, onCommitteeUpdated }: { requisition:
                                     control={form.control}
                                     name="committeeMemberIds"
                                     render={() => (
-                                    <FormItem>
-                                        <ScrollArea className="h-60 rounded-md border">
+                                    <FormItem className="flex-1 flex flex-col min-h-0">
+                                        <ScrollArea className="flex-1 rounded-md border">
                                             <div className="space-y-2 p-1">
                                             {filteredCommitteeMembers.map(member => (
                                                 <FormField
@@ -694,8 +693,7 @@ const CommitteeManagement = ({ requisition, onCommitteeUpdated }: { requisition:
                                     </FormItem>
                                     )}
                                 />
-                            </div>
-                        </ScrollArea>
+                        </div>
                         <DialogFooter className="pt-4 border-t mt-4">
                             <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
                             <Button type="submit" disabled={isSubmitting}>
