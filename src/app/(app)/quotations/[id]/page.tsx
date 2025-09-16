@@ -1268,11 +1268,14 @@ const ScoringDialog = ({
 }) => {
     const { toast } = useToast();
     const [isSubmitting, setSubmitting] = useState(false);
-    const existingScore = useMemo(() => quote.scores?.find(s => s.scorerId === user.id), [quote.scores, user.id]);
-
+    
     const form = useForm<ScoreFormValues>({
         resolver: zodResolver(scoreFormSchema),
-        defaultValues: {
+    });
+
+    useEffect(() => {
+        const existingScore = quote.scores?.find(s => s.scorerId === user.id);
+        form.reset({
             committeeComment: existingScore?.committeeComment || "",
             financialScores: requisition.evaluationCriteria?.financialCriteria.map(c => {
                 const existing = existingScore?.financialScores.find(s => s.criterionId === c.id);
@@ -1282,8 +1285,8 @@ const ScoringDialog = ({
                 const existing = existingScore?.technicalScores.find(s => s.criterionId === c.id);
                 return { criterionId: c.id, score: existing?.score || 0, comment: existing?.comment || "" };
             }) || [],
-        },
-    });
+        });
+    }, [quote, requisition, user, form]);
 
     const onSubmit = async (values: ScoreFormValues) => {
         setSubmitting(true);
@@ -1313,6 +1316,7 @@ const ScoringDialog = ({
     };
     
     if (!requisition.evaluationCriteria) return null;
+    const existingScore = quote.scores?.find(s => s.scorerId === user.id);
 
     const renderCriteria = (type: 'financial' | 'technical') => {
         const criteria = type === 'financial' ? requisition.evaluationCriteria!.financialCriteria : requisition.evaluationCriteria!.technicalCriteria;
@@ -1570,7 +1574,7 @@ const ScoringProgressTracker = ({
                                         mode="single"
                                         selected={awardResponseDeadline}
                                         onSelect={setAwardResponseDeadline}
-                                        disabled={(date) => date < new Date(new Date().setHours(0,0,0,0))}
+                                        disabled={(date) => date < new Date()}
                                         initialFocus
                                     />
                                     <div className="p-2 border-t border-border">
