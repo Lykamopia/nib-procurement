@@ -1233,20 +1233,24 @@ type ScoreFormValues = z.infer<typeof scoreFormSchema>;
 
 
 const clientSideScoreCalculator = (scores: ScoreFormValues, criteria: EvaluationCriteria): number => {
-    if (!criteria) return 0;
+    if (!criteria || !scores) return 0;
     
     let totalFinancialScore = 0;
     let totalTechnicalScore = 0;
 
-    criteria.financialCriteria.forEach((c) => {
-        const score = scores.financialScores.find(s => s.criterionId === c.id)?.score || 0;
-        totalFinancialScore += score * (c.weight / 100);
-    });
+    if (scores.financialScores) {
+        criteria.financialCriteria.forEach((c) => {
+            const score = scores.financialScores.find(s => s.criterionId === c.id)?.score || 0;
+            totalFinancialScore += score * (c.weight / 100);
+        });
+    }
 
-    criteria.technicalCriteria.forEach((c) => {
-        const score = scores.technicalScores.find(s => s.criterionId === c.id)?.score || 0;
-        totalTechnicalScore += score * (c.weight / 100);
-    });
+    if (scores.technicalScores) {
+        criteria.technicalCriteria.forEach((c) => {
+            const score = scores.technicalScores.find(s => s.criterionId === c.id)?.score || 0;
+            totalTechnicalScore += score * (c.weight / 100);
+        });
+    }
 
     const finalScore = (totalFinancialScore * (criteria.financialWeight / 100)) + 
                        (totalTechnicalScore * (criteria.technicalWeight / 100));
