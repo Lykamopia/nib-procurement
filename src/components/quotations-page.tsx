@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -30,7 +31,7 @@ import {
 } from './ui/dialog';
 import { Input } from './ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, PlusCircle, Award, XCircle, FileSignature, FileText, Bot, Lightbulb } from 'lucide-react';
+import { Loader2, PlusCircle, Award, XCircle, FileSignature, FileText } from 'lucide-react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -44,8 +45,6 @@ import { Separator } from './ui/separator';
 import Link from 'next/link';
 import { Alert, AlertTitle, AlertDescription } from './ui/alert';
 import { cn } from '@/lib/utils';
-import { analyzeQuotes } from '@/ai/flows/quote-analysis';
-import type { QuoteAnalysisInput, QuoteAnalysisOutput } from '@/ai/flows/quote-analysis.types';
 
 
 const quoteFormSchema = z.object({
@@ -205,7 +204,7 @@ function AddQuoteForm({ requisition, vendors, onQuoteAdded }: { requisition: Pur
     );
 }
 
-const QuoteComparison = ({ quotes, onAction, recommendationId }: { quotes: Quotation[], onAction: (quoteId: string, status: 'Awarded' | 'Rejected') => void, recommendationId?: string | null }) => {
+const QuoteComparison = ({ quotes, onAction }: { quotes: Quotation[], onAction: (quoteId: string, status: 'Awarded' | 'Rejected') => void }) => {
     if (quotes.length === 0) {
         return (
             <div className="h-24 flex items-center justify-center text-muted-foreground">
@@ -227,12 +226,7 @@ const QuoteComparison = ({ quotes, onAction, recommendationId }: { quotes: Quota
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {quotes.map(quote => (
-                <Card key={quote.id} className={cn("flex flex-col", quote.status === 'Awarded' && 'border-primary ring-2 ring-primary', quote.id === recommendationId && 'border-green-500 ring-2 ring-green-500')}>
-                     {quote.id === recommendationId && (
-                        <div className="flex items-center gap-2 p-2 bg-green-500 text-white text-xs font-bold rounded-t-lg">
-                           <Lightbulb className="h-4 w-4"/> AI Recommended
-                        </div>
-                    )}
+                <Card key={quote.id} className={cn("flex flex-col", quote.status === 'Awarded' && 'border-primary ring-2 ring-primary')}>
                     <CardHeader>
                         <CardTitle className="flex justify-between items-start">
                            <span>{quote.vendorName}</span>
@@ -282,64 +276,6 @@ const QuoteComparison = ({ quotes, onAction, recommendationId }: { quotes: Quota
         </div>
     )
 }
-
-const AIQuoteAdvisor = ({ requisition, quotes, onRecommendation }: { requisition: PurchaseRequisition, quotes: Quotation[], onRecommendation: (rec: QuoteAnalysisOutput) => void }) => {
-    const [metric, setMetric] = useState<"Lowest Price" | "Fastest Delivery" | "Best Balance">("Best Balance");
-    const [loading, setLoading] = useState(false);
-    const { toast } = useToast();
-
-    const handleAnalysis = async () => {
-        setLoading(true);
-        try {
-            const analysisInput: QuoteAnalysisInput = {
-                quotations: quotes.map(q => ({
-                    ...q,
-                    createdAt: new Date(q.createdAt).toISOString(),
-                    deliveryDate: new Date(q.deliveryDate).toISOString(),
-                })),
-                decisionMetric: metric,
-                requisitionDetails: `${requisition.title} - ${requisition.justification}`,
-            };
-            const result = await analyzeQuotes(analysisInput);
-            onRecommendation(result);
-        } catch (error) {
-            console.error("AI Analysis failed:", error);
-            toast({
-                variant: 'destructive',
-                title: 'AI Advisor Error',
-                description: 'Could not get a recommendation at this time.'
-            });
-        } finally {
-            setLoading(false);
-        }
-    }
-
-    return (
-         <Card className="bg-muted/50">
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2"><Bot /> AI Quote Advisor</CardTitle>
-                <CardDescription>Select a metric and let AI recommend the best quote.</CardDescription>
-            </CardHeader>
-            <CardContent className="flex items-center gap-4">
-                 <Select value={metric} onValueChange={(v) => setMetric(v as any)}>
-                    <SelectTrigger className="w-[200px]">
-                        <SelectValue placeholder="Select a metric" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="Best Balance">Best Balance</SelectItem>
-                        <SelectItem value="Lowest Price">Lowest Price</SelectItem>
-                        <SelectItem value="Fastest Delivery">Fastest Delivery</SelectItem>
-                    </SelectContent>
-                </Select>
-                <Button onClick={handleAnalysis} disabled={loading}>
-                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Get AI Recommendation
-                </Button>
-            </CardContent>
-        </Card>
-    )
-}
-
 
 const ContractManagement = ({ requisition, onContractFinalized, onPOCreated }: { requisition: PurchaseRequisition, onContractFinalized: () => void, onPOCreated: (po: PurchaseOrder) => void }) => {
     const [isContractSubmitting, setContractSubmitting] = useState(false);
@@ -501,7 +437,6 @@ export function QuotationsPage() {
   const [loading, setLoading] = useState(false);
   const [isFormOpen, setFormOpen] = useState(false);
   const [lastPOCreated, setLastPOCreated] = useState<PurchaseOrder | null>(null);
-  const [aiRecommendation, setAiRecommendation] = useState<QuoteAnalysisOutput | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -528,7 +463,6 @@ export function QuotationsPage() {
     if (!requisitionId) return;
     setLoading(true);
     setLastPOCreated(null);
-    setAiRecommendation(null);
     try {
       const response = await fetch(`/api/quotations?requisitionId=${requisitionId}`);
       const data = await response.json();
@@ -640,33 +574,13 @@ export function QuotationsPage() {
                         {selectedRequisition && <AddQuoteForm requisition={selectedRequisition} vendors={vendors} onQuoteAdded={handleQuoteAdded} />}
                     </Dialog>
                 </CardHeader>
-                 <CardContent>
-                    {quotations.length > 0 && !isAwarded && (
-                        <AIQuoteAdvisor 
-                            requisition={selectedRequisition} 
-                            quotes={quotations} 
-                            onRecommendation={setAiRecommendation}
-                        />
-                    )}
-                 </CardContent>
-                  {aiRecommendation && (
-                     <CardContent>
-                        <Alert variant="default" className="border-green-500/50">
-                            <Lightbulb className="h-4 w-4 text-green-500" />
-                            <AlertTitle className="text-green-600">AI Recommendation: {aiRecommendation.summary}</AlertTitle>
-                            <AlertDescription>
-                                {aiRecommendation.justification}
-                            </AlertDescription>
-                        </Alert>
-                    </CardContent>
-                  )}
                 <CardContent>
                    {loading ? (
                        <div className="h-24 flex items-center justify-center">
                            <Loader2 className="h-8 w-8 animate-spin text-primary" />
                        </div>
                    ) : (
-                       <QuoteComparison quotes={quotations} onAction={handleQuoteAction} recommendationId={aiRecommendation?.recommendedQuoteId} />
+                       <QuoteComparison quotes={quotations} onAction={handleQuoteAction} />
                    )}
                 </CardContent>
                 

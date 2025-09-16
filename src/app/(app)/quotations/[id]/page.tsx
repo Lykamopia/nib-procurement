@@ -46,8 +46,6 @@ import { Separator } from '@/components/ui/separator';
 import Link from 'next/link';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
-import { analyzeQuotes } from '@/ai/flows/quote-analysis';
-import type { QuoteAnalysisInput, QuoteAnalysisOutput } from '@/ai/flows/quote-analysis.types';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -224,7 +222,7 @@ function AddQuoteForm({ requisition, vendors, onQuoteAdded }: { requisition: Pur
     );
 }
 
-const QuoteComparison = ({ quotes, requisition, recommendation, onScore, user, isDeadlinePassed, isScoringComplete }: { quotes: Quotation[], requisition: PurchaseRequisition, recommendation?: QuoteAnalysisOutput | null, onScore: (quote: Quotation) => void, user: User, isDeadlinePassed: boolean, isScoringComplete: boolean }) => {
+const QuoteComparison = ({ quotes, requisition, onScore, user, isDeadlinePassed, isScoringComplete }: { quotes: Quotation[], requisition: PurchaseRequisition, onScore: (quote: Quotation) => void, user: User, isDeadlinePassed: boolean, isScoringComplete: boolean }) => {
     const router = useRouter();
 
     if (quotes.length === 0) {
@@ -259,16 +257,9 @@ const QuoteComparison = ({ quotes, requisition, recommendation, onScore, user, i
         }
     }
 
-    const getRecommendationRank = (quoteId: string) => {
-        if (!recommendation) return -1;
-        return recommendation.recommendations.findIndex(r => r.quoteId === quoteId);
-    }
-
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {quotes.sort((a, b) => (a.rank || 4) - (b.rank || 4)).map(quote => {
-                const aiRank = getRecommendationRank(quote.id);
-                const isRecommended = aiRank > -1;
                 const hasUserScored = quote.scores?.some(s => s.scorerId === user.id);
                 return (
                     <Card key={quote.id} className={cn("flex flex-col", (quote.status === 'Awarded' || quote.status === 'Accepted') && 'border-primary ring-2 ring-primary')}>
@@ -281,9 +272,6 @@ const QuoteComparison = ({ quotes, requisition, recommendation, onScore, user, i
                                <Badge variant={getStatusVariant(quote.status)}>{quote.status}</Badge>
                             </CardTitle>
                             <CardDescription>
-                                {isDeadlinePassed && isRecommended && (
-                                     <span className="flex items-center gap-1 text-xs text-green-600 font-semibold"><Star className="h-3 w-3 fill-green-500" /> AI Rec #{aiRank + 1}</span>
-                                )}
                                 <span className="text-xs">Submitted {formatDistanceToNow(new Date(quote.createdAt), { addSuffix: true })}</span>
                             </CardDescription>
                         </CardHeader>
@@ -344,64 +332,6 @@ const QuoteComparison = ({ quotes, requisition, recommendation, onScore, user, i
         </div>
     )
 }
-
-const AIQuoteAdvisor = ({ requisition, quotes, onRecommendation }: { requisition: PurchaseRequisition, quotes: Quotation[], onRecommendation: (rec: QuoteAnalysisOutput) => void }) => {
-    const [metric, setMetric] = useState<"Lowest Price" | "Fastest Delivery" | "Best Balance">("Best Balance");
-    const [loading, setLoading] = useState(false);
-    const { toast } = useToast();
-
-    const handleAnalysis = async () => {
-        setLoading(true);
-        try {
-            const analysisInput: QuoteAnalysisInput = {
-                quotations: quotes.map(q => ({
-                    ...q,
-                    createdAt: new Date(q.createdAt).toISOString(),
-                    deliveryDate: new Date(q.deliveryDate).toISOString(),
-                })),
-                decisionMetric: metric,
-                requisitionDetails: `${requisition.title} - ${requisition.justification}`,
-            };
-            const result = await analyzeQuotes(analysisInput);
-            onRecommendation(result);
-        } catch (error) {
-            console.error("AI Analysis failed:", error);
-            toast({
-                variant: 'destructive',
-                title: 'AI Advisor Error',
-                description: 'Could not get a recommendation at this time.'
-            });
-        } finally {
-            setLoading(false);
-        }
-    }
-
-    return (
-         <Card className="bg-muted/50">
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2"><Bot /> AI Quote Advisor</CardTitle>
-                <CardDescription>Select a metric and let AI recommend the best quote.</CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col sm:flex-row items-center gap-4">
-                 <Select value={metric} onValueChange={(v) => setMetric(v as any)}>
-                    <SelectTrigger className="w-full sm:w-[200px]">
-                        <SelectValue placeholder="Select a metric" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="Best Balance">Best Balance</SelectItem>
-                        <SelectItem value="Lowest Price">Lowest Price</SelectItem>
-                        <SelectItem value="Fastest Delivery">Fastest Delivery</SelectItem>
-                    </SelectContent>
-                </Select>
-                <Button onClick={handleAnalysis} disabled={loading || quotes.length < 2} className="w-full sm:w-auto">
-                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Get AI Recommendation
-                </Button>
-            </CardContent>
-        </Card>
-    )
-}
-
 
 const ContractManagement = ({ requisition }: { requisition: PurchaseRequisition }) => {
     const [isSubmitting, setSubmitting] = useState(false);
@@ -504,19 +434,11 @@ const CommitteeManagement = ({ requisition, onCommitteeUpdated }: { requisition:
         if(scoringDate && scoringTime) {
             const [hours, minutes] = scoringTime.split(':').map(Number);
             const newDate = setMinutes(setHours(scoringDate, hours), minutes);
-            if (requisition.deadline && isBefore(newDate, new Date(requisition.deadline))) {
-                 toast({
-                    variant: 'destructive',
-                    title: 'Invalid Deadline',
-                    description: 'The scoring deadline must be after the quotation submission deadline.',
-                });
-                return;
-            }
             form.setValue('scoringDeadline', newDate);
         } else {
             form.setValue('scoringDeadline', undefined as any);
         }
-    }, [scoringDate, scoringTime, form, requisition.deadline, toast]);
+    }, [scoringDate, scoringTime, form]);
 
     useEffect(() => {
         form.reset({
@@ -1629,9 +1551,9 @@ export default function QuotationDetailsPage() {
   const [isFinalizing, setIsFinalizing] = useState(false);
   const [selectedQuoteForScoring, setSelectedQuoteForScoring] = useState<Quotation | null>(null);
   const [lastPOCreated, setLastPOCreated] = useState<PurchaseOrder | null>(null);
-  const [aiRecommendation, setAiRecommendation] = useState<QuoteAnalysisOutput | null>(null);
   const [isChangingAward, setIsChangingAward] = useState(false);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  
   const { toast } = useToast();
   const { user, allUsers } = useAuth();
   const params = useParams();
@@ -1655,7 +1577,6 @@ export default function QuotationDetailsPage() {
     if (!id) return;
     setLoading(true);
     setLastPOCreated(null);
-    setAiRecommendation(null);
     try {
        const [reqResponse, venResponse, quoResponse] = await Promise.all([
         fetch('/api/requisitions'),
@@ -1962,26 +1883,6 @@ export default function QuotationDetailsPage() {
                     </div>
                 </CardHeader>
                 <CardContent>
-                    {isDeadlinePassed && quotations.length > 1 && !isAwarded && (
-                        <AIQuoteAdvisor 
-                            requisition={requisition} 
-                            quotes={quotations} 
-                            onRecommendation={setAiRecommendation}
-                        />
-                    )}
-                </CardContent>
-                {aiRecommendation && (
-                    <CardContent>
-                        <Alert variant="default" className="border-green-500/50">
-                            <Lightbulb className="h-4 w-4 text-green-500" />
-                            <AlertTitle className="text-green-600">AI Recommendation: {aiRecommendation.summary}</AlertTitle>
-                            <AlertDescription>
-                                {aiRecommendation.justification}
-                            </AlertDescription>
-                        </Alert>
-                    </CardContent>
-                )}
-                <CardContent>
                 {loading ? (
                     <div className="flex items-center justify-center h-24">
                         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -1990,7 +1891,6 @@ export default function QuotationDetailsPage() {
                     <QuoteComparison 
                         quotes={quotations} 
                         requisition={requisition}
-                        recommendation={aiRecommendation}
                         onScore={handleScoreButtonClick}
                         user={user}
                         isDeadlinePassed={isDeadlinePassed}
