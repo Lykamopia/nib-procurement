@@ -504,11 +504,11 @@ const CommitteeManagement = ({ requisition, onCommitteeUpdated }: { requisition:
         if(scoringDate && scoringTime) {
             const [hours, minutes] = scoringTime.split(':').map(Number);
             const newDate = setMinutes(setHours(scoringDate, hours), minutes);
-            if (requisition.deadline && !isBefore(new Date(requisition.deadline), newDate)) {
+            if (requisition.deadline && isBefore(newDate, new Date(requisition.deadline))) {
                  toast({
                     variant: 'destructive',
                     title: 'Invalid Deadline',
-                    description: 'The scoring deadline must be later than the quotation submission deadline.',
+                    description: 'The scoring deadline must be after the quotation submission deadline.',
                 });
                 return;
             }
@@ -1638,10 +1638,18 @@ export default function QuotationDetailsPage() {
   const router = useRouter();
   const id = params.id as string;
   
-  const isAwarded = quotations.some(q => q.status === 'Awarded' || q.status === 'Accepted' || q.status === 'Declined');
-  const isAccepted = quotations.some(q => q.status === 'Accepted');
+  const isAwarded = useMemo(() => quotations.some(q => q.status === 'Awarded' || q.status === 'Accepted' || q.status === 'Declined'), [quotations]);
+  const isAccepted = useMemo(() => quotations.some(q => q.status === 'Accepted'), [quotations]);
   const secondStandby = useMemo(() => quotations.find(q => q.rank === 2), [quotations]);
   const thirdStandby = useMemo(() => quotations.find(q => q.rank === 3), [quotations]);
+  
+  const isScoringComplete = useMemo(() => {
+    if (!requisition || !requisition.committeeMemberIds || requisition.committeeMemberIds.length === 0) return false;
+    if (quotations.length === 0) return false;
+    return requisition.committeeMemberIds.every(memberId => 
+        quotations.every(quote => quote.scores?.some(score => score.scorerId === memberId))
+    );
+  }, [requisition, quotations]);
 
   const fetchRequisitionAndQuotes = async () => {
     if (!id) return;
@@ -1680,7 +1688,7 @@ export default function QuotationDetailsPage() {
     if (id) {
         fetchRequisitionAndQuotes();
     }
-  }, [id, toast]);
+  }, [id]);
 
   const handleRfqSent = () => {
     fetchRequisitionAndQuotes();
@@ -1778,13 +1786,6 @@ export default function QuotationDetailsPage() {
   }
   
   const isDeadlinePassed = requisition.deadline ? isPast(new Date(requisition.deadline)) : false;
-  const isScoringComplete = useMemo(() => {
-    if (!requisition.committeeMemberIds || requisition.committeeMemberIds.length === 0) return false;
-    if (quotations.length === 0) return false;
-    return requisition.committeeMemberIds.every(memberId => 
-        quotations.every(quote => quote.scores?.some(score => score.scorerId === memberId))
-    );
-  }, [requisition, quotations]);
 
 
   const getCurrentStep = (): 'rfq' | 'committee' | 'award' | 'finalize' | 'completed' => {
