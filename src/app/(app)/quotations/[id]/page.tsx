@@ -1297,7 +1297,9 @@ const ScoringDialog = ({
     };
     
     const currentValues = form.watch();
-    const calculatedScore = requisition.evaluationCriteria ? clientSideScoreCalculator(currentValues, requisition.evaluationCriteria) : 0;
+    const calculatedScore = (requisition.evaluationCriteria && currentValues.financialScores && currentValues.technicalScores)
+    ? clientSideScoreCalculator(currentValues, requisition.evaluationCriteria)
+    : 0;
 
     return (
          <DialogContent className="max-w-4xl">
@@ -1509,7 +1511,7 @@ const ScoringProgressTracker = ({
                                         mode="single"
                                         selected={awardResponseDeadline}
                                         onSelect={setAwardResponseDeadline}
-                                        disabled={(date) => date < new Date()}
+                                        disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
                                         initialFocus
                                     />
                                     <div className="p-2 border-t border-border">
@@ -1539,7 +1541,7 @@ const ScoringProgressTracker = ({
             </CardFooter>
         </Card>
     );
-}
+};
 
 export default function QuotationDetailsPage() {
   const [requisition, setRequisition] = useState<PurchaseRequisition | null>(null);
@@ -1572,6 +1574,11 @@ export default function QuotationDetailsPage() {
         quotations.every(quote => quote.scores?.some(score => score.scorerId === memberId))
     );
   }, [requisition, quotations]);
+
+  const isDeadlinePassed = useMemo(() => {
+    if (!requisition) return false;
+    return requisition.deadline ? isPast(new Date(requisition.deadline)) : false;
+  }, [requisition]);
 
   const fetchRequisitionAndQuotes = async () => {
     if (!id) return;
@@ -1698,18 +1705,8 @@ export default function QuotationDetailsPage() {
       fetchRequisitionAndQuotes();
   }
 
-  if (loading || !user) {
-     return <div className="flex items-center justify-center p-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
-  }
-  
-  if (!requisition) {
-     return <div className="text-center p-8">Requisition not found.</div>;
-  }
-  
-  const isDeadlinePassed = requisition.deadline ? isPast(new Date(requisition.deadline)) : false;
-
-
   const getCurrentStep = (): 'rfq' | 'committee' | 'award' | 'finalize' | 'completed' => {
+    if (!requisition) return 'rfq';
     if (requisition.status === 'Approved') {
         return 'rfq';
     }
@@ -1757,7 +1754,14 @@ export default function QuotationDetailsPage() {
       return `${financialPart}\n\n${technicalPart}`;
   };
 
-
+  if (loading || !user) {
+     return <div className="flex items-center justify-center p-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+  }
+  
+  if (!requisition) {
+     return <div className="text-center p-8">Requisition not found.</div>;
+  }
+  
   return (
     <div className="space-y-6">
         <Button variant="outline" onClick={() => router.push('/quotations')}>
