@@ -468,7 +468,7 @@ const committeeFormSchema = z.object({
   committeeName: z.string().min(3, "Committee name is required."),
   committeePurpose: z.string().min(10, "Purpose is required."),
   committeeMemberIds: z.array(z.string()).min(1, "At least one member is required."),
-  scoringDeadline: z.date().optional(),
+  scoringDeadline: z.date({required_error: "Scoring deadline is required."}),
 });
 
 type CommitteeFormValues = z.infer<typeof committeeFormSchema>;
@@ -495,11 +495,19 @@ const CommitteeManagement = ({ requisition, onCommitteeUpdated }: { requisition:
         if(scoringDate && scoringTime) {
             const [hours, minutes] = scoringTime.split(':').map(Number);
             const newDate = setMinutes(setHours(scoringDate, hours), minutes);
+            if (requisition.deadline && !isBefore(new Date(requisition.deadline), newDate)) {
+                 toast({
+                    variant: 'destructive',
+                    title: 'Invalid Deadline',
+                    description: 'The scoring deadline must be later than the quotation submission deadline.',
+                });
+                return;
+            }
             form.setValue('scoringDeadline', newDate);
         } else {
-            form.setValue('scoringDeadline', undefined);
+            form.setValue('scoringDeadline', undefined as any);
         }
-    }, [scoringDate, scoringTime, form]);
+    }, [scoringDate, scoringTime, form, requisition.deadline, toast]);
 
     useEffect(() => {
         form.reset({
@@ -602,39 +610,50 @@ const CommitteeManagement = ({ requisition, onCommitteeUpdated }: { requisition:
                                 />
 
                                 <div className="space-y-2">
-                                    <FormLabel>Committee Scoring Deadline</FormLabel>
-                                    <div className="flex gap-2">
-                                         <Popover>
-                                            <PopoverTrigger asChild>
-                                                <Button
-                                                    variant={"outline"}
-                                                    className={cn(
-                                                    "w-full justify-start text-left font-normal",
-                                                    !scoringDate && "text-muted-foreground"
-                                                    )}
-                                                >
-                                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                                    {scoringDate ? format(scoringDate, "PPP") : <span>Pick a date</span>}
-                                                </Button>
-                                            </PopoverTrigger>
-                                            <PopoverContent className="w-auto p-0" align="start">
-                                                <Calendar
-                                                    mode="single"
-                                                    selected={scoringDate}
-                                                    onSelect={setScoringDate}
-                                                    disabled={(date) => date < new Date(new Date().setHours(0,0,0,0))}
-                                                    initialFocus
-                                                />
-                                            </PopoverContent>
-                                        </Popover>
-                                        <Input
-                                            type="time"
-                                            value={scoringTime}
-                                            onChange={(e) => setScoringTime(e.target.value)}
-                                            className="w-32"
-                                        />
-                                    </div>
-                                    {form.formState.errors.scoringDeadline && <p className="text-sm font-medium text-destructive">{form.formState.errors.scoringDeadline.message}</p>}
+                                    <FormField
+                                        control={form.control}
+                                        name="scoringDeadline"
+                                        render={() => (
+                                            <FormItem>
+                                                <FormLabel>Committee Scoring Deadline</FormLabel>
+                                                <div className="flex gap-2">
+                                                    <Popover>
+                                                        <PopoverTrigger asChild>
+                                                            <Button
+                                                                variant={"outline"}
+                                                                className={cn(
+                                                                "w-full justify-start text-left font-normal",
+                                                                !scoringDate && "text-muted-foreground"
+                                                                )}
+                                                            >
+                                                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                                                {scoringDate ? format(scoringDate, "PPP") : <span>Pick a date</span>}
+                                                            </Button>
+                                                        </PopoverTrigger>
+                                                        <PopoverContent className="w-auto p-0" align="start">
+                                                            <Calendar
+                                                                mode="single"
+                                                                selected={scoringDate}
+                                                                onSelect={setScoringDate}
+                                                                disabled={(date) => {
+                                                                    const quoteDeadline = requisition.deadline ? new Date(requisition.deadline) : new Date();
+                                                                    return date < quoteDeadline;
+                                                                }}
+                                                                initialFocus
+                                                            />
+                                                        </PopoverContent>
+                                                    </Popover>
+                                                    <Input
+                                                        type="time"
+                                                        value={scoringTime}
+                                                        onChange={(e) => setScoringTime(e.target.value)}
+                                                        className="w-32"
+                                                    />
+                                                </div>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
                                 </div>
 
 
@@ -770,15 +789,6 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
         if (!user || !deadline) return;
         if (distributionType === 'select' && selectedVendors.length === 0) {
             toast({ variant: 'destructive', title: 'Error', description: 'Please select at least one vendor.' });
-            return;
-        }
-
-        if (requisition.scoringDeadline && !isBefore(deadline, new Date(requisition.scoringDeadline))) {
-            toast({
-                variant: 'destructive',
-                title: 'Invalid Deadline',
-                description: 'The quotation submission deadline must be earlier than the committee scoring deadline.',
-            });
             return;
         }
 
@@ -955,13 +965,10 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
                 )}
             </CardContent>
             <CardFooter>
-                <Button onClick={handleSendRFQ} disabled={isSubmitting || !requisition.committeeMemberIds || requisition.committeeMemberIds.length === 0 || !deadline}>
+                <Button onClick={handleSendRFQ} disabled={isSubmitting || !deadline}>
                     {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
                     Send RFQ
                 </Button>
-                 {(!requisition.committeeMemberIds || requisition.committeeMemberIds.length === 0) && (
-                    <p className="text-xs text-muted-foreground ml-4">An evaluation committee must be assigned before sending the RFQ.</p>
-                )}
                 {!deadline && (
                     <p className="text-xs text-muted-foreground ml-4">A quotation deadline must be set before sending the RFQ.</p>
                 )}
@@ -970,9 +977,9 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
     );
 };
 
-const WorkflowStepper = ({ step }: { step: 'committee' | 'rfq' | 'award' | 'finalize' | 'completed' }) => {
+const WorkflowStepper = ({ step }: { step: 'rfq' | 'committee' | 'award' | 'finalize' | 'completed' }) => {
      const getStepClass = (currentStep: string, targetStep: string) => {
-        const stepOrder = ['committee', 'rfq', 'award', 'finalize', 'completed'];
+        const stepOrder = ['rfq', 'committee', 'award', 'finalize', 'completed'];
         const currentIndex = stepOrder.indexOf(currentStep);
         const targetIndex = stepOrder.indexOf(targetStep);
         if (currentIndex > targetIndex) return 'completed';
@@ -980,8 +987,8 @@ const WorkflowStepper = ({ step }: { step: 'committee' | 'rfq' | 'award' | 'fina
         return 'inactive';
     };
 
-    const committeeState = getStepClass(step, 'committee');
     const rfqState = getStepClass(step, 'rfq');
+    const committeeState = getStepClass(step, 'committee');
     const awardState = getStepClass(step, 'award');
     const finalizeState = getStepClass(step, 'finalize');
 
@@ -1000,18 +1007,18 @@ const WorkflowStepper = ({ step }: { step: 'committee' | 'rfq' | 'award' | 'fina
     return (
         <div className="flex items-center justify-center space-x-1 sm:space-x-2 flex-wrap">
             <div className="flex items-center gap-2">
-                <div className={cn("flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold", stateClasses[committeeState])}>
-                    {committeeState === 'completed' ? <Check className="h-4 w-4"/> : '1'}
-                </div>
-                <span className={cn("font-medium", textClasses[committeeState])}>Assign Committee</span>
-            </div>
-             <div className={cn("h-px flex-1 bg-border transition-colors", (rfqState === 'active' || rfqState === 'completed') && "bg-primary")}></div>
-
-            <div className="flex items-center gap-2">
                 <div className={cn("flex h-6 w-6 items-center justify-center rounded-full border text-xs font-semibold", stateClasses[rfqState])}>
-                    {rfqState === 'completed' ? <Check className="h-4 w-4"/> : '2'}
+                    {rfqState === 'completed' ? <Check className="h-4 w-4"/> : '1'}
                 </div>
                 <span className={cn("font-medium", textClasses[rfqState])}>Send RFQ</span>
+            </div>
+             <div className={cn("h-px flex-1 bg-border transition-colors", (committeeState === 'active' || committeeState === 'completed') && "bg-primary")}></div>
+
+            <div className="flex items-center gap-2">
+                <div className={cn("flex h-6 w-6 items-center justify-center rounded-full border text-xs font-semibold", stateClasses[committeeState])}>
+                    {committeeState === 'completed' ? <Check className="h-4 w-4"/> : '2'}
+                </div>
+                <span className={cn("font-medium", textClasses[committeeState])}>Assign Committee & Score</span>
             </div>
              <div className={cn("h-px flex-1 bg-border transition-colors", (awardState === 'active' || awardState === 'completed') && "bg-primary")}></div>
 
@@ -1019,7 +1026,7 @@ const WorkflowStepper = ({ step }: { step: 'committee' | 'rfq' | 'award' | 'fina
                 <div className={cn("flex h-6 w-6 items-center justify-center rounded-full border text-xs font-semibold", stateClasses[awardState])}>
                     {awardState === 'completed' ? <Check className="h-4 w-4"/> : '3'}
                 </div>
-                <span className={cn("font-medium", textClasses[awardState])}>Score & Award</span>
+                <span className={cn("font-medium", textClasses[awardState])}>Award</span>
             </div>
             <div className={cn("h-px flex-1 bg-border transition-colors", (finalizeState === 'active' || finalizeState === 'completed') && "bg-primary")}></div>
              <div className="flex items-center gap-2">
@@ -1576,14 +1583,19 @@ export default function QuotationDetailsPage() {
      return <div className="text-center p-8">Requisition not found.</div>;
   }
   
-  const getCurrentStep = (): 'committee' | 'rfq' | 'award' | 'finalize' | 'completed' => {
+  const isDeadlinePassed = requisition.deadline ? isPast(new Date(requisition.deadline)) : false;
+
+  const getCurrentStep = (): 'rfq' | 'committee' | 'award' | 'finalize' | 'completed' => {
       if (requisition.status === 'Approved') {
+        return 'rfq';
+    }
+    if (requisition.status === 'RFQ In Progress' && !isDeadlinePassed) {
+        return 'rfq';
+    }
+     if (requisition.status === 'RFQ In Progress' && isDeadlinePassed) {
         if (!requisition.committeeMemberIds || requisition.committeeMemberIds.length === 0) {
             return 'committee';
         }
-        return 'rfq';
-    }
-    if (requisition.status === 'RFQ In Progress') {
         return 'award';
     }
     if (isAccepted) {
@@ -1594,31 +1606,29 @@ export default function QuotationDetailsPage() {
   };
   const currentStep = getCurrentStep();
   
-  const isDeadlinePassed = requisition.deadline ? !isBefore(new Date(), new Date(requisition.deadline)) : true;
-  
-    const formatEvaluationCriteria = (criteria?: EvaluationCriteria) => {
-        if (!criteria) return "No specific criteria defined.";
+  const formatEvaluationCriteria = (criteria?: EvaluationCriteria) => {
+      if (!criteria) return "No specific criteria defined.";
 
-        const formatSection = (title: string, weight: number, items: any[]) => {
-            if (!items || items.length === 0) return `${title} (Overall Weight: ${weight}%):\n- No criteria defined.`;
-            const itemDetails = items.map(item => `- ${item.name} (${item.weight}%)`).join('\n');
-            return `${title} (Overall Weight: ${weight}%):\n${itemDetails}`;
-        };
+      const formatSection = (title: string, weight: number, items: any[]) => {
+          if (!items || items.length === 0) return `${title} (Overall Weight: ${weight}%):\n- No criteria defined.`;
+          const itemDetails = items.map(item => `- ${item.name} (${item.weight}%)`).join('\n');
+          return `${title} (Overall Weight: ${weight}%):\n${itemDetails}`;
+      };
 
-        const financialPart = formatSection(
-            'Financial Criteria',
-            criteria.financialWeight,
-            criteria.financialCriteria
-        );
+      const financialPart = formatSection(
+          'Financial Criteria',
+          criteria.financialWeight,
+          criteria.financialCriteria
+      );
 
-        const technicalPart = formatSection(
-            'Technical Criteria',
-            criteria.technicalWeight,
-            criteria.technicalCriteria
-        );
+      const technicalPart = formatSection(
+          'Technical Criteria',
+          criteria.technicalWeight,
+          criteria.technicalCriteria
+      );
 
-        return `${financialPart}\n\n${technicalPart}`;
-    };
+      return `${financialPart}\n\n${technicalPart}`;
+  };
 
 
   return (
@@ -1650,27 +1660,33 @@ export default function QuotationDetailsPage() {
             </Card>
         )}
 
-        {currentStep === 'committee' && (user.role === 'Procurement Officer' || user.role === 'Committee') && (
-             <CommitteeManagement
-                    requisition={requisition} 
-                    onCommitteeUpdated={fetchRequisitionAndQuotes}
-                />
-        )}
-
-
         {currentStep === 'rfq' && (user.role === 'Procurement Officer' || user.role === 'Committee') && (
             <div className="grid md:grid-cols-2 gap-6 items-start">
-                 <CommitteeManagement
-                    requisition={requisition} 
-                    onCommitteeUpdated={fetchRequisitionAndQuotes}
-                />
                 <RFQDistribution 
                     requisition={requisition} 
                     vendors={vendors} 
                     onRfqSent={fetchRequisitionAndQuotes}
                 />
+                 <Card className="border-dashed h-full">
+                    <CardHeader>
+                        <CardTitle>Committee Selection</CardTitle>
+                        <CardDescription>Committee assignment will be available after the quotation deadline has passed.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="flex flex-col items-center justify-center text-center text-muted-foreground h-4/5">
+                        <Users className="h-12 w-12 mb-4" />
+                        <p>Waiting for vendor quotes...</p>
+                    </CardContent>
+                </Card>
             </div>
         )}
+        
+        {currentStep === 'committee' && (user.role === 'Procurement Officer' || user.role === 'Committee') && (
+            <CommitteeManagement
+                requisition={requisition} 
+                onCommitteeUpdated={fetchRequisitionAndQuotes}
+            />
+        )}
+
 
         {(currentStep === 'award' || currentStep === 'finalize' || currentStep === 'completed') && (
             <Card>
@@ -1799,7 +1815,7 @@ export default function QuotationDetailsPage() {
             </Card>
         )}
         
-        {isDeadlinePassed && !isAwarded && (user.role === 'Procurement Officer' || user.role === 'Committee') && quotations.length > 0 && (
+        {currentStep === 'award' && (user.role === 'Procurement Officer' || user.role === 'Committee') && quotations.length > 0 && (
              <ScoringProgressTracker 
                 requisition={requisition}
                 quotations={quotations}
@@ -1808,7 +1824,7 @@ export default function QuotationDetailsPage() {
                 isFinalizing={isFinalizing}
             />
         )}
-
+        
         {isAccepted && requisition.status !== 'PO Created' && user.role !== 'Committee Member' && (
             <ContractManagement requisition={requisition} />
         )}
