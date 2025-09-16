@@ -11,7 +11,7 @@ export async function POST(
   try {
     const { id } = params;
     const body = await request.json();
-    const { userId, committeeMemberIds, committeeName, committeePurpose } = body;
+    const { userId, committeeMemberIds, committeeName, committeePurpose, scoringDeadline } = body;
 
     const requisition = requisitions.find((r) => r.id === id);
     if (!requisition) {
@@ -26,6 +26,7 @@ export async function POST(
     requisition.committeeMemberIds = committeeMemberIds;
     requisition.committeeName = committeeName;
     requisition.committeePurpose = committeePurpose;
+    requisition.scoringDeadline = scoringDeadline ? new Date(scoringDeadline) : undefined;
     requisition.updatedAt = new Date();
 
     const committeeNames = users.filter(u => committeeMemberIds.includes(u.id)).map(u => u.name);

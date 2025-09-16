@@ -411,40 +411,38 @@ const CommitteeManagement = ({ requisition, onCommitteeUpdated }: { requisition:
     const [isSubmitting, setSubmitting] = useState(false);
     const [isCommitteeDialogOpen, setCommitteeDialogOpen] = useState(false);
     const [committeeSearch, setCommitteeSearch] = useState("");
-    const [scoringDate, setScoringDate] = useState<Date | undefined>(requisition.scoringDeadline ? new Date(requisition.scoringDeadline) : undefined);
-    const [scoringTime, setScoringTime] = useState<string>(requisition.scoringDeadline ? format(new Date(requisition.scoringDeadline), 'HH:mm') : '');
-
+    
     const form = useForm<CommitteeFormValues>({
         resolver: zodResolver(committeeFormSchema),
         defaultValues: {
             committeeName: requisition.committeeName || "",
             committeePurpose: requisition.committeePurpose || "",
             committeeMemberIds: requisition.committeeMemberIds || [],
+            scoringDeadline: requisition.scoringDeadline ? new Date(requisition.scoringDeadline) : undefined,
         },
     });
     
-    useEffect(() => {
-        if(scoringDate && scoringTime) {
-            const [hours, minutes] = scoringTime.split(':').map(Number);
-            const newDate = setMinutes(setHours(scoringDate, hours), minutes);
-            form.setValue('scoringDeadline', newDate);
-        } else {
-            form.setValue('scoringDeadline', undefined as any);
-        }
-    }, [scoringDate, scoringTime, form]);
-
     useEffect(() => {
         form.reset({
             committeeName: requisition.committeeName || "",
             committeePurpose: requisition.committeePurpose || "",
             committeeMemberIds: requisition.committeeMemberIds || [],
+            scoringDeadline: requisition.scoringDeadline ? new Date(requisition.scoringDeadline) : undefined,
         });
-        setScoringDate(requisition.scoringDeadline ? new Date(requisition.scoringDeadline) : undefined);
-        setScoringTime(requisition.scoringDeadline ? format(new Date(requisition.scoringDeadline), 'HH:mm') : '');
     }, [requisition, form]);
 
     const handleSaveCommittee = async (values: CommitteeFormValues) => {
         if (!user) return;
+
+        if (isBefore(values.scoringDeadline, new Date())) {
+            toast({
+                variant: 'destructive',
+                title: 'Invalid Deadline',
+                description: 'The scoring deadline must be in the future.',
+            });
+            return;
+        }
+
         setSubmitting(true);
         try {
             const response = await fetch(`/api/requisitions/${requisition.id}/assign-committee`, {
@@ -534,42 +532,40 @@ const CommitteeManagement = ({ requisition, onCommitteeUpdated }: { requisition:
                                 />
 
                                 <div className="space-y-2">
-                                    <FormField
+                                     <FormField
                                         control={form.control}
                                         name="scoringDeadline"
-                                        render={() => (
-                                            <FormItem>
+                                        render={({ field }) => (
+                                            <FormItem className="flex flex-col">
                                                 <FormLabel>Committee Scoring Deadline</FormLabel>
-                                                <div className="flex gap-2">
-                                                    <Popover>
-                                                        <PopoverTrigger asChild>
-                                                            <Button
-                                                                variant={"outline"}
-                                                                className={cn(
-                                                                "w-full justify-start text-left font-normal",
-                                                                !scoringDate && "text-muted-foreground"
-                                                                )}
-                                                            >
-                                                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                                                {scoringDate ? format(scoringDate, "PPP") : <span>Pick a date</span>}
-                                                            </Button>
-                                                        </PopoverTrigger>
-                                                        <PopoverContent className="w-auto p-0" align="start">
-                                                            <Calendar
-                                                                mode="single"
-                                                                selected={scoringDate}
-                                                                onSelect={setScoringDate}
-                                                                initialFocus
-                                                            />
-                                                        </PopoverContent>
-                                                    </Popover>
-                                                    <Input
-                                                        type="time"
-                                                        value={scoringTime}
-                                                        onChange={(e) => setScoringTime(e.target.value)}
-                                                        className="w-32"
+                                                <Popover>
+                                                    <PopoverTrigger asChild>
+                                                    <FormControl>
+                                                        <Button
+                                                        variant={"outline"}
+                                                        className={cn(
+                                                            "w-full pl-3 text-left font-normal",
+                                                            !field.value && "text-muted-foreground"
+                                                        )}
+                                                        >
+                                                        {field.value ? (
+                                                            format(field.value, "PPP")
+                                                        ) : (
+                                                            <span>Pick a date</span>
+                                                        )}
+                                                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                                        </Button>
+                                                    </FormControl>
+                                                    </PopoverTrigger>
+                                                    <PopoverContent className="w-auto p-0" align="start">
+                                                    <Calendar
+                                                        mode="single"
+                                                        selected={field.value}
+                                                        onSelect={field.onChange}
+                                                        initialFocus
                                                     />
-                                                </div>
+                                                    </PopoverContent>
+                                                </Popover>
                                                 <FormMessage />
                                             </FormItem>
                                         )}
@@ -807,10 +803,10 @@ const RFQActionDialog = ({
 const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: PurchaseRequisition; vendors: Vendor[]; onRfqSent: () => void; }) => {
     const [distributionType, setDistributionType] = useState('all');
     const [selectedVendors, setSelectedVendors] = useState<string[]>([]);
-    const [vendorSearch, setVendorSearch] = useState('');
+    const [vendorSearch, setVendorSearch] = useState("");
     const [isSubmitting, setSubmitting] = useState(false);
     const [deadlineDate, setDeadlineDate] = useState<Date|undefined>();
-    const [deadlineTime, setDeadlineTime] = useState('');
+    const [deadlineTime, setDeadlineTime] = useState('17:00');
     const [cpoAmount, setCpoAmount] = useState<number | undefined>(requisition.cpoAmount);
     const [actionDialog, setActionDialog] = useState<{isOpen: boolean, type: 'update' | 'cancel'}>({isOpen: false, type: 'update'});
     const { user } = useAuth();
@@ -824,7 +820,7 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
             setDeadlineTime(format(new Date(requisition.deadline), 'HH:mm'));
         } else {
             setDeadlineDate(undefined);
-            setDeadlineTime('');
+            setDeadlineTime('17:00');
         }
         setCpoAmount(requisition.cpoAmount);
     }, [requisition]);
@@ -838,6 +834,15 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
 
     const handleSendRFQ = async () => {
         if (!user || !deadline) return;
+
+        if (isBefore(deadline, new Date())) {
+            toast({
+                variant: 'destructive',
+                title: 'Invalid Deadline',
+                description: 'The quotation submission deadline must be in the future.',
+            });
+            return;
+        }
         
         if (requisition.scoringDeadline && !isBefore(deadline, new Date(requisition.scoringDeadline))) {
             toast({
@@ -1406,6 +1411,7 @@ const ScoringProgressTracker = ({
   isAwarded: boolean;
 }) => {
     const [awardResponseDeadline, setAwardResponseDeadline] = useState<Date | undefined>();
+    const { toast } = useToast();
 
     const assignedCommitteeMembers = useMemo(() => {
         return allUsers.filter(u => requisition.committeeMemberIds?.includes(u.id));
@@ -1433,6 +1439,18 @@ const ScoringProgressTracker = ({
     }, [assignedCommitteeMembers, quotations]);
 
     const allHaveScored = scoringStatus.every(s => s.hasScoredAll);
+
+    const handleFinalizeClick = () => {
+        if (awardResponseDeadline && isBefore(awardResponseDeadline, new Date())) {
+            toast({
+                variant: 'destructive',
+                title: 'Invalid Deadline',
+                description: 'The award response deadline must be in the future.',
+            });
+            return;
+        }
+        onFinalize(awardResponseDeadline);
+    }
 
     return (
         <Card className="mt-6">
@@ -1525,7 +1543,7 @@ const ScoringProgressTracker = ({
                         </div>
                         <AlertDialogFooter>
                             <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => onFinalize(awardResponseDeadline)} disabled={!awardResponseDeadline}>
+                            <AlertDialogAction onClick={handleFinalizeClick} disabled={!awardResponseDeadline}>
                                 Proceed
                             </AlertDialogAction>
                         </AlertDialogFooter>
@@ -1698,6 +1716,16 @@ export default function QuotationDetailsPage() {
   
    const handleFinalizeScores = async (awardResponseDeadline?: Date) => {
         if (!user || !requisition) return;
+
+        if (awardResponseDeadline && isBefore(awardResponseDeadline, new Date())) {
+            toast({
+                variant: 'destructive',
+                title: 'Invalid Deadline',
+                description: 'The award response deadline must be in the future.',
+            });
+            return;
+        }
+        
         setIsFinalizing(true);
         try {
              const response = await fetch(`/api/requisitions/${requisition.id}/finalize-scores`, {
