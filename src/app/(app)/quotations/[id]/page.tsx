@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -635,10 +634,6 @@ const CommitteeManagement = ({ requisition, onCommitteeUpdated }: { requisition:
                                                                 mode="single"
                                                                 selected={scoringDate}
                                                                 onSelect={setScoringDate}
-                                                                disabled={(date) => {
-                                                                    const quoteDeadline = requisition.deadline ? new Date(requisition.deadline) : new Date();
-                                                                    return isBefore(date, quoteDeadline);
-                                                                }}
                                                                 initialFocus
                                                             />
                                                         </PopoverContent>
@@ -1160,7 +1155,7 @@ const WorkflowStepper = ({ step }: { step: 'rfq' | 'committee' | 'award' | 'fina
         const currentIndex = stepOrder.indexOf(currentStep);
         const targetIndex = stepOrder.indexOf(targetStep);
         if (currentIndex > targetIndex) return 'completed';
-        if (currentIndex === targetIndex) return 'active';
+        if (currentIndex === targetStep) return 'active';
         return 'inactive';
     };
 
@@ -1278,18 +1273,20 @@ const ScoringDialog = ({
     });
 
     useEffect(() => {
-        const existingScore = quote.scores?.find(s => s.scorerId === user.id);
-        form.reset({
-            committeeComment: existingScore?.committeeComment || "",
-            financialScores: requisition.evaluationCriteria?.financialCriteria.map(c => {
-                const existing = existingScore?.financialScores.find(s => s.criterionId === c.id);
-                return { criterionId: c.id, score: existing?.score || 0, comment: existing?.comment || "" };
-            }) || [],
-            technicalScores: requisition.evaluationCriteria?.technicalCriteria.map(c => {
-                const existing = existingScore?.technicalScores.find(s => s.criterionId === c.id);
-                return { criterionId: c.id, score: existing?.score || 0, comment: existing?.comment || "" };
-            }) || [],
-        });
+        if (quote && requisition) {
+            const existingScore = quote.scores?.find(s => s.scorerId === user.id);
+            form.reset({
+                committeeComment: existingScore?.committeeComment || "",
+                financialScores: requisition.evaluationCriteria?.financialCriteria.map(c => {
+                    const existing = existingScore?.financialScores.find(s => s.criterionId === c.id);
+                    return { criterionId: c.id, score: existing?.score || 0, comment: existing?.comment || "" };
+                }) || [],
+                technicalScores: requisition.evaluationCriteria?.technicalCriteria.map(c => {
+                    const existing = existingScore?.technicalScores.find(s => s.criterionId === c.id);
+                    return { criterionId: c.id, score: existing?.score || 0, comment: existing?.comment || "" };
+                }) || [],
+            });
+        }
     }, [quote, requisition, user, form]);
 
     const onSubmit = async (values: ScoreFormValues) => {
@@ -1368,7 +1365,7 @@ const ScoringDialog = ({
     };
     
     const currentValues = form.watch();
-    const calculatedScore = clientSideScoreCalculator(currentValues, requisition.evaluationCriteria);
+    const calculatedScore = requisition.evaluationCriteria ? clientSideScoreCalculator(currentValues, requisition.evaluationCriteria) : 0;
 
     return (
          <DialogContent className="max-w-4xl">
@@ -1471,13 +1468,15 @@ const ScoringProgressTracker = ({
   quotations,
   allUsers,
   onFinalize,
-  isFinalizing
+  isFinalizing,
+  isAwarded,
 }: {
   requisition: PurchaseRequisition;
   quotations: Quotation[];
   allUsers: User[];
   onFinalize: (awardResponseDeadline?: Date) => void;
   isFinalizing: boolean;
+  isAwarded: boolean;
 }) => {
     const [awardResponseDeadline, setAwardResponseDeadline] = useState<Date | undefined>();
 
@@ -1545,9 +1544,9 @@ const ScoringProgressTracker = ({
             <CardFooter>
                  <AlertDialog>
                     <AlertDialogTrigger asChild>
-                        <Button disabled={!allHaveScored || isFinalizing}>
+                        <Button disabled={!allHaveScored || isFinalizing || isAwarded}>
                             {isFinalizing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            Finalize Scores &amp; Award
+                            {isAwarded ? 'Scores Finalized' : 'Finalize Scores &amp; Award'}
                         </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
@@ -2010,6 +2009,7 @@ export default function QuotationDetailsPage() {
                 allUsers={allUsers}
                 onFinalize={handleFinalizeScores}
                 isFinalizing={isFinalizing}
+                isAwarded={isAwarded}
             />
         )}
         
@@ -2026,7 +2026,3 @@ export default function QuotationDetailsPage() {
     </div>
   );
 }
-
-    
-
-    
