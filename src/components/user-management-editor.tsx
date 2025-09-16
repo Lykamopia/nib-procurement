@@ -49,6 +49,7 @@ import { useForm } from 'react-hook-form';
 import * as z from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from './ui/form';
 import { rolePermissions } from '@/lib/roles';
+import { useAuth } from '@/contexts/auth-context';
 
 const userFormSchema = z.object({
   name: z.string().min(2, "Name is required."),
@@ -56,6 +57,10 @@ const userFormSchema = z.object({
   role: z.string().min(1, "Role is required."),
   departmentId: z.string().min(1, "Department is required."),
   password: z.string().min(8, "Password must be at least 8 characters."),
+});
+
+const userEditFormSchema = userFormSchema.extend({
+    password: z.string().optional(),
 });
 
 type UserFormValues = z.infer<typeof userFormSchema>;
@@ -67,9 +72,10 @@ export function UserManagementEditor() {
   const [isDialogOpen, setDialogOpen] = useState(false);
   const [userToEdit, setUserToEdit] = useState<User | null>(null);
   const { toast } = useToast();
+  const { user: actor } = useAuth();
 
   const form = useForm<UserFormValues>({
-    resolver: zodResolver(userFormSchema),
+    resolver: zodResolver(userToEdit ? userEditFormSchema : userFormSchema),
     defaultValues: {
       name: '',
       email: '',
@@ -105,16 +111,19 @@ export function UserManagementEditor() {
   }, []);
 
   const handleFormSubmit = async (values: UserFormValues) => {
+    if (!actor) return;
     setIsLoading(true);
     try {
       const isEditing = !!userToEdit;
-      const url = isEditing ? `/api/users?id=${userToEdit.id}` : '/api/users';
-      const method = isEditing ? 'PATCH' : 'POST';
-
-      const response = await fetch(url, {
-        method: method,
+      
+      const body = isEditing 
+        ? { ...values, id: userToEdit.id, actorUserId: actor.id }
+        : { ...values, actorUserId: actor.id };
+        
+      const response = await fetch('/api/users', {
+        method: isEditing ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(values),
+        body: JSON.stringify(body),
       });
 
       if (!response.ok) {
@@ -128,7 +137,7 @@ export function UserManagementEditor() {
       });
       setDialogOpen(false);
       setUserToEdit(null);
-      form.reset();
+      form.reset({ name: '', email: '', role: '', departmentId: '', password: '' });
       fetchData();
     } catch (error) {
       toast({ variant: 'destructive', title: 'Error', description: error instanceof Error ? error.message : 'An unknown error occurred.' });
@@ -138,10 +147,13 @@ export function UserManagementEditor() {
   };
   
   const handleDeleteUser = async (userId: string) => {
+    if (!actor) return;
     setIsLoading(true);
     try {
-        const response = await fetch(`/api/users?id=${userId}`, {
+        const response = await fetch(`/api/users`, {
             method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: userId, actorUserId: actor.id }),
         });
          if (!response.ok) {
             const errorData = await response.json();
@@ -167,11 +179,11 @@ export function UserManagementEditor() {
         email: user.email,
         role: user.role,
         departmentId: user.departmentId || '',
-        password: user.password,
+        password: '',
       });
     } else {
       setUserToEdit(null);
-      form.reset();
+      form.reset({ name: '', email: '', role: '', departmentId: '', password: '' });
     }
     setDialogOpen(true);
   };
@@ -186,34 +198,7 @@ export function UserManagementEditor() {
                 Add, edit, and manage application users and their roles.
                 </CardDescription>
             </div>
-             <Dialog open={isDialogOpen} onOpenChange={setDialogOpen}>
-                <DialogTrigger asChild>
-                    <Button onClick={() => openDialog()}><PlusCircle className="mr-2"/> Add New User</Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <Form {...form}>
-                    <form onSubmit={form.handleSubmit(handleFormSubmit)}>
-                      <DialogHeader>
-                          <DialogTitle>{userToEdit ? 'Edit User' : 'Add New User'}</DialogTitle>
-                      </DialogHeader>
-                      <div className="py-4 grid gap-4">
-                        <FormField control={form.control} name="name" render={({ field }) => ( <FormItem><FormLabel>Full Name</FormLabel><FormControl><Input placeholder="e.g. John Doe" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                        <FormField control={form.control} name="email" render={({ field }) => ( <FormItem><FormLabel>Email</FormLabel><FormControl><Input type="email" placeholder="e.g. john.doe@example.com" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                        <FormField control={form.control} name="password" render={({ field }) => ( <FormItem><FormLabel>Password</FormLabel><FormControl><Input type="password" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                        <FormField control={form.control} name="role" render={({ field }) => ( <FormItem><FormLabel>Role</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select a role" /></SelectTrigger></FormControl><SelectContent>{availableRoles.map(role => <SelectItem key={role} value={role}>{role}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)} />
-                        <FormField control={form.control} name="departmentId" render={({ field }) => ( <FormItem><FormLabel>Department</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select a department" /></SelectTrigger></FormControl><SelectContent>{departments.map(dept => <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)} />
-                      </div>
-                      <DialogFooter>
-                          <DialogClose asChild><Button type="button" variant="ghost">Cancel</Button></DialogClose>
-                          <Button type="submit" disabled={isLoading}>
-                               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
-                              {userToEdit ? 'Save Changes' : 'Create User'}
-                          </Button>
-                      </DialogFooter>
-                    </form>
-                  </Form>
-                </DialogContent>
-            </Dialog>
+            <Button onClick={() => openDialog()}><PlusCircle className="mr-2"/> Add New User</Button>
         </div>
       </CardHeader>
       <CardContent>
@@ -292,6 +277,31 @@ export function UserManagementEditor() {
             </Table>
         </div>
       </CardContent>
+       <Dialog open={isDialogOpen} onOpenChange={(isOpen) => { if (!isOpen) { setUserToEdit(null); form.reset(); } setDialogOpen(isOpen); }}>
+        <DialogContent>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(handleFormSubmit)}>
+              <DialogHeader>
+                  <DialogTitle>{userToEdit ? 'Edit User' : 'Add New User'}</DialogTitle>
+              </DialogHeader>
+              <div className="py-4 grid gap-4">
+                <FormField control={form.control} name="name" render={({ field }) => ( <FormItem><FormLabel>Full Name</FormLabel><FormControl><Input placeholder="e.g. John Doe" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                <FormField control={form.control} name="email" render={({ field }) => ( <FormItem><FormLabel>Email</FormLabel><FormControl><Input type="email" placeholder="e.g. john.doe@example.com" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                <FormField control={form.control} name="password" render={({ field }) => ( <FormItem><FormLabel>Password</FormLabel><FormControl><Input type="password" placeholder={userToEdit ? "Leave blank to keep current password" : ""} {...field} /></FormControl><FormMessage /></FormItem> )} />
+                <FormField control={form.control} name="role" render={({ field }) => ( <FormItem><FormLabel>Role</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select a role" /></SelectTrigger></FormControl><SelectContent>{availableRoles.map(role => <SelectItem key={role} value={role}>{role}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)} />
+                <FormField control={form.control} name="departmentId" render={({ field }) => ( <FormItem><FormLabel>Department</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select a department" /></SelectTrigger></FormControl><SelectContent>{departments.map(dept => <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)} />
+              </div>
+              <DialogFooter>
+                  <DialogClose asChild><Button type="button" variant="ghost">Cancel</Button></DialogClose>
+                  <Button type="submit" disabled={isLoading}>
+                       {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                      {userToEdit ? 'Save Changes' : 'Create User'}
+                  </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

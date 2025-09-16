@@ -37,6 +37,7 @@ import {
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
+import { useAuth } from '@/contexts/auth-context';
 
 export function DepartmentManagementEditor() {
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -47,6 +48,7 @@ export function DepartmentManagementEditor() {
   const [departmentToEdit, setDepartmentToEdit] = useState<Department | null>(null);
   const [editedDepartmentName, setEditedDepartmentName] = useState('');
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const fetchDepartments = async () => {
     setIsLoading(true);
@@ -71,13 +73,14 @@ export function DepartmentManagementEditor() {
         toast({ variant: 'destructive', title: 'Error', description: 'Department name cannot be empty.' });
         return;
     }
+    if (!user) return;
     
     setIsLoading(true);
     try {
         const response = await fetch('/api/departments', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: newDepartmentName }),
+            body: JSON.stringify({ name: newDepartmentName, userId: user.id }),
         });
         if (!response.ok) {
             const errorData = await response.json();
@@ -102,13 +105,14 @@ export function DepartmentManagementEditor() {
       toast({ variant: 'destructive', title: 'Error', description: 'Department name cannot be empty.' });
       return;
     }
+    if (!user) return;
 
     setIsLoading(true);
     try {
         const response = await fetch(`/api/departments`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: departmentToEdit.id, name: editedDepartmentName }),
+            body: JSON.stringify({ id: departmentToEdit.id, name: editedDepartmentName, userId: user.id }),
         });
         if (!response.ok) {
              const errorData = await response.json();
@@ -130,12 +134,13 @@ export function DepartmentManagementEditor() {
   };
 
   const handleDeleteDepartment = async (departmentId: string) => {
+    if (!user) return;
     setIsLoading(true);
     try {
          const response = await fetch(`/api/departments`, {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: departmentId }),
+            body: JSON.stringify({ id: departmentId, userId: user.id }),
         });
          if (!response.ok) {
             const errorData = await response.json();
