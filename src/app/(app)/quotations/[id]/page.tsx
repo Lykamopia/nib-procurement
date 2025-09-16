@@ -773,6 +773,15 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
             return;
         }
 
+        if (requisition.scoringDeadline && !isBefore(deadline, new Date(requisition.scoringDeadline))) {
+            toast({
+                variant: 'destructive',
+                title: 'Invalid Deadline',
+                description: 'The quotation submission deadline must be earlier than the committee scoring deadline.',
+            });
+            return;
+        }
+
         setSubmitting(true);
         try {
             const response = await fetch(`/api/requisitions/${requisition.id}/send-rfq`, {
