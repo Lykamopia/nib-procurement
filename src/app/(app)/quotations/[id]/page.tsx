@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -31,7 +32,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, PlusCircle, Award, XCircle, FileSignature, FileText, Bot, Lightbulb, ArrowLeft, Star, Undo, Check, Send, Search, BadgeHelp, BadgeCheck, BadgeX, Crown, Medal, Trophy, RefreshCw, TimerOff, ClipboardList, TrendingUp, Scale, Edit2, Users, GanttChart, Eye, CheckCircle, CalendarIcon, Timer, Landmark, Settings2, Ban } from 'lucide-react';
+import { Loader2, PlusCircle, Award, XCircle, FileSignature, FileText, Bot, Lightbulb, ArrowLeft, Star, Undo, Check, Send, Search, BadgeHelp, BadgeCheck, BadgeX, Crown, Medal, Trophy, RefreshCw, TimerOff, ClipboardList, TrendingUp, Scale, Edit2, Users, GanttChart, Eye, CheckCircle, CalendarIcon, Timer, Landmark, Settings2, Ban, Printer } from 'lucide-react';
 import { useForm, useFieldArray, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -223,7 +224,9 @@ function AddQuoteForm({ requisition, vendors, onQuoteAdded }: { requisition: Pur
     );
 }
 
-const QuoteComparison = ({ quotes, requisition, recommendation, onScore, user, isDeadlinePassed }: { quotes: Quotation[], requisition: PurchaseRequisition, recommendation?: QuoteAnalysisOutput | null, onScore: (quote: Quotation) => void, user: User, isDeadlinePassed: boolean }) => {
+const QuoteComparison = ({ quotes, requisition, recommendation, onScore, user, isDeadlinePassed, isScoringComplete }: { quotes: Quotation[], requisition: PurchaseRequisition, recommendation?: QuoteAnalysisOutput | null, onScore: (quote: Quotation) => void, user: User, isDeadlinePassed: boolean, isScoringComplete: boolean }) => {
+    const router = useRouter();
+
     if (quotes.length === 0) {
         return (
             <div className="flex flex-col items-center justify-center h-48 border-2 border-dashed rounded-lg bg-muted/30">
@@ -320,14 +323,21 @@ const QuoteComparison = ({ quotes, requisition, recommendation, onScore, user, i
                                  </div>
                              )}
                         </CardContent>
-                        {user.role === 'Committee Member' && (
-                            <CardFooter>
+                        <CardFooter className="flex flex-col gap-2">
+                            {user.role === 'Committee Member' && (
                                 <Button className="w-full" variant={hasUserScored ? "secondary" : "outline"} onClick={() => onScore(quote)} disabled={!isDeadlinePassed}>
                                     {hasUserScored ? <Check className="mr-2 h-4 w-4"/> : <Edit2 className="mr-2 h-4 w-4" />}
                                     {hasUserScored ? 'View Your Score' : 'Score this Quote'}
                                 </Button>
-                            </CardFooter>
-                        )}
+                            )}
+                            {isScoringComplete && (
+                                 <Button asChild className="w-full" variant="ghost">
+                                    <Link href={`/quotations/${requisition.id}/report/${quote.id}`} target="_blank">
+                                        <Printer className="mr-2 h-4 w-4" /> View Report
+                                    </Link>
+                                </Button>
+                            )}
+                        </CardFooter>
                     </Card>
                 )
             })}
@@ -1768,6 +1778,14 @@ export default function QuotationDetailsPage() {
   }
   
   const isDeadlinePassed = requisition.deadline ? isPast(new Date(requisition.deadline)) : false;
+  const isScoringComplete = useMemo(() => {
+    if (!requisition.committeeMemberIds || requisition.committeeMemberIds.length === 0) return false;
+    if (quotations.length === 0) return false;
+    return requisition.committeeMemberIds.every(memberId => 
+        quotations.every(quote => quote.scores?.some(score => score.scorerId === memberId))
+    );
+  }, [requisition, quotations]);
+
 
   const getCurrentStep = (): 'rfq' | 'committee' | 'award' | 'finalize' | 'completed' => {
     if (requisition.status === 'Approved') {
@@ -1975,6 +1993,7 @@ export default function QuotationDetailsPage() {
                         onScore={handleScoreButtonClick}
                         user={user}
                         isDeadlinePassed={isDeadlinePassed}
+                        isScoringComplete={isScoringComplete}
                     />
                 )}
                 </CardContent>
@@ -2026,3 +2045,4 @@ export default function QuotationDetailsPage() {
     </div>
   );
 }
+
