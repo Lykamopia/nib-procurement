@@ -433,7 +433,7 @@ const ContractManagement = ({ requisition }: { requisition: PurchaseRequisition 
     return (
         <Card className="mt-6 border-primary/50">
             <CardHeader>
-                <CardTitle>Contract & PO Finalization</CardTitle>
+                <CardTitle>Contract &amp; PO Finalization</CardTitle>
                 <CardDescription>
                     The vendor <span className="font-semibold">{awardedQuote?.vendorName}</span> has accepted the award. 
                     A PO (<span className="font-mono">{requisition.purchaseOrderId}</span>) has been generated. Please finalize and send the documents.
@@ -446,7 +446,7 @@ const ContractManagement = ({ requisition }: { requisition: PurchaseRequisition 
                         <Input id="fileName" name="fileName" type="file" />
                     </div>
                     <div>
-                        <Label htmlFor="notes">Negotiation & Finalization Notes</Label>
+                        <Label htmlFor="notes">Negotiation &amp; Finalization Notes</Label>
                         <Textarea id="notes" name="notes" rows={5} placeholder="Record key negotiation points, final terms, etc." />
                     </div>
                 </CardContent>
@@ -757,16 +757,18 @@ const CommitteeManagement = ({ requisition, onCommitteeUpdated }: { requisition:
 
 
 const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: PurchaseRequisition; vendors: Vendor[]; onRfqSent: () => void; }) => {
-    const [distributionType, setDistributionType] = useState<'all' | 'select'>('all');
-    const [selectedVendors, setSelectedVendors] = useState<string[]>([]);
+    const [distributionType, setDistributionType] = useState('all');
+    const [selectedVendors, setSelectedVendors] = useState([]);
     const [vendorSearch, setVendorSearch] = useState('');
     const [isSubmitting, setSubmitting] = useState(false);
     const [deadlineDate, setDeadlineDate] = useState<Date|undefined>();
-    const [deadlineTime, setDeadlineTime] = useState<string>('');
+    const [deadlineTime, setDeadlineTime] = useState('');
     const [cpoAmount, setCpoAmount] = useState<number | undefined>(requisition.cpoAmount);
     const { user } = useAuth();
     const { toast } = useToast();
     
+    const isSent = requisition.status === 'RFQ In Progress' || requisition.status === 'PO Created';
+
      useEffect(() => {
         if (requisition.deadline) {
             setDeadlineDate(new Date(requisition.deadline));
@@ -839,11 +841,14 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
 
 
     return (
-        <Card className="mt-6 md:mt-0">
+        <Card className={cn(isSent && "bg-muted/30")}>
             <CardHeader>
                 <CardTitle>RFQ Distribution</CardTitle>
                 <CardDescription>
-                    Send the Request for Quotation to vendors to begin receiving bids.
+                    {isSent
+                    ? "The RFQ has been distributed to vendors."
+                    : "Send the Request for Quotation to vendors to begin receiving bids."
+                    }
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -854,6 +859,7 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
                             <PopoverTrigger asChild>
                                 <Button
                                     variant={"outline"}
+                                    disabled={isSent}
                                     className={cn(
                                     "w-full justify-start text-left font-normal",
                                     !deadlineDate && "text-muted-foreground"
@@ -868,7 +874,7 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
                                     mode="single"
                                     selected={deadlineDate}
                                     onSelect={setDeadlineDate}
-                                    disabled={(date) => date < new Date(new Date().setHours(0,0,0,0))}
+                                    disabled={(date) => date < new Date(new Date().setHours(0,0,0,0)) || isSent}
                                     initialFocus
                                 />
                             </PopoverContent>
@@ -878,12 +884,13 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
                             className="w-32"
                             value={deadlineTime}
                             onChange={(e) => setDeadlineTime(e.target.value)}
+                            disabled={isSent}
                         />
                     </div>
                 </div>
                 <div className="space-y-2">
                     <Label>Distribution Type</Label>
-                    <Select value={distributionType} onValueChange={(v) => setDistributionType(v as any)}>
+                    <Select value={distributionType} onValueChange={(v) => setDistributionType(v as any)} disabled={isSent}>
                         <SelectTrigger>
                             <SelectValue />
                         </SelectTrigger>
@@ -904,6 +911,7 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
                             className="pl-10"
                             value={cpoAmount || ''}
                             onChange={(e) => setCpoAmount(Number(e.target.value))}
+                            disabled={isSent}
                         />
                      </div>
                     <p className="text-xs text-muted-foreground">Optional. If set, vendors must submit a CPO of this amount to qualify.</p>
@@ -920,6 +928,7 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
                                     className="pl-8 w-full"
                                     value={vendorSearch}
                                     onChange={(e) => setVendorSearch(e.target.value)}
+                                    disabled={isSent}
                                 />
                             </div>
                         </CardHeader>
@@ -937,6 +946,7 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
                                                 )
                                             }}
                                             className="mt-1"
+                                            disabled={isSent}
                                         />
                                         <div className="flex items-start gap-4 flex-1">
                                             <Avatar>
@@ -965,12 +975,21 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
                 )}
             </CardContent>
             <CardFooter>
-                <Button onClick={handleSendRFQ} disabled={isSubmitting || !deadline}>
-                    {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-                    Send RFQ
-                </Button>
-                {!deadline && (
-                    <p className="text-xs text-muted-foreground ml-4">A quotation deadline must be set before sending the RFQ.</p>
+                 {isSent ? (
+                    <Badge variant="default" className="gap-2">
+                        <CheckCircle className="h-4 w-4" />
+                        RFQ Distributed on {format(new Date(requisition.updatedAt), 'PP')}
+                    </Badge>
+                ) : (
+                    <>
+                    <Button onClick={handleSendRFQ} disabled={isSubmitting || !deadline}>
+                        {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                        Send RFQ
+                    </Button>
+                    {!deadline && (
+                        <p className="text-xs text-muted-foreground ml-4">A quotation deadline must be set before sending the RFQ.</p>
+                    )}
+                    </>
                 )}
             </CardFooter>
         </Card>
@@ -1018,7 +1037,7 @@ const WorkflowStepper = ({ step }: { step: 'rfq' | 'committee' | 'award' | 'fina
                 <div className={cn("flex h-6 w-6 items-center justify-center rounded-full border text-xs font-semibold", stateClasses[committeeState])}>
                     {committeeState === 'completed' ? <Check className="h-4 w-4"/> : '2'}
                 </div>
-                <span className={cn("font-medium", textClasses[committeeState])}>Assign Committee & Score</span>
+                <span className={cn("font-medium", textClasses[committeeState])}>Assign Committee &amp; Score</span>
             </div>
              <div className={cn("h-px flex-1 bg-border transition-colors", (awardState === 'active' || awardState === 'completed') && "bg-primary")}></div>
 
@@ -1265,10 +1284,10 @@ const ScoringDialog = ({
                                 </CardContent>
                             </Card>
                             <AlertDialogFooter>
-                                <AlertDialogCancel>Go Back & Edit</AlertDialogCancel>
+                                <AlertDialogCancel>Go Back &amp; Edit</AlertDialogCancel>
                                 <AlertDialogAction onClick={form.handleSubmit(onSubmit)} disabled={isSubmitting}>
                                      {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                    Confirm & Submit
+                                    Confirm &amp; Submit
                                 </AlertDialogAction>
                             </AlertDialogFooter>
                         </AlertDialogContent>
@@ -1362,7 +1381,7 @@ const ScoringProgressTracker = ({
                     <AlertDialogTrigger asChild>
                         <Button disabled={!allHaveScored || isFinalizing}>
                             {isFinalizing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            Finalize Scores & Award
+                            Finalize Scores &amp; Award
                         </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
@@ -1586,7 +1605,7 @@ export default function QuotationDetailsPage() {
   const isDeadlinePassed = requisition.deadline ? isPast(new Date(requisition.deadline)) : false;
 
   const getCurrentStep = (): 'rfq' | 'committee' | 'award' | 'finalize' | 'completed' => {
-      if (requisition.status === 'Approved') {
+    if (requisition.status === 'Approved') {
         return 'rfq';
     }
     if (requisition.status === 'RFQ In Progress' && !isDeadlinePassed) {
@@ -1601,6 +1620,9 @@ export default function QuotationDetailsPage() {
     if (isAccepted) {
         if (requisition.status === 'PO Created') return 'completed';
         return 'finalize';
+    }
+    if (isAwarded) {
+        return 'award';
     }
     return 'award';
   };
@@ -1838,3 +1860,7 @@ export default function QuotationDetailsPage() {
     </div>
   );
 }
+
+    
+
+    
