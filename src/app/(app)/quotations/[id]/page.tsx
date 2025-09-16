@@ -637,7 +637,7 @@ const CommitteeManagement = ({ requisition, onCommitteeUpdated }: { requisition:
                                                                 onSelect={setScoringDate}
                                                                 disabled={(date) => {
                                                                     const quoteDeadline = requisition.deadline ? new Date(requisition.deadline) : new Date();
-                                                                    return date < quoteDeadline;
+                                                                    return isBefore(date, quoteDeadline);
                                                                 }}
                                                                 initialFocus
                                                             />
