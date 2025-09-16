@@ -103,3 +103,31 @@
     background: hsl(var(--primary) / 0.8);
   }
 }
+
+@media print {
+    body {
+        background: white;
+        color: black;
+    }
+    .print\:hidden {
+        display: none;
+    }
+    .print\:block {
+        display: block;
+    }
+    .print\:h-auto {
+        height: auto;
+    }
+    .print\:max-w-full {
+        max-width: 100%;
+    }
+    .print\:border-none {
+        border: none;
+    }
+    .print\:shadow-none {
+        box-shadow: none;
+    }
+    .break-inside-avoid {
+        break-inside: avoid;
+    }
+}

@@ -32,7 +32,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, PlusCircle, Award, XCircle, FileSignature, FileText, Bot, Lightbulb, ArrowLeft, Star, Undo, Check, Send, Search, BadgeHelp, BadgeCheck, BadgeX, Crown, Medal, Trophy, RefreshCw, TimerOff, ClipboardList, TrendingUp, Scale, Edit2, Users, GanttChart, Eye, CheckCircle, CalendarIcon, Timer, Landmark, Settings2, Ban, Printer } from 'lucide-react';
+import { Loader2, PlusCircle, Award, XCircle, FileSignature, FileText, Bot, Lightbulb, ArrowLeft, Star, Undo, Check, Send, Search, BadgeHelp, BadgeCheck, BadgeX, Crown, Medal, Trophy, RefreshCw, TimerOff, ClipboardList, TrendingUp, Scale, Edit2, Users, GanttChart, Eye, CheckCircle, CalendarIcon, Timer, Landmark, Settings2, Ban, Printer, FileBarChart2 } from 'lucide-react';
 import { useForm, useFieldArray, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -57,6 +57,7 @@ import { Slider } from '@/components/ui/slider';
 import { RequisitionDetailsDialog } from '@/components/requisition-details-dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
+import Image from 'next/image';
 
 const quoteFormSchema = z.object({
   vendorId: z.string().min(1, "Vendor is required."),
@@ -222,8 +223,7 @@ function AddQuoteForm({ requisition, vendors, onQuoteAdded }: { requisition: Pur
     );
 }
 
-const QuoteComparison = ({ quotes, requisition, onScore, user, isDeadlinePassed, isScoringComplete }: { quotes: Quotation[], requisition: PurchaseRequisition, onScore: (quote: Quotation) => void, user: User, isDeadlinePassed: boolean, isScoringComplete: boolean }) => {
-    const router = useRouter();
+const QuoteComparison = ({ quotes, requisition, onScore, user, isDeadlinePassed }: { quotes: Quotation[], requisition: PurchaseRequisition, onScore: (quote: Quotation) => void, user: User, isDeadlinePassed: boolean }) => {
 
     if (quotes.length === 0) {
         return (
@@ -316,13 +316,6 @@ const QuoteComparison = ({ quotes, requisition, onScore, user, isDeadlinePassed,
                                 <Button className="w-full" variant={hasUserScored ? "secondary" : "outline"} onClick={() => onScore(quote)} disabled={!isDeadlinePassed}>
                                     {hasUserScored ? <Check className="mr-2 h-4 w-4"/> : <Edit2 className="mr-2 h-4 w-4" />}
                                     {hasUserScored ? 'View Your Score' : 'Score this Quote'}
-                                </Button>
-                            )}
-                            {isScoringComplete && (
-                                 <Button asChild className="w-full" variant="ghost">
-                                    <Link href={`/quotations/${requisition.id}/report/${quote.id}`} target="_blank">
-                                        <Printer className="mr-2 h-4 w-4" /> View Report
-                                    </Link>
                                 </Button>
                             )}
                         </CardFooter>
@@ -1543,7 +1536,79 @@ const ScoringProgressTracker = ({
     );
 };
 
+const CumulativeScoringReportDialog = ({ requisition, quotations, isOpen, onClose }: { requisition: PurchaseRequisition; quotations: Quotation[], isOpen: boolean, onClose: () => void }) => {
+    
+    const handlePrint = () => {
+        window.print();
+    }
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onClose}>
+            <DialogContent className="max-w-5xl h-[90vh] flex flex-col print:h-auto print:max-w-full print:border-none print:shadow-none">
+                <DialogHeader className="print:hidden">
+                    <DialogTitle>Cumulative Scoring Report</DialogTitle>
+                    <DialogDescription>
+                        A detailed breakdown of committee scores for all quotations on requisition {requisition.id}.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="flex-grow overflow-y-auto" id="print-content">
+                    <div className="p-1 space-y-6">
+                        <div className="text-center hidden print:block mb-8">
+                            <h1 className="text-3xl font-bold">Cumulative Scoring Report</h1>
+                            <p className="text-muted-foreground">{requisition.title}</p>
+                            <p className="text-sm text-muted-foreground">{requisition.id}</p>
+                        </div>
+                        {quotations.sort((a,b) => (a.rank || 99) - (b.rank || 99)).map(quote => (
+                            <Card key={quote.id} className="break-inside-avoid">
+                                <CardHeader>
+                                    <div className="flex justify-between items-start">
+                                        <div>
+                                            <CardTitle className="text-lg">{quote.vendorName}</CardTitle>
+                                            <CardDescription>Final Score: <span className="font-bold text-primary">{quote.finalAverageScore?.toFixed(2)}</span> | Rank: {quote.rank || 'N/A'}</CardDescription>
+                                        </div>
+                                        <Badge variant={quote.status === 'Awarded' ? 'default' : 'secondary'}>{quote.status}</Badge>
+                                    </div>
+                                </CardHeader>
+                                <CardContent className="space-y-4">
+                                     {quote.scores && quote.scores.length > 0 ? (
+                                        quote.scores.map(scoreSet => (
+                                            <div key={scoreSet.scorerId} className="p-3 border rounded-md">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-2">
+                                                         <Avatar className="h-6 w-6">
+                                                            <AvatarImage src={`https://picsum.photos/seed/${scoreSet.scorerId}/24/24`} />
+                                                            <AvatarFallback>{scoreSet.scorerName.charAt(0)}</AvatarFallback>
+                                                        </Avatar>
+                                                        <span className="font-semibold">{scoreSet.scorerName}</span>
+                                                    </div>
+                                                    <span className="font-bold text-primary">{scoreSet.finalScore.toFixed(2)}</span>
+                                                </div>
+                                                {scoreSet.committeeComment && <p className="text-xs italic text-muted-foreground mt-2 p-2 bg-muted/50 rounded-md">"{scoreSet.committeeComment}"</p>}
+                                            </div>
+                                        ))
+                                     ) : <p className="text-sm text-muted-foreground text-center">No scores submitted.</p>}
+                                </CardContent>
+                            </Card>
+                        ))}
+                    </div>
+                </div>
+                <DialogFooter className="print:hidden">
+                    <Button variant="outline" onClick={onClose}>Close</Button>
+                    <Button onClick={handlePrint}><Printer className="mr-2 h-4 w-4"/>Print</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+};
+
 export default function QuotationDetailsPage() {
+  const router = useRouter();
+  const params = useParams();
+  const { toast } = useToast();
+  const { user, allUsers } = useAuth();
+  
+  const id = params.id as string;
+  
   const [requisition, setRequisition] = useState<PurchaseRequisition | null>(null);
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [quotations, setQuotations] = useState<Quotation[]>([]);
@@ -1555,13 +1620,8 @@ export default function QuotationDetailsPage() {
   const [lastPOCreated, setLastPOCreated] = useState<PurchaseOrder | null>(null);
   const [isChangingAward, setIsChangingAward] = useState(false);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
-  
-  const { toast } = useToast();
-  const { user, allUsers } = useAuth();
-  const params = useParams();
-  const router = useRouter();
-  const id = params.id as string;
-  
+  const [isReportOpen, setReportOpen] = useState(false);
+
   const isAwarded = useMemo(() => quotations.some(q => q.status === 'Awarded' || q.status === 'Accepted' || q.status === 'Declined'), [quotations]);
   const isAccepted = useMemo(() => quotations.some(q => q.status === 'Accepted'), [quotations]);
   const secondStandby = useMemo(() => quotations.find(q => q.rank === 2), [quotations]);
@@ -1579,6 +1639,12 @@ export default function QuotationDetailsPage() {
     if (!requisition) return false;
     return requisition.deadline ? isPast(new Date(requisition.deadline)) : false;
   }, [requisition]);
+
+  useEffect(() => {
+    if (id) {
+        fetchRequisitionAndQuotes();
+    }
+  }, [id]);
 
   const fetchRequisitionAndQuotes = async () => {
     if (!id) return;
@@ -1611,12 +1677,6 @@ export default function QuotationDetailsPage() {
       setLoading(false);
     }
   };
-
-  useEffect(() => {
-    if (id) {
-        fetchRequisitionAndQuotes();
-    }
-  }, [id]);
 
   const handleRfqSent = () => {
     fetchRequisitionAndQuotes();
@@ -1843,6 +1903,11 @@ export default function QuotationDetailsPage() {
                         </div>
                     </div>
                     <div className="flex items-center gap-2 w-full sm:w-auto">
+                        {isAwarded && isScoringComplete && user.role === 'Procurement Officer' && (
+                            <Button variant="secondary" onClick={() => setReportOpen(true)}>
+                                <FileBarChart2 className="mr-2 h-4 w-4" /> View Cumulative Report
+                            </Button>
+                        )}
                         {isAwarded && requisition.status !== 'PO Created' && user.role === 'Procurement Officer' && (
                              <AlertDialog>
                                 <AlertDialogTrigger asChild>
@@ -1898,7 +1963,6 @@ export default function QuotationDetailsPage() {
                         onScore={handleScoreButtonClick}
                         user={user}
                         isDeadlinePassed={isDeadlinePassed}
-                        isScoringComplete={isScoringComplete}
                     />
                 )}
                 </CardContent>
@@ -1945,6 +2009,14 @@ export default function QuotationDetailsPage() {
                 reuisition={requisition} 
                 isOpen={isDetailsOpen} 
                 onClose={() => setIsDetailsOpen(false)} 
+            />
+        )}
+         {requisition && quotations && (
+            <CumulativeScoringReportDialog
+                requisition={requisition}
+                quotations={quotations}
+                isOpen={isReportOpen}
+                onClose={() => setReportOpen(false)}
             />
         )}
     </div>
