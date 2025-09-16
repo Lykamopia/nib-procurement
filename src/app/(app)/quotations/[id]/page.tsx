@@ -400,7 +400,6 @@ const committeeFormSchema = z.object({
   committeeName: z.string().min(3, "Committee name is required."),
   committeePurpose: z.string().min(10, "Purpose is required."),
   committeeMemberIds: z.array(z.string()).min(1, "At least one member is required."),
-  scoringDeadline: z.date({required_error: "Scoring deadline is required."}),
 });
 
 type CommitteeFormValues = z.infer<typeof committeeFormSchema>;
@@ -411,6 +410,12 @@ const CommitteeManagement = ({ requisition, onCommitteeUpdated }: { requisition:
     const [isSubmitting, setSubmitting] = useState(false);
     const [isCommitteeDialogOpen, setCommitteeDialogOpen] = useState(false);
     const [committeeSearch, setCommitteeSearch] = useState("");
+    const [deadlineDate, setDeadlineDate] = useState<Date|undefined>(
+        requisition.scoringDeadline ? new Date(requisition.scoringDeadline) : undefined
+    );
+    const [deadlineTime, setDeadlineTime] = useState(
+        requisition.scoringDeadline ? format(new Date(requisition.scoringDeadline), 'HH:mm') : '17:00'
+    );
     
     const form = useForm<CommitteeFormValues>({
         resolver: zodResolver(committeeFormSchema),
@@ -418,23 +423,38 @@ const CommitteeManagement = ({ requisition, onCommitteeUpdated }: { requisition:
             committeeName: requisition.committeeName || "",
             committeePurpose: requisition.committeePurpose || "",
             committeeMemberIds: requisition.committeeMemberIds || [],
-            scoringDeadline: requisition.scoringDeadline ? new Date(requisition.scoringDeadline) : undefined,
         },
     });
+
+    const finalDeadline = useMemo(() => {
+        if (!deadlineDate) return undefined;
+        const [hours, minutes] = deadlineTime.split(':').map(Number);
+        return setMinutes(setHours(deadlineDate, hours), minutes);
+    }, [deadlineDate, deadlineTime]);
     
     useEffect(() => {
         form.reset({
             committeeName: requisition.committeeName || "",
             committeePurpose: requisition.committeePurpose || "",
             committeeMemberIds: requisition.committeeMemberIds || [],
-            scoringDeadline: requisition.scoringDeadline ? new Date(requisition.scoringDeadline) : undefined,
         });
+        if (requisition.scoringDeadline) {
+            setDeadlineDate(new Date(requisition.scoringDeadline));
+            setDeadlineTime(format(new Date(requisition.scoringDeadline), 'HH:mm'));
+        }
     }, [requisition, form]);
 
     const handleSaveCommittee = async (values: CommitteeFormValues) => {
-        if (!user) return;
+        if (!user || !finalDeadline) {
+             toast({
+                variant: 'destructive',
+                title: 'Invalid Deadline',
+                description: 'A scoring deadline must be set.',
+            });
+            return;
+        }
 
-        if (isBefore(values.scoringDeadline, new Date())) {
+        if (isBefore(finalDeadline, new Date())) {
             toast({
                 variant: 'destructive',
                 title: 'Invalid Deadline',
@@ -450,7 +470,8 @@ const CommitteeManagement = ({ requisition, onCommitteeUpdated }: { requisition:
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
                     userId: user.id, 
-                    ...values
+                    ...values,
+                    scoringDeadline: finalDeadline
                 }),
             });
             const responseData = await response.json();
@@ -532,45 +553,35 @@ const CommitteeManagement = ({ requisition, onCommitteeUpdated }: { requisition:
                                 />
 
                                 <div className="space-y-2">
-                                     <FormField
-                                        control={form.control}
-                                        name="scoringDeadline"
-                                        render={({ field }) => (
-                                            <FormItem className="flex flex-col">
-                                                <FormLabel>Committee Scoring Deadline</FormLabel>
-                                                <Popover>
-                                                    <PopoverTrigger asChild>
-                                                    <FormControl>
-                                                        <Button
-                                                        variant={"outline"}
-                                                        className={cn(
-                                                            "w-full pl-3 text-left font-normal",
-                                                            !field.value && "text-muted-foreground"
-                                                        )}
-                                                        >
-                                                        {field.value ? (
-                                                            format(field.value, "PPP")
-                                                        ) : (
-                                                            <span>Pick a date</span>
-                                                        )}
-                                                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                                        </Button>
-                                                    </FormControl>
-                                                    </PopoverTrigger>
-                                                    <PopoverContent className="w-auto p-0" align="start">
-                                                    <Calendar
-                                                        mode="single"
-                                                        selected={field.value}
-                                                        onSelect={field.onChange}
-                                                        disabled={(date) => date < new Date(new Date().setHours(0,0,0,0))}
-                                                        initialFocus
-                                                    />
-                                                    </PopoverContent>
-                                                </Popover>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
+                                    <FormLabel>Committee Scoring Deadline</FormLabel>
+                                    <div className="flex gap-2">
+                                        <Popover>
+                                            <PopoverTrigger asChild>
+                                                <Button
+                                                    variant={"outline"}
+                                                    className={cn("flex-1", !deadlineDate && "text-muted-foreground")}
+                                                >
+                                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                                    {deadlineDate ? format(deadlineDate, "PPP") : <span>Pick a date</span>}
+                                                </Button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-auto p-0">
+                                                <Calendar
+                                                    mode="single"
+                                                    selected={deadlineDate}
+                                                    onSelect={setDeadlineDate}
+                                                    disabled={(date) => date < new Date(new Date().setHours(0,0,0,0))}
+                                                    initialFocus
+                                                />
+                                            </PopoverContent>
+                                        </Popover>
+                                        <Input 
+                                            type="time" 
+                                            className="w-32"
+                                            value={deadlineTime}
+                                            onChange={(e) => setDeadlineTime(e.target.value)}
+                                        />
+                                    </div>
                                 </div>
 
 
@@ -1625,7 +1636,6 @@ export default function QuotationDetailsPage() {
   const params = useParams();
   const { toast } = useToast();
   const { user, allUsers } = useAuth();
-  
   const id = params.id as string;
   
   const [requisition, setRequisition] = useState<PurchaseRequisition | null>(null);
@@ -1646,6 +1656,11 @@ export default function QuotationDetailsPage() {
   const secondStandby = useMemo(() => quotations.find(q => q.rank === 2), [quotations]);
   const thirdStandby = useMemo(() => quotations.find(q => q.rank === 3), [quotations]);
   
+  const isDeadlinePassed = useMemo(() => {
+    if (!requisition) return false;
+    return requisition.deadline ? isPast(new Date(requisition.deadline)) : false;
+  }, [requisition]);
+
   const isScoringComplete = useMemo(() => {
     if (!requisition || !requisition.committeeMemberIds || requisition.committeeMemberIds.length === 0) return false;
     if (quotations.length === 0) return false;
@@ -1653,11 +1668,6 @@ export default function QuotationDetailsPage() {
         quotations.every(quote => quote.scores?.some(score => score.scorerId === memberId))
     );
   }, [requisition, quotations]);
-
-  const isDeadlinePassed = useMemo(() => {
-    if (!requisition) return false;
-    return requisition.deadline ? isPast(new Date(requisition.deadline)) : false;
-  }, [requisition]);
 
   useEffect(() => {
     if (id) {
@@ -2051,3 +2061,5 @@ export default function QuotationDetailsPage() {
     </div>
   );
 }
+
+    
