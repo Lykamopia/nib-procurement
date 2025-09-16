@@ -63,12 +63,26 @@ export async function POST(
         break;
 
       case 'restart_rfq':
-        reqQuotes.forEach(q => {
-          q.status = 'Submitted';
-          q.rank = undefined;
-        });
+        // Find all quote IDs for the current requisition
+        const quoteIdsToDelete = quotations
+            .filter(q => q.requisitionId === requisitionId)
+            .map(q => q.id);
+
+        // Remove the quotes from the main quotations array
+        const originalCount = quotations.length;
+        const updatedQuotations = quotations.filter(q => !quoteIdsToDelete.includes(q.id));
+        quotations.length = 0; // Clear the original array
+        Array.prototype.push.apply(quotations, updatedQuotations); // Repopulate with filtered quotes
+        
+        // Also clear them from the requisition object itself
+        if (requisition.quotations) {
+            requisition.quotations = [];
+        }
+
         requisition.status = 'Approved';
-        auditDetails = `Canceled all awards and restarted RFQ process for requisition ${requisitionId}.`;
+        requisition.deadline = undefined;
+        requisition.awardResponseDeadline = undefined;
+        auditDetails = `Canceled all awards and restarted RFQ process for requisition ${requisitionId}. All previous quotes have been deleted.`;
         break;
 
       default:
@@ -83,7 +97,7 @@ export async function POST(
         timestamp: new Date(),
         user: user.name,
         role: user.role,
-        action: 'HANDLE_AWARD_CHANGE',
+        action: 'HANDLE_AWARD_CHANGE' as const,
         entity: 'Requisition',
         entityId: requisitionId,
         details: auditDetails,
