@@ -339,10 +339,16 @@ export function RequisitionsTable() {
                                 <Eye className="mr-2 h-4 w-4" /> View
                             </Button>
                             {req.status === 'Draft' && req.requesterId === user?.id && (
+                                <>
                                 <Button variant="outline" size="sm" onClick={() => handleSubmitForApproval(req.id)}>
-                                <Send className="mr-2 h-4 w-4" />
-                                Submit
+                                    <Send className="mr-2 h-4 w-4" />
+                                    Submit
                                 </Button>
+                                <Button variant="outline" size="sm" onClick={() => router.push(`/requisitions/${req.id}/edit`)}>
+                                    <FileEdit className="mr-2 h-4 w-4" />
+                                    Edit
+                                </Button>
+                                </>
                             )}
                             {req.status === 'Rejected' && req.requesterId === user?.id && (
                                 <Button variant="outline" size="sm" onClick={() => router.push(`/requisitions/${req.id}/edit`)}>
@@ -446,3 +452,4 @@ export function RequisitionsTable() {
     </>
   );
 }
+

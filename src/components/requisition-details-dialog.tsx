@@ -84,6 +84,40 @@ export function RequisitionDetailsDialog({ reuisition, isOpen, onClose }: Requis
                             </div>
                         </>
                     )}
+                    {reuisition.evaluationCriteria && (
+                        <>
+                            <Separator />
+                            <div>
+                                <h4 className="font-medium mb-2">Evaluation Criteria</h4>
+                                <div className="text-sm space-y-4">
+                                    <div className="flex justify-around p-2 bg-muted/50 rounded-md">
+                                        <div className="text-center">
+                                            <p className="font-semibold">{reuisition.evaluationCriteria.financialWeight}%</p>
+                                            <p className="text-muted-foreground">Financial Weight</p>
+                                        </div>
+                                        <div className="text-center">
+                                            <p className="font-semibold">{reuisition.evaluationCriteria.technicalWeight}%</p>
+                                            <p className="text-muted-foreground">Technical Weight</p>
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <h5 className="font-semibold mb-1">Financial Criteria</h5>
+                                            <ul className="list-disc pl-5 text-muted-foreground">
+                                                {reuisition.evaluationCriteria.financialCriteria.map(c => <li key={c.id}>{c.name} ({c.weight}%)</li>)}
+                                            </ul>
+                                        </div>
+                                        <div>
+                                            <h5 className="font-semibold mb-1">Technical Criteria</h5>
+                                            <ul className="list-disc pl-5 text-muted-foreground">
+                                                {reuisition.evaluationCriteria.technicalCriteria.map(c => <li key={c.id}>{c.name} ({c.weight}%)</li>)}
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </>
+                    )}
                 </div>
             </ScrollArea>
             <DialogFooter>
