@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
@@ -31,7 +32,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, PlusCircle, Award, XCircle, FileSignature, FileText, Bot, Lightbulb, ArrowLeft, Star, Undo, Check, Send, Search, BadgeHelp, BadgeCheck, BadgeX, Crown, Medal, Trophy, RefreshCw, TimerOff, ClipboardList, TrendingUp, Scale, Edit2, Users, GanttChart, Eye, CheckCircle, CalendarIcon, Timer, Landmark, Settings2, Ban, Printer, FileBarChart2 } from 'lucide-react';
+import { Loader2, PlusCircle, Award, XCircle, FileSignature, FileText, Bot, Lightbulb, ArrowLeft, Star, Undo, Check, Send, Search, BadgeHelp, BadgeCheck, BadgeX, Crown, Medal, Trophy, RefreshCw, TimerOff, ClipboardList, TrendingUp, Scale, Edit2, Users, GanttChart, Eye, CheckCircle, CalendarIcon, Timer, Landmark, Settings2, Ban, Printer, FileBarChart2, UserCog, History, AlertCircle } from 'lucide-react';
 import { useForm, useFieldArray, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -277,19 +278,31 @@ const QuoteComparison = ({ quotes, requisition, onScore, user, isDeadlinePassed 
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="flex-grow space-y-4">
-                             {isDeadlinePassed ? (
+                             {isDeadlinePassed || quote.cpoDocumentUrl ? (
                                 <>
-                                    <div className="text-3xl font-bold text-center">{quote.totalPrice.toLocaleString()} ETB</div>
-                                    <div className="text-center text-muted-foreground">Est. Delivery: {format(new Date(quote.deliveryDate), 'PP')}</div>
-                                    <div className="text-sm space-y-2">
-                                    <h4 className="font-semibold">Items:</h4>
-                                        {quote.items.map(item => (
-                                            <div key={item.requisitionItemId} className="flex justify-between items-center text-muted-foreground">
-                                                <span>{item.name} x {item.quantity}</span>
-                                                <span className="font-mono">{item.unitPrice.toFixed(2)} ETB ea.</span>
-                                            </div>
-                                        ))}
-                                    </div>
+                                    {isDeadlinePassed && <div className="text-3xl font-bold text-center">{quote.totalPrice.toLocaleString()} ETB</div>}
+                                    {isDeadlinePassed && <div className="text-center text-muted-foreground">Est. Delivery: {format(new Date(quote.deliveryDate), 'PP')}</div>}
+                                    
+                                    {quote.cpoDocumentUrl && (
+                                        <div className="text-sm space-y-1 pt-2 border-t">
+                                            <h4 className="font-semibold">CPO Document</h4>
+                                            <Button asChild variant="link" className="p-0 h-auto">
+                                                <a href={quote.cpoDocumentUrl} target="_blank" rel="noopener noreferrer">{quote.cpoDocumentUrl}</a>
+                                            </Button>
+                                        </div>
+                                    )}
+
+                                    {isDeadlinePassed && (
+                                        <div className="text-sm space-y-2">
+                                        <h4 className="font-semibold">Items:</h4>
+                                            {quote.items.map(item => (
+                                                <div key={item.requisitionItemId} className="flex justify-between items-center text-muted-foreground">
+                                                    <span>{item.name} x {item.quantity}</span>
+                                                    <span className="font-mono">{item.unitPrice.toFixed(2)} ETB ea.</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
                                 </>
                             ) : (
                                 <div className="text-center py-8">
@@ -1413,6 +1426,7 @@ const ScoringProgressTracker = ({
   quotations,
   allUsers,
   onFinalize,
+  onCommitteeUpdate,
   isFinalizing,
   isAwarded,
 }: {
@@ -1420,11 +1434,17 @@ const ScoringProgressTracker = ({
   quotations: Quotation[];
   allUsers: User[];
   onFinalize: (awardResponseDeadline?: Date) => void;
+  onCommitteeUpdate: () => void;
   isFinalizing: boolean;
   isAwarded: boolean;
 }) => {
     const [awardResponseDeadline, setAwardResponseDeadline] = useState<Date | undefined>();
+    const [isExtendDialogOpen, setExtendDialogOpen] = useState(false);
+    const [isReportDialogOpen, setReportDialogOpen] = useState(false);
+    const [selectedMember, setSelectedMember] = useState<User | null>(null);
+    
     const { toast } = useToast();
+    const isScoringDeadlinePassed = requisition.scoringDeadline && isPast(new Date(requisition.scoringDeadline));
 
     const assignedCommitteeMembers = useMemo(() => {
         return allUsers.filter(u => requisition.committeeMemberIds?.includes(u.id));
@@ -1437,10 +1457,12 @@ const ScoringProgressTracker = ({
                 .flatMap(q => q.scores || [])
                 .filter(s => s.scorerId === member.id)
                 .sort((a,b) => new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime())[0];
+            const isOverdue = isScoringDeadlinePassed && !hasScoredAll;
 
             return {
                 ...member,
                 hasScoredAll,
+                isOverdue,
                 submittedAt: hasScoredAll ? firstScore?.submittedAt : null,
             };
         }).sort((a, b) => {
@@ -1449,8 +1471,9 @@ const ScoringProgressTracker = ({
              if (b.submittedAt) return 1;
              return 0;
         });
-    }, [assignedCommitteeMembers, quotations]);
-
+    }, [assignedCommitteeMembers, quotations, isScoringDeadlinePassed]);
+    
+    const overdueMembers = scoringStatus.filter(s => s.isOverdue);
     const allHaveScored = scoringStatus.every(s => s.hasScoredAll);
 
     const handleFinalizeClick = () => {
@@ -1464,6 +1487,16 @@ const ScoringProgressTracker = ({
         }
         onFinalize(awardResponseDeadline);
     }
+    
+    const openExtendDialog = (member: User) => {
+        setSelectedMember(member);
+        setExtendDialogOpen(true);
+    }
+    
+    const openReportDialog = (member: User) => {
+        setSelectedMember(member);
+        setReportDialogOpen(true);
+    }
 
     return (
         <Card className="mt-6">
@@ -1474,7 +1507,7 @@ const ScoringProgressTracker = ({
             <CardContent>
                 <ul className="space-y-3">
                     {scoringStatus.map(member => (
-                        <li key={member.id} className="flex items-center justify-between p-3 rounded-md border">
+                        <li key={member.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 rounded-md border">
                            <div className="flex items-center gap-3">
                                 <Avatar>
                                     <AvatarImage src={`https://picsum.photos/seed/${member.id}/40/40`} data-ai-hint="profile picture" />
@@ -1485,16 +1518,25 @@ const ScoringProgressTracker = ({
                                     <p className="text-xs text-muted-foreground">{member.email}</p>
                                 </div>
                            </div>
-                            {member.hasScoredAll && member.submittedAt ? (
-                                <div className="text-right">
-                                    <Badge variant="default" className="bg-green-600"><Check className="mr-1 h-3 w-3" /> Submitted</Badge>
-                                    <p className="text-xs text-muted-foreground mt-1">
-                                        {formatDistanceToNow(new Date(member.submittedAt), { addSuffix: true })}
-                                    </p>
-                                </div>
-                            ) : (
-                                 <Badge variant="secondary">Pending</Badge>
-                            )}
+                            <div className="flex items-center gap-2 mt-2 sm:mt-0 w-full sm:w-auto">
+                                {member.hasScoredAll && member.submittedAt ? (
+                                    <div className="text-right flex-1">
+                                        <Badge variant="default" className="bg-green-600"><Check className="mr-1 h-3 w-3" /> Submitted</Badge>
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                            {formatDistanceToNow(new Date(member.submittedAt), { addSuffix: true })}
+                                        </p>
+                                    </div>
+                                ) : member.isOverdue ? (
+                                    <>
+                                     <Badge variant="destructive" className="mr-auto"><AlertCircle className="mr-1 h-3 w-3" />Overdue</Badge>
+                                     <Button size="sm" variant="secondary" onClick={() => openExtendDialog(member)}>Extend</Button>
+                                     <Button size="sm" variant="secondary" onClick={onCommitteeUpdate}>Replace</Button>
+                                     <Button size="sm" variant="outline" onClick={() => openReportDialog(member)}>Report</Button>
+                                    </>
+                                ) : (
+                                     <Badge variant="secondary">Pending</Badge>
+                                )}
+                            </div>
                         </li>
                     ))}
                 </ul>
@@ -1563,6 +1605,22 @@ const ScoringProgressTracker = ({
                     </AlertDialogContent>
                 </AlertDialog>
             </CardFooter>
+            {selectedMember && (
+                <>
+                    <ExtendDeadlineDialog 
+                        isOpen={isExtendDialogOpen}
+                        onClose={() => setExtendDialogOpen(false)}
+                        member={selectedMember}
+                        requisition={requisition}
+                        onSuccess={onCommitteeUpdate}
+                    />
+                    <OverdueReportDialog 
+                        isOpen={isReportDialogOpen}
+                        onClose={() => setReportDialogOpen(false)}
+                        member={selectedMember}
+                    />
+                </>
+            )}
         </Card>
     );
 };
@@ -1598,24 +1656,15 @@ const CumulativeScoringReportDialog = ({ requisition, quotations, isOpen, onClos
             let width = pdfWidth - 20; // with margin
             let height = width / ratio;
 
-            let position = 10;
-            
             if (height > pdfHeight - 20) {
                  height = pdfHeight - 20;
                  width = height * ratio;
             }
             
-            let heightLeft = imgHeight * (width / imgWidth);
-
-            pdf.addImage(imgData, 'PNG', 10, position, width, heightLeft);
-            heightLeft -= (pdfHeight - 20);
-
-            while (heightLeft > 0) {
-                position = heightLeft - (imgHeight * (width / imgWidth)) + 10;
-                pdf.addPage();
-                pdf.addImage(imgData, 'PNG', 10, position, width, (imgHeight * (width / imgWidth)));
-                heightLeft -= (pdfHeight - 20);
-            }
+            const x = (pdfWidth - width) / 2; // Center horizontally
+            let position = 10;
+            
+            pdf.addImage(imgData, 'PNG', x, position, width, height);
             
             pdf.save(`Scoring-Report-${requisition.id}.pdf`);
             toast({ title: "PDF Generated", description: "Your report has been downloaded." });
@@ -1669,7 +1718,7 @@ const CumulativeScoringReportDialog = ({ requisition, quotations, isOpen, onClos
                                                     </div>
                                                     <div className="text-right">
                                                       <span className="font-bold text-lg text-primary">{scoreSet.finalScore.toFixed(2)}</span>
-                                                      <p className="text-xs text-gray-500">Submitted {formatDistanceToNow(new Date(scoreSet.submittedAt), { addSuffix: true })}</p>
+                                                      <p className="text-xs text-gray-500">Submitted {format(new Date(scoreSet.submittedAt), 'PPp')}</p>
                                                     </div>
                                                 </div>
                                                 
@@ -1721,6 +1770,109 @@ const CumulativeScoringReportDialog = ({ requisition, quotations, isOpen, onClos
     );
 };
 
+const ExtendDeadlineDialog = ({ isOpen, onClose, member, requisition, onSuccess }: { isOpen: boolean, onClose: () => void, member: User, requisition: PurchaseRequisition, onSuccess: () => void }) => {
+    const { toast } = useToast();
+    const { user } = useAuth();
+    const [isSubmitting, setSubmitting] = useState(false);
+    const [newDeadline, setNewDeadline] = useState<Date|undefined>();
+    const [newDeadlineTime, setNewDeadlineTime] = useState('17:00');
+
+    const finalNewDeadline = useMemo(() => {
+        if (!newDeadline) return undefined;
+        const [hours, minutes] = newDeadlineTime.split(':').map(Number);
+        return setMinutes(setHours(newDeadline, hours), minutes);
+    }, [newDeadline, newDeadlineTime]);
+    
+    const handleSubmit = async () => {
+        if (!user || !finalNewDeadline) return;
+        if (isBefore(finalNewDeadline, new Date())) {
+            toast({ variant: 'destructive', title: 'Error', description: 'The new deadline must be in the future.' });
+            return;
+        }
+
+        setSubmitting(true);
+        try {
+            const response = await fetch(`/api/requisitions/${requisition.id}/extend-scoring-deadline`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: user.id, newDeadline: finalNewDeadline })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to extend deadline.');
+            }
+
+            toast({ title: 'Success', description: 'Scoring deadline has been extended for all committee members.' });
+            onSuccess();
+            onClose();
+
+        } catch (error) {
+             toast({ variant: 'destructive', title: 'Error', description: error instanceof Error ? error.message : 'An unknown error occurred.'});
+        } finally {
+            setSubmitting(false);
+        }
+    }
+
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onClose}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Extend Scoring Deadline</DialogTitle>
+                    <DialogDescription>Set a new scoring deadline for all committee members of this requisition.</DialogDescription>
+                </DialogHeader>
+                <div className="py-4 space-y-4">
+                    <div className="space-y-2">
+                        <Label>New Scoring Deadline</Label>
+                        <div className="flex gap-2">
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !newDeadline && "text-muted-foreground")}>
+                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                        {newDeadline ? format(newDeadline, "PPP") : <span>Pick a date</span>}
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={newDeadline} onSelect={setNewDeadline} initialFocus disabled={(date) => date < new Date(new Date().setHours(0,0,0,0))} /></PopoverContent>
+                            </Popover>
+                             <Input type="time" className="w-32" value={newDeadlineTime} onChange={(e) => setNewDeadlineTime(e.target.value)} />
+                        </div>
+                    </div>
+                </div>
+                 <DialogFooter>
+                    <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
+                    <Button onClick={handleSubmit} disabled={isSubmitting || !finalNewDeadline}>
+                        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Confirm Extension
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    )
+}
+
+const OverdueReportDialog = ({ isOpen, onClose, member }: { isOpen: boolean, onClose: () => void, member: User }) => {
+    return (
+        <Dialog open={isOpen} onOpenChange={onClose}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Overdue Member Report</DialogTitle>
+                </DialogHeader>
+                <div className="py-4 space-y-4">
+                     <p>This is a placeholder for a detailed report about the overdue committee member for internal follow-up.</p>
+                     <div className="p-4 border rounded-md bg-muted/50">
+                        <p><span className="font-semibold">Member Name:</span> {member.name}</p>
+                        <p><span className="font-semibold">Email:</span> {member.email}</p>
+                        <p><span className="font-semibold">Assigned Role:</span> {member.role}</p>
+                     </div>
+                </div>
+                <DialogFooter>
+                    <Button onClick={onClose}>Close</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    )
+}
 
 export default function QuotationDetailsPage() {
   const router = useRouter();
@@ -1742,10 +1894,11 @@ export default function QuotationDetailsPage() {
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isReportOpen, setReportOpen] = useState(false);
 
-  const isAwarded = useMemo(() => quotations.some(q => q.status === 'Awarded' || q.status === 'Accepted' || q.status === 'Declined'), [quotations]);
+  const isAwarded = useMemo(() => quotations.some(q => q.status === 'Awarded' || q.status === 'Accepted' || q.status === 'Declined' || q.status === 'Failed'), [quotations]);
   const isAccepted = useMemo(() => quotations.some(q => q.status === 'Accepted'), [quotations]);
   const secondStandby = useMemo(() => quotations.find(q => q.rank === 2), [quotations]);
   const thirdStandby = useMemo(() => quotations.find(q => q.rank === 3), [quotations]);
+  const prevAwardedFailed = useMemo(() => quotations.some(q => q.status === 'Failed'), [quotations]);
   
   const isDeadlinePassed = useMemo(() => {
     if (!requisition) return false;
@@ -1760,43 +1913,64 @@ export default function QuotationDetailsPage() {
     );
   }, [requisition, quotations]);
 
+    const fetchRequisitionAndQuotes = async () => {
+        if (!id) return;
+        setLoading(true);
+        setLastPOCreated(null);
+        try {
+            const [reqResponse, venResponse, quoResponse] = await Promise.all([
+            fetch('/api/requisitions'),
+            fetch('/api/vendors'),
+            fetch(`/api/quotations?requisitionId=${id}`)
+            ]);
+            const allReqs = await reqResponse.json();
+            const venData = await venResponse.json();
+            const quoData = await quoResponse.json();
+
+            const currentReq = allReqs.find((r: PurchaseRequisition) => r.id === id);
+
+            if (currentReq) {
+                // Check for expired award and auto-promote if necessary
+                const awardedQuote = quoData.find((q: Quotation) => q.status === 'Awarded');
+                if (awardedQuote && currentReq.awardResponseDeadline && isPast(new Date(currentReq.awardResponseDeadline))) {
+                    toast({
+                        title: 'Deadline Missed',
+                        description: `Vendor ${awardedQuote.vendorName} missed the response deadline. Promoting next vendor.`,
+                        variant: 'destructive',
+                    });
+                    await handleAwardChange('promote_second');
+                    // Refetch after the change
+                    const [refetchedReqRes, refetchedQuoRes] = await Promise.all([
+                        fetch('/api/requisitions'),
+                        fetch(`/api/quotations?requisitionId=${id}`)
+                    ]);
+                    const refetchedReqs = await refetchedReqRes.json();
+                    const refetchedQuos = await refetchedQuoRes.json();
+                    setRequisition(refetchedReqs.find((r: PurchaseRequisition) => r.id === id));
+                    setQuotations(refetchedQuos);
+                } else {
+                    setRequisition(currentReq);
+                    setQuotations(quoData);
+                }
+            } else {
+                toast({ variant: 'destructive', title: 'Error', description: 'Requisition not found.' });
+            }
+            
+            setVendors(venData);
+
+        } catch (error) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch data.' });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+
   useEffect(() => {
     if (id) {
         fetchRequisitionAndQuotes();
     }
   }, [id]);
-
-  const fetchRequisitionAndQuotes = async () => {
-    if (!id) return;
-    setLoading(true);
-    setLastPOCreated(null);
-    try {
-       const [reqResponse, venResponse, quoResponse] = await Promise.all([
-        fetch('/api/requisitions'),
-        fetch('/api/vendors'),
-        fetch(`/api/quotations?requisitionId=${id}`)
-      ]);
-      const allReqs = await reqResponse.json();
-      const venData = await venResponse.json();
-      const quoData = await quoResponse.json();
-
-      const currentReq = allReqs.find((r: PurchaseRequisition) => r.id === id);
-
-      if (currentReq) {
-        setRequisition(currentReq);
-      } else {
-        toast({ variant: 'destructive', title: 'Error', description: 'Requisition not found.' });
-      }
-
-      setVendors(venData);
-      setQuotations(quoData);
-
-    } catch (error) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch data.' });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleRfqSent = () => {
     fetchRequisitionAndQuotes();
@@ -1828,12 +2002,16 @@ export default function QuotationDetailsPage() {
             return;
         }
         
+        const awardResponseDurationMinutes = awardResponseDeadline 
+            ? (awardResponseDeadline.getTime() - new Date().getTime()) / (1000 * 60)
+            : undefined;
+        
         setIsFinalizing(true);
         try {
              const response = await fetch(`/api/requisitions/${requisition.id}/finalize-scores`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId: user.id, awardResponseDeadline }),
+                body: JSON.stringify({ userId: user.id, awardResponseDeadline, awardResponseDurationMinutes }),
             });
             if (!response.ok) {
                 const errorData = await response.json();
@@ -1962,6 +2140,16 @@ export default function QuotationDetailsPage() {
         <Card className="p-4 sm:p-6">
             <WorkflowStepper step={currentStep} />
         </Card>
+        
+        {prevAwardedFailed && (
+            <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Award Failover</AlertTitle>
+                <AlertDescription>
+                    A previously awarded vendor failed to respond or declined the award. The award has been automatically passed to the next standby vendor.
+                </AlertDescription>
+            </Alert>
+        )}
         
         {requisition.evaluationCriteria && (
             <Card>
@@ -2126,6 +2314,7 @@ export default function QuotationDetailsPage() {
                 quotations={quotations}
                 allUsers={allUsers}
                 onFinalize={handleFinalizeScores}
+                onCommitteeUpdate={fetchRequisitionAndQuotes}
                 isFinalizing={isFinalizing}
                 isAwarded={isAwarded}
             />
