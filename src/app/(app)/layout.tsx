@@ -92,7 +92,7 @@ export default function AppLayout({
       }
       return pathname === item.path;
     });
-    return currentNavItem?.label || 'Nib Procurement';
+    return currentNavItem?.label || 'Nib InternationalBank';
   }, [pathname]);
 
   if (loading || !user) {
@@ -108,8 +108,8 @@ export default function AppLayout({
       <Sidebar variant="inset" collapsible="icon">
         <SidebarHeader>
           <div className="flex items-center gap-2">
-            <Image src="/logo.png" alt="Nib Procurement Logo" width={28} height={28} className="size-7" />
-            <span className="text-lg font-semibold">Nib Procurement</span>
+            <Image src="/logo.png" alt="Nib InternationalBank Logo" width={28} height={28} className="size-7" />
+            <span className="text-lg font-semibold">Nib InternationalBank</span>
           </div>
         </SidebarHeader>
         <SidebarContent>

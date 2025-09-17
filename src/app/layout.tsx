@@ -9,7 +9,7 @@ import { ThemeProvider } from '@/contexts/theme-context';
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
 
 export const metadata: Metadata = {
-  title: 'Nib Procurement',
+  title: 'Nib InternationalBank',
   description: 'A modern Procurement Management System',
 };
 

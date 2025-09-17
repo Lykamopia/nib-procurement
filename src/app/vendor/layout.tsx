@@ -51,8 +51,8 @@ export default function VendorLayout({
             href="#"
             className="flex items-center gap-2 text-lg font-semibold md:text-base"
           >
-            <Image src="/logo.png" alt="Nib Procurement Logo" width={24} height={24} className="h-6 w-6" />
-            <span className="">Nib Procurement Vendor Portal</span>
+            <Image src="/logo.png" alt="Nib InternationalBank Logo" width={24} height={24} className="h-6 w-6" />
+            <span className="">Nib InternationalBank Vendor Portal</span>
           </a>
         </nav>
         <div className="flex w-full items-center gap-4 md:ml-auto md:gap-2 lg:gap-4">
