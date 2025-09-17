@@ -44,6 +44,7 @@ import {
   Eye,
   ListX,
   Loader2,
+  Trash2,
 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Calendar } from './ui/calendar';
@@ -52,6 +53,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 import { useRouter } from 'next/navigation';
 import { RequisitionDetailsDialog } from './requisition-details-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from './ui/alert-dialog';
 
 
 const PAGE_SIZE = 10;
@@ -112,6 +114,32 @@ export function RequisitionsTable() {
         title: "Error",
         description: error instanceof Error ? error.message : "An unknown error occurred.",
       });
+    }
+  };
+
+  const handleDeleteRequisition = async (id: string) => {
+    if (!user) return;
+    try {
+        const response = await fetch(`/api/requisitions/${id}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: user.id }),
+        });
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to delete requisition.');
+        }
+        toast({
+            title: "Requisition Deleted",
+            description: `Requisition ${id} has been successfully deleted.`,
+        });
+        fetchRequisitions();
+    } catch (error) {
+        toast({
+            variant: 'destructive',
+            title: 'Error',
+            description: error instanceof Error ? error.message : 'An unknown error occurred.',
+        });
     }
   };
   
@@ -321,6 +349,28 @@ export function RequisitionsTable() {
                                 <FileEdit className="mr-2 h-4 w-4" />
                                 Edit
                                 </Button>
+                            )}
+                             {(req.status === 'Draft' || req.status === 'Pending Approval') && req.requesterId === user?.id && (
+                                <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <Button variant="destructive" size="sm">
+                                            <Trash2 className="mr-2 h-4 w-4" />
+                                            Delete
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                        <AlertDialogTitle>Are you sure you want to delete this requisition?</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            This action cannot be undone. This will permanently delete the requisition for "{req.title}".
+                                        </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogAction onClick={() => handleDeleteRequisition(req.id)} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">Delete</AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
                             )}
                         </div>
                     </TableCell>
