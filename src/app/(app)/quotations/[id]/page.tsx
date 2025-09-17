@@ -2,7 +2,7 @@
 
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   Card,
@@ -37,7 +37,7 @@ import { useForm, useFieldArray, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { PurchaseOrder, PurchaseRequisition, Quotation, Vendor, QuotationStatus, EvaluationCriteria, User, CommitteeScoreSet } from '@/lib/types';
+import { PurchaseOrder, PurchaseRequisition, Quotation, Vendor, QuotationStatus, EvaluationCriteria, User, CommitteeScoreSet, EvaluationCriterion } from '@/lib/types';
 import { format, formatDistanceToNow, isBefore, isPast, setHours, setMinutes } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
@@ -58,6 +58,8 @@ import { RequisitionDetailsDialog } from '@/components/requisition-details-dialo
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import Image from 'next/image';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 const quoteFormSchema = z.object({
   vendorId: z.string().min(1, "Vendor is required."),
@@ -1567,75 +1569,165 @@ const ScoringProgressTracker = ({
 };
 
 const CumulativeScoringReportDialog = ({ requisition, quotations, isOpen, onClose }: { requisition: PurchaseRequisition; quotations: Quotation[], isOpen: boolean, onClose: () => void }) => {
-    
-    const handlePrint = () => {
-        window.print();
+    const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+    const printRef = useRef<HTMLDivElement>(null);
+    const { toast } = useToast();
+
+    const getCriterionName = (criterionId: string, criteria?: EvaluationCriterion[]) => {
+        return criteria?.find(c => c.id === criterionId)?.name || 'Unknown Criterion';
+    }
+
+    const handleGeneratePdf = async () => {
+        const input = printRef.current;
+        if (!input) return;
+
+        setIsGeneratingPdf(true);
+        toast({ title: "Generating PDF...", description: "This may take a moment." });
+
+        try {
+            const canvas = await html2canvas(input, {
+                scale: 2, // Increase resolution
+                useCORS: true,
+            });
+            const imgData = canvas.toDataURL('image/png');
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = pdf.internal.pageSize.getHeight();
+            const imgWidth = canvas.width;
+            const imgHeight = canvas.height;
+            const ratio = imgWidth / imgHeight;
+            let width = pdfWidth - 20; // with margin
+            let height = width / ratio;
+
+            let position = 10;
+            
+            if (height > pdfHeight - 20) {
+                 height = pdfHeight - 20;
+                 width = height * ratio;
+            }
+            
+            let heightLeft = imgHeight * (width / imgWidth);
+
+            pdf.addImage(imgData, 'PNG', 10, position, width, heightLeft);
+            heightLeft -= (pdfHeight - 20);
+
+            while (heightLeft > 0) {
+                position = heightLeft - (imgHeight * (width / imgWidth)) + 10;
+                pdf.addPage();
+                pdf.addImage(imgData, 'PNG', 10, position, width, (imgHeight * (width / imgWidth)));
+                heightLeft -= (pdfHeight - 20);
+            }
+            
+            pdf.save(`Scoring-Report-${requisition.id}.pdf`);
+            toast({ title: "PDF Generated", description: "Your report has been downloaded." });
+
+        } catch (error) {
+            console.error(error);
+            toast({ variant: 'destructive', title: "PDF Generation Failed", description: "An error occurred while creating the PDF." });
+        } finally {
+            setIsGeneratingPdf(false);
+        }
     }
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="max-w-5xl h-[90vh] flex flex-col print:h-auto print:max-w-full print:border-none print:shadow-none">
-                <DialogHeader className="print:hidden">
+            <DialogContent className="max-w-5xl h-[90vh] flex flex-col">
+                <DialogHeader>
                     <DialogTitle>Cumulative Scoring Report</DialogTitle>
                     <DialogDescription>
-                        A detailed breakdown of committee scores for all quotations on requisition {requisition.id}.
+                        A detailed breakdown of committee scores for requisition {requisition.id}.
                     </DialogDescription>
                 </DialogHeader>
-                <div className="flex-grow overflow-y-auto" id="print-content">
-                    <div className="p-1 space-y-6">
-                        <div className="text-center hidden print:block mb-8">
+                <div className="flex-grow overflow-y-auto" id="print-content-wrapper">
+                    <div ref={printRef} className="p-1 space-y-6 bg-white text-black">
+                        <div className="text-center mb-8 pt-4">
                             <h1 className="text-3xl font-bold">Cumulative Scoring Report</h1>
-                            <p className="text-muted-foreground">{requisition.title}</p>
-                            <p className="text-sm text-muted-foreground">{requisition.id}</p>
+                            <p className="text-gray-600">{requisition.title}</p>
+                            <p className="text-sm text-gray-500">{requisition.id}</p>
                         </div>
-                        {quotations.sort((a,b) => (a.rank || 99) - (b.rank || 99)).map(quote => (
-                            <Card key={quote.id} className="break-inside-avoid">
-                                <CardHeader>
+                        {quotations.sort((a, b) => (a.rank || 99) - (b.rank || 99)).map(quote => (
+                            <Card key={quote.id} className="break-inside-avoid border-gray-300 shadow-none rounded-lg">
+                                <CardHeader className="bg-gray-100 rounded-t-lg">
                                     <div className="flex justify-between items-start">
                                         <div>
-                                            <CardTitle className="text-lg">{quote.vendorName}</CardTitle>
-                                            <CardDescription>Final Score: <span className="font-bold text-primary">{quote.finalAverageScore?.toFixed(2)}</span> | Rank: {quote.rank || 'N/A'}</CardDescription>
+                                            <CardTitle className="text-xl">{quote.vendorName}</CardTitle>
+                                            <CardDescription className="text-gray-700 pt-1">Final Score: <span className="font-bold text-primary">{quote.finalAverageScore?.toFixed(2)}</span> | Rank: {quote.rank || 'N/A'}</CardDescription>
                                         </div>
                                         <Badge variant={quote.status === 'Awarded' ? 'default' : 'secondary'}>{quote.status}</Badge>
                                     </div>
                                 </CardHeader>
-                                <CardContent className="space-y-4">
+                                <CardContent className="p-4 space-y-4">
                                      {quote.scores && quote.scores.length > 0 ? (
                                         quote.scores.map(scoreSet => (
-                                            <div key={scoreSet.scorerId} className="p-3 border rounded-md">
-                                                <div className="flex items-center justify-between">
-                                                    <div className="flex items-center gap-2">
-                                                         <Avatar className="h-6 w-6">
-                                                            <AvatarImage src={`https://picsum.photos/seed/${scoreSet.scorerId}/24/24`} />
+                                            <div key={scoreSet.scorerId} className="p-3 border border-gray-200 rounded-md break-inside-avoid">
+                                                <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-200">
+                                                    <div className="flex items-center gap-3">
+                                                        <Avatar className="h-8 w-8">
+                                                            <AvatarImage src={`https://picsum.photos/seed/${scoreSet.scorerId}/32/32`} />
                                                             <AvatarFallback>{scoreSet.scorerName.charAt(0)}</AvatarFallback>
                                                         </Avatar>
                                                         <span className="font-semibold">{scoreSet.scorerName}</span>
                                                     </div>
-                                                    <span className="font-bold text-primary">{scoreSet.finalScore.toFixed(2)}</span>
+                                                    <div className="text-right">
+                                                      <span className="font-bold text-lg text-primary">{scoreSet.finalScore.toFixed(2)}</span>
+                                                      <p className="text-xs text-gray-500">Submitted {formatDistanceToNow(new Date(scoreSet.submittedAt), { addSuffix: true })}</p>
+                                                    </div>
                                                 </div>
-                                                {scoreSet.committeeComment && <p className="text-xs italic text-muted-foreground mt-2 p-2 bg-muted/50 rounded-md">"{scoreSet.committeeComment}"</p>}
+                                                
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                    <div>
+                                                        <h4 className="font-semibold text-sm mb-2 text-gray-800">Financial Evaluation ({requisition.evaluationCriteria?.financialWeight}%)</h4>
+                                                        {scoreSet.financialScores.map(s => (
+                                                             <div key={s.criterionId} className="text-xs p-2 bg-gray-50 rounded-md mb-2">
+                                                                <div className="flex justify-between items-center font-medium">
+                                                                    <p>{getCriterionName(s.criterionId, requisition.evaluationCriteria?.financialCriteria)}</p>
+                                                                    <p className="font-bold">{s.score}/100</p>
+                                                                </div>
+                                                                {s.comment && <p className="italic text-gray-500 mt-1 pl-1 border-l-2 border-gray-300">"{s.comment}"</p>}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                     <div>
+                                                        <h4 className="font-semibold text-sm mb-2 text-gray-800">Technical Evaluation ({requisition.evaluationCriteria?.technicalWeight}%)</h4>
+                                                        {scoreSet.technicalScores.map(s => (
+                                                             <div key={s.criterionId} className="text-xs p-2 bg-gray-50 rounded-md mb-2">
+                                                                <div className="flex justify-between items-center font-medium">
+                                                                    <p>{getCriterionName(s.criterionId, requisition.evaluationCriteria?.technicalCriteria)}</p>
+                                                                    <p className="font-bold">{s.score}/100</p>
+                                                                </div>
+                                                                {s.comment && <p className="italic text-gray-500 mt-1 pl-1 border-l-2 border-gray-300">"{s.comment}"</p>}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+
+                                                {scoreSet.committeeComment && <p className="text-sm italic text-gray-600 mt-3 p-3 bg-gray-100 rounded-md"><strong>Overall Comment:</strong> "{scoreSet.committeeComment}"</p>}
                                             </div>
                                         ))
-                                     ) : <p className="text-sm text-muted-foreground text-center">No scores submitted.</p>}
+                                     ) : <p className="text-sm text-gray-500 text-center py-8">No scores submitted for this quote.</p>}
                                 </CardContent>
                             </Card>
                         ))}
                     </div>
                 </div>
-                <DialogFooter className="print:hidden">
+                <DialogFooter>
                     <Button variant="outline" onClick={onClose}>Close</Button>
-                    <Button onClick={handlePrint}><Printer className="mr-2 h-4 w-4"/>Print</Button>
+                    <Button onClick={handleGeneratePdf} disabled={isGeneratingPdf}>
+                        {isGeneratingPdf ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Printer className="mr-2 h-4 w-4"/>}
+                        Generate PDF
+                    </Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
     );
 };
 
+
 export default function QuotationDetailsPage() {
   const router = useRouter();
   const params = useParams();
   const { toast } = useToast();
-  const { user, allUsers } = useAuth();
+  const { user, allUsers, role } = useAuth();
   const id = params.id as string;
   
   const [requisition, setRequisition] = useState<PurchaseRequisition | null>(null);
@@ -1890,7 +1982,7 @@ export default function QuotationDetailsPage() {
             </Card>
         )}
 
-        {currentStep === 'rfq' && (user.role === 'Procurement Officer' || user.role === 'Committee') && (
+        {currentStep === 'rfq' && (role === 'Procurement Officer' || role === 'Committee') && (
             <div className="grid md:grid-cols-2 gap-6 items-start">
                 <RFQDistribution 
                     requisition={requisition} 
@@ -1910,7 +2002,7 @@ export default function QuotationDetailsPage() {
             </div>
         )}
         
-        {currentStep === 'committee' && (user.role === 'Procurement Officer' || user.role === 'Committee') && (
+        {currentStep === 'committee' && (role === 'Procurement Officer' || role === 'Committee') && (
             <CommitteeManagement
                 requisition={requisition} 
                 onCommitteeUpdated={fetchRequisitionAndQuotes}
@@ -1942,12 +2034,12 @@ export default function QuotationDetailsPage() {
                         </div>
                     </div>
                     <div className="flex items-center gap-2 w-full sm:w-auto">
-                        {isAwarded && isScoringComplete && user.role === 'Procurement Officer' && (
+                        {isAwarded && isScoringComplete && role === 'Procurement Officer' && (
                             <Button variant="secondary" onClick={() => setReportOpen(true)}>
                                 <FileBarChart2 className="mr-2 h-4 w-4" /> View Cumulative Report
                             </Button>
                         )}
-                        {isAwarded && requisition.status !== 'PO Created' && user.role === 'Procurement Officer' && (
+                        {isAwarded && requisition.status !== 'PO Created' && role === 'Procurement Officer' && (
                              <AlertDialog>
                                 <AlertDialogTrigger asChild>
                                     <Button variant="outline" disabled={isChangingAward} className="w-full">
@@ -1980,7 +2072,7 @@ export default function QuotationDetailsPage() {
                                 </AlertDialogContent>
                             </AlertDialog>
                         )}
-                        {user.role !== 'Committee Member' && (
+                        {role !== 'Committee Member' && (
                              <Dialog open={isAddFormOpen} onOpenChange={setAddFormOpen}>
                                 <DialogTrigger asChild>
                                     <Button disabled={isAwarded} variant="outline" className="w-full"><PlusCircle className="mr-2 h-4 w-4"/>Add Quote</Button>
@@ -2029,7 +2121,7 @@ export default function QuotationDetailsPage() {
             </Card>
         )}
         
-        {currentStep === 'award' && (user.role === 'Procurement Officer' || user.role === 'Committee') && quotations.length > 0 && (
+        {currentStep === 'award' && (role === 'Procurement Officer' || role === 'Committee') && quotations.length > 0 && (
              <ScoringProgressTracker 
                 requisition={requisition}
                 quotations={quotations}
@@ -2040,7 +2132,7 @@ export default function QuotationDetailsPage() {
             />
         )}
         
-        {isAccepted && requisition.status !== 'PO Created' && user.role !== 'Committee Member' && (
+        {isAccepted && requisition.status !== 'PO Created' && role !== 'Committee Member' && (
             <ContractManagement requisition={requisition} />
         )}
          {requisition && (
