@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
@@ -300,7 +299,7 @@ const QuoteComparison = ({ quotes, requisition, onScore, user, isDeadlinePassed 
                                 </div>
                             )}
 
-                            {isDeadlinePassed && quote.notes && (
+                            {quote.notes && (
                                 <div className="text-sm space-y-1 pt-2 border-t">
                                     <h4 className="font-semibold">Notes:</h4>
                                     <p className="text-muted-foreground text-xs italic">{quote.notes}</p>
@@ -1505,7 +1504,7 @@ const ScoringProgressTracker = ({
                     <AlertDialogTrigger asChild>
                         <Button disabled={!allHaveScored || isFinalizing || isAwarded}>
                             {isFinalizing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            {isAwarded ? 'Scores Finalized' : 'Finalize Scores &amp; Award'}
+                            Finalize Scores and Award
                         </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
