@@ -277,7 +277,7 @@ const QuoteComparison = ({ quotes, requisition, onScore, user, isDeadlinePassed,
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="flex-grow space-y-4">
-                             {isDeadlinePassed || quote.cpoDocumentUrl ? (
+                             {(isDeadlinePassed || quote.cpoDocumentUrl) ? (
                                 <>
                                     {isDeadlinePassed && <div className="text-3xl font-bold text-center">{quote.totalPrice.toLocaleString()} ETB</div>}
                                     {isDeadlinePassed && <div className="text-center text-muted-foreground">Est. Delivery: {format(new Date(quote.deliveryDate), 'PP')}</div>}
@@ -1955,7 +1955,8 @@ export default function QuotationDetailsPage() {
                         description: `Vendor ${awardedQuote.vendorName} missed the response deadline. Promoting next vendor.`,
                         variant: 'destructive',
                     });
-                    await handleAwardChange('promote_second');
+                    const promoteAction = awardedQuote.rank === 1 && secondStandby ? 'promote_second' : 'promote_third';
+                    await handleAwardChange(promoteAction);
                     // Refetch after the change
                     const [refetchedReqRes, refetchedQuoRes] = await Promise.all([
                         fetch('/api/requisitions'),
@@ -2010,25 +2011,25 @@ export default function QuotationDetailsPage() {
    const handleFinalizeScores = async (awardResponseDeadline?: Date) => {
         if (!user || !requisition) return;
 
-        if (awardResponseDeadline && isBefore(awardResponseDeadline, new Date())) {
+        let durationMinutes: number | undefined;
+        if (awardResponseDeadline) {
+          if (isBefore(awardResponseDeadline, new Date())) {
             toast({
-                variant: 'destructive',
-                title: 'Invalid Deadline',
-                description: 'The award response deadline must be in the future.',
+              variant: 'destructive',
+              title: 'Invalid Deadline',
+              description: 'The award response deadline must be in the future.',
             });
             return;
+          }
+          durationMinutes = (awardResponseDeadline.getTime() - new Date().getTime()) / (1000 * 60);
         }
-        
-        const awardResponseDurationMinutes = awardResponseDeadline 
-            ? (awardResponseDeadline.getTime() - new Date().getTime()) / (1000 * 60)
-            : undefined;
         
         setIsFinalizing(true);
         try {
              const response = await fetch(`/api/requisitions/${requisition.id}/finalize-scores`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId: user.id, awardResponseDeadline, awardResponseDurationMinutes }),
+                body: JSON.stringify({ userId: user.id, awardResponseDeadline, awardResponseDurationMinutes: durationMinutes }),
             });
             if (!response.ok) {
                 const errorData = await response.json();
@@ -2049,13 +2050,18 @@ export default function QuotationDetailsPage() {
 
 
   const handleAwardChange = async (action: 'promote_second' | 'promote_third' | 'restart_rfq') => {
-    if (!user || !id) return;
+    if (!user || !id || !requisition) return;
+    
+    const newDeadline = requisition.awardResponseDurationMinutes 
+        ? new Date(Date.now() + requisition.awardResponseDurationMinutes * 60 * 1000) 
+        : undefined;
+
     setIsChangingAward(true);
     try {
         const response = await fetch(`/api/requisitions/${id}/handle-award-change`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId: user.id, action }),
+            body: JSON.stringify({ userId: user.id, action, newDeadline }),
         });
 
         if (!response.ok) {
