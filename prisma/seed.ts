@@ -19,8 +19,8 @@ async function main() {
 
   // Seed Users
   for (const user of seedData.users) {
-    // Prisma doesn't like extra fields like committeeAssignments
-    const { committeeAssignments, ...userData } = user;
+    // Prisma doesn't like extra fields like committeeAssignments or direct foreign keys when using connect
+    const { committeeAssignments, departmentId, department, ...userData } = user;
     await prisma.user.create({
       data: {
           ...userData,
@@ -41,7 +41,7 @@ async function main() {
     });
     if (kycDocuments) {
         for (const doc of kycDocuments) {
-            await prisma.kycDocument.create({
+            await prisma.kYC_Document.create({
                 data: {
                     ...doc,
                     vendorId: createdVendor.id,
@@ -60,8 +60,8 @@ async function main() {
               ...reqData,
               requester: { connect: { id: reqData.requesterId } },
               approver: reqData.approverId ? { connect: { id: reqData.approverId } } : undefined,
-              financialCommittee: { connect: reqData.financialCommitteeMemberIds?.map(id => ({ id })) },
-              technicalCommittee: { connect: reqData.technicalCommitteeMemberIds?.map(id => ({ id })) },
+              financialCommitteeMembers: { connect: reqData.financialCommitteeMemberIds?.map(id => ({ id })) },
+              technicalCommitteeMembers: { connect: reqData.technicalCommitteeMemberIds?.map(id => ({ id })) },
               deadline: reqData.deadline ? new Date(reqData.deadline) : undefined,
               scoringDeadline: reqData.scoringDeadline ? new Date(reqData.scoringDeadline) : undefined,
               awardResponseDeadline: reqData.awardResponseDeadline ? new Date(reqData.awardResponseDeadline) : undefined,
@@ -98,8 +98,9 @@ async function main() {
       if (evaluationCriteria) {
           const createdCriteria = await prisma.evaluationCriteria.create({
               data: {
-                  ...evaluationCriteria,
                   requisitionId: createdRequisition.id,
+                  financialWeight: evaluationCriteria.financialWeight,
+                  technicalWeight: evaluationCriteria.technicalWeight,
                   financialCriteria: {
                       create: evaluationCriteria.financialCriteria
                   },
@@ -225,6 +226,7 @@ async function main() {
       data: {
           ...log,
           timestamp: new Date(log.timestamp),
+          userId: log.user === 'System' ? undefined : seedData.users.find(u => u.name === log.user)?.id
       },
     });
   }
