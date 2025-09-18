@@ -1310,6 +1310,9 @@ const ScoringDialog = ({
     if (!requisition.evaluationCriteria) return null;
     const existingScore = quote.scores?.find(s => s.scorerId === user.id);
 
+    const isFinancialScorer = requisition.financialCommitteeMemberIds?.includes(user.id);
+    const isTechnicalScorer = requisition.technicalCommitteeMemberIds?.includes(user.id);
+
     if (!existingScore && isScoringDeadlinePassed) {
         return (
             <DialogContent>
@@ -1391,26 +1394,30 @@ const ScoringDialog = ({
             <form onSubmit={form.handleSubmit(onSubmit)}>
             <ScrollArea className="h-[60vh] p-1">
                 <div className="space-y-6">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="text-xl flex items-center gap-2">
-                                <Scale /> Financial Evaluation ({requisition.evaluationCriteria.financialWeight}%)
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                             {renderCriteria('financial')}
-                        </CardContent>
-                    </Card>
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="text-xl flex items-center gap-2">
-                                <TrendingUp /> Technical Evaluation ({requisition.evaluationCriteria.technicalWeight}%)
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            {renderCriteria('technical')}
-                        </CardContent>
-                    </Card>
+                    {isFinancialScorer && (
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="text-xl flex items-center gap-2">
+                                    <Scale /> Financial Evaluation ({requisition.evaluationCriteria.financialWeight}%)
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                {renderCriteria('financial')}
+                            </CardContent>
+                        </Card>
+                    )}
+                    {isTechnicalScorer && (
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="text-xl flex items-center gap-2">
+                                    <TrendingUp /> Technical Evaluation ({requisition.evaluationCriteria.technicalWeight}%)
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                {renderCriteria('technical')}
+                            </CardContent>
+                        </Card>
+                    )}
                      <Card>
                         <CardHeader><CardTitle className="text-xl">Overall Comment</CardTitle></CardHeader>
                         <CardContent>
