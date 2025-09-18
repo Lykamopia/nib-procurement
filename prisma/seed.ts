@@ -24,6 +24,8 @@ async function main() {
     await prisma.user.create({
       data: {
           ...userData,
+          // @ts-ignore
+          role: userData.role.replace(/ /g, '_'),
           department: user.departmentId ? { connect: { id: user.departmentId } } : undefined,
       },
     });
@@ -225,6 +227,8 @@ async function main() {
     await prisma.auditLog.create({
       data: {
           ...log,
+          // @ts-ignore
+          role: log.role.replace(/ /g, '_'),
           timestamp: new Date(log.timestamp),
           userId: log.user === 'System' ? undefined : seedData.users.find(u => u.name === log.user)?.id
       },
