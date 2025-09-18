@@ -5,6 +5,31 @@ import { getInitialData } from '../src/lib/seed-data';
 const prisma = new PrismaClient();
 
 async function main() {
+  console.log(`Clearing existing data...`);
+  await prisma.auditLog.deleteMany({});
+  await prisma.receiptItem.deleteMany({});
+  await prisma.goodsReceiptNote.deleteMany({});
+  await prisma.invoiceItem.deleteMany({});
+  await prisma.invoice.deleteMany({});
+  await prisma.pOItem.deleteMany({});
+  await prisma.purchaseOrder.deleteMany({});
+  await prisma.quoteAnswer.deleteMany({});
+  await prisma.quoteItem.deleteMany({});
+  await prisma.committeeScoreSet.deleteMany({});
+  await prisma.quotation.deleteMany({});
+  await prisma.evaluationCriterion.deleteMany({});
+  await prisma.financialCriterion.deleteMany({});
+  await prisma.technicalCriterion.deleteMany({});
+  await prisma.evaluationCriteria.deleteMany({});
+  await prisma.customQuestion.deleteMany({});
+  await prisma.requisitionItem.deleteMany({});
+  await prisma.purchaseRequisition.deleteMany({});
+  await prisma.kYC_Document.deleteMany({});
+  await prisma.vendor.deleteMany({});
+  await prisma.user.deleteMany({});
+  await prisma.department.deleteMany({});
+  console.log('Existing data cleared.');
+
   console.log(`Start seeding ...`);
 
   const seedData = getInitialData();
@@ -24,8 +49,7 @@ async function main() {
     await prisma.user.create({
       data: {
           ...userData,
-          // @ts-ignore
-          role: userData.role.replace(/ /g, '_'),
+          role: userData.role.replace(/ /g, '_') as any,
           department: user.departmentId ? { connect: { id: user.departmentId } } : undefined,
       },
     });
@@ -98,7 +122,7 @@ async function main() {
 
       // Seed EvaluationCriteria
       if (evaluationCriteria) {
-          const createdCriteria = await prisma.evaluationCriteria.create({
+          await prisma.evaluationCriteria.create({
               data: {
                   requisitionId: createdRequisition.id,
                   financialWeight: evaluationCriteria.financialWeight,
@@ -227,8 +251,7 @@ async function main() {
     await prisma.auditLog.create({
       data: {
           ...log,
-          // @ts-ignore
-          role: log.role.replace(/ /g, '_'),
+          role: log.role.replace(/ /g, '_') as any,
           timestamp: new Date(log.timestamp),
           userId: log.user === 'System' ? undefined : seedData.users.find(u => u.name === log.user)?.id
       },
