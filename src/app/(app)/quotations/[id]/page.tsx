@@ -225,7 +225,7 @@ function AddQuoteForm({ requisition, vendors, onQuoteAdded }: { requisition: Pur
     );
 }
 
-const QuoteComparison = ({ quotes, requisition, onScore, user, isDeadlinePassed }: { quotes: Quotation[], requisition: PurchaseRequisition, onScore: (quote: Quotation) => void, user: User, isDeadlinePassed: boolean }) => {
+const QuoteComparison = ({ quotes, requisition, onScore, user, isDeadlinePassed, isScoringDeadlinePassed }: { quotes: Quotation[], requisition: PurchaseRequisition, onScore: (quote: Quotation) => void, user: User, isDeadlinePassed: boolean, isScoringDeadlinePassed: boolean }) => {
 
     if (quotes.length === 0) {
         return (
@@ -327,7 +327,7 @@ const QuoteComparison = ({ quotes, requisition, onScore, user, isDeadlinePassed 
                         </CardContent>
                         <CardFooter className="flex flex-col gap-2">
                             {user.role === 'Committee Member' && (
-                                <Button className="w-full" variant={hasUserScored ? "secondary" : "outline"} onClick={() => onScore(quote)} disabled={!isDeadlinePassed}>
+                                <Button className="w-full" variant={hasUserScored ? "secondary" : "outline"} onClick={() => onScore(quote)} disabled={isScoringDeadlinePassed && !hasUserScored}>
                                     {hasUserScored ? <Check className="mr-2 h-4 w-4"/> : <Edit2 className="mr-2 h-4 w-4" />}
                                     {hasUserScored ? 'View Your Score' : 'Score this Quote'}
                                 </Button>
@@ -1214,12 +1214,14 @@ const ScoringDialog = ({
     quote, 
     requisition, 
     user, 
-    onScoreSubmitted 
+    onScoreSubmitted,
+    isScoringDeadlinePassed,
 }: { 
     quote: Quotation; 
     requisition: PurchaseRequisition; 
     user: User; 
     onScoreSubmitted: () => void;
+    isScoringDeadlinePassed: boolean;
 }) => {
     const { toast } = useToast();
     const [isSubmitting, setSubmitting] = useState(false);
@@ -1274,6 +1276,27 @@ const ScoringDialog = ({
     
     if (!requisition.evaluationCriteria) return null;
     const existingScore = quote.scores?.find(s => s.scorerId === user.id);
+
+    if (!existingScore && isScoringDeadlinePassed) {
+        return (
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Scoring Deadline Passed</DialogTitle>
+                </DialogHeader>
+                <div className="py-4 text-center">
+                    <TimerOff className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                    <p className="text-muted-foreground">
+                        The deadline for scoring this quotation has passed. Please contact the procurement officer if you need an extension.
+                    </p>
+                </div>
+                 <DialogFooter>
+                    <DialogClose asChild>
+                        <Button variant="outline">Close</Button>
+                    </DialogClose>
+                </DialogFooter>
+            </DialogContent>
+        );
+    }
 
     const renderCriteria = (type: 'financial' | 'technical') => {
         const criteria = type === 'financial' ? requisition.evaluationCriteria!.financialCriteria : requisition.evaluationCriteria!.technicalCriteria;
@@ -1661,10 +1684,10 @@ const CumulativeScoringReportDialog = ({ requisition, quotations, isOpen, onClos
                  width = height * ratio;
             }
             
-            const x = (pdfWidth - width) / 2; // Center horizontally
-            let position = 10;
+            const x = (pdfWidth - width) / 2;
+            const y = 10;
             
-            pdf.addImage(imgData, 'PNG', x, position, width, height);
+            pdf.addImage(imgData, 'PNG', x, y, width, height);
             
             pdf.save(`Scoring-Report-${requisition.id}.pdf`);
             toast({ title: "PDF Generated", description: "Your report has been downloaded." });
@@ -1905,6 +1928,11 @@ export default function QuotationDetailsPage() {
     return requisition.deadline ? isPast(new Date(requisition.deadline)) : false;
   }, [requisition]);
 
+  const isScoringDeadlinePassed = useMemo(() => {
+    if (!requisition || !requisition.scoringDeadline) return false;
+    return isPast(new Date(requisition.scoringDeadline));
+  }, [requisition]);
+
   const isScoringComplete = useMemo(() => {
     if (!requisition || !requisition.committeeMemberIds || requisition.committeeMemberIds.length === 0) return false;
     if (quotations.length === 0) return false;
@@ -2142,7 +2170,7 @@ export default function QuotationDetailsPage() {
         </Card>
         
         {prevAwardedFailed && (
-            <Alert variant="destructive">
+             <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
                 <AlertTitle>Award Failover</AlertTitle>
                 <AlertDescription>
@@ -2281,6 +2309,7 @@ export default function QuotationDetailsPage() {
                         onScore={handleScoreButtonClick}
                         user={user}
                         isDeadlinePassed={isDeadlinePassed}
+                        isScoringDeadlinePassed={isScoringDeadlinePassed}
                     />
                 )}
                 </CardContent>
@@ -2290,7 +2319,8 @@ export default function QuotationDetailsPage() {
                             quote={selectedQuoteForScoring} 
                             requisition={requisition} 
                             user={user} 
-                            onScoreSubmitted={handleScoreSubmitted} 
+                            onScoreSubmitted={handleScoreSubmitted}
+                            isScoringDeadlinePassed={isScoringDeadlinePassed}
                         />
                     )}
                 </Dialog>
@@ -2341,5 +2371,3 @@ export default function QuotationDetailsPage() {
     </div>
   );
 }
-
-    
