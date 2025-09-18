@@ -24,6 +24,7 @@ import { format } from 'date-fns';
 import { Badge } from './ui/badge';
 import { useRouter } from 'next/navigation';
 import { ArrowRight, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, FileX2, Loader2 } from 'lucide-react';
+import { useAuth } from '@/contexts/auth-context';
 
 const PAGE_SIZE = 10;
 
@@ -33,17 +34,23 @@ export function RequisitionsForQuotingTable() {
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const router = useRouter();
+  const { user, role } = useAuth();
 
 
   useEffect(() => {
     const fetchRequisitions = async () => {
         try {
             setLoading(true);
-            const response = await fetch('/api/requisitions');
+            let response = await fetch('/api/requisitions');
             if (!response.ok) {
                 throw new Error('Failed to fetch requisitions');
             }
-            const data: PurchaseRequisition[] = await response.json();
+            let data: PurchaseRequisition[] = await response.json();
+            
+            if (role === 'Committee Member' && user) {
+                data = data.filter(r => r.committeeMemberIds?.includes(user.id));
+            }
+
             const availableForQuoting = data.filter(r => 
                 r.status === 'Approved' || r.status === 'RFQ In Progress' || r.status === 'PO Created'
             );
@@ -54,8 +61,10 @@ export function RequisitionsForQuotingTable() {
             setLoading(false);
         }
     };
-    fetchRequisitions();
-  }, []);
+    if (user) {
+        fetchRequisitions();
+    }
+  }, [user, role]);
   
   const totalPages = Math.ceil(requisitions.length / PAGE_SIZE);
   const paginatedData = useMemo(() => {
