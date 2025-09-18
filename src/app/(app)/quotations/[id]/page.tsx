@@ -1932,11 +1932,96 @@ const OverdueReportDialog = ({ isOpen, onClose, member }: { isOpen: boolean, onC
     )
 }
 
+
+const CommitteeActions = ({
+    user,
+    requisition,
+    quotations,
+    onFinalScoresSubmitted,
+}: {
+    user: User,
+    requisition: PurchaseRequisition,
+    quotations: Quotation[],
+    onFinalScoresSubmitted: () => void,
+}) => {
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const { toast } = useToast();
+    
+    const userScoredQuotesCount = quotations.filter(q => q.scores?.some(s => s.scorerId === user.id)).length;
+    const allQuotesScored = userScoredQuotesCount === quotations.length;
+    const scoresAlreadyFinalized = user.committeeAssignments?.find(a => a.requisitionId === requisition.id)?.scoresSubmitted || false;
+
+    const handleSubmitScores = async () => {
+        setIsSubmitting(true);
+        try {
+            const response = await fetch(`/api/requisitions/${requisition.id}/submit-scores`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: user.id })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to submit scores');
+            }
+            toast({ title: 'Scores Submitted', description: 'Your final scores have been recorded.'});
+            onFinalScoresSubmitted();
+        } catch (error) {
+             toast({
+                variant: 'destructive',
+                title: 'Error',
+                description: error instanceof Error ? error.message : 'An unknown error occurred.',
+            });
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    if (user.role !== 'Committee Member' || scoresAlreadyFinalized) {
+        return null;
+    }
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>Committee Actions</CardTitle>
+                <CardDescription>Finalize your evaluation for this requisition.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <p className="text-sm text-muted-foreground">You have scored {userScoredQuotesCount} of {quotations.length} quotes.</p>
+            </CardContent>
+            <CardFooter>
+                <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                        <Button disabled={!allQuotesScored || isSubmitting}>
+                            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            Submit Final Scores
+                        </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Are you sure you want to submit?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                This will finalize your scores for this requisition. You will not be able to make further changes.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={handleSubmitScores}>Confirm and Submit</AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+            </CardFooter>
+        </Card>
+    );
+};
+
+
 export default function QuotationDetailsPage() {
   const router = useRouter();
   const params = useParams();
   const { toast } = useToast();
-  const { user, allUsers, role } = useAuth();
+  const { user, allUsers, role, login } = useAuth();
   const id = params.id as string;
   
   const [requisition, setRequisition] = useState<PurchaseRequisition | null>(null);
@@ -1977,24 +2062,38 @@ export default function QuotationDetailsPage() {
     ];
     if (allMemberIds.length === 0) return false;
     if (quotations.length === 0) return false;
-    return allMemberIds.every(memberId => 
-        quotations.every(quote => quote.scores?.some(score => score.scorerId === memberId))
-    );
-  }, [requisition, quotations]);
+
+    // Check if every assigned member has finalized their scores.
+    return allMemberIds.every(memberId => {
+        const member = allUsers.find(u => u.id === memberId);
+        return member?.committeeAssignments?.some(a => a.requisitionId === requisition.id && a.scoresSubmitted) || false;
+    });
+  }, [requisition, quotations, allUsers]);
 
     const fetchRequisitionAndQuotes = async () => {
         if (!id) return;
         setLoading(true);
         setLastPOCreated(null);
         try {
-            const [reqResponse, venResponse, quoResponse] = await Promise.all([
-            fetch('/api/requisitions'),
-            fetch('/api/vendors'),
-            fetch(`/api/quotations?requisitionId=${id}`)
+            const [reqResponse, venResponse, quoResponse, usersResponse] = await Promise.all([
+                fetch('/api/requisitions'),
+                fetch('/api/vendors'),
+                fetch(`/api/quotations?requisitionId=${id}`),
+                fetch('/api/users'), // We need all users to check scoring status
             ]);
             const allReqs = await reqResponse.json();
             const venData = await venResponse.json();
             const quoData = await quoResponse.json();
+            const allUsersData = await usersResponse.json();
+            if (user && !allUsers.some(u => u.id === user.id)) {
+                 // The auth context might not be updated yet, so we manually check
+                const currentUserData = allUsersData.find((u:User) => u.id === user.id);
+                if (currentUserData) {
+                    const { token } = JSON.parse(localStorage.getItem('authToken') || '{}');
+                    login(token, currentUserData, currentUserData.role);
+                }
+            }
+
 
             const currentReq = allReqs.find((r: PurchaseRequisition) => r.id === id);
 
@@ -2412,6 +2511,15 @@ export default function QuotationDetailsPage() {
                 isFinalizing={isFinalizing}
                 isAwarded={isAwarded}
             />
+        )}
+        
+        {user.role === 'Committee Member' && currentStep === 'award' && (
+             <CommitteeActions 
+                user={user}
+                requisition={requisition}
+                quotations={quotations}
+                onFinalScoresSubmitted={fetchRequisitionAndQuotes}
+             />
         )}
         
         {isAccepted && requisition.status !== 'PO Created' && role !== 'Committee Member' && (

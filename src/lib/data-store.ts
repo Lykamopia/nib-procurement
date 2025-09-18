@@ -33,6 +33,20 @@ data.vendors.forEach(vendor => {
     }
 });
 
+// Seed committee assignments on initial load
+data.users.forEach(user => {
+    if (user.role === 'Committee Member') {
+        user.committeeAssignments = [];
+        data.requisitions.forEach(req => {
+            if (req.financialCommitteeMemberIds?.includes(user.id) || req.technicalCommitteeMemberIds?.includes(user.id)) {
+                // In a real app, you'd check if scores are actually submitted.
+                // For demo, we'll assume they aren't finalized initially.
+                user.committeeAssignments.push({ requisitionId: req.id, scoresSubmitted: false });
+            }
+        })
+    }
+})
+
 
 export const vendors: Vendor[] = data.vendors;
 export const requisitions: PurchaseRequisition[] = data.requisitions;

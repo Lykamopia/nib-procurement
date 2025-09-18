@@ -11,6 +11,11 @@ export type UserRole =
   | 'Committee Member'
   | 'Committee';
 
+export type CommitteeAssignment = {
+  requisitionId: string;
+  scoresSubmitted: boolean;
+}
+
 export type User = {
   id: string;
   name: string;
@@ -20,6 +25,7 @@ export type User = {
   vendorId?: string;
   department?: string;
   departmentId?: string;
+  committeeAssignments?: CommitteeAssignment[];
 };
 
 export type Department = {
