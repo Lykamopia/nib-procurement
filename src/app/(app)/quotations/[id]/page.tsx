@@ -62,7 +62,6 @@ import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
 const quoteFormSchema = z.object({
-  vendorId: z.string().min(1, "Vendor is required."),
   notes: z.string().optional(),
   items: z.array(z.object({
     requisitionItemId: z.string(),
@@ -418,11 +417,10 @@ const committeeFormSchema = z.object({
 
 type CommitteeFormValues = z.infer<typeof committeeFormSchema>;
 
-const CommitteeManagement = ({ requisition, onCommitteeUpdated }: { requisition: PurchaseRequisition; onCommitteeUpdated: () => void; }) => {
+const CommitteeManagement = ({ requisition, onCommitteeUpdated, open, onOpenChange }: { requisition: PurchaseRequisition; onCommitteeUpdated: () => void; open: boolean; onOpenChange: (open: boolean) => void; }) => {
     const { user, allUsers } = useAuth();
     const { toast } = useToast();
     const [isSubmitting, setSubmitting] = useState(false);
-    const [isCommitteeDialogOpen, setCommitteeDialogOpen] = useState(false);
     const [committeeSearch, setCommitteeSearch] = useState("");
     const [deadlineDate, setDeadlineDate] = useState<Date|undefined>(
         requisition.scoringDeadline ? new Date(requisition.scoringDeadline) : undefined
@@ -495,7 +493,7 @@ const CommitteeManagement = ({ requisition, onCommitteeUpdated }: { requisition:
             }
 
             toast({ title: 'Committee Updated!', description: 'The evaluation committee has been updated.' });
-            setCommitteeDialogOpen(false);
+            onOpenChange(false);
             onCommitteeUpdated();
         } catch (error) {
              toast({
@@ -532,7 +530,7 @@ const CommitteeManagement = ({ requisition, onCommitteeUpdated }: { requisition:
                          {requisition.committeePurpose ? `Purpose: ${requisition.committeePurpose}` : 'Assign a committee to evaluate quotations.'}
                     </CardDescription>
                 </div>
-                 <Dialog open={isCommitteeDialogOpen} onOpenChange={setCommitteeDialogOpen}>
+                 <Dialog open={open} onOpenChange={onOpenChange}>
                     <DialogTrigger asChild>
                         <Button variant="outline" className="w-full sm:w-auto">
                             {requisition.committeeMemberIds && requisition.committeeMemberIds.length > 0 ? (
@@ -1457,7 +1455,7 @@ const ScoringProgressTracker = ({
   quotations: Quotation[];
   allUsers: User[];
   onFinalize: (awardResponseDeadline?: Date) => void;
-  onCommitteeUpdate: () => void;
+  onCommitteeUpdate: (open: boolean) => void;
   isFinalizing: boolean;
   isAwarded: boolean;
 }) => {
@@ -1510,16 +1508,6 @@ const ScoringProgressTracker = ({
         }
         onFinalize(awardResponseDeadline);
     }
-    
-    const openExtendDialog = (member: User) => {
-        setSelectedMember(member);
-        setExtendDialogOpen(true);
-    }
-    
-    const openReportDialog = (member: User) => {
-        setSelectedMember(member);
-        setReportDialogOpen(true);
-    }
 
     return (
         <Card className="mt-6">
@@ -1552,9 +1540,9 @@ const ScoringProgressTracker = ({
                                 ) : member.isOverdue ? (
                                     <>
                                      <Badge variant="destructive" className="mr-auto"><AlertCircle className="mr-1 h-3 w-3" />Overdue</Badge>
-                                     <Button size="sm" variant="secondary" onClick={() => openExtendDialog(member)}>Extend</Button>
-                                     <Button size="sm" variant="secondary" onClick={onCommitteeUpdate}>Replace</Button>
-                                     <Button size="sm" variant="outline" onClick={() => openReportDialog(member)}>Report</Button>
+                                     <Button size="sm" variant="secondary" onClick={() => { setSelectedMember(member); setExtendDialogOpen(true); }}>Extend</Button>
+                                     <Button size="sm" variant="secondary" onClick={() => onCommitteeUpdate(true)}>Replace</Button>
+                                     <Button size="sm" variant="outline" onClick={() => { setSelectedMember(member); setReportDialogOpen(true); }}>Report</Button>
                                     </>
                                 ) : (
                                      <Badge variant="secondary">Pending</Badge>
@@ -1632,14 +1620,14 @@ const ScoringProgressTracker = ({
                 <>
                     <ExtendDeadlineDialog 
                         isOpen={isExtendDialogOpen}
-                        onClose={() => setExtendDialogOpen(false)}
+                        onClose={() => { setExtendDialogOpen(false); setSelectedMember(null); }}
                         member={selectedMember}
                         requisition={requisition}
-                        onSuccess={onCommitteeUpdate}
+                        onSuccess={() => onCommitteeUpdate(false)}
                     />
                     <OverdueReportDialog 
                         isOpen={isReportDialogOpen}
-                        onClose={() => setReportDialogOpen(false)}
+                        onClose={() => { setReportDialogOpen(false); setSelectedMember(null); }}
                         member={selectedMember}
                     />
                 </>
@@ -1909,6 +1897,7 @@ export default function QuotationDetailsPage() {
   const [quotations, setQuotations] = useState<Quotation[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAddFormOpen, setAddFormOpen] = useState(false);
+  const [isCommitteeDialogOpen, setCommitteeDialogOpen] = useState(false);
   const [isScoringFormOpen, setScoringFormOpen] = useState(false);
   const [isFinalizing, setIsFinalizing] = useState(false);
   const [selectedQuoteForScoring, setSelectedQuoteForScoring] = useState<Quotation | null>(null);
@@ -2221,6 +2210,8 @@ export default function QuotationDetailsPage() {
             <CommitteeManagement
                 requisition={requisition} 
                 onCommitteeUpdated={fetchRequisitionAndQuotes}
+                open={isCommitteeDialogOpen}
+                onOpenChange={setCommitteeDialogOpen}
             />
         )}
 
@@ -2344,7 +2335,7 @@ export default function QuotationDetailsPage() {
                 quotations={quotations}
                 allUsers={allUsers}
                 onFinalize={handleFinalizeScores}
-                onCommitteeUpdate={fetchRequisitionAndQuotes}
+                onCommitteeUpdate={setCommitteeDialogOpen}
                 isFinalizing={isFinalizing}
                 isAwarded={isAwarded}
             />
