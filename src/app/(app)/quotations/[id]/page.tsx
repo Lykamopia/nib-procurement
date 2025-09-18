@@ -412,7 +412,15 @@ const ContractManagement = ({ requisition }: { requisition: PurchaseRequisition 
 const committeeFormSchema = z.object({
   committeeName: z.string().min(3, "Committee name is required."),
   committeePurpose: z.string().min(10, "Purpose is required."),
-  committeeMemberIds: z.array(z.string()).min(1, "At least one member is required."),
+  financialCommitteeMemberIds: z.array(z.string()).min(1, "At least one financial member is required."),
+  technicalCommitteeMemberIds: z.array(z.string()).min(1, "At least one technical member is required."),
+}).refine(data => {
+    const financialIds = new Set(data.financialCommitteeMemberIds);
+    const hasOverlap = data.technicalCommitteeMemberIds.some(id => financialIds.has(id));
+    return !hasOverlap;
+}, {
+    message: "A member cannot be on both financial and technical committees.",
+    path: ["financialCommitteeMemberIds"],
 });
 
 type CommitteeFormValues = z.infer<typeof committeeFormSchema>;
@@ -421,7 +429,6 @@ const CommitteeManagement = ({ requisition, onCommitteeUpdated, open, onOpenChan
     const { user, allUsers } = useAuth();
     const { toast } = useToast();
     const [isSubmitting, setSubmitting] = useState(false);
-    const [committeeSearch, setCommitteeSearch] = useState("");
     const [deadlineDate, setDeadlineDate] = useState<Date|undefined>(
         requisition.scoringDeadline ? new Date(requisition.scoringDeadline) : undefined
     );
@@ -434,7 +441,8 @@ const CommitteeManagement = ({ requisition, onCommitteeUpdated, open, onOpenChan
         defaultValues: {
             committeeName: requisition.committeeName || "",
             committeePurpose: requisition.committeePurpose || "",
-            committeeMemberIds: requisition.committeeMemberIds || [],
+            financialCommitteeMemberIds: requisition.financialCommitteeMemberIds || [],
+            technicalCommitteeMemberIds: requisition.technicalCommitteeMemberIds || [],
         },
     });
 
@@ -448,7 +456,8 @@ const CommitteeManagement = ({ requisition, onCommitteeUpdated, open, onOpenChan
         form.reset({
             committeeName: requisition.committeeName || "",
             committeePurpose: requisition.committeePurpose || "",
-            committeeMemberIds: requisition.committeeMemberIds || [],
+            financialCommitteeMemberIds: requisition.financialCommitteeMemberIds || [],
+            technicalCommitteeMemberIds: requisition.technicalCommitteeMemberIds || [],
         });
         if (requisition.scoringDeadline) {
             setDeadlineDate(new Date(requisition.scoringDeadline));
@@ -507,18 +516,106 @@ const CommitteeManagement = ({ requisition, onCommitteeUpdated, open, onOpenChan
     }
     
     const committeeMembers = allUsers.filter(u => u.role === 'Committee Member');
-    const assignedMembers = allUsers.filter(u => requisition.committeeMemberIds?.includes(u.id));
+    const assignedFinancialMembers = allUsers.filter(u => requisition.financialCommitteeMemberIds?.includes(u.id));
+    const assignedTechnicalMembers = allUsers.filter(u => requisition.technicalCommitteeMemberIds?.includes(u.id));
+    const allAssignedMemberIds = [...(requisition.financialCommitteeMemberIds || []), ...(requisition.technicalCommitteeMemberIds || [])];
 
-     const filteredCommitteeMembers = useMemo(() => {
-        if (!committeeSearch) {
-            return committeeMembers;
-        }
-        const lowercasedSearch = committeeSearch.toLowerCase();
-        return committeeMembers.filter(member =>
-            member.name.toLowerCase().includes(lowercasedSearch) ||
-            member.email.toLowerCase().includes(lowercasedSearch)
+    const MemberList = ({ title, description, members }: { title: string, description: string, members: User[] }) => (
+        <div>
+            <h4 className="font-semibold">{title}</h4>
+            <p className="text-sm text-muted-foreground mb-3">{description}</p>
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-4">
+                {members.length > 0 ? (
+                    members.map(member => (
+                        <div key={member.id} className="flex items-center gap-2">
+                            <Avatar className="h-8 w-8">
+                                <AvatarImage src={`https://picsum.photos/seed/${member.id}/40/40`} data-ai-hint="profile picture" />
+                                <AvatarFallback>{member.name.charAt(0)}</AvatarFallback>
+                            </Avatar>
+                            <span className="text-sm font-medium">{member.name}</span>
+                        </div>
+                    ))
+                ) : (
+                    <p className="text-sm text-muted-foreground">No members assigned.</p>
+                )}
+            </div>
+        </div>
+    );
+    
+    const MemberSelection = ({ type }: { type: 'financial' | 'technical' }) => {
+        const [search, setSearch] = useState("");
+        const otherType = type === 'financial' ? 'technical' : 'financial';
+        const otherCommitteeIds = new Set(form.watch(`${otherType}CommitteeMemberIds`));
+
+        const availableMembers = useMemo(() => {
+            const lowercasedSearch = search.toLowerCase();
+            return committeeMembers.filter(member =>
+                !otherCommitteeIds.has(member.id) &&
+                (member.name.toLowerCase().includes(lowercasedSearch) || member.email.toLowerCase().includes(lowercasedSearch))
+            );
+        }, [committeeMembers, search, otherCommitteeIds]);
+
+        return (
+            <div className="space-y-2">
+                <div className="relative pt-2">
+                    <Search className="absolute left-2.5 top-5 h-4 w-4 text-muted-foreground" />
+                    <Input 
+                        placeholder={`Search ${type} members...`}
+                        className="pl-8 w-full"
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                    />
+                </div>
+                 <FormField
+                    control={form.control}
+                    name={`${type}CommitteeMemberIds`}
+                    render={() => (
+                    <FormItem className="flex-1 flex flex-col min-h-0">
+                        <ScrollArea className="flex-1 rounded-md border h-60">
+                            <div className="space-y-1 p-1">
+                            {availableMembers.map(member => (
+                                <FormField
+                                    key={member.id}
+                                    control={form.control}
+                                    name={`${type}CommitteeMemberIds`}
+                                    render={({ field }) => (
+                                        <FormItem className="flex items-start space-x-4 rounded-md border p-2 has-[:checked]:bg-muted">
+                                            <FormControl>
+                                                <Checkbox
+                                                    checked={field.value?.includes(member.id)}
+                                                    onCheckedChange={(checked) => {
+                                                        return checked
+                                                        ? field.onChange([...(field.value || []), member.id])
+                                                        : field.onChange(field.value?.filter((id) => id !== member.id))
+                                                    }}
+                                                />
+                                            </FormControl>
+                                            <div className="flex items-start gap-3 flex-1">
+                                                <Avatar className="h-8 w-8">
+                                                    <AvatarImage src={`https://picsum.photos/seed/${member.id}/32/32`} data-ai-hint="profile picture" />
+                                                    <AvatarFallback>{member.name.charAt(0)}</AvatarFallback>
+                                                </Avatar>
+                                                <div className="grid gap-0.5">
+                                                    <Label className="font-normal cursor-pointer text-sm">{member.name}</Label>
+                                                    <p className="text-xs text-muted-foreground">{member.email}</p>
+                                                </div>
+                                            </div>
+                                        </FormItem>
+                                    )}
+                                />
+                            ))}
+                            {availableMembers.length === 0 && (
+                                <div className="text-center text-muted-foreground py-10">No members available.</div>
+                            )}
+                            </div>
+                        </ScrollArea>
+                        <FormMessage />
+                    </FormItem>
+                    )}
+                />
+            </div>
         );
-    }, [committeeMembers, committeeSearch]);
+    }
 
 
     return (
@@ -533,14 +630,14 @@ const CommitteeManagement = ({ requisition, onCommitteeUpdated, open, onOpenChan
                  <Dialog open={open} onOpenChange={onOpenChange}>
                     <DialogTrigger asChild>
                         <Button variant="outline" className="w-full sm:w-auto">
-                            {requisition.committeeMemberIds && requisition.committeeMemberIds.length > 0 ? (
+                            {allAssignedMemberIds.length > 0 ? (
                                 <><Edit2 className="mr-2 h-4 w-4" /> Edit Committee</>
                             ) : (
                                 <><Users className="mr-2 h-4 w-4" /> Assign Committee</>
                             )}
                         </Button>
                     </DialogTrigger>
-                    <DialogContent className="max-w-2xl flex flex-col max-h-[90vh]">
+                    <DialogContent className="max-w-4xl flex flex-col max-h-[90vh]">
                          <Form {...form}>
                          <form onSubmit={form.handleSubmit(handleSaveCommittee)} className="flex flex-col flex-1 min-h-0">
                         <DialogHeader>
@@ -555,15 +652,14 @@ const CommitteeManagement = ({ requisition, onCommitteeUpdated, open, onOpenChan
                                             <FormItem><FormLabel>Committee Name</FormLabel><FormControl><Input {...field} placeholder="e.g., Q4 Laptop Procurement Committee" /></FormControl><FormMessage /></FormItem>
                                         )}
                                     />
+                                     <FormField
+                                        control={form.control}
+                                        name="committeePurpose"
+                                        render={({ field }) => (
+                                            <FormItem><FormLabel>Purpose / Mandate</FormLabel><FormControl><Input {...field} placeholder="e.g., To evaluate vendor submissions for REQ-..." /></FormControl><FormMessage /></FormItem>
+                                        )}
+                                    />
                                 </div>
-                                <FormField
-                                    control={form.control}
-                                    name="committeePurpose"
-                                    render={({ field }) => (
-                                        <FormItem><FormLabel>Purpose / Mandate</FormLabel><FormControl><Textarea {...field} placeholder="e.g., To evaluate vendor submissions for REQ-..." /></FormControl><FormMessage /></FormItem>
-                                    )}
-                                />
-
                                 <div className="space-y-2">
                                     <FormLabel>Committee Scoring Deadline</FormLabel>
                                     <div className="flex gap-2">
@@ -595,65 +691,17 @@ const CommitteeManagement = ({ requisition, onCommitteeUpdated, open, onOpenChan
                                         />
                                     </div>
                                 </div>
-
-
-                                <div className="relative pt-2">
-                                    <FormLabel>Members</FormLabel>
-                                    <Search className="absolute left-2.5 top-11 h-4 w-4 text-muted-foreground" />
-                                    <Input 
-                                        placeholder="Search members by name or email..." 
-                                        className="pl-8 w-full mt-2"
-                                        value={committeeSearch}
-                                        onChange={(e) => setCommitteeSearch(e.target.value)}
-                                    />
+                                
+                                <div className="grid md:grid-cols-2 gap-6">
+                                     <div>
+                                        <h3 className="font-semibold text-lg">Financial Committee</h3>
+                                        <MemberSelection type="financial" />
+                                    </div>
+                                    <div>
+                                        <h3 className="font-semibold text-lg">Technical Committee</h3>
+                                        <MemberSelection type="technical" />
+                                    </div>
                                 </div>
-                                <FormField
-                                    control={form.control}
-                                    name="committeeMemberIds"
-                                    render={() => (
-                                    <FormItem className="flex-1 flex flex-col min-h-0">
-                                        <ScrollArea className="flex-1 rounded-md border">
-                                            <div className="space-y-2 p-1">
-                                            {filteredCommitteeMembers.map(member => (
-                                                <FormField
-                                                    key={member.id}
-                                                    control={form.control}
-                                                    name="committeeMemberIds"
-                                                    render={({ field }) => (
-                                                        <FormItem className="flex items-start space-x-4 rounded-md border p-3 has-[:checked]:bg-muted">
-                                                            <FormControl>
-                                                                <Checkbox
-                                                                    checked={field.value?.includes(member.id)}
-                                                                    onCheckedChange={(checked) => {
-                                                                        return checked
-                                                                        ? field.onChange([...(field.value || []), member.id])
-                                                                        : field.onChange(field.value?.filter((id) => id !== member.id))
-                                                                    }}
-                                                                />
-                                                            </FormControl>
-                                                            <div className="flex items-start gap-3 flex-1">
-                                                                <Avatar>
-                                                                    <AvatarImage src={`https://picsum.photos/seed/${member.id}/40/40`} data-ai-hint="profile picture" />
-                                                                    <AvatarFallback>{member.name.charAt(0)}</AvatarFallback>
-                                                                </Avatar>
-                                                                <div className="grid gap-0.5">
-                                                                    <Label className="font-normal cursor-pointer">{member.name}</Label>
-                                                                    <p className="text-xs text-muted-foreground">{member.email}</p>
-                                                                </div>
-                                                            </div>
-                                                        </FormItem>
-                                                    )}
-                                                />
-                                            ))}
-                                            {filteredCommitteeMembers.length === 0 && (
-                                                    <div className="text-center text-muted-foreground py-10">No committee members found.</div>
-                                                )}
-                                            </div>
-                                        </ScrollArea>
-                                        <FormMessage />
-                                    </FormItem>
-                                    )}
-                                />
                         </div>
                         <DialogFooter className="pt-4 border-t mt-4">
                             <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
@@ -667,22 +715,9 @@ const CommitteeManagement = ({ requisition, onCommitteeUpdated, open, onOpenChan
                     </DialogContent>
                 </Dialog>
             </CardHeader>
-            <CardContent>
-                <div className="flex flex-wrap items-center gap-x-6 gap-y-4">
-                    {assignedMembers.length > 0 ? (
-                        assignedMembers.map(member => (
-                            <div key={member.id} className="flex items-center gap-2">
-                                <Avatar className="h-8 w-8">
-                                    <AvatarImage src={`https://picsum.photos/seed/${member.id}/40/40`} data-ai-hint="profile picture" />
-                                    <AvatarFallback>{member.name.charAt(0)}</AvatarFallback>
-                                </Avatar>
-                                <span className="text-sm font-medium">{member.name}</span>
-                            </div>
-                        ))
-                    ) : (
-                        <p className="text-sm text-muted-foreground">No committee members assigned.</p>
-                    )}
-                </div>
+            <CardContent className="space-y-6">
+                 <MemberList title="Financial Committee" description="Responsible for evaluating cost and financial stability." members={assignedFinancialMembers} />
+                 <MemberList title="Technical Committee" description="Responsible for assessing technical specs and compliance." members={assignedTechnicalMembers} />
                  {requisition.scoringDeadline && (
                     <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground border-t pt-4">
                         <Timer className="h-4 w-4"/>
@@ -1468,8 +1503,13 @@ const ScoringProgressTracker = ({
     const isScoringDeadlinePassed = requisition.scoringDeadline && isPast(new Date(requisition.scoringDeadline));
 
     const assignedCommitteeMembers = useMemo(() => {
-        return allUsers.filter(u => requisition.committeeMemberIds?.includes(u.id));
-    }, [allUsers, requisition.committeeMemberIds]);
+        const allIds = [
+            ...(requisition.financialCommitteeMemberIds || []),
+            ...(requisition.technicalCommitteeMemberIds || [])
+        ];
+        const uniqueIds = [...new Set(allIds)];
+        return allUsers.filter(u => uniqueIds.includes(u.id));
+    }, [allUsers, requisition.financialCommitteeMemberIds, requisition.technicalCommitteeMemberIds]);
 
     const scoringStatus = useMemo(() => {
         return assignedCommitteeMembers.map(member => {
@@ -1923,9 +1963,14 @@ export default function QuotationDetailsPage() {
   }, [requisition]);
 
   const isScoringComplete = useMemo(() => {
-    if (!requisition || !requisition.committeeMemberIds || requisition.committeeMemberIds.length === 0) return false;
+    if (!requisition) return false;
+    const allMemberIds = [
+        ...(requisition.financialCommitteeMemberIds || []),
+        ...(requisition.technicalCommitteeMemberIds || [])
+    ];
+    if (allMemberIds.length === 0) return false;
     if (quotations.length === 0) return false;
-    return requisition.committeeMemberIds.every(memberId => 
+    return allMemberIds.every(memberId => 
         quotations.every(quote => quote.scores?.some(score => score.scorerId === memberId))
     );
   }, [requisition, quotations]);
@@ -2105,7 +2150,9 @@ export default function QuotationDetailsPage() {
         return 'rfq';
     }
      if (requisition.status === 'RFQ In Progress' && isDeadlinePassed) {
-        if (!requisition.committeeMemberIds || requisition.committeeMemberIds.length === 0) {
+        const anyCommittee = (requisition.financialCommitteeMemberIds && requisition.financialCommitteeMemberIds.length > 0) || 
+                             (requisition.technicalCommitteeMemberIds && requisition.technicalCommitteeMemberIds.length > 0);
+        if (!anyCommittee) {
             return 'committee';
         }
         return 'award';
@@ -2225,7 +2272,7 @@ export default function QuotationDetailsPage() {
         {(currentStep === 'award' || currentStep === 'finalize' || currentStep === 'completed') && (
             <>
                 {/* Always render committee management when in award step so dialog can open */}
-                {currentStep === 'award' && (
+                {(currentStep === 'award' || currentStep === 'finalize' || currentStep === 'completed') && (
                     <div className="hidden">
                         <CommitteeManagement
                             requisition={requisition}

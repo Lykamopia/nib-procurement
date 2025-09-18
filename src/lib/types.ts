@@ -98,7 +98,8 @@ export type PurchaseRequisition = {
   awardResponseDeadline?: Date;
   awardResponseDurationMinutes?: number;
   evaluationCriteria?: EvaluationCriteria;
-  committeeMemberIds?: string[];
+  financialCommitteeMemberIds?: string[];
+  technicalCommitteeMemberIds?: string[];
   committeeName?: string;
   committeePurpose?: string;
   cpoAmount?: number;

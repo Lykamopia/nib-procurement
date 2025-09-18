@@ -11,7 +11,14 @@ export async function POST(
   try {
     const { id } = params;
     const body = await request.json();
-    const { userId, committeeMemberIds, committeeName, committeePurpose, scoringDeadline } = body;
+    const { 
+        userId, 
+        financialCommitteeMemberIds, 
+        technicalCommitteeMemberIds,
+        committeeName, 
+        committeePurpose, 
+        scoringDeadline 
+    } = body;
 
     const requisition = requisitions.find((r) => r.id === id);
     if (!requisition) {
@@ -23,13 +30,15 @@ export async function POST(
         return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    requisition.committeeMemberIds = committeeMemberIds;
+    requisition.financialCommitteeMemberIds = financialCommitteeMemberIds;
+    requisition.technicalCommitteeMemberIds = technicalCommitteeMemberIds;
     requisition.committeeName = committeeName;
     requisition.committeePurpose = committeePurpose;
     requisition.scoringDeadline = scoringDeadline ? new Date(scoringDeadline) : undefined;
     requisition.updatedAt = new Date();
 
-    const committeeNames = users.filter(u => committeeMemberIds.includes(u.id)).map(u => u.name);
+    const allMemberIds = [...(financialCommitteeMemberIds || []), ...(technicalCommitteeMemberIds || [])];
+    const committeeNames = users.filter(u => allMemberIds.includes(u.id)).map(u => u.name);
 
     const auditLogEntry = {
         id: `log-${Date.now()}-${Math.random()}`,
