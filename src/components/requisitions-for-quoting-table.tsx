@@ -48,7 +48,10 @@ export function RequisitionsForQuotingTable() {
             let data: PurchaseRequisition[] = await response.json();
             
             if (role === 'Committee Member' && user) {
-                data = data.filter(r => r.committeeMemberIds?.includes(user.id));
+                data = data.filter(r => 
+                    (r.financialCommitteeMemberIds?.includes(user.id)) ||
+                    (r.technicalCommitteeMemberIds?.includes(user.id))
+                );
             }
 
             const availableForQuoting = data.filter(r => 
@@ -135,7 +138,7 @@ export function RequisitionsForQuotingTable() {
                       <FileX2 className="h-16 w-16 text-muted-foreground/50" />
                       <div className="space-y-1">
                         <p className="font-semibold">No Requisitions Found</p>
-                        <p className="text-muted-foreground">There are no requisitions currently ready for quotation.</p>
+                        <p className="text-muted-foreground">There are no requisitions currently assigned to you for quotation or scoring.</p>
                       </div>
                     </div>
                   </TableCell>
@@ -159,3 +162,4 @@ export function RequisitionsForQuotingTable() {
     </Card>
   );
 }
+
