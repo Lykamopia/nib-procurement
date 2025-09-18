@@ -2223,116 +2223,129 @@ export default function QuotationDetailsPage() {
 
 
         {(currentStep === 'award' || currentStep === 'finalize' || currentStep === 'completed') && (
-            <Card>
-                <CardHeader className="flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                    <div>
-                        <CardTitle>Quotations for {requisition.id}</CardTitle>
-                        <CardDescription>{requisition.title}</CardDescription>
-                         <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs">
-                            {requisition.deadline && (
-                                <div className="flex items-center gap-1.5 font-medium text-muted-foreground">
-                                    <CalendarIcon className="h-4 w-4"/>
-                                    <span>Quote Deadline:</span>
-                                    <span className="font-semibold text-foreground">{format(new Date(requisition.deadline), 'PPpp')}</span>
-                                </div>
+            <>
+                {/* Always render committee management when in award step so dialog can open */}
+                {currentStep === 'award' && (
+                    <div className="hidden">
+                        <CommitteeManagement
+                            requisition={requisition}
+                            onCommitteeUpdated={fetchRequisitionAndQuotes}
+                            open={isCommitteeDialogOpen}
+                            onOpenChange={setCommitteeDialogOpen}
+                        />
+                    </div>
+                )}
+                <Card>
+                    <CardHeader className="flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                        <div>
+                            <CardTitle>Quotations for {requisition.id}</CardTitle>
+                            <CardDescription>{requisition.title}</CardDescription>
+                            <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs">
+                                {requisition.deadline && (
+                                    <div className="flex items-center gap-1.5 font-medium text-muted-foreground">
+                                        <CalendarIcon className="h-4 w-4"/>
+                                        <span>Quote Deadline:</span>
+                                        <span className="font-semibold text-foreground">{format(new Date(requisition.deadline), 'PPpp')}</span>
+                                    </div>
+                                )}
+                                {requisition.scoringDeadline && (
+                                    <div className="flex items-center gap-1.5 font-medium text-muted-foreground">
+                                        <Timer className="h-4 w-4"/>
+                                        <span>Scoring Deadline:</span>
+                                        <span className="font-semibold text-foreground">{format(new Date(requisition.scoringDeadline), 'PPpp')}</span>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2 w-full sm:w-auto">
+                            {isAwarded && isScoringComplete && role === 'Procurement Officer' && (
+                                <Button variant="secondary" onClick={() => setReportOpen(true)}>
+                                    <FileBarChart2 className="mr-2 h-4 w-4" /> View Cumulative Report
+                                </Button>
                             )}
-                             {requisition.scoringDeadline && (
-                                <div className="flex items-center gap-1.5 font-medium text-muted-foreground">
-                                    <Timer className="h-4 w-4"/>
-                                    <span>Scoring Deadline:</span>
-                                    <span className="font-semibold text-foreground">{format(new Date(requisition.scoringDeadline), 'PPpp')}</span>
-                                </div>
+                            {isAwarded && requisition.status !== 'PO Created' && role === 'Procurement Officer' && (
+                                <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <Button variant="outline" disabled={isChangingAward} className="w-full">
+                                            {isChangingAward ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Undo className="mr-2 h-4 w-4"/>}
+                                            Change Award Decision
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>Change Award Decision</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                                The primary awarded vendor may have failed to deliver. Choose how to proceed. This action cannot be undone.
+                                            </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <div className="flex flex-col gap-4 py-4">
+                                            <Button onClick={() => handleAwardChange('promote_second')} disabled={!secondStandby}>
+                                                Award to 2nd Vendor ({secondStandby?.vendorName})
+                                            </Button>
+                                            <Button onClick={() => handleAwardChange('promote_third')} disabled={!thirdStandby}>
+                                                Award to 3rd Vendor ({thirdStandby?.vendorName})
+                                            </Button>
+                                            <Button onClick={() => handleAwardChange('restart_rfq')} variant="destructive">
+                                                <RefreshCw className="mr-2 h-4 w-4"/>
+                                                Restart RFQ Process
+                                            </Button>
+                                        </div>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                            )}
+                            {role !== 'Committee Member' && (
+                                <Dialog open={isAddFormOpen} onOpenChange={setAddFormOpen}>
+                                    <DialogTrigger asChild>
+                                        <Button disabled={isAwarded} variant="outline" className="w-full"><PlusCircle className="mr-2 h-4 w-4"/>Add Quote</Button>
+                                    </DialogTrigger>
+                                    {requisition && <AddQuoteForm requisition={requisition} vendors={vendors} onQuoteAdded={handleQuoteAdded} />}
+                                </Dialog>
                             )}
                         </div>
-                    </div>
-                    <div className="flex items-center gap-2 w-full sm:w-auto">
-                        {isAwarded && isScoringComplete && role === 'Procurement Officer' && (
-                            <Button variant="secondary" onClick={() => setReportOpen(true)}>
-                                <FileBarChart2 className="mr-2 h-4 w-4" /> View Cumulative Report
-                            </Button>
-                        )}
-                        {isAwarded && requisition.status !== 'PO Created' && role === 'Procurement Officer' && (
-                             <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                    <Button variant="outline" disabled={isChangingAward} className="w-full">
-                                        {isChangingAward ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Undo className="mr-2 h-4 w-4"/>}
-                                        Change Award Decision
-                                    </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                        <AlertDialogTitle>Change Award Decision</AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                            The primary awarded vendor may have failed to deliver. Choose how to proceed. This action cannot be undone.
-                                        </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <div className="flex flex-col gap-4 py-4">
-                                        <Button onClick={() => handleAwardChange('promote_second')} disabled={!secondStandby}>
-                                            Award to 2nd Vendor ({secondStandby?.vendorName})
-                                        </Button>
-                                        <Button onClick={() => handleAwardChange('promote_third')} disabled={!thirdStandby}>
-                                            Award to 3rd Vendor ({thirdStandby?.vendorName})
-                                        </Button>
-                                        <Button onClick={() => handleAwardChange('restart_rfq')} variant="destructive">
-                                            <RefreshCw className="mr-2 h-4 w-4"/>
-                                            Restart RFQ Process
-                                        </Button>
-                                    </div>
-                                    <AlertDialogFooter>
-                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    </AlertDialogFooter>
-                                </AlertDialogContent>
-                            </AlertDialog>
-                        )}
-                        {role !== 'Committee Member' && (
-                             <Dialog open={isAddFormOpen} onOpenChange={setAddFormOpen}>
-                                <DialogTrigger asChild>
-                                    <Button disabled={isAwarded} variant="outline" className="w-full"><PlusCircle className="mr-2 h-4 w-4"/>Add Quote</Button>
-                                </DialogTrigger>
-                                {requisition && <AddQuoteForm requisition={requisition} vendors={vendors} onQuoteAdded={handleQuoteAdded} />}
-                            </Dialog>
-                        )}
-                    </div>
-                </CardHeader>
-                <CardContent>
-                {loading ? (
-                    <div className="flex items-center justify-center h-24">
-                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                    </div>
-                ) : (
-                    <QuoteComparison 
-                        quotes={quotations} 
-                        requisition={requisition}
-                        onScore={handleScoreButtonClick}
-                        user={user}
-                        isDeadlinePassed={isDeadlinePassed}
-                        isScoringDeadlinePassed={isScoringDeadlinePassed}
-                    />
-                )}
-                </CardContent>
-                 <Dialog open={isScoringFormOpen} onOpenChange={setScoringFormOpen}>
-                    {selectedQuoteForScoring && requisition && user && (
-                        <ScoringDialog 
-                            quote={selectedQuoteForScoring} 
-                            requisition={requisition} 
-                            user={user} 
-                            onScoreSubmitted={handleScoreSubmitted}
+                    </CardHeader>
+                    <CardContent>
+                    {loading ? (
+                        <div className="flex items-center justify-center h-24">
+                            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                        </div>
+                    ) : (
+                        <QuoteComparison 
+                            quotes={quotations} 
+                            requisition={requisition}
+                            onScore={handleScoreButtonClick}
+                            user={user}
+                            isDeadlinePassed={isDeadlinePassed}
                             isScoringDeadlinePassed={isScoringDeadlinePassed}
                         />
                     )}
-                </Dialog>
-                 {isAccepted && (
-                    <CardFooter>
-                         <Alert variant="default" className="w-full border-green-600">
-                            <CheckCircle className="h-4 w-4 text-green-600" />
-                            <AlertTitle>Award Accepted</AlertTitle>
-                            <AlertDescription>
-                                The vendor has accepted the award. The PO has been generated.
-                            </AlertDescription>
-                        </Alert>
-                    </CardFooter>
-                )}
-            </Card>
+                    </CardContent>
+                    <Dialog open={isScoringFormOpen} onOpenChange={setScoringFormOpen}>
+                        {selectedQuoteForScoring && requisition && user && (
+                            <ScoringDialog 
+                                quote={selectedQuoteForScoring} 
+                                requisition={requisition} 
+                                user={user} 
+                                onScoreSubmitted={handleScoreSubmitted}
+                                isScoringDeadlinePassed={isScoringDeadlinePassed}
+                            />
+                        )}
+                    </Dialog>
+                    {isAccepted && (
+                        <CardFooter>
+                            <Alert variant="default" className="w-full border-green-600">
+                                <CheckCircle className="h-4 w-4 text-green-600" />
+                                <AlertTitle>Award Accepted</AlertTitle>
+                                <AlertDescription>
+                                    The vendor has accepted the award. The PO has been generated.
+                                </AlertDescription>
+                            </Alert>
+                        </CardFooter>
+                    )}
+                </Card>
+            </>
         )}
         
         {currentStep === 'award' && (role === 'Procurement Officer' || role === 'Committee') && quotations.length > 0 && (
