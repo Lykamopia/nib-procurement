@@ -2253,11 +2253,8 @@ export default function QuotationDetailsPage() {
 
   const getCurrentStep = (): 'rfq' | 'committee' | 'award' | 'finalize' | 'completed' => {
       if (!requisition) return 'rfq';
-      const { status } = requisition;
+      const { status, deadline } = requisition;
       
-      if (status === 'Approved') {
-          return 'rfq';
-      }
       if (status === 'PO_Created' || status === 'Fulfilled' || status === 'Closed') {
           return 'completed';
       }
@@ -2267,11 +2264,11 @@ export default function QuotationDetailsPage() {
       if (isAwarded) {
           return 'award';
       }
-      if (status === 'RFQ_In_Progress') {
-          if (isDeadlinePassed) {
-              return 'committee';
-          }
-          return 'rfq'; // Still waiting for quotes
+      if (status === 'RFQ_In_Progress' && deadline && isPast(new Date(deadline))) {
+          return 'committee';
+      }
+      if (status === 'RFQ_In_Progress' || status === 'Approved') {
+          return 'rfq';
       }
       return 'rfq'; // Default fallback
   };
@@ -2348,7 +2345,7 @@ export default function QuotationDetailsPage() {
             </Card>
         )}
 
-        {(currentStep === 'rfq' || requisition.status === 'Approved') && (user.role === 'Procurement Officer' || user.role === 'Admin') && (
+        {currentStep === 'rfq' && (user?.role === 'Procurement Officer' || user?.role === 'Admin') && (
             <div className="grid md:grid-cols-2 gap-6 items-start">
                 <RFQDistribution 
                     requisition={requisition} 
@@ -2368,7 +2365,7 @@ export default function QuotationDetailsPage() {
             </div>
         )}
         
-        {currentStep === 'committee' && (user.role === 'Procurement Officer' || user.role === 'Admin') && (
+        {currentStep === 'committee' && (user?.role === 'Procurement Officer' || user?.role === 'Admin') && (
             <>
                 <CommitteeManagement
                     requisition={requisition} 
@@ -2554,3 +2551,5 @@ export default function QuotationDetailsPage() {
     </div>
   );
 }
+
+    
