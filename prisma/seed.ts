@@ -19,16 +19,15 @@ async function main() {
   await prisma.technicalScore.deleteMany({});
   await prisma.committeeScoreSet.deleteMany({});
   await prisma.quotation.deleteMany({});
-  await prisma.evaluationCriterion.deleteMany({});
-  await prisma.financialCriterion.deleteMany({});
   await prisma.technicalCriterion.deleteMany({});
+  await prisma.financialCriterion.deleteMany({});
   await prisma.evaluationCriteria.deleteMany({});
   await prisma.customQuestion.deleteMany({});
   await prisma.requisitionItem.deleteMany({});
+  await prisma.committeeAssignment.deleteMany({});
   await prisma.purchaseRequisition.deleteMany({});
   await prisma.kYC_Document.deleteMany({});
   await prisma.vendor.deleteMany({});
-  await prisma.committeeAssignment.deleteMany({});
   await prisma.user.deleteMany({});
   await prisma.department.deleteMany({});
   console.log('Existing data cleared.');
@@ -36,6 +35,8 @@ async function main() {
   console.log(`Start seeding ...`);
 
   const seedData = getInitialData();
+  const allDepartments = seedData.departments;
+
 
   // Seed Departments
   for (const department of seedData.departments) {
@@ -92,13 +93,19 @@ async function main() {
           approverId,
           financialCommitteeMemberIds,
           technicalCommitteeMemberIds,
+          department,
+          committeeMemberIds, // old field, remove it
           ...reqData 
       } = requisition;
+
+      const departmentRecord = allDepartments.find(d => d.name === department);
+
       const createdRequisition = await prisma.purchaseRequisition.create({
           data: {
               ...reqData,
               requester: { connect: { id: requesterId } },
               approver: approverId ? { connect: { id: approverId } } : undefined,
+              department: departmentRecord ? { connect: { id: departmentRecord.id } } : undefined,
               financialCommitteeMembers: financialCommitteeMemberIds ? { connect: financialCommitteeMemberIds.map(id => ({ id })) } : undefined,
               technicalCommitteeMembers: technicalCommitteeMemberIds ? { connect: technicalCommitteeMemberIds.map(id => ({ id })) } : undefined,
               deadline: reqData.deadline ? new Date(reqData.deadline) : undefined,
