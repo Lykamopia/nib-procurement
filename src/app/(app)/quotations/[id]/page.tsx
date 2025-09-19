@@ -2250,24 +2250,28 @@ export default function QuotationDetailsPage() {
   const getCurrentStep = (): 'rfq' | 'committee' | 'award' | 'finalize' | 'completed' => {
       if (!requisition) return 'rfq';
   
-      const { status } = requisition;
-      const anyCommitteeAssigned = (requisition.financialCommitteeMemberIds?.length ?? 0) > 0 || (requisition.technicalCommitteeMemberIds?.length ?? 0) > 0;
-  
+      const { status, deadline } = requisition;
+      const anyAwardAction = isAwarded || isAccepted;
+      const deadlinePassed = deadline ? isPast(new Date(deadline)) : false;
+
+      // Final states
       if (status === 'PO_Created') return 'completed';
       if (isAccepted) return 'finalize';
-      if (isAwarded) return 'award';
+      if (anyAwardAction) return 'award';
       if (isScoringComplete) return 'award';
-  
-      if (status === 'RFQ_In_Progress' && isDeadlinePassed) {
-        return 'committee';
+
+      // Intermediate states
+      if (status === 'RFQ_In_Progress' && deadlinePassed) {
+          return 'committee';
+      }
+      if (status === 'Approved' || (status === 'RFQ_In_Progress' && !deadlinePassed)) {
+          return 'rfq';
       }
       
-      if (status === 'Approved' || status === 'RFQ_In_Progress') {
-        return 'rfq';
-      }
-  
-      return 'award'; // Default fallback
+      // Default / fallback
+      return 'rfq';
   };
+  
   const currentStep = getCurrentStep();
   
   const formatEvaluationCriteria = (criteria?: EvaluationCriteria) => {
