@@ -2253,29 +2253,29 @@ export default function QuotationDetailsPage() {
   }
 
   const getCurrentStep = (): 'rfq' | 'committee' | 'award' | 'finalize' | 'completed' => {
-    if (!requisition) return 'rfq';
-    const { status, deadline } = requisition;
+      if (!requisition) return 'rfq';
+      const { status } = requisition;
 
-    if (status === 'PO_Created' || status === 'Fulfilled' || status === 'Closed') {
-        return 'completed';
-    }
-    if (isAccepted) {
-        return 'finalize';
-    }
-    if (isAwarded) {
-        return 'award';
-    }
-    if (status === 'RFQ_In_Progress') {
-        if (isDeadlinePassed) {
-            return 'committee';
-        }
-        return 'rfq';
-    }
-    if (status === 'Approved') {
-        return 'rfq';
-    }
-    return 'rfq'; // Default fallback
-};
+      if (status === 'PO_Created' || status === 'Fulfilled' || status === 'Closed') {
+          return 'completed';
+      }
+      if (isAccepted) {
+          return 'finalize';
+      }
+      if (isAwarded) {
+          return 'award';
+      }
+      if (status === 'RFQ_In_Progress') {
+          if (isDeadlinePassed) {
+              return 'committee';
+          }
+          return 'rfq'; // Still waiting for quotes
+      }
+      if (status === 'Approved') {
+          return 'rfq';
+      }
+      return 'rfq'; // Default fallback
+  };
   const currentStep = getCurrentStep();
   
   const formatEvaluationCriteria = (criteria?: EvaluationCriteria) => {
@@ -2349,7 +2349,7 @@ export default function QuotationDetailsPage() {
             </Card>
         )}
 
-        {(currentStep === 'rfq' || requisition.status === 'Approved') && (user.role === 'Procurement Officer' || user.role === 'Admin') && (
+        {(currentStep === 'rfq') && (user.role === 'Procurement Officer' || user.role === 'Admin') && (
             <div className="grid md:grid-cols-2 gap-6 items-start">
                 <RFQDistribution 
                     requisition={requisition} 
@@ -2555,3 +2555,5 @@ export default function QuotationDetailsPage() {
     </div>
   );
 }
+
+    
