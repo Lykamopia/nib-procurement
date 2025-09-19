@@ -66,6 +66,7 @@ async function main() {
     const createdVendor = await prisma.vendor.create({
       data: {
           ...vendorData,
+          kycStatus: vendorData.kycStatus.replace(/ /g, '_') as any,
           user: { connect: { id: vendor.userId } }
       },
     });
@@ -103,6 +104,7 @@ async function main() {
       const createdRequisition = await prisma.purchaseRequisition.create({
           data: {
               ...reqData,
+              status: reqData.status.replace(/ /g, '_') as any,
               requester: { connect: { id: requesterId } },
               approver: approverId ? { connect: { id: approverId } } : undefined,
               department: departmentRecord ? { connect: { id: departmentRecord.id } } : undefined,
@@ -165,6 +167,7 @@ async function main() {
        const createdQuote = await prisma.quotation.create({
            data: {
                ...quoteData,
+               status: quoteData.status.replace(/ /g, '_') as any,
                deliveryDate: new Date(quoteData.deliveryDate),
                createdAt: new Date(quoteData.createdAt)
            }
@@ -200,6 +203,7 @@ async function main() {
         const createdPO = await prisma.purchaseOrder.create({
             data: {
                 ...poData,
+                status: poData.status.replace(/ /g, '_') as any,
                 createdAt: new Date(poData.createdAt),
                 vendorId: po.vendor.id,
             }
@@ -224,6 +228,7 @@ async function main() {
         const createdInvoice = await prisma.invoice.create({
             data: {
                 ...invoiceData,
+                status: invoiceData.status.replace(/ /g, '_') as any,
                 invoiceDate: new Date(invoiceData.invoiceDate),
                 paymentDate: invoiceData.paymentDate ? new Date(invoiceData.paymentDate) : undefined,
             }
@@ -257,6 +262,7 @@ async function main() {
                 await prisma.receiptItem.create({
                     data: {
                         ...item,
+                        condition: item.condition.replace(/ /g, '_') as any,
                         goodsReceiptNoteId: createdGrn.id,
                     }
                 })
