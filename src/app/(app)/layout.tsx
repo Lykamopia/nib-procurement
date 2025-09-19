@@ -48,9 +48,9 @@ export default function AppLayout({
         if (item.path === '/settings') {
             return role === 'Procurement Officer' || role === 'Admin';
         }
-        // Hide audit log unless Procurement Officer
+        // Hide audit log unless Procurement Officer or Admin
         if (item.path === '/audit-log') {
-            return role === 'Procurement Officer';
+            return role === 'Procurement Officer' || role === 'Admin';
         }
         return allowedPaths.includes(item.path);
     });
@@ -67,8 +67,11 @@ export default function AppLayout({
     if (!loading && role) {
       const currentPath = pathname.split('?')[0];
       const allowedPaths = rolePermissions[role] || [];
-      // Allow access to sub-pages like /purchase-orders/[id]
-      const isAllowed = allowedPaths.some(path => currentPath.startsWith(path));
+      
+      const isAllowed = allowedPaths.some(path => {
+        // Exact match or sub-route match (e.g. /quotations allows /quotations/123)
+        return currentPath === path || currentPath.startsWith(`${path}/`);
+      });
 
       if (!isAllowed) {
         // Redirect to the first accessible page or dashboard if available

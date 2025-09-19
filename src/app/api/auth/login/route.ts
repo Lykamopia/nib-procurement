@@ -20,8 +20,10 @@ export async function POST(request: Request) {
         console.log("Login successful, user found:", user);
         const mockToken = `mock-token-for-${user.id}__ROLE__${user.role}__TS__${Date.now()}`;
         const { password: _, ...userWithoutPassword } = user;
+        
+        const clientRole = user.role.replace(/_/g, ' ') as UserRole;
 
-        return NextResponse.json({ user: userWithoutPassword, token: mockToken, role: user.role });
+        return NextResponse.json({ user: userWithoutPassword, token: mockToken, role: clientRole });
     }
 
     console.error(`Login failed for email: ${email}. User not found or password incorrect.`);

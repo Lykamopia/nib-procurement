@@ -1,6 +1,7 @@
 
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { UserRole } from '@/lib/types';
 
 export async function POST(request: Request) {
     try {
@@ -29,7 +30,9 @@ export async function POST(request: Request) {
           console.log("Token valid. Found user:", user);
           const { password: _, ...userWithoutPassword } = user;
           
-          return NextResponse.json({ user: userWithoutPassword, role: user.role });
+          const clientRole = user.role.replace(/_/g, ' ') as UserRole;
+
+          return NextResponse.json({ user: userWithoutPassword, role: clientRole });
         }
         
         console.error("User from token not found or role mismatch.");
