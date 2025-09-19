@@ -47,17 +47,20 @@ export function RequisitionsForQuotingTable() {
             }
             let data: PurchaseRequisition[] = await response.json();
             
+            let relevantRequisitions = data;
+
             if (role === 'Committee Member' && user) {
-                data = data.filter(r => 
+                relevantRequisitions = data.filter(r => 
                     (r.financialCommitteeMemberIds?.includes(user.id)) ||
                     (r.technicalCommitteeMemberIds?.includes(user.id))
                 );
+            } else if (role === 'Procurement Officer') {
+                relevantRequisitions = data.filter(r => 
+                    ['Approved', 'RFQ In Progress', 'PO Created', 'Fulfilled', 'Closed'].includes(r.status)
+                );
             }
 
-            const availableForQuoting = data.filter(r => 
-                r.status === 'Approved' || r.status === 'RFQ In Progress' || r.status === 'PO Created'
-            );
-            setRequisitions(availableForQuoting);
+            setRequisitions(relevantRequisitions);
         } catch (e) {
             setError(e instanceof Error ? e.message : 'An unknown error occurred');
         } finally {
@@ -83,7 +86,7 @@ export function RequisitionsForQuotingTable() {
   const getStatusVariant = (status: string) => {
     if (status === 'Approved') return 'default';
     if (status === 'RFQ In Progress') return 'secondary';
-    if (status === 'PO Created') return 'outline';
+    if (status === 'PO Created' || status === 'Fulfilled' || status === 'Closed') return 'outline';
     return 'default';
   }
 
@@ -162,4 +165,3 @@ export function RequisitionsForQuotingTable() {
     </Card>
   );
 }
-
