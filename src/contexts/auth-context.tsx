@@ -3,8 +3,7 @@
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { User, UserRole } from '@/lib/types';
-import { getUserByToken, login as authLoginHelper } from '@/lib/auth';
-import { users } from '@/lib/auth-store';
+import { getUserByToken, login as authLoginHelper, getAllUsers } from '@/lib/auth';
 
 interface AuthContextType {
   user: User | null;
@@ -24,26 +23,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [role, setRole] = useState<UserRole | null>(null);
   const [loading, setLoading] = useState(true);
-
-  const allTestUsers = users.map(({ password, ...user }) => user);
+  const [allUsers, setAllUsers] = useState<User[]>([]);
 
 
   useEffect(() => {
-    const storedToken = localStorage.getItem('authToken');
-    if (storedToken) {
-      getUserByToken(storedToken).then(userData => {
-        if(userData) {
-          setToken(storedToken);
-          setUser(userData.user);
-          setRole(userData.role);
-        } else {
-          localStorage.removeItem('authToken');
+    const initializeAuth = async () => {
+      try {
+        const storedToken = localStorage.getItem('authToken');
+        if (storedToken) {
+          const userData = await getUserByToken(storedToken);
+          if(userData) {
+            setToken(storedToken);
+            setUser(userData.user);
+            setRole(userData.role);
+          } else {
+            localStorage.removeItem('authToken');
+          }
         }
-        setLoading(false);
-      });
-    } else {
-      setLoading(false);
-    }
+        
+        // Fetch all users for the role switcher
+        const users = await getAllUsers();
+        setAllUsers(users);
+
+      } catch (error) {
+          console.error("Auth initialization error:", error);
+          localStorage.removeItem('authToken');
+      } finally {
+          setLoading(false);
+      }
+    };
+    
+    initializeAuth();
   }, []);
 
   const login = (newToken: string, loggedInUser: User, loggedInRole: UserRole) => {
@@ -54,7 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
   
   const switchUser = async (userId: string) => {
-    const targetUser = users.find(u => u.id === userId);
+    const targetUser = allUsers.find(u => u.id === userId);
     if (targetUser && targetUser.password) {
         const loginResult = await authLoginHelper(targetUser.email, targetUser.password);
         if (loginResult) {
@@ -74,7 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, role, allUsers: allTestUsers, switchUser, login, logout, loading }}>
+    <AuthContext.Provider value={{ user, token, role, allUsers, switchUser, login, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );

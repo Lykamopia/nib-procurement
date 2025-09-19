@@ -104,7 +104,7 @@ export async function getUserByToken(token: string): Promise<{ user: User, role:
 
         if (user && user.role === userRole) {
           console.log("Token valid. Found user:", user);
-          const { password, ...userWithoutPassword } = user;
+          const { password: _, ...userWithoutPassword } = user;
           
           return { user: userWithoutPassword as User, role: user.role as UserRole };
         }
