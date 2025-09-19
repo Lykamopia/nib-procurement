@@ -2249,20 +2249,29 @@ export default function QuotationDetailsPage() {
 
   const getCurrentStep = (): 'rfq' | 'committee' | 'award' | 'finalize' | 'completed' => {
     if (!requisition) return 'rfq';
+
     if (requisition.status === 'Approved') {
         return 'rfq';
     }
-    if (requisition.status === 'RFQ In Progress' && !isDeadlinePassed) {
-        return 'rfq';
-    }
-     if (requisition.status === 'RFQ In Progress' && isDeadlinePassed) {
+    
+    if (requisition.status === 'RFQ In Progress') {
+        if (!isDeadlinePassed) {
+             // RFQ is out, but deadline hasn't passed.
+             // Can assign committee during this time.
+            return 'committee';
+        }
+        
+        // Deadline has passed
         const anyCommittee = (requisition.financialCommitteeMemberIds && requisition.financialCommitteeMemberIds.length > 0) || 
                              (requisition.technicalCommitteeMemberIds && requisition.technicalCommitteeMemberIds.length > 0);
         if (!anyCommittee) {
+             // If no committee is assigned after deadline, stay in committee step
             return 'committee';
         }
+        // If committee is assigned, move to award/scoring
         return 'award';
     }
+
     if (isAccepted) {
         if (requisition.status === 'PO Created') return 'completed';
         return 'finalize';
@@ -2270,8 +2279,10 @@ export default function QuotationDetailsPage() {
     if (isAwarded) {
         return 'award';
     }
+    
+    // Default fallback if other states aren't met
     return 'award';
-  };
+};
   const currentStep = getCurrentStep();
   
   const formatEvaluationCriteria = (criteria?: EvaluationCriteria) => {
