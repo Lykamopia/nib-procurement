@@ -17,6 +17,8 @@ async function main() {
   await prisma.quoteItem.deleteMany({});
   await prisma.committeeScoreSet.deleteMany({});
   await prisma.quotation.deleteMany({});
+  await prisma.financialScore.deleteMany({});
+  await prisma.technicalScore.deleteMany({});
   await prisma.evaluationCriterion.deleteMany({});
   await prisma.financialCriterion.deleteMany({});
   await prisma.technicalCriterion.deleteMany({});
@@ -26,6 +28,7 @@ async function main() {
   await prisma.purchaseRequisition.deleteMany({});
   await prisma.kYC_Document.deleteMany({});
   await prisma.vendor.deleteMany({});
+  await prisma.committeeAssignment.deleteMany({});
   await prisma.user.deleteMany({});
   await prisma.department.deleteMany({});
   console.log('Existing data cleared.');
@@ -58,7 +61,7 @@ async function main() {
 
   // Seed Vendors
   for (const vendor of seedData.vendors) {
-      const { kycDocuments, ...vendorData } = vendor;
+      const { kycDocuments, userId, ...vendorData } = vendor;
     const createdVendor = await prisma.vendor.create({
       data: {
           ...vendorData,
