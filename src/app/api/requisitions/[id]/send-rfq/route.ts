@@ -5,10 +5,9 @@ import { RequisitionStatus } from '@prisma/client';
 
 export async function POST(
   request: Request,
-  { params }: { params: { id: string } }
+  { params: { id } }: { params: { id: string } }
 ) {
   try {
-    const { id } = params;
     const body = await request.json();
     const { userId, vendorIds, scoringDeadline, deadline, cpoAmount } = body;
 
