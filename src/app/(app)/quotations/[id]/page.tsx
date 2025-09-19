@@ -1019,7 +1019,7 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
                         />
                     </div>
                 </div>
-                <div className="space-y-2">
+                 <div className="space-y-2">
                     <Label>Distribution Type</Label>
                     <Select value={distributionType} onValueChange={(v) => setDistributionType(v as any)} disabled={isSent}>
                         <SelectTrigger>
@@ -2229,19 +2229,24 @@ export default function QuotationDetailsPage() {
 
   const currentStep = useMemo((): 'rfq' | 'committee' | 'award' | 'finalize' | 'completed' => {
     if (!requisition) return 'rfq';
-    const status = requisition.status as string;
+    const status = requisition.status;
+    const anyAwardedQuote = quotations.some(q => q.status === 'Awarded' || q.status === 'Accepted' || q.status === 'Declined' || q.status === 'Failed');
+    const anyAcceptedQuote = quotations.some(q => q.status === 'Accepted');
 
     if (status === 'Approved') return 'rfq';
     if (status === 'PO_Created') return 'completed';
-    if (isAccepted) return 'finalize';
-    if (isAwarded) return 'award';
+    if (anyAcceptedQuote) return 'finalize';
+    if (anyAwardedQuote) return 'award';
     if (status === 'RFQ_In_Progress') {
-      if (isDeadlinePassed) return 'committee';
-      return 'rfq';
+        const deadline = requisition.deadline ? new Date(requisition.deadline) : null;
+        if (deadline && isPast(deadline)) {
+            return 'committee';
+        }
+        return 'rfq';
     }
     
     return 'committee';
-  }, [requisition, isAccepted, isAwarded, isDeadlinePassed]);
+  }, [requisition, quotations]);
   
   const formatEvaluationCriteria = (criteria?: EvaluationCriteria) => {
       if (!criteria) return "No specific criteria defined.";
@@ -2304,7 +2309,7 @@ export default function QuotationDetailsPage() {
             </Card>
         )}
         
-        {requisition.status === 'Approved' && (
+        {currentStep === 'rfq' && requisition.status === 'Approved' && (
              <RFQDistribution 
                 requisition={requisition} 
                 vendors={vendors} 
@@ -2476,5 +2481,6 @@ export default function QuotationDetailsPage() {
     </div>
   );
 }
+
 
 
