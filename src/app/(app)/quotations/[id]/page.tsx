@@ -871,7 +871,7 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
     const { user } = useAuth();
     const { toast } = useToast();
     
-    const isSent = requisition.status === 'RFQ In Progress' || requisition.status === 'PO Created';
+    const isSent = requisition.status === 'RFQ_In_Progress' || requisition.status === 'PO_Created';
 
      useEffect(() => {
         if (requisition.deadline) {
@@ -976,7 +976,7 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
                         }
                     </CardDescription>
                 </div>
-                 {isSent && requisition.status !== 'PO Created' && user?.role === 'Procurement Officer' && (
+                 {isSent && requisition.status !== 'PO_Created' && user?.role === 'Procurement Officer' && (
                     <div className="flex gap-2">
                         <Button variant="outline" size="sm" onClick={() => setActionDialog({isOpen: true, type: 'update'})}><Settings2 className="mr-2"/> Update RFQ</Button>
                         <Button variant="destructive" size="sm" onClick={() => setActionDialog({isOpen: true, type: 'cancel'})}><Ban className="mr-2"/> Cancel RFQ</Button>
@@ -2255,7 +2255,7 @@ export default function QuotationDetailsPage() {
       if (status === 'PO_Created') return 'completed';
       if (isAccepted) return 'finalize';
       if (isAwarded) return 'award';
-
+      
       if (status === 'Approved') {
           return 'rfq';
       }
@@ -2268,7 +2268,7 @@ export default function QuotationDetailsPage() {
           }
       }
       
-      return 'rfq';
+      return 'rfq'; // Default fallback
   };
   const currentStep = getCurrentStep();
   
@@ -2414,7 +2414,7 @@ export default function QuotationDetailsPage() {
                                     <FileBarChart2 className="mr-2 h-4 w-4" /> View Cumulative Report
                                 </Button>
                             )}
-                            {isAwarded && requisition.status !== 'PO Created' && (user.role === 'Procurement Officer' || user.role === 'Admin') && (
+                            {isAwarded && requisition.status !== 'PO_Created' && (user.role === 'Procurement Officer' || user.role === 'Admin') && (
                                 <AlertDialog>
                                     <AlertDialogTrigger asChild>
                                         <Button variant="outline" disabled={isChangingAward} className="w-full">
@@ -2520,7 +2520,7 @@ export default function QuotationDetailsPage() {
              />
         )}
         
-        {isAccepted && requisition.status !== 'PO Created' && user.role !== 'Committee Member' && (
+        {isAccepted && requisition.status !== 'PO_Created' && user.role !== 'Committee Member' && (
             <ContractManagement requisition={requisition} />
         )}
          {requisition && (
