@@ -2180,7 +2180,7 @@ export default function QuotationDetailsPage() {
              const response = await fetch(`/api/requisitions/${requisition.id}/finalize-scores`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId: user.id, awardResponseDeadline, awardResponseDurationMinutes: durationMinutes }),
+                body: JSON.stringify({ userId: user.id, awardResponseDeadline, awardResponseDurationMinutes }),
             });
             if (!response.ok) {
                 const errorData = await response.json();
@@ -2247,32 +2247,29 @@ export default function QuotationDetailsPage() {
       fetchRequisitionAndQuotes();
   }
 
- const getCurrentStep = (): 'rfq' | 'committee' | 'award' | 'finalize' | 'completed' => {
-    if (!requisition) return 'rfq';
-    const { status, deadline } = requisition;
-    const deadlinePassed = deadline ? isPast(new Date(deadline)) : false;
+  const getCurrentStep = (): 'rfq' | 'committee' | 'award' | 'finalize' | 'completed' => {
+      if (!requisition) return 'rfq';
+      const { status, deadline } = requisition;
+      const deadlinePassed = deadline ? isPast(new Date(deadline)) : false;
 
-    if (status === 'PO Created') return 'completed';
-    if (isAccepted) return 'finalize';
-    if (isAwarded) return 'award';
+      if (status === 'PO_Created') return 'completed';
+      if (isAccepted) return 'finalize';
+      if (isAwarded) return 'award';
 
-    if (status === 'Approved') {
-        return 'rfq';
-    }
-    
-    if (status === 'RFQ In Progress') {
-        if (!deadlinePassed) {
-            // RFQ is running, show the RFQ view but with committee as the active step
-            return 'rfq'; 
-        } else {
-            // Deadline has passed, move to committee & scoring
-            return 'award';
-        }
-    }
-    
-    // Default/fallback
-    return 'rfq';
-};
+      if (status === 'Approved') {
+          return 'rfq';
+      }
+      
+      if (status === 'RFQ_In_Progress') {
+          if (!deadlinePassed) {
+              return 'rfq'; 
+          } else {
+              return 'committee';
+          }
+      }
+      
+      return 'rfq';
+  };
   const currentStep = getCurrentStep();
   
   const formatEvaluationCriteria = (criteria?: EvaluationCriteria) => {
@@ -2376,7 +2373,7 @@ export default function QuotationDetailsPage() {
         )}
 
 
-        {(currentStep === 'award' || currentStep === 'finalize' || currentStep === 'completed') && (
+        {(currentStep === 'committee' || currentStep === 'award' || currentStep === 'finalize' || currentStep === 'completed') && (
             <>
                 {/* Always render committee management when in award step so dialog can open */}
                 {(currentStep === 'award' || currentStep === 'finalize' || currentStep === 'completed') && (
@@ -2502,7 +2499,7 @@ export default function QuotationDetailsPage() {
             </>
         )}
         
-        {currentStep === 'award' && (user.role === 'Procurement Officer' || user.role === 'Admin') && quotations.length > 0 && (
+        {currentStep === 'committee' && (user.role === 'Procurement Officer' || user.role === 'Admin') && quotations.length > 0 && (
              <ScoringProgressTracker 
                 requisition={requisition}
                 quotations={quotations}
@@ -2514,7 +2511,7 @@ export default function QuotationDetailsPage() {
             />
         )}
         
-        {user.role === 'Committee Member' && currentStep === 'award' && (
+        {user.role === 'Committee Member' && (currentStep === 'committee' || currentStep === 'award') && (
              <CommitteeActions 
                 user={user}
                 requisition={requisition}
