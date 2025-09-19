@@ -15,10 +15,10 @@ async function main() {
   await prisma.purchaseOrder.deleteMany({});
   await prisma.quoteAnswer.deleteMany({});
   await prisma.quoteItem.deleteMany({});
-  await prisma.committeeScoreSet.deleteMany({});
-  await prisma.quotation.deleteMany({});
   await prisma.financialScore.deleteMany({});
   await prisma.technicalScore.deleteMany({});
+  await prisma.committeeScoreSet.deleteMany({});
+  await prisma.quotation.deleteMany({});
   await prisma.evaluationCriterion.deleteMany({});
   await prisma.financialCriterion.deleteMany({});
   await prisma.technicalCriterion.deleteMany({});
@@ -83,14 +83,24 @@ async function main() {
 
   // Seed Requisitions
   for (const requisition of seedData.requisitions) {
-      const { items, customQuestions, evaluationCriteria, quotations, ...reqData } = requisition;
+      const { 
+          items, 
+          customQuestions, 
+          evaluationCriteria, 
+          quotations, 
+          requesterId,
+          approverId,
+          financialCommitteeMemberIds,
+          technicalCommitteeMemberIds,
+          ...reqData 
+      } = requisition;
       const createdRequisition = await prisma.purchaseRequisition.create({
           data: {
               ...reqData,
-              requester: { connect: { id: reqData.requesterId } },
-              approver: reqData.approverId ? { connect: { id: reqData.approverId } } : undefined,
-              financialCommitteeMembers: { connect: reqData.financialCommitteeMemberIds?.map(id => ({ id })) },
-              technicalCommitteeMembers: { connect: reqData.technicalCommitteeMemberIds?.map(id => ({ id })) },
+              requester: { connect: { id: requesterId } },
+              approver: approverId ? { connect: { id: approverId } } : undefined,
+              financialCommitteeMembers: financialCommitteeMemberIds ? { connect: financialCommitteeMemberIds.map(id => ({ id })) } : undefined,
+              technicalCommitteeMembers: technicalCommitteeMemberIds ? { connect: technicalCommitteeMemberIds.map(id => ({ id })) } : undefined,
               deadline: reqData.deadline ? new Date(reqData.deadline) : undefined,
               scoringDeadline: reqData.scoringDeadline ? new Date(reqData.scoringDeadline) : undefined,
               awardResponseDeadline: reqData.awardResponseDeadline ? new Date(reqData.awardResponseDeadline) : undefined,
@@ -251,12 +261,13 @@ async function main() {
 
   // Seed Audit Logs
   for (const log of seedData.auditLogs) {
+    const userForLog = seedData.users.find(u => u.name === log.user);
     await prisma.auditLog.create({
       data: {
           ...log,
           role: log.role.replace(/ /g, '_') as any,
           timestamp: new Date(log.timestamp),
-          userId: log.user === 'System' ? undefined : seedData.users.find(u => u.name === log.user)?.id
+          userId: userForLog ? userForLog.id : undefined
       },
     });
   }
