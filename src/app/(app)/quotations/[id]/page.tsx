@@ -2343,7 +2343,7 @@ export default function QuotationDetailsPage() {
             </Card>
         )}
 
-        {currentStep === 'rfq' && (user.role === 'Procurement Officer' || user.role === 'Admin') && (
+        {(currentStep === 'rfq' || requisition.status === 'Approved') && (user.role === 'Procurement Officer' || user.role === 'Admin') && (
             <div className="grid md:grid-cols-2 gap-6 items-start">
                 <RFQDistribution 
                     requisition={requisition} 
