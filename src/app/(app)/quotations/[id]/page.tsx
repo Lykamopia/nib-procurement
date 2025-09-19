@@ -1138,7 +1138,7 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
 };
 
 const WorkflowStepper = ({ step }: { step: 'rfq' | 'committee' | 'award' | 'finalize' | 'completed' }) => {
-     const getStepClass = (currentStep: string, targetStep: string) => {
+    const getStepState = (currentStep: string, targetStep: string) => {
         const stepOrder = ['rfq', 'committee', 'award', 'finalize', 'completed'];
         const currentIndex = stepOrder.indexOf(currentStep);
         const targetIndex = stepOrder.indexOf(targetStep);
@@ -1147,54 +1147,41 @@ const WorkflowStepper = ({ step }: { step: 'rfq' | 'committee' | 'award' | 'fina
         return 'inactive';
     };
 
-    const rfqState = getStepClass(step, 'rfq');
-    const committeeState = getStepClass(step, 'committee');
-    const awardState = getStepClass(step, 'award');
-    const finalizeState = getStepClass(step, 'finalize');
+    const steps = [
+        { key: 'rfq', label: 'Send RFQ' },
+        { key: 'committee', label: 'Assign Committee & Score' },
+        { key: 'award', label: 'Award' },
+        { key: 'finalize', label: 'Finalize' }
+    ];
 
     const stateClasses = {
         active: 'bg-primary text-primary-foreground border-primary',
-        completed: 'bg-green-500 text-white border-green-500',
+        completed: 'bg-green-600 text-white border-green-600',
         inactive: 'border-border text-muted-foreground'
     };
 
     const textClasses = {
         active: 'text-primary',
-        completed: 'text-muted-foreground',
+        completed: 'text-foreground',
         inactive: 'text-muted-foreground'
-    }
+    };
 
     return (
         <div className="flex items-center justify-center space-x-1 sm:space-x-2 flex-wrap">
-            <div className="flex items-center gap-2">
-                <div className={cn("flex h-6 w-6 items-center justify-center rounded-full border text-xs font-semibold", stateClasses[rfqState])}>
-                    {rfqState === 'completed' ? <Check className="h-4 w-4"/> : '1'}
-                </div>
-                <span className={cn("font-medium", textClasses[rfqState])}>Send RFQ</span>
-            </div>
-             <div className={cn("h-px flex-1 bg-border transition-colors", (committeeState === 'active' || committeeState === 'completed') && "bg-primary")}></div>
-
-            <div className="flex items-center gap-2">
-                <div className={cn("flex h-6 w-6 items-center justify-center rounded-full border text-xs font-semibold", stateClasses[committeeState])}>
-                    {committeeState === 'completed' ? <Check className="h-4 w-4"/> : '2'}
-                </div>
-                <span className={cn("font-medium", textClasses[committeeState])}>Assign Committee &amp; Score</span>
-            </div>
-             <div className={cn("h-px flex-1 bg-border transition-colors", (awardState === 'active' || awardState === 'completed') && "bg-primary")}></div>
-
-            <div className="flex items-center gap-2">
-                <div className={cn("flex h-6 w-6 items-center justify-center rounded-full border text-xs font-semibold", stateClasses[awardState])}>
-                    {awardState === 'completed' ? <Check className="h-4 w-4"/> : '3'}
-                </div>
-                <span className={cn("font-medium", textClasses[awardState])}>Award</span>
-            </div>
-            <div className={cn("h-px flex-1 bg-border transition-colors", (finalizeState === 'active' || finalizeState === 'completed') && "bg-primary")}></div>
-             <div className="flex items-center gap-2">
-                <div className={cn("flex h-6 w-6 items-center justify-center rounded-full border text-xs font-semibold", stateClasses[finalizeState])}>
-                    {finalizeState === 'completed' ? <Check className="h-4 w-4"/> : '4'}
-                </div>
-                <span className={cn("font-medium", textClasses[finalizeState])}>Finalize</span>
-            </div>
+            {steps.map((s, index) => {
+                const state = getStepState(step, s.key);
+                return (
+                    <React.Fragment key={s.key}>
+                        {index > 0 && <div className={cn("h-px flex-1 bg-border transition-colors", (state === 'active' || state === 'completed') && "bg-green-600")}></div>}
+                        <div className="flex items-center gap-2">
+                            <div className={cn("flex h-6 w-6 items-center justify-center rounded-full border text-xs font-semibold transition-colors", stateClasses[state])}>
+                                {state === 'completed' ? <Check className="h-4 w-4"/> : index + 1}
+                            </div>
+                            <span className={cn("font-medium transition-colors", textClasses[state])}>{s.label}</span>
+                        </div>
+                    </React.Fragment>
+                );
+            })}
         </div>
     );
 };
@@ -2161,7 +2148,7 @@ export default function QuotationDetailsPage() {
          const response = await fetch(`/api/requisitions/${requisition.id}/finalize-scores`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId: user.id, awardResponseDeadline, awardResponseDurationMinutes: durationMinutes }),
+            body: JSON.stringify({ userId: user.id, awardResponseDeadline, awardResponseDurationMinutes }),
         });
         if (!response.ok) {
             const errorData = await response.json();
@@ -2230,13 +2217,12 @@ export default function QuotationDetailsPage() {
   const currentStep = useMemo((): 'rfq' | 'committee' | 'award' | 'finalize' | 'completed' => {
     if (!requisition) return 'rfq';
     const status = requisition.status;
-    const anyAwardedQuote = quotations.some(q => q.status === 'Awarded' || q.status === 'Accepted' || q.status === 'Declined' || q.status === 'Failed');
-    const anyAcceptedQuote = quotations.some(q => q.status === 'Accepted');
+    const anyAwarded = quotations.some(q => ['Awarded', 'Accepted', 'Declined', 'Failed'].includes(q.status));
+    const anyAccepted = quotations.some(q => q.status === 'Accepted');
 
-    if (status === 'Approved') return 'rfq';
     if (status === 'PO_Created') return 'completed';
-    if (anyAcceptedQuote) return 'finalize';
-    if (anyAwardedQuote) return 'award';
+    if (anyAccepted) return 'finalize';
+    if (anyAwarded) return 'award';
     if (status === 'RFQ_In_Progress') {
         const deadline = requisition.deadline ? new Date(requisition.deadline) : null;
         if (deadline && isPast(deadline)) {
@@ -2244,6 +2230,7 @@ export default function QuotationDetailsPage() {
         }
         return 'rfq';
     }
+    if (status === 'Approved') return 'rfq';
     
     return 'committee';
   }, [requisition, quotations]);
@@ -2309,7 +2296,7 @@ export default function QuotationDetailsPage() {
             </Card>
         )}
         
-        {currentStep === 'rfq' && requisition.status === 'Approved' && (
+        {currentStep === 'rfq' && (
              <RFQDistribution 
                 requisition={requisition} 
                 vendors={vendors} 
@@ -2326,7 +2313,7 @@ export default function QuotationDetailsPage() {
             />
         )}
 
-        {requisition.status === 'RFQ_In_Progress' && (
+        {currentStep !== 'rfq' && (
             <Card>
                 <CardHeader className="flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div>
@@ -2481,6 +2468,7 @@ export default function QuotationDetailsPage() {
     </div>
   );
 }
+
 
 
 
