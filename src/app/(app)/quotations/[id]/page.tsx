@@ -2038,13 +2038,6 @@ export default function QuotationDetailsPage() {
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isReportOpen, setReportOpen] = useState(false);
 
-  console.log('[PAGE RENDER] QuotationDetailsPage');
-  if (user) {
-    console.log('[AUTH] Current user:', user.name, 'Role:', user.role);
-  } else {
-    console.log('[AUTH] User not loaded yet.');
-  }
-
   const isAwarded = useMemo(() => quotations.some(q => q.status === 'Awarded' || q.status === 'Accepted' || q.status === 'Declined' || q.status === 'Failed'), [quotations]);
   const isAccepted = useMemo(() => quotations.some(q => q.status === 'Accepted'), [quotations]);
   const secondStandby = useMemo(() => quotations.find(q => q.rank === 2), [quotations]);
@@ -2054,14 +2047,12 @@ export default function QuotationDetailsPage() {
   const isDeadlinePassed = useMemo(() => {
     if (!requisition) return false;
     const result = requisition.deadline ? isPast(new Date(requisition.deadline)) : false;
-    console.log('[DEBUG] isDeadlinePassed:', result, 'Deadline:', requisition.deadline);
     return result;
   }, [requisition]);
 
   const isScoringDeadlinePassed = useMemo(() => {
     if (!requisition || !requisition.scoringDeadline) return false;
     const result = isPast(new Date(requisition.scoringDeadline));
-    console.log('[DEBUG] isScoringDeadlinePassed:', result, 'Scoring Deadline:', requisition.scoringDeadline);
     return result;
   }, [requisition]);
 
@@ -2079,13 +2070,11 @@ export default function QuotationDetailsPage() {
         const member = allUsers.find(u => u.id === memberId);
         return member?.committeeAssignments?.some(a => a.requisitionId === requisition.id && a.scoresSubmitted) || false;
     });
-    console.log('[DEBUG] isScoringComplete:', result);
     return result;
   }, [requisition, quotations, allUsers]);
 
     const fetchRequisitionAndQuotes = async () => {
         if (!id) return;
-        console.log(`[FETCH] Starting fetch for requisition ID: ${id}`);
         setLoading(true);
         setLastPOCreated(null);
         try {
@@ -2096,8 +2085,6 @@ export default function QuotationDetailsPage() {
                 fetch('/api/users'), // We need all users to check scoring status
             ]);
 
-            console.log('[FETCH] All API responses received.');
-
             const allReqs = await reqResponse.json();
             const venData = await venResponse.json();
             const quoData = await quoResponse.json();
@@ -2106,7 +2093,6 @@ export default function QuotationDetailsPage() {
                  // The auth context might not be updated yet, so we manually check
                 const currentUserData = allUsersData.find((u:User) => u.id === user.id);
                 if (currentUserData) {
-                    console.log('[AUTH] Manually updating auth context.');
                     const { token } = JSON.parse(localStorage.getItem('authToken') || '{}');
                     login(token, currentUserData, currentUserData.role);
                 }
@@ -2114,13 +2100,11 @@ export default function QuotationDetailsPage() {
 
 
             const currentReq = allReqs.find((r: PurchaseRequisition) => r.id === id);
-            console.log('[FETCH] Found requisition:', currentReq);
 
             if (currentReq) {
                 // Check for expired award and auto-promote if necessary
                 const awardedQuote = quoData.find((q: Quotation) => q.status === 'Awarded');
                 if (awardedQuote && currentReq.awardResponseDeadline && isPast(new Date(currentReq.awardResponseDeadline))) {
-                    console.log('[WORKFLOW] Award deadline missed. Promoting next vendor.');
                     toast({
                         title: 'Deadline Missed',
                         description: `Vendor ${awardedQuote.vendorName} missed the response deadline. Promoting next vendor.`,
@@ -2143,7 +2127,6 @@ export default function QuotationDetailsPage() {
                 }
             } else {
                 toast({ variant: 'destructive', title: 'Error', description: 'Requisition not found.' });
-                 console.error('[FETCH] Requisition not found in API response.');
             }
             
             setVendors(venData);
@@ -2153,7 +2136,6 @@ export default function QuotationDetailsPage() {
             toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch data.' });
         } finally {
             setLoading(false);
-            console.log('[FETCH] Fetch completed, loading set to false.');
         }
     };
 
@@ -2165,23 +2147,19 @@ export default function QuotationDetailsPage() {
   }, [id]);
 
   const handleRfqSent = () => {
-    console.log('[CALLBACK] handleRfqSent triggered.');
     fetchRequisitionAndQuotes();
   }
 
   const handleQuoteAdded = () => {
-    console.log('[CALLBACK] handleQuoteAdded triggered.');
     setAddFormOpen(false);
     fetchRequisitionAndQuotes();
   }
   
   const handleContractFinalized = () => {
-    console.log('[CALLBACK] handleContractFinalized triggered.');
     fetchRequisitionAndQuotes();
   }
   
   const handlePOCreated = (po: PurchaseOrder) => {
-    console.log('[CALLBACK] handlePOCreated triggered with PO:', po);
     fetchRequisitionAndQuotes();
     setLastPOCreated(po);
   }
@@ -2276,48 +2254,34 @@ export default function QuotationDetailsPage() {
 
   const getCurrentStep = (): 'rfq' | 'committee' | 'award' | 'finalize' | 'completed' => {
       if (!requisition) {
-          console.log('[STEP] No requisition data, defaulting to "rfq".');
           return 'rfq';
       }
-  
+      
       const { status, deadline } = requisition;
       const deadlinePassed = deadline ? isPast(new Date(deadline)) : false;
-      
-      console.log(`[STEP] Requisition Status: ${status}`);
-      console.log(`[STEP] Deadline: ${deadline}, Passed: ${deadlinePassed}`);
-      console.log(`[STEP] isAwarded: ${isAwarded}, isAccepted: ${isAccepted}`);
-  
+
       if (status === 'PO_Created' || status === 'Fulfilled' || status === 'Closed') {
-          console.log('[STEP] Result: completed (final status)');
           return 'completed';
       }
       if (isAccepted) {
-          console.log('[STEP] Result: finalize (isAccepted)');
           return 'finalize';
       }
       if (isAwarded) {
-          console.log('[STEP] Result: award (isAwarded)');
           return 'award';
-      }
-      if (status === 'Approved') {
-          console.log('[STEP] Result: rfq (status is Approved)');
-          return 'rfq';
       }
       if (status === 'RFQ_In_Progress') {
           if (deadlinePassed) {
-              console.log('[STEP] Result: committee (deadline passed)');
               return 'committee';
-          } else {
-              console.log('[STEP] Result: rfq (deadline not passed)');
-              return 'rfq';
           }
+          return 'rfq';
       }
-  
-      console.log('[STEP] Result: rfq (default fallback)');
-      return 'rfq';
+      if (status === 'Approved') {
+        return 'rfq';
+      }
+      
+      return 'committee'; // Default or fallback
   };
   const currentStep = getCurrentStep();
-  console.log('[FINAL STEP] Determined current step is:', currentStep);
   
   const formatEvaluationCriteria = (criteria?: EvaluationCriteria) => {
       if (!criteria) return "No specific criteria defined.";
@@ -2392,7 +2356,6 @@ export default function QuotationDetailsPage() {
 
         {(currentStep === 'rfq' || requisition.status === 'Approved') && (user.role === 'Procurement Officer' || user.role === 'Admin') && (
             <div className="grid md:grid-cols-2 gap-6 items-start">
-                 {console.log('[RENDER] Rendering RFQDistribution')}
                 <RFQDistribution 
                     requisition={requisition} 
                     vendors={vendors} 
@@ -2413,7 +2376,6 @@ export default function QuotationDetailsPage() {
         
         {currentStep === 'committee' && (user.role === 'Procurement Officer' || user.role === 'Admin') && (
             <>
-                {console.log('[RENDER] Rendering CommitteeManagement')}
                 <CommitteeManagement
                     requisition={requisition} 
                     onCommitteeUpdated={fetchRequisitionAndQuotes}
@@ -2426,7 +2388,6 @@ export default function QuotationDetailsPage() {
 
         {(currentStep === 'committee' || currentStep === 'award' || currentStep === 'finalize' || currentStep === 'completed') && (
             <>
-                {console.log('[RENDER] Rendering QuoteComparison section')}
                 {/* Always render committee management when in award step so dialog can open */}
                 {(currentStep === 'award' || currentStep === 'finalize' || currentStep === 'completed') && (
                     <div className="hidden">
@@ -2553,7 +2514,6 @@ export default function QuotationDetailsPage() {
         
         {currentStep === 'committee' && (user.role === 'Procurement Officer' || user.role === 'Admin') && quotations.length > 0 && (
              <>
-                {console.log('[RENDER] Rendering ScoringProgressTracker')}
                  <ScoringProgressTracker 
                     requisition={requisition}
                     quotations={quotations}
@@ -2568,7 +2528,6 @@ export default function QuotationDetailsPage() {
         
         {user.role === 'Committee Member' && (currentStep === 'committee' || currentStep === 'award') && (
              <>
-                {console.log('[RENDER] Rendering CommitteeActions')}
                  <CommitteeActions 
                     user={user}
                     requisition={requisition}
@@ -2580,7 +2539,6 @@ export default function QuotationDetailsPage() {
         
         {isAccepted && requisition.status !== 'PO_Created' && user.role !== 'Committee Member' && (
              <>
-                {console.log('[RENDER] Rendering ContractManagement')}
                 <ContractManagement requisition={requisition} />
             </>
         )}
