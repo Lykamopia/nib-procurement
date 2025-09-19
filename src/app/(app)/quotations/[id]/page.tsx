@@ -2253,7 +2253,7 @@ export default function QuotationDetailsPage() {
 
   const getCurrentStep = (): 'rfq' | 'committee' | 'award' | 'finalize' | 'completed' => {
       if (!requisition) return 'rfq';
-      const { status, deadline, quotations: reqQuotations } = requisition;
+      const { status } = requisition;
 
       if (status === 'PO_Created' || status === 'Fulfilled' || status === 'Closed') {
           return 'completed';
@@ -2264,14 +2264,15 @@ export default function QuotationDetailsPage() {
       if (isAwarded) {
           return 'award';
       }
-      if (status === 'RFQ_In_Progress' && deadline && isPast(new Date(deadline))) {
+      if (status === 'RFQ_In_Progress' && isDeadlinePassed) {
           return 'committee';
       }
-      if (status === 'Approved' || (status === 'RFQ_In_Progress' && deadline && !isPast(new Date(deadline)))) {
+      if (status === 'Approved' || status === 'RFQ_In_Progress') {
           return 'rfq';
       }
       return 'rfq'; // Default fallback
   };
+  
   const currentStep = getCurrentStep();
   
   const formatEvaluationCriteria = (criteria?: EvaluationCriteria) => {
