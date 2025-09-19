@@ -871,7 +871,7 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
     const { user } = useAuth();
     const { toast } = useToast();
     
-    const isSent = requisition.status === 'RFQ_In_Progress' || requisition.status === 'PO_Created';
+    const isSent = requisition.status === 'RFQ_In_Progress' || requisition.status === 'PO_Created' || requisition.quotations!.length > 0;
 
      useEffect(() => {
         if (requisition.deadline) {
@@ -2172,7 +2172,7 @@ export default function QuotationDetailsPage() {
             });
             return;
           }
-          durationMinutes = (awardResponseDeadline.getTime() - new Date().getTime()) / (1000 * 60);
+          const awardResponseDurationMinutes = (awardResponseDeadline.getTime() - new Date().getTime()) / (1000 * 60);
         }
         
         setIsFinalizing(true);
@@ -2248,27 +2248,36 @@ export default function QuotationDetailsPage() {
   }
 
   const getCurrentStep = (): 'rfq' | 'committee' | 'award' | 'finalize' | 'completed' => {
-      if (!requisition) return 'rfq';
-      const { status, deadline } = requisition;
+    if (!requisition) return 'rfq';
+    const { status, deadline } = requisition;
+    
+    // Explicitly handle final states first
+    if (status === 'PO_Created' || status === 'Fulfilled' || status === 'Closed') {
+      return 'completed';
+    }
+    if (isAccepted) {
+      return 'finalize';
+    }
+    if (isAwarded) {
+      return 'award';
+    }
+    
+    // Handle in-progress states
+    if (status === 'Approved') {
+      return 'rfq';
+    }
+    
+    if (status === 'RFQ_In_Progress') {
       const deadlinePassed = deadline ? isPast(new Date(deadline)) : false;
-
-      if (status === 'PO_Created') return 'completed';
-      if (isAccepted) return 'finalize';
-      if (isAwarded) return 'award';
-      
-      if (status === 'Approved') {
-          return 'rfq';
+      if (deadlinePassed) {
+        return 'committee';
+      } else {
+        return 'rfq';
       }
-      
-      if (status === 'RFQ_In_Progress') {
-          if (!deadlinePassed) {
-              return 'rfq'; 
-          } else {
-              return 'committee';
-          }
-      }
-      
-      return 'rfq'; // Default fallback
+    }
+    
+    // Default fallback, should ideally not be reached in a normal flow
+    return 'rfq';
   };
   const currentStep = getCurrentStep();
   
