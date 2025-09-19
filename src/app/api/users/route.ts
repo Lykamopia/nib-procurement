@@ -7,7 +7,6 @@ import { UserRole } from '@prisma/client';
 
 export async function GET() {
   const users = await prisma.user.findMany({
-    where: { role: { not: 'Vendor' } },
     include: { department: true }
   });
   return NextResponse.json(users.map(u => ({...u, department: u.department?.name })));
