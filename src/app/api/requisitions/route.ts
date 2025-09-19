@@ -33,7 +33,10 @@ export async function POST(request: Request) {
     const body = await request.json();
     console.log('Request body:', body);
     
-    const user = await prisma.user.findUnique({ where: { name: body.requesterName } });
+    // Find user by email, which is unique, instead of name
+    const users = await prisma.user.findMany();
+    const user = users.find(u => u.name === body.requesterName);
+
     if (!user) {
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
@@ -43,7 +46,7 @@ export async function POST(request: Request) {
         requester: { connect: { id: user.id } },
         requesterName: body.requesterName,
         title: body.title,
-        department: { connect: { id: body.departmentId } },
+        department: { connect: { name: body.department } },
         items: {
           create: body.items.map((item: any) => ({
             name: item.name,
@@ -71,7 +74,7 @@ export async function POST(request: Request) {
             }
           }
         },
-        totalPrice: 0,
+        totalPrice: 0, // This should be calculated or handled differently
         justification: body.justification,
         status: 'Draft',
       }
@@ -81,7 +84,7 @@ export async function POST(request: Request) {
 
     await prisma.auditLog.create({
         data: {
-            userId: user.id,
+            user: { connect: { id: user.id } },
             role: user.role,
             action: 'CREATE',
             entity: 'Requisition',
@@ -132,7 +135,7 @@ export async function PATCH(
           where: { id },
           data: {
             title: body.title,
-            department: { connect: { id: body.departmentId } },
+            department: { connect: { name: body.department } },
             items: {
               deleteMany: {},
               create: body.items.map((item: any) => ({
@@ -156,7 +159,7 @@ export async function PATCH(
           where: { id },
           data: {
             status: status as RequisitionStatus,
-            approverId: (status === 'Approved' || status === 'Rejected') ? userId : requisition.approverId,
+            approver: (status === 'Approved' || status === 'Rejected') ? { connect: { id: userId } } : undefined,
             approverComment: (status === 'Approved' || status === 'Rejected') ? comment : requisition.approverComment,
             updatedAt: new Date(),
           }
@@ -172,7 +175,7 @@ export async function PATCH(
 
     await prisma.auditLog.create({
         data: {
-            userId: user.id,
+            user: { connect: { id: user.id } },
             role: user.role,
             action: 'UPDATE',
             entity: 'Requisition',
