@@ -245,7 +245,7 @@ const QuoteComparison = ({ quotes, requisition, onScore, user, isDeadlinePassed,
             case 'Rejected': return 'destructive';
             case 'Declined': return 'destructive';
             case 'Failed': return 'destructive';
-            case 'Invoice Submitted': return 'outline';
+            case 'Invoice_Submitted': return 'outline';
         }
     }
 
@@ -2045,8 +2045,8 @@ export default function QuotationDetailsPage() {
   const prevAwardedFailed = useMemo(() => quotations.some(q => q.status === 'Failed'), [quotations]);
   
   const isDeadlinePassed = useMemo(() => {
-    if (!requisition) return false;
-    const result = requisition.deadline ? isPast(new Date(requisition.deadline)) : false;
+    if (!requisition || !requisition.deadline) return false;
+    const result = isPast(new Date(requisition.deadline));
     return result;
   }, [requisition]);
 
@@ -2253,34 +2253,29 @@ export default function QuotationDetailsPage() {
   }
 
   const getCurrentStep = (): 'rfq' | 'committee' | 'award' | 'finalize' | 'completed' => {
-      if (!requisition) {
-          return 'rfq';
-      }
-      
-      const { status, deadline } = requisition;
-      const deadlinePassed = deadline ? isPast(new Date(deadline)) : false;
+    if (!requisition) return 'rfq';
+    const { status, deadline } = requisition;
 
-      if (status === 'PO_Created' || status === 'Fulfilled' || status === 'Closed') {
-          return 'completed';
-      }
-      if (isAccepted) {
-          return 'finalize';
-      }
-      if (isAwarded) {
-          return 'award';
-      }
-      if (status === 'RFQ_In_Progress') {
-          if (deadlinePassed) {
-              return 'committee';
-          }
-          return 'rfq';
-      }
-      if (status === 'Approved') {
+    if (status === 'PO_Created' || status === 'Fulfilled' || status === 'Closed') {
+        return 'completed';
+    }
+    if (isAccepted) {
+        return 'finalize';
+    }
+    if (isAwarded) {
+        return 'award';
+    }
+    if (status === 'RFQ_In_Progress') {
+        if (isDeadlinePassed) {
+            return 'committee';
+        }
         return 'rfq';
-      }
-      
-      return 'committee'; // Default or fallback
-  };
+    }
+    if (status === 'Approved') {
+        return 'rfq';
+    }
+    return 'rfq'; // Default fallback
+};
   const currentStep = getCurrentStep();
   
   const formatEvaluationCriteria = (criteria?: EvaluationCriteria) => {

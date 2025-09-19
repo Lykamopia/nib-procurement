@@ -35,11 +35,11 @@ export type Department = {
 
 export type RequisitionStatus =
   | 'Draft'
-  | 'Pending Approval'
+  | 'Pending_Approval'
   | 'Approved'
   | 'Rejected'
-  | 'RFQ In Progress'
-  | 'PO Created'
+  | 'RFQ_In_Progress'
+  | 'PO_Created'
   | 'Fulfilled'
   | 'Closed';
 
@@ -247,7 +247,7 @@ export type InvoiceItem = {
   totalPrice: number;
 };
 
-export type InvoiceStatus = 'Pending' | 'Approved for Payment' | 'Paid' | 'Disputed';
+export type InvoiceStatus = 'Pending' | 'Approved_for_Payment' | 'Paid' | 'Disputed';
 
 export type Invoice = {
   id: string;

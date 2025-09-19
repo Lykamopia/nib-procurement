@@ -69,8 +69,8 @@ export default function VendorDashboardPage() {
 
                 // 1. Filter for requisitions open for quoting
                 const openForQuoting = data.filter(r => 
-                    (r.status === 'RFQ In Progress' || r.status === 'Approved') &&
-                    (r.allowedVendorIds === 'all' || r.allowedVendorIds?.length === 0 || (Array.isArray(r.allowedVendorIds) && r.allowedVendorIds.includes(user.vendorId!))) &&
+                    (r.status === 'RFQ_In_Progress') &&
+                    (r.allowedVendorIds?.length === 0 || (Array.isArray(r.allowedVendorIds) && r.allowedVendorIds.includes(user.vendorId!))) &&
                     (!r.deadline || !isPast(new Date(r.deadline)))
                 );
                 setOpenRequisitions(openForQuoting);

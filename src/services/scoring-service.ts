@@ -1,6 +1,5 @@
-
 import prisma from '@/lib/prisma';
-import { EvaluationCriteria, Quotation } from '@/lib/types';
+import { EvaluationCriteria, Quotation, QuotationStatus } from '@/lib/types';
 
 
 export async function tallyAndAwardScores(requisitionId: string, awardResponseDeadline?: Date, awardResponseDurationMinutes?: number): Promise<{ success: boolean, message: string, winner: string }> {
@@ -54,7 +53,7 @@ export async function tallyAndAwardScores(requisitionId: string, awardResponseDe
 
     for (let i = 0; i < scoredQuotes.length; i++) {
         const quote = scoredQuotes[i];
-        let status: 'Awarded' | 'Standby' | 'Rejected' = 'Rejected';
+        let status: QuotationStatus = 'Rejected';
         let rank: 1 | 2 | 3 | null = null;
         if (i === 0) {
             status = 'Awarded';
