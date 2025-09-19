@@ -9,7 +9,7 @@ import type { RequisitionStatus } from '@prisma/client';
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const status = searchParams.get('status') as RequisitionStatus | null;
-  console.log(`GET /api/requisitions - Fetching requisitions. Status filter: ${status}`);
+  console.log(`[API] GET /api/requisitions - Fetching requisitions. Status filter: ${status}`);
   
   const whereClause = status ? { status } : {};
 
@@ -30,6 +30,7 @@ export async function GET(request: Request) {
       approver: true,
     }
   });
+  console.log(`[API] Found ${requisitions.length} requisitions.`);
   return NextResponse.json(requisitions);
 }
 

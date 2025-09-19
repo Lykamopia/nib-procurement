@@ -7,22 +7,32 @@ export async function POST(
   request: Request,
   { params }: { params: { id: string } }
 ) {
+  console.log(`[API] POST /api/requisitions/${params.id}/send-rfq`);
   try {
     const { id } = params;
+    console.log(`[API] Extracted ID: ${id}`);
     const body = await request.json();
+    console.log('[API] Request body:', body);
     const { userId, vendorIds, scoringDeadline, deadline, cpoAmount } = body;
 
     const requisition = await prisma.purchaseRequisition.findUnique({ where: { id } });
     if (!requisition) {
+      console.error(`[API] Requisition not found for ID: ${id}`);
       return NextResponse.json({ error: 'Requisition not found' }, { status: 404 });
     }
+    console.log('[API] Found requisition:', requisition);
+
 
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
+        console.error(`[API] User not found for ID: ${userId}`);
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
+    console.log('[API] Found user:', user);
+
 
     if (requisition.status !== 'Approved') {
+        console.error(`[API] Requisition status is "${requisition.status}", not "Approved".`);
         return NextResponse.json({ error: 'Requisition must be approved before sending RFQ.' }, { status: 400 });
     }
 
@@ -40,6 +50,8 @@ export async function POST(
             updatedAt: new Date(),
         }
     });
+    console.log('[API] Successfully updated requisition to RFQ_In_Progress:', updatedRequisition);
+
 
     let auditDetails = vendorIds === 'all'
         ? `Sent RFQ to all vendors.`
@@ -59,11 +71,13 @@ export async function POST(
             details: auditDetails,
         }
     });
+    console.log('[API] Audit log created.');
+
 
     return NextResponse.json(updatedRequisition);
 
   } catch (error) {
-    console.error('Failed to send RFQ:', error);
+    console.error('[API] Failed to send RFQ:', error);
     if (error instanceof Error) {
         return NextResponse.json({ error: 'Failed to process request', details: error.message }, { status: 400 });
     }
