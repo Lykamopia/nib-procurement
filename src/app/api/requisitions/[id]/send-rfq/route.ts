@@ -1,3 +1,4 @@
+
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { RequisitionStatus } from '@prisma/client';
@@ -7,7 +8,7 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = params;
+    const id = params.id;
     const body = await request.json();
     const { userId, vendorIds, scoringDeadline, deadline, cpoAmount } = body;
 
