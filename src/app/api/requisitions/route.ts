@@ -34,8 +34,7 @@ export async function POST(request: Request) {
     console.log('Request body:', body);
     
     // Find user by email, which is unique, instead of name
-    const users = await prisma.user.findMany();
-    const user = users.find(u => u.name === body.requesterName);
+    const user = await prisma.user.findFirst({ where: { name: body.requesterName } });
 
     if (!user) {
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
@@ -155,18 +154,19 @@ export async function PATCH(
         auditDetails = `Edited and resubmitted for approval.`;
 
     } else if (status) { // This handles normal status changes
+        const formattedStatus = status.replace(/ /g, '_') as RequisitionStatus;
         updatedRequisition = await prisma.purchaseRequisition.update({
           where: { id },
           data: {
-            status: status as RequisitionStatus,
-            approver: (status === 'Approved' || status === 'Rejected') ? { connect: { id: userId } } : undefined,
-            approverComment: (status === 'Approved' || status === 'Rejected') ? comment : requisition.approverComment,
+            status: formattedStatus,
+            approver: (formattedStatus === 'Approved' || formattedStatus === 'Rejected') ? { connect: { id: userId } } : undefined,
+            approverComment: (formattedStatus === 'Approved' || formattedStatus === 'Rejected') ? comment : requisition.approverComment,
             updatedAt: new Date(),
           }
         });
         auditDetails = `Changed status from "${oldStatus}" to "${status}"`;
 
-        if (status === 'Pending_Approval') auditDetails = `Submitted for approval.`;
+        if (status === 'Pending Approval') auditDetails = `Submitted for approval.`;
         if (status === 'Approved') auditDetails = `Approved requisition. Comment: "${comment}"`;
         if (status === 'Rejected') auditDetails = `Rejected requisition. Comment: "${comment}"`;
     } else {
