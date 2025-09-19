@@ -43,6 +43,33 @@ export async function POST(
     });
 
     const allMemberIds = [...(financialCommitteeMemberIds || []), ...(technicalCommitteeMemberIds || [])];
+    
+    // First, clear existing non-submitted assignments for this requisition
+    await prisma.committeeAssignment.deleteMany({
+      where: {
+        requisitionId: id,
+        scoresSubmitted: false
+      }
+    });
+
+    // Then, create new assignments for the selected members
+    for (const memberId of allMemberIds) {
+      await prisma.committeeAssignment.upsert({
+        where: {
+          userId_requisitionId: {
+            userId: memberId,
+            requisitionId: id
+          }
+        },
+        update: {}, // Don't update if it exists (e.g., if scores were already submitted)
+        create: {
+          userId: memberId,
+          requisitionId: id,
+          scoresSubmitted: false
+        }
+      });
+    }
+
     const committeeMembers = await prisma.user.findMany({
         where: { id: { in: allMemberIds } },
         select: { name: true }
