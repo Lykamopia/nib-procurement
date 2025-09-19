@@ -26,11 +26,14 @@ export async function POST(
         return NextResponse.json({ error: 'Requisition must be approved before sending RFQ.' }, { status: 400 });
     }
 
+    // Handle 'all' case for allowedVendorIds, which expects String[]
+    const finalVendorIds = vendorIds === 'all' ? [] : vendorIds;
+
     const updatedRequisition = await prisma.purchaseRequisition.update({
         where: { id },
         data: {
             status: 'RFQ_In_Progress',
-            allowedVendorIds: vendorIds,
+            allowedVendorIds: finalVendorIds,
             scoringDeadline: scoringDeadline ? new Date(scoringDeadline) : undefined,
             deadline: deadline ? new Date(deadline) : undefined,
             cpoAmount: cpoAmount,
@@ -38,17 +41,17 @@ export async function POST(
         }
     });
 
-    let auditDetails = vendorIds === 'all' 
+    let auditDetails = vendorIds === 'all'
         ? `Sent RFQ to all vendors.`
         : `Sent RFQ to selected vendors: ${vendorIds.join(', ')}.`;
-    
+
     if (cpoAmount) {
         auditDetails += ` CPO of ${cpoAmount} ETB required.`;
     }
 
     await prisma.auditLog.create({
         data: {
-            userId: user.id,
+            user: { connect: { id: user.id } },
             role: user.role,
             action: 'SEND_RFQ',
             entity: 'Requisition',
