@@ -275,12 +275,13 @@ async function main() {
   // Seed Audit Logs
   for (const log of seedData.auditLogs) {
     const userForLog = seedData.users.find(u => u.name === log.user);
+    const { user, ...logData } = log;
     await prisma.auditLog.create({
       data: {
-          ...log,
+          ...logData,
           role: log.role.replace(/ /g, '_') as any,
           timestamp: new Date(log.timestamp),
-          userId: userForLog ? userForLog.id : undefined
+          user: userForLog ? { connect: { id: userForLog.id } } : undefined
       },
     });
   }
