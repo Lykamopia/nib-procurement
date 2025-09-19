@@ -2057,7 +2057,7 @@ export default function QuotationDetailsPage() {
                 const currentUserData = allUsersData.find((u:User) => u.id === user.id);
                 if (currentUserData) {
                     const { token } = JSON.parse(localStorage.getItem('authToken') || '{}');
-                    login(token, currentUserData, currentUserData.role as UserRole);
+                    login(token, currentUserData, currentUserData.role as any);
                 }
             }
 
@@ -2227,22 +2227,21 @@ export default function QuotationDetailsPage() {
       fetchRequisitionAndQuotes();
   }
 
-  const getCurrentStep = (): 'rfq' | 'committee' | 'award' | 'finalize' | 'completed' => {
-      if (!requisition) return 'rfq';
-      const status = requisition.status as string;
+  const currentStep = useMemo((): 'rfq' | 'committee' | 'award' | 'finalize' | 'completed' => {
+    if (!requisition) return 'rfq';
+    const status = requisition.status as string;
 
-      if (status === 'Approved') return 'rfq';
-      if (status === 'PO_Created') return 'completed';
-      if (isAccepted) return 'finalize';
-      if (isAwarded) return 'award';
-      if (status === 'RFQ_In_Progress') {
-        if (isDeadlinePassed) return 'committee';
-        return 'rfq';
-      }
-      
-      return 'committee';
-  };
-  const currentStep = getCurrentStep();
+    if (status === 'Approved') return 'rfq';
+    if (status === 'PO_Created') return 'completed';
+    if (isAccepted) return 'finalize';
+    if (isAwarded) return 'award';
+    if (status === 'RFQ_In_Progress') {
+      if (isDeadlinePassed) return 'committee';
+      return 'rfq';
+    }
+    
+    return 'committee';
+  }, [requisition, isAccepted, isAwarded, isDeadlinePassed]);
   
   const formatEvaluationCriteria = (criteria?: EvaluationCriteria) => {
       if (!criteria) return "No specific criteria defined.";
@@ -2305,7 +2304,7 @@ export default function QuotationDetailsPage() {
             </Card>
         )}
         
-        {currentStep === 'rfq' && requisition.status === 'Approved' && (
+        {requisition.status === 'Approved' && (
              <RFQDistribution 
                 requisition={requisition} 
                 vendors={vendors} 
@@ -2321,7 +2320,6 @@ export default function QuotationDetailsPage() {
                 onOpenChange={setCommitteeDialogOpen}
             />
         )}
-
 
         {requisition.status === 'RFQ_In_Progress' && (
             <Card>
@@ -2478,4 +2476,5 @@ export default function QuotationDetailsPage() {
     </div>
   );
 }
+
 
