@@ -10,7 +10,7 @@ export async function POST(
   try {
     const { id } = params;
     const body = await request.json();
-    const { userId, vendorIds, scoringDeadline, deadline, cpoAmount } = body;
+    const { userId, vendorIds, deadline, cpoAmount } = body;
 
     const requisition = await prisma.purchaseRequisition.findUnique({ where: { id } });
     if (!requisition) {
@@ -26,7 +26,6 @@ export async function POST(
         return NextResponse.json({ error: 'Requisition must be approved before sending RFQ.' }, { status: 400 });
     }
 
-    // Handle 'all' case for allowedVendorIds, which expects String[]
     const finalVendorIds = vendorIds === 'all' ? [] : vendorIds;
 
     const updatedRequisition = await prisma.purchaseRequisition.update({
@@ -34,7 +33,6 @@ export async function POST(
         data: {
             status: 'RFQ_In_Progress',
             allowedVendorIds: finalVendorIds,
-            scoringDeadline: scoringDeadline ? new Date(scoringDeadline) : undefined,
             deadline: deadline ? new Date(deadline) : undefined,
             cpoAmount: cpoAmount,
             updatedAt: new Date(),
@@ -48,6 +46,8 @@ export async function POST(
     if (cpoAmount) {
         auditDetails += ` CPO of ${cpoAmount} ETB required.`;
     }
+    auditDetails += ` Deadline: ${new Date(deadline).toLocaleString()}`;
+
 
     await prisma.auditLog.create({
         data: {

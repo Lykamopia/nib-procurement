@@ -83,7 +83,6 @@ function AddQuoteForm({ requisition, vendors, onQuoteAdded }: { requisition: Pur
     const form = useForm<z.infer<typeof quoteFormSchema>>({
         resolver: zodResolver(quoteFormSchema),
         defaultValues: {
-            vendorId: "",
             notes: "",
             items: requisition.items.map(item => ({
                 requisitionItemId: item.id,
@@ -871,7 +870,7 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
     const { user } = useAuth();
     const { toast } = useToast();
     
-    const isSent = requisition.status === 'RFQ In Progress' || requisition.status === 'PO Created';
+    const isSent = requisition.status === 'RFQ_In_Progress' || requisition.status === 'PO_Created';
 
      useEffect(() => {
         if (requisition.deadline) {
@@ -976,7 +975,7 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
                         }
                     </CardDescription>
                 </div>
-                 {isSent && requisition.status !== 'PO Created' && user?.role === 'Procurement Officer' && (
+                 {isSent && requisition.status !== 'PO_Created' && user?.role === 'Procurement Officer' && (
                     <div className="flex gap-2">
                         <Button variant="outline" size="sm" onClick={() => setActionDialog({isOpen: true, type: 'update'})}><Settings2 className="mr-2"/> Update RFQ</Button>
                         <Button variant="destructive" size="sm" onClick={() => setActionDialog({isOpen: true, type: 'cancel'})}><Ban className="mr-2"/> Cancel RFQ</Button>
@@ -2021,8 +2020,9 @@ export default function QuotationDetailsPage() {
   const router = useRouter();
   const params = useParams();
   const { toast } = useToast();
-  const { user, allUsers, role, login } = useAuth();
+  const { user, allUsers, login } = useAuth();
   const id = params.id as string;
+  const role = user?.role;
   
   const [requisition, setRequisition] = useState<PurchaseRequisition | null>(null);
   const [vendors, setVendors] = useState<Vendor[]>([]);
@@ -2037,6 +2037,72 @@ export default function QuotationDetailsPage() {
   const [isChangingAward, setIsChangingAward] = useState(false);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isReportOpen, setReportOpen] = useState(false);
+
+  const fetchRequisitionAndQuotes = async () => {
+        if (!id) return;
+        setLoading(true);
+        setLastPOCreated(null);
+        try {
+            const [reqResponse, venResponse, quoResponse, usersResponse] = await Promise.all([
+                fetch('/api/requisitions'),
+                fetch('/api/vendors'),
+                fetch(`/api/quotations?requisitionId=${id}`),
+                fetch('/api/users'), 
+            ]);
+            const allReqs = await reqResponse.json();
+            const venData = await venResponse.json();
+            const quoData = await quoResponse.json();
+            const allUsersData = await usersResponse.json();
+            if (user && !allUsers.some(u => u.id === user.id)) {
+                const currentUserData = allUsersData.find((u:User) => u.id === user.id);
+                if (currentUserData) {
+                    const { token } = JSON.parse(localStorage.getItem('authToken') || '{}');
+                    login(token, currentUserData, currentUserData.role as UserRole);
+                }
+            }
+
+            const currentReq = allReqs.find((r: PurchaseRequisition) => r.id === id);
+
+            if (currentReq) {
+                const awardedQuote = quoData.find((q: Quotation) => q.status === 'Awarded');
+                if (awardedQuote && currentReq.awardResponseDeadline && isPast(new Date(currentReq.awardResponseDeadline))) {
+                    toast({
+                        title: 'Deadline Missed',
+                        description: `Vendor ${awardedQuote.vendorName} missed the response deadline. Promoting next vendor.`,
+                        variant: 'destructive',
+                    });
+                    const promoteAction = awardedQuote.rank === 1 && secondStandby ? 'promote_second' : 'promote_third';
+                    await handleAwardChange(promoteAction);
+                    const [refetchedReqRes, refetchedQuoRes] = await Promise.all([
+                        fetch('/api/requisitions'),
+                        fetch(`/api/quotations?requisitionId=${id}`)
+                    ]);
+                    const refetchedReqs = await refetchedReqRes.json();
+                    const refetchedQuos = await refetchedQuoRes.json();
+                    setRequisition(refetchedReqs.find((r: PurchaseRequisition) => r.id === id));
+                    setQuotations(refetchedQuos);
+                } else {
+                    setRequisition(currentReq);
+                    setQuotations(quoData);
+                }
+            } else {
+                toast({ variant: 'destructive', title: 'Error', description: 'Requisition not found.' });
+            }
+            
+            setVendors(venData);
+
+        } catch (error) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch data.' });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        if (id && user) {
+            fetchRequisitionAndQuotes();
+        }
+    }, [id, user]);
 
   const isAwarded = useMemo(() => quotations.some(q => q.status === 'Awarded' || q.status === 'Accepted' || q.status === 'Declined' || q.status === 'Failed'), [quotations]);
   const isAccepted = useMemo(() => quotations.some(q => q.status === 'Accepted'), [quotations]);
@@ -2063,142 +2129,56 @@ export default function QuotationDetailsPage() {
     if (allMemberIds.length === 0) return false;
     if (quotations.length === 0) return false;
 
-    // Check if every assigned member has finalized their scores.
     return allMemberIds.every(memberId => {
         const member = allUsers.find(u => u.id === memberId);
         return member?.committeeAssignments?.some(a => a.requisitionId === requisition.id && a.scoresSubmitted) || false;
     });
   }, [requisition, quotations, allUsers]);
 
-    const fetchRequisitionAndQuotes = async () => {
-        if (!id) return;
-        setLoading(true);
-        setLastPOCreated(null);
-        try {
-            const [reqResponse, venResponse, quoResponse, usersResponse] = await Promise.all([
-                fetch('/api/requisitions'),
-                fetch('/api/vendors'),
-                fetch(`/api/quotations?requisitionId=${id}`),
-                fetch('/api/users'), // We need all users to check scoring status
-            ]);
-            const allReqs = await reqResponse.json();
-            const venData = await venResponse.json();
-            const quoData = await quoResponse.json();
-            const allUsersData = await usersResponse.json();
-            if (user && !allUsers.some(u => u.id === user.id)) {
-                 // The auth context might not be updated yet, so we manually check
-                const currentUserData = allUsersData.find((u:User) => u.id === user.id);
-                if (currentUserData) {
-                    const { token } = JSON.parse(localStorage.getItem('authToken') || '{}');
-                    login(token, currentUserData, currentUserData.role);
-                }
-            }
+  const handleRfqSent = () => fetchRequisitionAndQuotes();
+  const handleQuoteAdded = () => { setAddFormOpen(false); fetchRequisitionAndQuotes(); }
+  const handleContractFinalized = () => fetchRequisitionAndQuotes();
+  const handlePOCreated = (po: PurchaseOrder) => { fetchRequisitionAndQuotes(); setLastPOCreated(po); }
+  
+  const handleFinalizeScores = async (awardResponseDeadline?: Date) => {
+    if (!user || !requisition) return;
 
-
-            const currentReq = allReqs.find((r: PurchaseRequisition) => r.id === id);
-
-            if (currentReq) {
-                // Check for expired award and auto-promote if necessary
-                const awardedQuote = quoData.find((q: Quotation) => q.status === 'Awarded');
-                if (awardedQuote && currentReq.awardResponseDeadline && isPast(new Date(currentReq.awardResponseDeadline))) {
-                    toast({
-                        title: 'Deadline Missed',
-                        description: `Vendor ${awardedQuote.vendorName} missed the response deadline. Promoting next vendor.`,
-                        variant: 'destructive',
-                    });
-                    const promoteAction = awardedQuote.rank === 1 && secondStandby ? 'promote_second' : 'promote_third';
-                    await handleAwardChange(promoteAction);
-                    // Refetch after the change
-                    const [refetchedReqRes, refetchedQuoRes] = await Promise.all([
-                        fetch('/api/requisitions'),
-                        fetch(`/api/quotations?requisitionId=${id}`)
-                    ]);
-                    const refetchedReqs = await refetchedReqRes.json();
-                    const refetchedQuos = await refetchedQuoRes.json();
-                    setRequisition(refetchedReqs.find((r: PurchaseRequisition) => r.id === id));
-                    setQuotations(refetchedQuos);
-                } else {
-                    setRequisition(currentReq);
-                    setQuotations(quoData);
-                }
-            } else {
-                toast({ variant: 'destructive', title: 'Error', description: 'Requisition not found.' });
-            }
-            
-            setVendors(venData);
-
-        } catch (error) {
-            toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch data.' });
-        } finally {
-            setLoading(false);
+    let durationMinutes: number | undefined;
+    if (awardResponseDeadline) {
+      if (isBefore(awardResponseDeadline, new Date())) {
+        toast({
+          variant: 'destructive',
+          title: 'Invalid Deadline',
+          description: 'The award response deadline must be in the future.',
+        });
+        return;
+      }
+      durationMinutes = (awardResponseDeadline.getTime() - new Date().getTime()) / (1000 * 60);
+    }
+    
+    setIsFinalizing(true);
+    try {
+         const response = await fetch(`/api/requisitions/${requisition.id}/finalize-scores`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: user.id, awardResponseDeadline, awardResponseDurationMinutes: durationMinutes }),
+        });
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to finalize scores.');
         }
-    };
-
-
-  useEffect(() => {
-    if (id) {
+        toast({ title: 'Success', description: 'Scores have been finalized and awards distributed.' });
         fetchRequisitionAndQuotes();
+    } catch(error) {
+         toast({
+            variant: 'destructive',
+            title: 'Error',
+            description: error instanceof Error ? error.message : 'An unknown error occurred.',
+        });
+    } finally {
+        setIsFinalizing(false);
     }
-  }, [id]);
-
-  const handleRfqSent = () => {
-    fetchRequisitionAndQuotes();
   }
-
-  const handleQuoteAdded = () => {
-    setAddFormOpen(false);
-    fetchRequisitionAndQuotes();
-  }
-  
-  const handleContractFinalized = () => {
-    fetchRequisitionAndQuotes();
-  }
-  
-  const handlePOCreated = (po: PurchaseOrder) => {
-    fetchRequisitionAndQuotes();
-    setLastPOCreated(po);
-  }
-  
-   const handleFinalizeScores = async (awardResponseDeadline?: Date) => {
-        if (!user || !requisition) return;
-
-        let durationMinutes: number | undefined;
-        if (awardResponseDeadline) {
-          if (isBefore(awardResponseDeadline, new Date())) {
-            toast({
-              variant: 'destructive',
-              title: 'Invalid Deadline',
-              description: 'The award response deadline must be in the future.',
-            });
-            return;
-          }
-          durationMinutes = (awardResponseDeadline.getTime() - new Date().getTime()) / (1000 * 60);
-        }
-        
-        setIsFinalizing(true);
-        try {
-             const response = await fetch(`/api/requisitions/${requisition.id}/finalize-scores`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId: user.id, awardResponseDeadline, awardResponseDurationMinutes: durationMinutes }),
-            });
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || 'Failed to finalize scores.');
-            }
-            toast({ title: 'Success', description: 'Scores have been finalized and awards distributed.' });
-            fetchRequisitionAndQuotes();
-        } catch(error) {
-             toast({
-                variant: 'destructive',
-                title: 'Error',
-                description: error instanceof Error ? error.message : 'An unknown error occurred.',
-            });
-        } finally {
-            setIsFinalizing(false);
-        }
-    }
-
 
   const handleAwardChange = async (action: 'promote_second' | 'promote_third' | 'restart_rfq') => {
     if (!user || !id || !requisition) return;
@@ -2249,39 +2229,16 @@ export default function QuotationDetailsPage() {
 
   const getCurrentStep = (): 'rfq' | 'committee' | 'award' | 'finalize' | 'completed' => {
     if (!requisition) return 'rfq';
+    const status = requisition.status as string;
 
-    if (requisition.status === 'Approved') {
-        return 'rfq';
-    }
+    if (status === 'Approved') return 'rfq';
+    if (status === 'RFQ_In_Progress' && !isDeadlinePassed) return 'rfq';
+    if (status === 'RFQ_In_Progress' && isDeadlinePassed) return 'committee';
+    if (status === 'PO_Created') return 'completed';
+    if (isAccepted) return 'finalize';
+    if (isAwarded) return 'award';
     
-    if (requisition.status === 'RFQ In Progress') {
-        if (!isDeadlinePassed) {
-             // RFQ is out, but deadline hasn't passed.
-             // Can assign committee during this time.
-            return 'committee';
-        }
-        
-        // Deadline has passed
-        const anyCommittee = (requisition.financialCommitteeMemberIds && requisition.financialCommitteeMemberIds.length > 0) || 
-                             (requisition.technicalCommitteeMemberIds && requisition.technicalCommitteeMemberIds.length > 0);
-        if (!anyCommittee) {
-             // If no committee is assigned after deadline, stay in committee step
-            return 'committee';
-        }
-        // If committee is assigned, move to award/scoring
-        return 'award';
-    }
-
-    if (isAccepted) {
-        if (requisition.status === 'PO Created') return 'completed';
-        return 'finalize';
-    }
-    if (isAwarded) {
-        return 'award';
-    }
-    
-    // Default fallback if other states aren't met
-    return 'award';
+    return 'committee';
 };
   const currentStep = getCurrentStep();
   
@@ -2294,18 +2251,8 @@ export default function QuotationDetailsPage() {
           return `${title} (Overall Weight: ${weight}%):\n${itemDetails}`;
       };
 
-      const financialPart = formatSection(
-          'Financial Criteria',
-          criteria.financialWeight,
-          criteria.financialCriteria
-      );
-
-      const technicalPart = formatSection(
-          'Technical Criteria',
-          criteria.technicalWeight,
-          criteria.technicalCriteria
-      );
-
+      const financialPart = formatSection('Financial Criteria', criteria.financialWeight, criteria.financialCriteria);
+      const technicalPart = formatSection('Technical Criteria', criteria.technicalWeight, criteria.technicalCriteria);
       return `${financialPart}\n\n${technicalPart}`;
   };
 
@@ -2355,7 +2302,7 @@ export default function QuotationDetailsPage() {
                 </CardContent>
             </Card>
         )}
-
+        
         {currentStep === 'rfq' && (role === 'Procurement Officer' || role === 'Committee') && (
             <div className="grid md:grid-cols-2 gap-6 items-start">
                 <RFQDistribution 
@@ -2388,7 +2335,6 @@ export default function QuotationDetailsPage() {
 
         {(currentStep === 'award' || currentStep === 'finalize' || currentStep === 'completed') && (
             <>
-                {/* Always render committee management when in award step so dialog can open */}
                 {(currentStep === 'award' || currentStep === 'finalize' || currentStep === 'completed') && (
                     <div className="hidden">
                         <CommitteeManagement
@@ -2427,7 +2373,7 @@ export default function QuotationDetailsPage() {
                                     <FileBarChart2 className="mr-2 h-4 w-4" /> View Cumulative Report
                                 </Button>
                             )}
-                            {isAwarded && requisition.status !== 'PO Created' && role === 'Procurement Officer' && (
+                            {isAwarded && requisition.status !== 'PO_Created' && role === 'Procurement Officer' && (
                                 <AlertDialog>
                                     <AlertDialogTrigger asChild>
                                         <Button variant="outline" disabled={isChangingAward} className="w-full">
@@ -2533,7 +2479,7 @@ export default function QuotationDetailsPage() {
              />
         )}
         
-        {isAccepted && requisition.status !== 'PO Created' && role !== 'Committee Member' && (
+        {isAccepted && requisition.status !== 'PO_Created' && role !== 'Committee Member' && (
             <ContractManagement requisition={requisition} />
         )}
          {requisition && (
@@ -2554,3 +2500,4 @@ export default function QuotationDetailsPage() {
     </div>
   );
 }
+
