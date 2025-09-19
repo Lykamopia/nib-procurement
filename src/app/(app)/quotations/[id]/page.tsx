@@ -2250,31 +2250,23 @@ export default function QuotationDetailsPage() {
   const getCurrentStep = (): 'rfq' | 'committee' | 'award' | 'finalize' | 'completed' => {
       if (!requisition) return 'rfq';
   
-      if (requisition.status === 'Approved') {
-          return 'rfq';
+      const { status } = requisition;
+      const anyCommitteeAssigned = (requisition.financialCommitteeMemberIds?.length ?? 0) > 0 || (requisition.technicalCommitteeMemberIds?.length ?? 0) > 0;
+  
+      if (status === 'PO_Created') return 'completed';
+      if (isAccepted) return 'finalize';
+      if (isAwarded) return 'award';
+      if (isScoringComplete) return 'award';
+  
+      if (status === 'RFQ_In_Progress' && isDeadlinePassed) {
+        return 'committee';
       }
       
-      if (requisition.status === 'RFQ In Progress') {
-          if (!isDeadlinePassed) {
-              return 'rfq';
-          }
-          const anyCommittee = (requisition.financialCommitteeMemberIds && requisition.financialCommitteeMemberIds.length > 0) || 
-                               (requisition.technicalCommitteeMemberIds && requisition.technicalCommitteeMemberIds.length > 0);
-          if (!anyCommittee) {
-              return 'committee';
-          }
-          return 'award';
+      if (status === 'Approved' || status === 'RFQ_In_Progress') {
+        return 'rfq';
       }
   
-      if (isAccepted) {
-          if (requisition.status === 'PO Created') return 'completed';
-          return 'finalize';
-      }
-      if (isAwarded) {
-          return 'award';
-      }
-      
-      return 'award';
+      return 'award'; // Default fallback
   };
   const currentStep = getCurrentStep();
   
