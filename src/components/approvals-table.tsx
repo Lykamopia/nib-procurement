@@ -95,13 +95,12 @@ export function ApprovalsTable() {
   const fetchRequisitions = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/requisitions');
+      const response = await fetch('/api/requisitions?status=Pending_Approval');
       if (!response.ok) {
         throw new Error('Failed to fetch requisitions');
       }
       const data: PurchaseRequisition[] = await response.json();
-      const pending = data.filter(req => req.status === 'Pending Approval');
-      setRequisitions(pending);
+      setRequisitions(data);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'An unknown error occurred');
     } finally {

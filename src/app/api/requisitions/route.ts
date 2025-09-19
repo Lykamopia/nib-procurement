@@ -6,9 +6,15 @@ import prisma from '@/lib/prisma';
 import type { RequisitionStatus } from '@prisma/client';
 
 
-export async function GET() {
-  console.log('GET /api/requisitions - Fetching all requisitions.');
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const status = searchParams.get('status') as RequisitionStatus | null;
+  console.log(`GET /api/requisitions - Fetching requisitions. Status filter: ${status}`);
+  
+  const whereClause = status ? { status } : {};
+
   const requisitions = await prisma.purchaseRequisition.findMany({
+    where: whereClause,
     orderBy: { createdAt: 'desc' },
     include: {
       items: true,
@@ -33,16 +39,23 @@ export async function POST(request: Request) {
     const body = await request.json();
     console.log('Request body:', body);
     
-    // Find user by email, which is unique, instead of name
-    const user = await prisma.user.findFirst({ where: { name: body.requesterName } });
+    const user = await prisma.user.findFirst({ where: { email: body.requesterName } });
 
     if (!user) {
-        return NextResponse.json({ error: 'User not found' }, { status: 404 });
+        // Fallback for when the user is logged in but their email is not what's in the form
+         const loggedInUser = await prisma.user.findFirst({ where: { name: body.requesterName } });
+         if (!loggedInUser) {
+            return NextResponse.json({ error: 'User not found' }, { status: 404 });
+         }
+    }
+    const finalUser = user || await prisma.user.findFirst({ where: { name: body.requesterName } });
+    if(!finalUser) {
+       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
     
     const newRequisition = await prisma.purchaseRequisition.create({
       data: {
-        requester: { connect: { id: user.id } },
+        requester: { connect: { id: finalUser.id } },
         requesterName: body.requesterName,
         title: body.title,
         department: { connect: { name: body.department } },
@@ -83,8 +96,8 @@ export async function POST(request: Request) {
 
     await prisma.auditLog.create({
         data: {
-            user: { connect: { id: user.id } },
-            role: user.role,
+            user: { connect: { id: finalUser.id } },
+            role: finalUser.role,
             action: 'CREATE',
             entity: 'Requisition',
             entityId: newRequisition.id,
@@ -128,7 +141,7 @@ export async function PATCH(
     let updatedRequisition;
     let auditDetails = ``;
 
-    if (oldStatus === 'Rejected' && status === 'Pending_Approval') {
+    if (oldStatus === 'Rejected' && status === 'Pending Approval') {
         // Logic to update the entire requisition
         updatedRequisition = await prisma.purchaseRequisition.update({
           where: { id },
