@@ -1,12 +1,31 @@
+
 import { NextResponse } from 'next/server';
+import prisma from '@/lib/prisma';
 
 export async function GET() {
-  // In a real application, you would fetch this data from a database or other services.
-  const mockData = {
-    openRequisitions: 12,
-    pendingApprovals: 8,
-    pendingPayments: 4,
-  };
+  const openRequisitions = await prisma.purchaseRequisition.count({
+    where: {
+      status: {
+        notIn: ['Closed', 'Fulfilled']
+      }
+    }
+  });
 
-  return NextResponse.json(mockData);
+  const pendingApprovals = await prisma.purchaseRequisition.count({
+    where: {
+      status: 'Pending_Approval'
+    }
+  });
+
+  const pendingPayments = await prisma.invoice.count({
+    where: {
+      status: 'Approved_for_Payment'
+    }
+  });
+
+  return NextResponse.json({
+    openRequisitions,
+    pendingApprovals,
+    pendingPayments
+  });
 }

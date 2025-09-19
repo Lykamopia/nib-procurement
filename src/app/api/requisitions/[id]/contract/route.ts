@@ -1,8 +1,6 @@
 
-
 import { NextResponse } from 'next/server';
-import { requisitions, auditLogs } from '@/lib/data-store';
-import { users } from '@/lib/auth-store';
+import prisma from '@/lib/prisma';
 import { ContractDetails } from '@/lib/types';
 
 export async function POST(
@@ -16,14 +14,14 @@ export async function POST(
     console.log('Request body:', body);
     const { userId, notes, fileName } = body;
 
-    const requisition = requisitions.find((r) => r.id === id);
+    const requisition = await prisma.purchaseRequisition.findUnique({ where: { id } });
     if (!requisition) {
       console.error('Requisition not found for ID:', id);
       return NextResponse.json({ error: 'Requisition not found' }, { status: 404 });
     }
     console.log('Found requisition:', requisition);
 
-    const user = users.find(u => u.id === userId);
+    const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
         console.error('User not found for ID:', userId);
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
@@ -34,25 +32,28 @@ export async function POST(
       uploadDate: new Date(),
     };
     
-    requisition.contract = contractDetails;
-    requisition.negotiationNotes = notes;
-    requisition.updatedAt = new Date();
+    const updatedRequisition = await prisma.purchaseRequisition.update({
+        where: { id },
+        data: {
+            contract: contractDetails as any, // Prisma expects JsonValue
+            negotiationNotes: notes,
+            updatedAt: new Date(),
+        }
+    });
     console.log('Attached contract and notes to requisition.');
 
-    const auditLogEntry = {
-        id: `log-${Date.now()}-${Math.random()}`,
-        timestamp: new Date(),
-        user: user.name,
-        role: user.role,
-        action: 'ATTACH_CONTRACT',
-        entity: 'Requisition',
-        entityId: id,
-        details: `Attached contract "${fileName}" and updated negotiation notes.`,
-    };
-    auditLogs.unshift(auditLogEntry);
-    console.log('Added audit log:', auditLogEntry);
+    await prisma.auditLog.create({
+        data: {
+            userId: user.id,
+            role: user.role,
+            action: 'ATTACH_CONTRACT',
+            entity: 'Requisition',
+            entityId: id,
+            details: `Attached contract "${fileName}" and updated negotiation notes.`,
+        }
+    });
 
-    return NextResponse.json(requisition);
+    return NextResponse.json(updatedRequisition);
 
   } catch (error) {
     console.error('Failed to update contract details:', error);

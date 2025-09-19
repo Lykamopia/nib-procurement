@@ -1,9 +1,7 @@
 
-
 import { NextResponse } from 'next/server';
-import { purchaseOrders, goodsReceipts, auditLogs, quotations } from '@/lib/data-store';
-import { users } from '@/lib/auth-store';
-import { GoodsReceiptNote, PurchaseOrderStatus } from '@/lib/types';
+import prisma from '@/lib/prisma';
+import { PurchaseOrderStatus } from '@prisma/client';
 
 export async function POST(request: Request) {
   console.log('POST /api/receipts - Creating new goods receipt.');
@@ -12,82 +10,100 @@ export async function POST(request: Request) {
     console.log('Request body:', body);
     const { purchaseOrderId, userId, items } = body;
 
-    const user = users.find(u => u.id === userId);
+    const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
         console.error('User not found for ID:', userId);
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    const po = purchaseOrders.find(p => p.id === purchaseOrderId);
+    const po = await prisma.purchaseOrder.findUnique({ 
+      where: { id: purchaseOrderId },
+      include: { items: true }
+    });
     if (!po) {
       console.error('Purchase Order not found for ID:', purchaseOrderId);
       return NextResponse.json({ error: 'Purchase Order not found' }, { status: 404 });
     }
     console.log('Found PO to receive against:', po);
 
-    const newReceipt: GoodsReceiptNote = {
-      id: `GRN-${Date.now()}`,
-      purchaseOrderId,
-      receivedById: userId,
-      receivedBy: user.name,
-      receivedDate: new Date(),
-      items: items,
-    };
-    
-    goodsReceipts.unshift(newReceipt);
-    if (!po.receipts) {
-        po.receipts = [];
-    }
-    po.receipts.push(newReceipt);
+    const newReceipt = await prisma.goodsReceiptNote.create({
+      data: {
+        purchaseOrder: { connect: { id: purchaseOrderId } },
+        receivedBy: { connect: { id: userId } },
+        items: {
+          create: items.map((item: any) => ({
+            poItemId: item.poItemId,
+            name: item.name,
+            quantityOrdered: item.quantityOrdered,
+            quantityReceived: item.quantityReceived,
+            condition: item.condition.replace(/ /g, '_'),
+            notes: item.notes,
+          }))
+        },
+      }
+    });
     console.log('Created new GRN:', newReceipt);
 
     let allItemsDelivered = true;
-    po.items.forEach(poItem => {
+    for (const poItem of po.items) {
         const receivedItem = items.find((i: { poItemId: string; }) => i.poItemId === poItem.id);
         if (receivedItem) {
-            poItem.receivedQuantity = (poItem.receivedQuantity || 0) + receivedItem.quantityReceived;
+            await prisma.pOItem.update({
+                where: { id: poItem.id },
+                data: {
+                    receivedQuantity: { increment: receivedItem.quantityReceived }
+                }
+            });
         }
-        if (poItem.receivedQuantity < poItem.quantity) {
+        const updatedPoItem = await prisma.pOItem.findUnique({ where: { id: poItem.id } });
+        if (updatedPoItem && updatedPoItem.receivedQuantity < updatedPoItem.quantity) {
             allItemsDelivered = false;
         }
+    }
+    
+
+    const newStatus: PurchaseOrderStatus = allItemsDelivered ? 'Delivered' : 'Partially_Delivered';
+    await prisma.purchaseOrder.update({
+      where: { id: po.id },
+      data: { status: newStatus }
     });
+    console.log(`Updated PO ${po.id} status to ${newStatus}`);
 
-    po.status = allItemsDelivered ? 'Delivered' : 'Partially Delivered';
-    console.log(`Updated PO ${po.id} status to ${po.status}`);
-
-    // If fully delivered, reject standby quotes
-    if (po.status === 'Delivered') {
-        quotations.forEach(q => {
-            if (q.requisitionId === po.requisitionId && q.status === 'Standby') {
-                q.status = 'Rejected';
-                const auditLogEntry = {
-                    id: `log-${Date.now()}-${Math.random()}`,
-                    timestamp: new Date(),
-                    user: 'System',
-                    role: 'Admin' as const,
+    if (newStatus === 'Delivered') {
+        const standbyQuotes = await prisma.quotation.findMany({
+            where: {
+                requisitionId: po.requisitionId,
+                status: 'Standby'
+            }
+        });
+        for (const q of standbyQuotes) {
+            await prisma.quotation.update({
+                where: { id: q.id },
+                data: { status: 'Rejected' }
+            });
+            await prisma.auditLog.create({
+                data: {
+                    userId: 'SYSTEM',
+                    role: 'Admin',
                     action: 'AUTO_REJECT_STANDBY',
                     entity: 'Quotation',
                     entityId: q.id,
                     details: `Automatically rejected standby quote from ${q.vendorName} as primary PO ${po.id} was fulfilled.`,
-                };
-                auditLogs.unshift(auditLogEntry);
-            }
-        });
-        console.log(`PO ${po.id} fulfilled. Standby quotes for requisition ${po.requisitionId} have been rejected.`);
+                }
+            });
+        }
     }
 
-    const auditLogEntry = {
-        id: `log-${Date.now()}-${Math.random()}`,
-        timestamp: new Date(),
-        user: user.name,
-        role: user.role,
-        action: 'RECEIVE_GOODS',
-        entity: 'PurchaseOrder',
-        entityId: po.id,
-        details: `Created Goods Receipt Note ${newReceipt.id}. PO status: ${po.status}.`,
-    };
-    auditLogs.unshift(auditLogEntry);
-    console.log('Added audit log:', auditLogEntry);
+    await prisma.auditLog.create({
+        data: {
+            userId: user.id,
+            role: user.role,
+            action: 'RECEIVE_GOODS',
+            entity: 'PurchaseOrder',
+            entityId: po.id,
+            details: `Created Goods Receipt Note ${newReceipt.id}. PO status: ${newStatus}.`,
+        }
+    });
 
     return NextResponse.json(newReceipt, { status: 201 });
   } catch (error) {

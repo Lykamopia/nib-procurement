@@ -1,10 +1,8 @@
 
-
 'use server';
 
 import { NextResponse } from 'next/server';
-import { requisitions, auditLogs, users } from '@/lib/data-store';
-
+import prisma from '@/lib/prisma';
 
 export async function GET(
   request: Request,
@@ -13,7 +11,26 @@ export async function GET(
   console.log(`GET /api/requisitions/${params.id}`);
   try {
     const { id } = params;
-    const requisition = requisitions.find((r) => r.id === id);
+    const requisition = await prisma.purchaseRequisition.findUnique({
+        where: { id },
+        include: {
+            items: true,
+            customQuestions: true,
+            evaluationCriteria: {
+                include: {
+                    financialCriteria: true,
+                    technicalCriteria: true,
+                },
+            },
+            quotations: {
+                include: {
+                    items: true,
+                    answers: true,
+                    scores: true,
+                }
+            }
+        }
+    });
 
     if (!requisition) {
       console.error(`Requisition with ID ${id} not found.`);
@@ -41,38 +58,35 @@ export async function DELETE(
     const body = await request.json();
     const { userId } = body;
 
-    const user = users.find(u => u.id === userId);
+    const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    const requisitionIndex = requisitions.findIndex((r) => r.id === id);
-    if (requisitionIndex === -1) {
+    const requisition = await prisma.purchaseRequisition.findUnique({ where: { id } });
+    if (!requisition) {
       return NextResponse.json({ error: 'Requisition not found' }, { status: 404 });
     }
 
-    const requisition = requisitions[requisitionIndex];
-
-    // Check permissions
     if (requisition.requesterId !== userId) {
       return NextResponse.json({ error: 'You are not authorized to delete this requisition.' }, { status: 403 });
     }
 
-    if (requisition.status !== 'Draft' && requisition.status !== 'Pending Approval') {
+    if (requisition.status !== 'Draft' && requisition.status !== 'Pending_Approval') {
       return NextResponse.json({ error: `Cannot delete a requisition with status "${requisition.status}".` }, { status: 403 });
     }
     
-    requisitions.splice(requisitionIndex, 1);
+    await prisma.purchaseRequisition.delete({ where: { id } });
 
-    auditLogs.unshift({
-      id: `log-${Date.now()}-${Math.random()}`,
-      timestamp: new Date(),
-      user: user.name,
-      role: user.role,
-      action: 'DELETE',
-      entity: 'Requisition',
-      entityId: id,
-      details: `Deleted requisition "${requisition.title}".`,
+    await prisma.auditLog.create({
+      data: {
+        userId: user.id,
+        role: user.role,
+        action: 'DELETE',
+        entity: 'Requisition',
+        entityId: id,
+        details: `Deleted requisition "${requisition.title}".`,
+      }
     });
 
     return NextResponse.json({ message: 'Requisition deleted successfully.' });

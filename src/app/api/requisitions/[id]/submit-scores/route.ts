@@ -2,7 +2,8 @@
 'use server';
 
 import { NextResponse } from 'next/server';
-import { auditLogs, users } from '@/lib/data-store';
+import prisma from '@/lib/prisma';
+
 
 export async function POST(
   request: Request,
@@ -13,36 +14,48 @@ export async function POST(
     const body = await request.json();
     const { userId } = body;
 
-    const user = users.find(u => u.id === userId);
+    const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    if (user.role !== 'Committee Member') {
+    if (user.role !== 'Committee_Member') {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
     
-    if (!user.committeeAssignments) {
-        user.committeeAssignments = [];
-    }
+    const existingAssignment = await prisma.committeeAssignment.findUnique({
+        where: {
+            userId_requisitionId: {
+                userId,
+                requisitionId
+            }
+        }
+    });
 
-    const assignment = user.committeeAssignments.find(a => a.requisitionId === requisitionId);
-
-    if (assignment) {
-        assignment.scoresSubmitted = true;
+    if (existingAssignment) {
+        await prisma.committeeAssignment.update({
+            where: { id: existingAssignment.id },
+            data: { scoresSubmitted: true }
+        });
     } else {
-        user.committeeAssignments.push({ requisitionId, scoresSubmitted: true });
+        await prisma.committeeAssignment.create({
+            data: {
+                user: { connect: { id: userId } },
+                requisition: { connect: { id: requisitionId } },
+                scoresSubmitted: true,
+            }
+        });
     }
 
-    auditLogs.unshift({
-        id: `log-${Date.now()}`,
-        timestamp: new Date(),
-        user: user.name,
-        role: user.role,
-        action: 'SUBMIT_ALL_SCORES',
-        entity: 'Requisition',
-        entityId: requisitionId,
-        details: `Finalized and submitted all scores for the requisition.`,
+    await prisma.auditLog.create({
+        data: {
+            userId: user.id,
+            role: user.role,
+            action: 'SUBMIT_ALL_SCORES',
+            entity: 'Requisition',
+            entityId: requisitionId,
+            details: `Finalized and submitted all scores for the requisition.`,
+        }
     });
 
     return NextResponse.json({ message: 'All scores have been successfully submitted.' });

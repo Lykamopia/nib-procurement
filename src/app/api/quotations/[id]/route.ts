@@ -2,9 +2,7 @@
 'use server';
 
 import { NextResponse } from 'next/server';
-import { quotations, auditLogs, requisitions } from '@/lib/data-store';
-import { users } from '@/lib/auth-store';
-import { Quotation } from '@/lib/types';
+import prisma from '@/lib/prisma';
 import { addDays } from 'date-fns';
 
 export async function GET(
@@ -14,7 +12,31 @@ export async function GET(
   console.log(`GET /api/quotations/${params.id}`);
   try {
     const { id } = params;
-    const requisition = requisitions.find((r) => r.id === id);
+    const requisition = await prisma.purchaseRequisition.findUnique({
+      where: { id },
+      include: {
+        items: true,
+        customQuestions: true,
+        evaluationCriteria: {
+          include: {
+            financialCriteria: true,
+            technicalCriteria: true,
+          },
+        },
+        quotations: {
+          include: {
+            items: true,
+            answers: true,
+            scores: {
+              include: {
+                financialScores: true,
+                technicalScores: true,
+              },
+            },
+          },
+        },
+      },
+    });
 
     if (!requisition) {
       console.error(`Requisition with ID ${id} not found.`);
@@ -43,61 +65,75 @@ export async function PATCH(
         const body = await request.json();
         const { userId, items, notes, answers } = body;
 
-        const user = users.find(u => u.id === userId);
+        const user = await prisma.user.findUnique({ where: { id: userId } });
         if (!user) {
             return NextResponse.json({ error: 'User not found' }, { status: 404 });
         }
         
-        const quoteIndex = quotations.findIndex(q => q.id === quoteId);
-        if (quoteIndex === -1) {
+        const quote = await prisma.quotation.findUnique({ where: { id: quoteId } });
+        if (!quote) {
             return NextResponse.json({ error: 'Quotation not found' }, { status: 404 });
         }
 
-        const quote = quotations[quoteIndex];
+        const isAwardProcessStarted = await prisma.quotation.count({
+            where: { 
+                requisitionId: quote.requisitionId,
+                status: { in: ['Awarded', 'Standby'] }
+            }
+        }) > 0;
         
-        // Check if any quote for this requisition is already awarded or on standby
-        const isAwardProcessStarted = quotations.some(q => q.requisitionId === quote.requisitionId && (q.status === 'Awarded' || q.status === 'Standby'));
         if (isAwardProcessStarted) {
             return NextResponse.json({ error: 'Cannot edit quote after award process has started.' }, { status: 403 });
         }
         
         let totalPrice = 0;
         let maxLeadTime = 0;
-        const quoteItems = items.map((item: any) => {
+        items.forEach((item: any) => {
             totalPrice += item.unitPrice * item.quantity;
             if (item.leadTimeDays > maxLeadTime) {
                 maxLeadTime = item.leadTimeDays;
             }
-            return {
-                requisitionItemId: item.requisitionItemId,
-                name: item.name,
-                quantity: item.quantity,
-                unitPrice: Number(item.unitPrice),
-                leadTimeDays: Number(item.leadTimeDays),
-            };
         });
 
-        const updatedQuote: Quotation = {
-            ...quote,
-            items: quoteItems,
-            totalPrice,
-            deliveryDate: addDays(new Date(), maxLeadTime),
-            notes: notes,
-            answers: answers,
-            createdAt: new Date(), // Update timestamp to reflect edit time
-        };
+        // Delete old items and answers before creating new ones
+        await prisma.quoteItem.deleteMany({ where: { quotationId: quoteId } });
+        await prisma.quoteAnswer.deleteMany({ where: { quotationId: quoteId } });
 
-        quotations[quoteIndex] = updatedQuote;
 
-        auditLogs.unshift({
-            id: `log-${Date.now()}`,
-            timestamp: new Date(),
-            user: user.name,
-            role: user.role,
-            action: 'UPDATE_QUOTATION',
-            entity: 'Quotation',
-            entityId: quoteId,
-            details: `Updated quote for requisition ${quote.requisitionId}.`,
+        const updatedQuote = await prisma.quotation.update({
+            where: { id: quoteId },
+            data: {
+                items: {
+                    create: items.map((item: any) => ({
+                        requisitionItemId: item.requisitionItemId,
+                        name: item.name,
+                        quantity: item.quantity,
+                        unitPrice: Number(item.unitPrice),
+                        leadTimeDays: Number(item.leadTimeDays),
+                    }))
+                },
+                totalPrice,
+                deliveryDate: addDays(new Date(), maxLeadTime),
+                notes: notes,
+                answers: {
+                    create: answers.map((answer: any) => ({
+                        questionId: answer.questionId,
+                        answer: answer.answer
+                    }))
+                },
+                createdAt: new Date(),
+            }
+        });
+
+        await prisma.auditLog.create({
+            data: {
+                userId: user.id,
+                role: user.role,
+                action: 'UPDATE_QUOTATION',
+                entity: 'Quotation',
+                entityId: quoteId,
+                details: `Updated quote for requisition ${quote.requisitionId}.`,
+            }
         });
 
         return NextResponse.json(updatedQuote, { status: 200 });

@@ -1,7 +1,7 @@
 
 import { NextResponse } from 'next/server';
-import { requisitions, auditLogs } from '@/lib/data-store';
-import { users } from '@/lib/auth-store';
+import prisma from '@/lib/prisma';
+import { RequisitionStatus } from '@prisma/client';
 
 export async function POST(
   request: Request,
@@ -12,12 +12,12 @@ export async function POST(
     const body = await request.json();
     const { userId, vendorIds, scoringDeadline, deadline, cpoAmount } = body;
 
-    const requisition = requisitions.find((r) => r.id === id);
+    const requisition = await prisma.purchaseRequisition.findUnique({ where: { id } });
     if (!requisition) {
       return NextResponse.json({ error: 'Requisition not found' }, { status: 404 });
     }
 
-    const user = users.find(u => u.id === userId);
+    const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
@@ -26,12 +26,17 @@ export async function POST(
         return NextResponse.json({ error: 'Requisition must be approved before sending RFQ.' }, { status: 400 });
     }
 
-    requisition.status = 'RFQ In Progress';
-    requisition.allowedVendorIds = vendorIds;
-    requisition.scoringDeadline = scoringDeadline ? new Date(scoringDeadline) : undefined;
-    requisition.deadline = deadline ? new Date(deadline) : undefined;
-    requisition.cpoAmount = cpoAmount;
-    requisition.updatedAt = new Date();
+    const updatedRequisition = await prisma.purchaseRequisition.update({
+        where: { id },
+        data: {
+            status: 'RFQ_In_Progress',
+            allowedVendorIds: vendorIds,
+            scoringDeadline: scoringDeadline ? new Date(scoringDeadline) : undefined,
+            deadline: deadline ? new Date(deadline) : undefined,
+            cpoAmount: cpoAmount,
+            updatedAt: new Date(),
+        }
+    });
 
     let auditDetails = vendorIds === 'all' 
         ? `Sent RFQ to all vendors.`
@@ -41,19 +46,18 @@ export async function POST(
         auditDetails += ` CPO of ${cpoAmount} ETB required.`;
     }
 
-    const auditLogEntry = {
-        id: `log-${Date.now()}-${Math.random()}`,
-        timestamp: new Date(),
-        user: user.name,
-        role: user.role,
-        action: 'SEND_RFQ',
-        entity: 'Requisition',
-        entityId: id,
-        details: auditDetails,
-    };
-    auditLogs.unshift(auditLogEntry);
+    await prisma.auditLog.create({
+        data: {
+            userId: user.id,
+            role: user.role,
+            action: 'SEND_RFQ',
+            entity: 'Requisition',
+            entityId: id,
+            details: auditDetails,
+        }
+    });
 
-    return NextResponse.json(requisition);
+    return NextResponse.json(updatedRequisition);
 
   } catch (error) {
     console.error('Failed to send RFQ:', error);

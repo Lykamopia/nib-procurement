@@ -2,9 +2,8 @@
 'use server';
 
 import { NextResponse } from 'next/server';
-import { auditLogs, vendors } from '@/lib/data-store';
-import { users } from '@/lib/auth-store';
-import { KycStatus } from '@/lib/types';
+import prisma from '@/lib/prisma';
+import { KycStatus } from '@prisma/client';
 
 export async function PATCH(
   request: Request,
@@ -17,18 +16,20 @@ export async function PATCH(
     console.log('Request body:', body);
     const { status, userId, rejectionReason } = body;
 
-    if (!['Verified', 'Rejected'].includes(status)) {
+    const validStatuses: KycStatus[] = ['Verified', 'Rejected'];
+
+    if (!validStatuses.includes(status)) {
       console.error('Invalid status provided:', status);
       return NextResponse.json({ error: 'Invalid status provided.' }, { status: 400 });
     }
     
-    const user = users.find(u => u.id === userId);
+    const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
         console.error('User not found for ID:', userId);
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
     
-    const vendorToUpdate = vendors.find(v => v.id === vendorId);
+    const vendorToUpdate = await prisma.vendor.findUnique({ where: { id: vendorId } });
     if (!vendorToUpdate) {
         console.error('Vendor not found for ID:', vendorId);
         return NextResponse.json({ error: 'Vendor not found' }, { status: 404 });
@@ -36,26 +37,27 @@ export async function PATCH(
     console.log('Found vendor to update:', vendorToUpdate);
 
     const oldStatus = vendorToUpdate.kycStatus;
-    vendorToUpdate.kycStatus = status as KycStatus;
-    if (status === 'Rejected') {
-        vendorToUpdate.rejectionReason = rejectionReason;
-    }
+    const updatedVendor = await prisma.vendor.update({
+        where: { id: vendorId },
+        data: {
+            kycStatus: status as KycStatus,
+            rejectionReason: status === 'Rejected' ? rejectionReason : null,
+        }
+    });
     
-    const auditLogEntry = {
-        id: `log-${Date.now()}-${Math.random()}`,
-        timestamp: new Date(),
-        user: user.name,
-        role: user.role,
-        action: 'VERIFY_VENDOR',
-        entity: 'Vendor',
-        entityId: vendorId,
-        details: `Updated vendor KYC status from "${oldStatus}" to "${status}". ${rejectionReason ? `Reason: ${rejectionReason}` : ''}`.trim(),
-    };
-    auditLogs.unshift(auditLogEntry);
-    console.log('Added audit log:', auditLogEntry);
+    await prisma.auditLog.create({
+        data: {
+            userId: user.id,
+            role: user.role,
+            action: 'VERIFY_VENDOR',
+            entity: 'Vendor',
+            entityId: vendorId,
+            details: `Updated vendor KYC status from "${oldStatus}" to "${status}". ${rejectionReason ? `Reason: ${rejectionReason}` : ''}`.trim(),
+        }
+    });
 
 
-    return NextResponse.json(vendorToUpdate);
+    return NextResponse.json(updatedVendor);
   } catch (error) {
     console.error('Failed to update vendor status:', error);
     if (error instanceof Error) {

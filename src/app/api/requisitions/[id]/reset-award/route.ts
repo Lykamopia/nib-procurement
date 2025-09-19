@@ -1,9 +1,6 @@
 
-
 import { NextResponse } from 'next/server';
-import { auditLogs, quotations, requisitions } from '@/lib/data-store';
-import { users } from '@/lib/auth-store';
-
+import prisma from '@/lib/prisma';
 
 export async function POST(
   request: Request,
@@ -16,48 +13,45 @@ export async function POST(
     console.log('Request body:', body);
     const { userId } = body;
     
-    const user = users.find(u => u.id === userId);
+    const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
         console.error('User not found for ID:', userId);
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
     
-    const requisition = requisitions.find(r => r.id === requisitionId);
+    const requisition = await prisma.purchaseRequisition.findUnique({ where: { id: requisitionId }});
     if (!requisition) {
       console.error('Requisition not found for ID:', requisitionId);
       return NextResponse.json({ error: 'Requisition not found' }, { status: 404 });
     }
     console.log('Found requisition to reset:', requisition);
 
-    let quotesResetCount = 0;
-    quotations.forEach(q => {
-        if (q.requisitionId === requisitionId) {
-            q.status = 'Submitted';
-            quotesResetCount++;
-        }
+    const { count } = await prisma.quotation.updateMany({
+        where: { requisitionId },
+        data: { status: 'Submitted' }
     });
-    console.log(`Reset ${quotesResetCount} quotes to 'Submitted' status.`);
+    console.log(`Reset ${count} quotes to 'Submitted' status.`);
 
-    requisition.status = 'Approved';
-    requisition.updatedAt = new Date();
+    const updatedRequisition = await prisma.purchaseRequisition.update({
+        where: { id: requisitionId },
+        data: { status: 'Approved', updatedAt: new Date() }
+    });
     console.log(`Requisition ${requisitionId} status reverted to 'Approved'.`);
 
     const auditDetails = `changed the award decision for requisition ${requisitionId}, reverting all quotes to Submitted.`;
     
-    const auditLogEntry = {
-        id: `log-${Date.now()}-${Math.random()}`,
-        timestamp: new Date(),
-        user: user.name,
-        role: user.role,
-        action: 'RESET_AWARD',
-        entity: 'Requisition',
-        entityId: requisitionId,
-        details: auditDetails,
-    };
-    auditLogs.unshift(auditLogEntry);
-    console.log('Added audit log:', auditLogEntry);
+    await prisma.auditLog.create({
+        data: {
+            userId: user.id,
+            role: user.role,
+            action: 'RESET_AWARD',
+            entity: 'Requisition',
+            entityId: requisitionId,
+            details: auditDetails,
+        }
+    });
 
-    return NextResponse.json({ message: 'Award reset successfully', requisition });
+    return NextResponse.json({ message: 'Award reset successfully', requisition: updatedRequisition });
   } catch (error) {
     console.error('Failed to reset award:', error);
     if (error instanceof Error) {

@@ -2,8 +2,7 @@
 'use server';
 
 import { NextResponse } from 'next/server';
-import { auditLogs, quotations, requisitions } from '@/lib/data-store';
-import { users } from '@/lib/auth-store';
+import prisma from '@/lib/prisma';
 
 type AwardAction = 'promote_second' | 'promote_third' | 'restart_rfq';
 
@@ -18,17 +17,17 @@ export async function POST(
     console.log('Request body:', body);
     const { userId, action, newDeadline } = body as { userId: string; action: AwardAction, newDeadline?: string };
 
-    const user = users.find(u => u.id === userId);
+    const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    const requisition = requisitions.find(r => r.id === requisitionId);
+    const requisition = await prisma.purchaseRequisition.findUnique({ where: { id: requisitionId } });
     if (!requisition) {
       return NextResponse.json({ error: 'Requisition not found' }, { status: 404 });
     }
 
-    const reqQuotes = quotations.filter(q => q.requisitionId === requisitionId);
+    const reqQuotes = await prisma.quotation.findMany({ where: { requisitionId }});
     const currentAwarded = reqQuotes.find(q => q.status === 'Awarded');
     const secondStandby = reqQuotes.find(q => q.rank === 2);
     const thirdStandby = reqQuotes.find(q => q.rank === 3);
@@ -39,12 +38,11 @@ export async function POST(
         if (!currentAwarded || !secondStandby) {
           return NextResponse.json({ error: 'Invalid state for promoting second vendor.' }, { status: 400 });
         }
-        currentAwarded.status = 'Failed'; // Or a new 'Failed' status could be added
-        secondStandby.status = 'Awarded';
-        secondStandby.rank = 1;
-        // Demote 3rd to 2nd if it exists
+        await prisma.quotation.update({ where: { id: currentAwarded.id }, data: { status: 'Failed' } });
+        await prisma.quotation.update({ where: { id: secondStandby.id }, data: { status: 'Awarded', rank: 1 } });
+        
         if (thirdStandby) {
-            thirdStandby.rank = 2;
+            await prisma.quotation.update({ where: { id: thirdStandby.id }, data: { rank: 2 } });
         }
         auditDetails = `Promoted second standby vendor (${secondStandby.vendorName}) to Awarded after primary vendor failure.`;
         break;
@@ -53,35 +51,25 @@ export async function POST(
         if (!currentAwarded || !thirdStandby) {
           return NextResponse.json({ error: 'Invalid state for promoting third vendor.' }, { status: 400 });
         }
-        currentAwarded.status = 'Failed';
-        thirdStandby.status = 'Awarded';
-        thirdStandby.rank = 1; // The new primary
+        await prisma.quotation.update({ where: { id: currentAwarded.id }, data: { status: 'Failed' } });
+        await prisma.quotation.update({ where: { id: thirdStandby.id }, data: { status: 'Awarded', rank: 1 } });
         if(secondStandby) {
-            secondStandby.status = 'Rejected'; // The second one was skipped/failed
+            await prisma.quotation.update({ where: { id: secondStandby.id }, data: { status: 'Rejected' } });
         }
         auditDetails = `Promoted third standby vendor (${thirdStandby.vendorName}) to Awarded after other vendors failed.`;
         break;
 
       case 'restart_rfq':
-        // Find all quote IDs for the current requisition
-        const quoteIdsToDelete = quotations
-            .filter(q => q.requisitionId === requisitionId)
-            .map(q => q.id);
-
-        // Remove the quotes from the main quotations array
-        const originalCount = quotations.length;
-        const updatedQuotations = quotations.filter(q => !quoteIdsToDelete.includes(q.id));
-        quotations.length = 0; // Clear the original array
-        Array.prototype.push.apply(quotations, updatedQuotations); // Repopulate with filtered quotes
+        await prisma.quotation.deleteMany({ where: { requisitionId } });
         
-        // Also clear them from the requisition object itself
-        if (requisition.quotations) {
-            requisition.quotations = [];
-        }
-
-        requisition.status = 'Approved';
-        requisition.deadline = undefined;
-        requisition.awardResponseDeadline = undefined;
+        await prisma.purchaseRequisition.update({
+            where: { id: requisitionId },
+            data: {
+                status: 'Approved',
+                deadline: null,
+                awardResponseDeadline: null,
+            }
+        });
         auditDetails = `Canceled all awards and restarted RFQ process for requisition ${requisitionId}. All previous quotes have been deleted.`;
         break;
 
@@ -89,22 +77,28 @@ export async function POST(
         return NextResponse.json({ error: 'Invalid action specified.' }, { status: 400 });
     }
     
-    requisition.awardResponseDeadline = newDeadline ? new Date(newDeadline) : undefined;
-    requisition.updatedAt = new Date();
+    await prisma.purchaseRequisition.update({
+        where: { id: requisitionId },
+        data: {
+            awardResponseDeadline: newDeadline ? new Date(newDeadline) : null,
+            updatedAt: new Date()
+        }
+    });
 
-    const auditLogEntry = {
-        id: `log-${Date.now()}-${Math.random()}`,
-        timestamp: new Date(),
-        user: user.name,
-        role: user.role,
-        action: 'HANDLE_AWARD_CHANGE' as const,
-        entity: 'Requisition',
-        entityId: requisitionId,
-        details: auditDetails,
-    };
-    auditLogs.unshift(auditLogEntry);
+    await prisma.auditLog.create({
+        data: {
+            userId: user.id,
+            role: user.role,
+            action: 'HANDLE_AWARD_CHANGE',
+            entity: 'Requisition',
+            entityId: requisitionId,
+            details: auditDetails,
+        }
+    });
 
-    return NextResponse.json({ message: 'Award change handled successfully.', requisition });
+    const updatedRequisition = await prisma.purchaseRequisition.findUnique({ where: { id: requisitionId } });
+
+    return NextResponse.json({ message: 'Award change handled successfully.', requisition: updatedRequisition });
   } catch (error) {
     console.error('Failed to handle award change:', error);
     if (error instanceof Error) {

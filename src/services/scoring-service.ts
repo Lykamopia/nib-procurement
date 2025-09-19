@@ -1,11 +1,21 @@
 
-
-import { quotations, requisitions, auditLogs } from '@/lib/data-store';
+import prisma from '@/lib/prisma';
 import { EvaluationCriteria, Quotation } from '@/lib/types';
 
 
-export function tallyAndAwardScores(requisitionId: string, awardResponseDeadline?: Date): { success: boolean, message: string, winner: string } {
-    const requisition = requisitions.find(r => r.id === requisitionId);
+export async function tallyAndAwardScores(requisitionId: string, awardResponseDeadline?: Date, awardResponseDurationMinutes?: number): Promise<{ success: boolean, message: string, winner: string }> {
+    const requisition = await prisma.purchaseRequisition.findUnique({
+      where: { id: requisitionId },
+      include: {
+        evaluationCriteria: {
+          include: {
+            financialCriteria: true,
+            technicalCriteria: true,
+          },
+        },
+      },
+    });
+
     if (!requisition) {
         return { success: false, message: "Scoring service: Requisition not found.", winner: 'N/A' };
     }
@@ -14,44 +24,63 @@ export function tallyAndAwardScores(requisitionId: string, awardResponseDeadline
         return { success: false, message: "Scoring service: Requisition evaluation criteria not found.", winner: 'N/A' };
     }
 
-    const relevantQuotes = quotations.filter(q => q.requisitionId === requisitionId);
+    const relevantQuotes = await prisma.quotation.findMany({
+      where: { requisitionId },
+      include: { scores: true },
+    });
+
     if (relevantQuotes.length === 0) {
         return { success: true, message: "No quotes to score.", winner: 'N/A' };
     }
-
-    relevantQuotes.forEach(quote => {
+    
+    const scoredQuotes = relevantQuotes.map(quote => {
         if (!quote.scores || quote.scores.length === 0) {
-            quote.finalAverageScore = 0;
-            return;
+            return { ...quote, finalAverageScore: 0 };
         }
-
         const totalScorers = quote.scores.length;
         const aggregateScore = quote.scores.reduce((sum, scoreSet) => sum + scoreSet.finalScore, 0);
-        quote.finalAverageScore = aggregateScore / totalScorers;
+        const finalAverageScore = aggregateScore / totalScorers;
+        return { ...quote, finalAverageScore };
     });
 
-    // Sort quotes by final average score, descending
-    relevantQuotes.sort((a, b) => (b.finalAverageScore || 0) - (a.finalAverageScore || 0));
+    for(const quote of scoredQuotes) {
+        await prisma.quotation.update({
+            where: { id: quote.id },
+            data: { finalAverageScore: quote.finalAverageScore }
+        });
+    }
 
-    // Award, Standby, Reject
-    relevantQuotes.forEach((quote, index) => {
-        if (index === 0) {
-            quote.status = 'Awarded';
-            quote.rank = 1;
-        } else if (index === 1 || index === 2) {
-            quote.status = 'Standby';
-            quote.rank = (index + 1) as 2 | 3;
-        } else {
-            quote.status = 'Rejected';
-            quote.rank = undefined;
+    scoredQuotes.sort((a, b) => (b.finalAverageScore || 0) - (a.finalAverageScore || 0));
+
+    for (let i = 0; i < scoredQuotes.length; i++) {
+        const quote = scoredQuotes[i];
+        let status: 'Awarded' | 'Standby' | 'Rejected' = 'Rejected';
+        let rank: 1 | 2 | 3 | null = null;
+        if (i === 0) {
+            status = 'Awarded';
+            rank = 1;
+        } else if (i === 1 || i === 2) {
+            status = 'Standby';
+            rank = (i + 1) as 2 | 3;
         }
-    });
+        await prisma.quotation.update({
+            where: { id: quote.id },
+            data: { status, rank }
+        });
+    }
     
-    requisition.status = 'RFQ In Progress';
-    requisition.awardResponseDeadline = awardResponseDeadline;
-    requisition.updatedAt = new Date();
+    await prisma.purchaseRequisition.update({
+      where: { id: requisitionId },
+      data: {
+        status: 'RFQ_In_Progress',
+        awardResponseDeadline: awardResponseDeadline,
+        awardResponseDurationMinutes: awardResponseDurationMinutes,
+        updatedAt: new Date(),
+      }
+    });
 
-    const winnerName = relevantQuotes[0]?.vendorName || 'N/A';
+
+    const winnerName = scoredQuotes[0]?.vendorName || 'N/A';
     
     return { success: true, message: "Scores tallied and awards processed.", winner: winnerName };
 }

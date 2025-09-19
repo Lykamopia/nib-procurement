@@ -2,8 +2,7 @@
 'use server';
 
 import { NextResponse } from 'next/server';
-import { auditLogs, quotations, requisitions } from '@/lib/data-store';
-import { users } from '@/lib/auth-store';
+import prisma from '@/lib/prisma';
 
 type RFQAction = 'update' | 'cancel';
 
@@ -21,40 +20,46 @@ export async function POST(
       newDeadline?: string;
     };
 
-    const user = users.find(u => u.id === userId);
-    if (!user || user.role !== 'Procurement Officer') {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user || user.role !== 'Procurement_Officer') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    const requisition = requisitions.find(r => r.id === requisitionId);
+    const requisition = await prisma.purchaseRequisition.findUnique({ where: { id: requisitionId } });
     if (!requisition) {
       return NextResponse.json({ error: 'Requisition not found' }, { status: 404 });
     }
 
-    if (requisition.status !== 'RFQ In Progress') {
+    if (requisition.status !== 'RFQ_In_Progress') {
         return NextResponse.json({ error: 'This action is only available for requisitions with an active RFQ.' }, { status: 400 });
     }
 
     let auditDetails = '';
+    let updatedRequisition;
 
     switch (action) {
       case 'update':
         if (!newDeadline) {
           return NextResponse.json({ error: 'A new deadline is required for an update.' }, { status: 400 });
         }
-        const oldDeadline = requisition.deadline ? new Date(requisition.deadline).toISOString() : 'N/A';
-        requisition.deadline = new Date(newDeadline);
+        updatedRequisition = await prisma.purchaseRequisition.update({
+            where: { id: requisitionId },
+            data: { deadline: new Date(newDeadline) }
+        });
         auditDetails = `Updated RFQ deadline to ${newDeadline}. Reason: ${reason}`;
         break;
 
       case 'cancel':
-        requisition.status = 'Approved';
-        requisition.deadline = undefined;
-        // Also reject any quotes that may have been submitted.
-        quotations.forEach(q => {
-            if (q.requisitionId === requisitionId) {
-                q.status = 'Rejected';
+        updatedRequisition = await prisma.purchaseRequisition.update({
+            where: { id: requisitionId },
+            data: {
+                status: 'Approved',
+                deadline: null
             }
+        });
+        await prisma.quotation.updateMany({
+            where: { requisitionId },
+            data: { status: 'Rejected' }
         });
         auditDetails = `Cancelled RFQ. Reason: ${reason}. Requisition status reverted to Approved.`;
         break;
@@ -63,21 +68,23 @@ export async function POST(
         return NextResponse.json({ error: 'Invalid action specified.' }, { status: 400 });
     }
     
-    requisition.updatedAt = new Date();
+    await prisma.purchaseRequisition.update({
+        where: { id: requisitionId },
+        data: { updatedAt: new Date() }
+    });
 
-    const auditLogEntry = {
-        id: `log-${Date.now()}-${Math.random()}`,
-        timestamp: new Date(),
-        user: user.name,
-        role: user.role,
-        action: 'MANAGE_RFQ' as const,
-        entity: 'Requisition',
-        entityId: requisitionId,
-        details: auditDetails,
-    };
-    auditLogs.unshift(auditLogEntry);
+    await prisma.auditLog.create({
+        data: {
+            userId: user.id,
+            role: user.role,
+            action: 'MANAGE_RFQ',
+            entity: 'Requisition',
+            entityId: requisitionId,
+            details: auditDetails,
+        }
+    });
 
-    return NextResponse.json({ message: 'RFQ successfully modified.', requisition });
+    return NextResponse.json({ message: 'RFQ successfully modified.', requisition: updatedRequisition });
   } catch (error) {
     console.error('Failed to manage RFQ:', error);
     if (error instanceof Error) {

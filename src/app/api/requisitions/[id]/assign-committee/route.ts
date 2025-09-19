@@ -2,7 +2,7 @@
 'use server';
 
 import { NextResponse } from 'next/server';
-import { requisitions, auditLogs, users } from '@/lib/data-store';
+import prisma from '@/lib/prisma';
 
 export async function POST(
   request: Request,
@@ -20,39 +20,47 @@ export async function POST(
         scoringDeadline 
     } = body;
 
-    const requisition = requisitions.find((r) => r.id === id);
+    const requisition = await prisma.purchaseRequisition.findUnique({ where: { id } });
     if (!requisition) {
       return NextResponse.json({ error: 'Requisition not found' }, { status: 404 });
     }
 
-    const user = users.find(u => u.id === userId);
-    if (!user || (user.role !== 'Procurement Officer' && user.role !== 'Committee')) {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user || (user.role !== 'Procurement_Officer' && user.role !== 'Committee')) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    requisition.financialCommitteeMemberIds = financialCommitteeMemberIds;
-    requisition.technicalCommitteeMemberIds = technicalCommitteeMemberIds;
-    requisition.committeeName = committeeName;
-    requisition.committeePurpose = committeePurpose;
-    requisition.scoringDeadline = scoringDeadline ? new Date(scoringDeadline) : undefined;
-    requisition.updatedAt = new Date();
+    const updatedRequisition = await prisma.purchaseRequisition.update({
+        where: { id },
+        data: {
+            financialCommitteeMembers: { set: financialCommitteeMemberIds.map((id: string) => ({ id })) },
+            technicalCommitteeMembers: { set: technicalCommitteeMemberIds.map((id: string) => ({ id })) },
+            committeeName,
+            committeePurpose,
+            scoringDeadline: scoringDeadline ? new Date(scoringDeadline) : undefined,
+            updatedAt: new Date()
+        }
+    });
 
     const allMemberIds = [...(financialCommitteeMemberIds || []), ...(technicalCommitteeMemberIds || [])];
-    const committeeNames = users.filter(u => allMemberIds.includes(u.id)).map(u => u.name);
+    const committeeMembers = await prisma.user.findMany({
+        where: { id: { in: allMemberIds } },
+        select: { name: true }
+    });
+    const committeeNames = committeeMembers.map(u => u.name);
 
-    const auditLogEntry = {
-        id: `log-${Date.now()}-${Math.random()}`,
-        timestamp: new Date(),
-        user: user.name,
-        role: user.role,
-        action: 'ASSIGN_COMMITTEE',
-        entity: 'Requisition',
-        entityId: id,
-        details: `Assigned committee "${committeeName}" with members: ${committeeNames.join(', ')}.`,
-    };
-    auditLogs.unshift(auditLogEntry);
+    await prisma.auditLog.create({
+        data: {
+            userId: user.id,
+            role: user.role,
+            action: 'ASSIGN_COMMITTEE',
+            entity: 'Requisition',
+            entityId: id,
+            details: `Assigned committee "${committeeName}" with members: ${committeeNames.join(', ')}.`,
+        }
+    });
 
-    return NextResponse.json(requisition);
+    return NextResponse.json(updatedRequisition);
 
   } catch (error) {
     console.error('Failed to assign committee:', error);

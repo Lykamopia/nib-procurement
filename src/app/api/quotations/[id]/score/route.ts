@@ -2,10 +2,10 @@
 'use server';
 
 import { NextResponse } from 'next/server';
-import { auditLogs, quotations, requisitions, users } from '@/lib/data-store';
-import { CommitteeScoreSet, EvaluationCriterion, Score } from '@/lib/types';
+import prisma from '@/lib/prisma';
+import { EvaluationCriterion } from '@/lib/types';
 
-function calculateFinalScore(scores: { financialScores: Score[], technicalScores: Score[] }, criteria: any): number {
+function calculateFinalScore(scores: { financialScores: any[], technicalScores: any[] }, criteria: any): number {
     let totalFinancialScore = 0;
     let totalTechnicalScore = 0;
 
@@ -35,56 +35,69 @@ export async function POST(
     const body = await request.json();
     const { scores, userId } = body;
 
-    const user = users.find(u => u.id === userId);
+    const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    const quoteToUpdate = quotations.find(q => q.id === quoteId);
+    const quoteToUpdate = await prisma.quotation.findUnique({ where: { id: quoteId }});
     if (!quoteToUpdate) {
         return NextResponse.json({ error: 'Quotation not found' }, { status: 404 });
     }
     
-    const requisition = requisitions.find(r => r.id === quoteToUpdate.requisitionId);
+    const requisition = await prisma.purchaseRequisition.findUnique({ 
+      where: { id: quoteToUpdate.requisitionId },
+      include: { evaluationCriteria: { include: { financialCriteria: true, technicalCriteria: true } } }
+    });
     if (!requisition || !requisition.evaluationCriteria) {
         return NextResponse.json({ error: 'Associated requisition or its evaluation criteria not found.' }, { status: 404 });
     }
 
-    if (!quoteToUpdate.scores) {
-        quoteToUpdate.scores = [];
-    }
+    const existingScore = await prisma.committeeScoreSet.findFirst({
+        where: { quotationId: quoteId, scorerId: userId }
+    });
 
-    // Prevent duplicate scoring
-    if (quoteToUpdate.scores.some(s => s.scorerId === userId)) {
+    if (existingScore) {
         return NextResponse.json({ error: 'You have already scored this quotation.' }, { status: 409 });
     }
 
     const finalScore = calculateFinalScore(scores, requisition.evaluationCriteria);
 
-    const newScoreSet: CommitteeScoreSet = {
-        scorerId: user.id,
-        scorerName: user.name,
-        financialScores: scores.financialScores,
-        technicalScores: scores.technicalScores,
-        committeeComment: scores.committeeComment,
-        finalScore,
-        submittedAt: new Date(),
-    };
-    
-    quoteToUpdate.scores.push(newScoreSet);
-
-    auditLogs.unshift({
-        id: `log-${Date.now()}`,
-        timestamp: new Date(),
-        user: user.name,
-        role: user.role,
-        action: 'SCORE_QUOTE',
-        entity: 'Quotation',
-        entityId: quoteId,
-        details: `Submitted scores for quote from ${quoteToUpdate.vendorName}. Final Score: ${finalScore.toFixed(2)}.`,
+    const newScoreSet = await prisma.committeeScoreSet.create({
+        data: {
+            scorer: { connect: { id: user.id } },
+            quotation: { connect: { id: quoteId } },
+            financialScores: {
+                create: scores.financialScores.map((s: any) => ({
+                    criterion: { connect: { id: s.criterionId } },
+                    score: s.score,
+                    comment: s.comment,
+                }))
+            },
+            technicalScores: {
+                create: scores.technicalScores.map((s: any) => ({
+                    criterion: { connect: { id: s.criterionId } },
+                    score: s.score,
+                    comment: s.comment,
+                }))
+            },
+            committeeComment: scores.committeeComment,
+            finalScore,
+        }
     });
 
-    return NextResponse.json(quoteToUpdate);
+    await prisma.auditLog.create({
+        data: {
+            userId: user.id,
+            role: user.role,
+            action: 'SCORE_QUOTE',
+            entity: 'Quotation',
+            entityId: quoteId,
+            details: `Submitted scores for quote from ${quoteToUpdate.vendorName}. Final Score: ${finalScore.toFixed(2)}.`,
+        }
+    });
+
+    return NextResponse.json(newScoreSet);
   } catch (error) {
     console.error('Failed to submit scores:', error);
     if (error instanceof Error) {

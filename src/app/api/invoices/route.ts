@@ -1,13 +1,20 @@
 
-
 import { NextResponse } from 'next/server';
-import { purchaseOrders, invoices as invoiceStore, auditLogs, quotations } from '@/lib/data-store';
-import { Invoice } from '@/lib/types';
-import { users } from '@/lib/auth-store';
+import prisma from '@/lib/prisma';
 
 export async function GET() {
   console.log('GET /api/invoices - Fetching all invoices.');
-  return NextResponse.json(invoiceStore);
+  const invoices = await prisma.invoice.findMany({
+    orderBy: { invoiceDate: 'desc' },
+    include: {
+      purchaseOrder: {
+        select: {
+          requisitionTitle: true
+        }
+      }
+    }
+  });
+  return NextResponse.json(invoices);
 }
 
 export async function POST(request: Request) {
@@ -17,66 +24,68 @@ export async function POST(request: Request) {
     console.log('Request body:', body);
     const { purchaseOrderId, vendorId, invoiceDate, items, totalAmount, documentUrl, userId } = body;
 
-    const user = users.find(u => u.id === userId);
+    const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
       console.error('User not found for ID:', userId);
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    const po = purchaseOrders.find(p => p.id === purchaseOrderId);
+    const po = await prisma.purchaseOrder.findUnique({ where: { id: purchaseOrderId } });
     if (!po) {
       console.error('Purchase Order not found for ID:', purchaseOrderId);
       return NextResponse.json({ error: 'Purchase Order not found' }, { status: 404 });
     }
 
-    const newInvoice: Invoice = {
-      id: `INV-${Date.now()}`,
-      purchaseOrderId,
-      vendorId,
-      invoiceDate: new Date(invoiceDate),
-      items: items.map((item: any) => ({
-        ...item,
-        id: `INV-ITEM-${Date.now()}-${Math.random()}`
-      })),
-      totalAmount,
-      status: 'Pending',
-      documentUrl,
-    };
+    const newInvoice = await prisma.invoice.create({
+      data: {
+        purchaseOrder: { connect: { id: purchaseOrderId } },
+        vendorId,
+        invoiceDate: new Date(invoiceDate),
+        items: {
+          create: items.map((item: any) => ({
+            name: item.name,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            totalPrice: item.totalPrice,
+          }))
+        },
+        totalAmount,
+        status: 'Pending',
+        documentUrl,
+      }
+    });
 
-    invoiceStore.unshift(newInvoice);
-    if (!po.invoices) {
-      po.invoices = [];
-    }
-    po.invoices.push(newInvoice);
     console.log('Created new invoice and linked to PO:', newInvoice);
     
     // Find the specific quote that was awarded to this vendor for this PO's requisition
-    const awardedQuote = quotations.find(q => 
-        q.requisitionId === po.requisitionId && 
-        q.vendorId === vendorId &&
-        (q.status === 'Awarded' || q.status === 'Invoice Submitted')
-    );
+    const awardedQuote = await prisma.quotation.findFirst({
+        where: {
+            requisitionId: po.requisitionId,
+            vendorId: vendorId,
+            status: { in: ['Awarded', 'Invoice_Submitted', 'Accepted'] }
+        }
+    });
 
     if (awardedQuote) {
-        awardedQuote.status = 'Invoice Submitted';
+        await prisma.quotation.update({
+            where: { id: awardedQuote.id },
+            data: { status: 'Invoice_Submitted' }
+        });
         console.log(`Updated status to "Invoice Submitted" for quote ${awardedQuote.id}`);
     } else {
         console.warn(`Could not find matching awarded quote for vendor ${vendorId} on requisition ${po.requisitionId} to update status.`);
     }
 
-
-    const auditLogEntry = {
-        id: `log-${Date.now()}-${Math.random()}`,
-        timestamp: new Date(),
-        user: user.name,
-        role: user.role,
-        action: 'CREATE_INVOICE',
-        entity: 'Invoice',
-        entityId: newInvoice.id,
-        details: `Created Invoice for PO ${purchaseOrderId}.`,
-    };
-    auditLogs.unshift(auditLogEntry);
-    console.log('Added audit log:', auditLogEntry);
+    await prisma.auditLog.create({
+        data: {
+            userId: user.id,
+            role: user.role,
+            action: 'CREATE_INVOICE',
+            entity: 'Invoice',
+            entityId: newInvoice.id,
+            details: `Created Invoice for PO ${purchaseOrderId}.`,
+        }
+    });
 
     return NextResponse.json(newInvoice, { status: 201 });
   } catch (error) {

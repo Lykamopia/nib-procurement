@@ -1,11 +1,12 @@
 
 import { NextResponse } from 'next/server';
-import { requisitions, purchaseOrders, goodsReceipts, invoices, quotations, auditLogs } from '@/lib/data-store';
+import prisma from '@/lib/prisma';
 import { DocumentRecord } from '@/lib/types';
 
 export async function GET() {
-  const allRecords: DocumentRecord[] = [];
+  const allRecords: any[] = [];
 
+  const requisitions = await prisma.purchaseRequisition.findMany({ include: { requester: true } });
   requisitions.forEach(r => {
     allRecords.push({
       id: r.id,
@@ -14,11 +15,12 @@ export async function GET() {
       status: r.status,
       date: r.createdAt,
       amount: r.totalPrice,
-      user: r.requesterName || 'N/A',
+      user: r.requester?.name || 'N/A',
       relatedTo: [],
     });
   });
 
+  const quotations = await prisma.quotation.findMany();
   quotations.forEach(q => {
     allRecords.push({
         id: q.id,
@@ -32,6 +34,7 @@ export async function GET() {
     })
   })
 
+  const purchaseOrders = await prisma.purchaseOrder.findMany({ include: { vendor: true } });
   purchaseOrders.forEach(po => {
     allRecords.push({
       id: po.id,
@@ -45,6 +48,7 @@ export async function GET() {
     });
   });
   
+  const goodsReceipts = await prisma.goodsReceiptNote.findMany({ include: { receivedBy: true } });
   goodsReceipts.forEach(grn => {
     allRecords.push({
         id: grn.id,
@@ -53,11 +57,12 @@ export async function GET() {
         status: 'Completed',
         date: grn.receivedDate,
         amount: 0,
-        user: grn.receivedBy,
+        user: grn.receivedBy.name,
         relatedTo: [grn.purchaseOrderId]
     })
   })
 
+  const invoices = await prisma.invoice.findMany();
   invoices.forEach(inv => {
     allRecords.push({
       id: inv.id,
@@ -71,14 +76,19 @@ export async function GET() {
     });
   });
 
-  // Sort all records by date descending
   allRecords.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-  // Add audit log data to each record
-  const recordsWithAudit = allRecords.map(record => ({
-      ...record,
-      auditTrail: auditLogs.filter(log => log.entityId === record.id || record.relatedTo.includes(log.entityId))
-  }));
+  const auditLogs = await prisma.auditLog.findMany({ include: { user: true } });
+
+  const recordsWithAudit = allRecords.map(record => {
+      const relatedLogs = auditLogs.filter(log => log.entityId === record.id || record.relatedTo.includes(log.entityId))
+      .map(log => ({ ...log, user: log.user?.name || 'System' }));
+
+      return {
+          ...record,
+          auditTrail: relatedLogs
+      }
+  });
 
   return NextResponse.json(recordsWithAudit);
 }
