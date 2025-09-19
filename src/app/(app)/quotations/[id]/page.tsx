@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
@@ -871,7 +870,7 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
     const { user } = useAuth();
     const { toast } = useToast();
     
-    const isSent = requisition.status === 'RFQ_In_Progress' || requisition.status === 'PO_Created' || requisition.quotations!.length > 0;
+    const isSent = requisition.status === 'RFQ_In_Progress' || requisition.status === 'PO_Created' || (requisition.quotations && requisition.quotations.length > 0);
 
      useEffect(() => {
         if (requisition.deadline) {
@@ -2255,7 +2254,10 @@ export default function QuotationDetailsPage() {
   const getCurrentStep = (): 'rfq' | 'committee' | 'award' | 'finalize' | 'completed' => {
       if (!requisition) return 'rfq';
       const { status } = requisition;
-
+      
+      if (status === 'Approved') {
+          return 'rfq';
+      }
       if (status === 'PO_Created' || status === 'Fulfilled' || status === 'Closed') {
           return 'completed';
       }
@@ -2270,9 +2272,6 @@ export default function QuotationDetailsPage() {
               return 'committee';
           }
           return 'rfq'; // Still waiting for quotes
-      }
-      if (status === 'Approved') {
-          return 'rfq';
       }
       return 'rfq'; // Default fallback
   };
@@ -2349,7 +2348,7 @@ export default function QuotationDetailsPage() {
             </Card>
         )}
 
-        {(currentStep === 'rfq') && (user.role === 'Procurement Officer' || user.role === 'Admin') && (
+        {(currentStep === 'rfq' || requisition.status === 'Approved') && (user.role === 'Procurement Officer' || user.role === 'Admin') && (
             <div className="grid md:grid-cols-2 gap-6 items-start">
                 <RFQDistribution 
                     requisition={requisition} 
@@ -2555,5 +2554,3 @@ export default function QuotationDetailsPage() {
     </div>
   );
 }
-
-    
