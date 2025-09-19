@@ -2021,7 +2021,7 @@ export default function QuotationDetailsPage() {
   const router = useRouter();
   const params = useParams();
   const { toast } = useToast();
-  const { user, allUsers, role, login } = useAuth();
+  const { user, allUsers, login } = useAuth();
   const id = params.id as string;
   
   const [requisition, setRequisition] = useState<PurchaseRequisition | null>(null);
@@ -2247,41 +2247,31 @@ export default function QuotationDetailsPage() {
       fetchRequisitionAndQuotes();
   }
 
-  const getCurrentStep = (): 'rfq' | 'committee' | 'award' | 'finalize' | 'completed' => {
+ const getCurrentStep = (): 'rfq' | 'committee' | 'award' | 'finalize' | 'completed' => {
     if (!requisition) return 'rfq';
+    const { status, deadline } = requisition;
+    const deadlinePassed = deadline ? isPast(new Date(deadline)) : false;
 
-    if (requisition.status === 'Approved') {
+    if (status === 'PO Created') return 'completed';
+    if (isAccepted) return 'finalize';
+    if (isAwarded) return 'award';
+
+    if (status === 'Approved') {
         return 'rfq';
     }
     
-    if (requisition.status === 'RFQ In Progress') {
-        if (!isDeadlinePassed) {
-             // RFQ is out, but deadline hasn't passed.
-             // Can assign committee during this time.
-            return 'committee';
+    if (status === 'RFQ In Progress') {
+        if (!deadlinePassed) {
+            // RFQ is running, show the RFQ view but with committee as the active step
+            return 'rfq'; 
+        } else {
+            // Deadline has passed, move to committee & scoring
+            return 'award';
         }
-        
-        // Deadline has passed
-        const anyCommittee = (requisition.financialCommitteeMemberIds && requisition.financialCommitteeMemberIds.length > 0) || 
-                             (requisition.technicalCommitteeMemberIds && requisition.technicalCommitteeMemberIds.length > 0);
-        if (!anyCommittee) {
-             // If no committee is assigned after deadline, stay in committee step
-            return 'committee';
-        }
-        // If committee is assigned, move to award/scoring
-        return 'award';
-    }
-
-    if (isAccepted) {
-        if (requisition.status === 'PO Created') return 'completed';
-        return 'finalize';
-    }
-    if (isAwarded) {
-        return 'award';
     }
     
-    // Default fallback if other states aren't met
-    return 'award';
+    // Default/fallback
+    return 'rfq';
 };
   const currentStep = getCurrentStep();
   
@@ -2356,7 +2346,7 @@ export default function QuotationDetailsPage() {
             </Card>
         )}
 
-        {currentStep === 'rfq' && (role === 'Procurement Officer' || role === 'Committee') && (
+        {currentStep === 'rfq' && (user.role === 'Procurement Officer' || user.role === 'Admin') && (
             <div className="grid md:grid-cols-2 gap-6 items-start">
                 <RFQDistribution 
                     requisition={requisition} 
@@ -2376,7 +2366,7 @@ export default function QuotationDetailsPage() {
             </div>
         )}
         
-        {currentStep === 'committee' && (role === 'Procurement Officer' || role === 'Committee') && (
+        {currentStep === 'committee' && (user.role === 'Procurement Officer' || user.role === 'Admin') && (
             <CommitteeManagement
                 requisition={requisition} 
                 onCommitteeUpdated={fetchRequisitionAndQuotes}
@@ -2422,12 +2412,12 @@ export default function QuotationDetailsPage() {
                             </div>
                         </div>
                         <div className="flex items-center gap-2 w-full sm:w-auto">
-                            {isAwarded && isScoringComplete && role === 'Procurement Officer' && (
+                            {isAwarded && isScoringComplete && (user.role === 'Procurement Officer' || user.role === 'Admin') && (
                                 <Button variant="secondary" onClick={() => setReportOpen(true)}>
                                     <FileBarChart2 className="mr-2 h-4 w-4" /> View Cumulative Report
                                 </Button>
                             )}
-                            {isAwarded && requisition.status !== 'PO Created' && role === 'Procurement Officer' && (
+                            {isAwarded && requisition.status !== 'PO Created' && (user.role === 'Procurement Officer' || user.role === 'Admin') && (
                                 <AlertDialog>
                                     <AlertDialogTrigger asChild>
                                         <Button variant="outline" disabled={isChangingAward} className="w-full">
@@ -2460,7 +2450,7 @@ export default function QuotationDetailsPage() {
                                     </AlertDialogContent>
                                 </AlertDialog>
                             )}
-                            {role !== 'Committee Member' && (
+                            {user.role !== 'Committee Member' && (
                                 <Dialog open={isAddFormOpen} onOpenChange={setAddFormOpen}>
                                     <DialogTrigger asChild>
                                         <Button disabled={isAwarded} variant="outline" className="w-full"><PlusCircle className="mr-2 h-4 w-4"/>Add Quote</Button>
@@ -2512,7 +2502,7 @@ export default function QuotationDetailsPage() {
             </>
         )}
         
-        {currentStep === 'award' && (role === 'Procurement Officer' || role === 'Committee') && quotations.length > 0 && (
+        {currentStep === 'award' && (user.role === 'Procurement Officer' || user.role === 'Admin') && quotations.length > 0 && (
              <ScoringProgressTracker 
                 requisition={requisition}
                 quotations={quotations}
@@ -2533,7 +2523,7 @@ export default function QuotationDetailsPage() {
              />
         )}
         
-        {isAccepted && requisition.status !== 'PO Created' && role !== 'Committee Member' && (
+        {isAccepted && requisition.status !== 'PO Created' && user.role !== 'Committee Member' && (
             <ContractManagement requisition={requisition} />
         )}
          {requisition && (
