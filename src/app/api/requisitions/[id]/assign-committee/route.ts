@@ -26,7 +26,7 @@ export async function POST(
     }
 
     const user = await prisma.user.findUnique({ where: { id: userId } });
-    if (!user || (user.role !== 'Procurement_Officer' && user.role !== 'Committee')) {
+    if (!user || (user.role !== 'Procurement_Officer' && user.role !== 'Admin')) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
@@ -42,7 +42,7 @@ export async function POST(
         }
     });
 
-    const allMemberIds = [...(financialCommitteeMemberIds || []), ...(technicalCommitteeMemberIds || [])];
+    const allMemberIds = [...new Set([...(financialCommitteeMemberIds || []), ...(technicalCommitteeMemberIds || [])])];
     
     // First, clear existing non-submitted assignments for this requisition
     await prisma.committeeAssignment.deleteMany({
