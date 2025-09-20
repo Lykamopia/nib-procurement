@@ -58,7 +58,7 @@ export async function POST(
         where: {
           userId_requisitionId: {
             userId: memberId,
-            requisitionId: id
+            requisitionId: id,
           }
         },
         update: {}, // Don't update if it exists (e.g., if scores were already submitted)
