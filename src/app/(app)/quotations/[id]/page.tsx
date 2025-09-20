@@ -2298,11 +2298,13 @@ export default function QuotationDetailsPage() {
             Back to All Requisitions
         </Button>
         
-        <Card className="p-4 sm:p-6">
-            <WorkflowStepper step={currentStep} />
-        </Card>
+        {role !== 'Committee Member' && (
+            <Card className="p-4 sm:p-6">
+                <WorkflowStepper step={currentStep} />
+            </Card>
+        )}
         
-        {prevAwardedFailed && (
+        {prevAwardedFailed && role !== 'Committee Member' && (
              <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
                 <AlertTitle>Award Failover</AlertTitle>
@@ -2312,7 +2314,7 @@ export default function QuotationDetailsPage() {
             </Alert>
         )}
         
-        {requisition.evaluationCriteria && (
+        {requisition.evaluationCriteria && role !== 'Committee Member' && (
             <Card>
                  <CardHeader className="flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div>
@@ -2330,7 +2332,7 @@ export default function QuotationDetailsPage() {
             </Card>
         )}
         
-        {currentStep === 'rfq' && (
+        {currentStep === 'rfq' && role !== 'Committee Member' && (
              <RFQDistribution 
                 requisition={requisition} 
                 vendors={vendors} 
@@ -2338,7 +2340,7 @@ export default function QuotationDetailsPage() {
             />
         )}
         
-        {(currentStep === 'committee' || currentStep === 'award' || currentStep === 'finalize') && isDeadlinePassed && (
+        {(currentStep === 'committee' || currentStep === 'award' || currentStep === 'finalize') && isDeadlinePassed && role !== 'Committee Member' && (
             <CommitteeManagement
                 requisition={requisition} 
                 onCommitteeUpdated={fetchRequisitionAndQuotes}
@@ -2460,7 +2462,7 @@ export default function QuotationDetailsPage() {
             </Card>
         )}
         
-        {currentStep === 'award' && isScoringDeadlinePassed && (
+        {currentStep === 'award' && isScoringDeadlinePassed && role !== 'Committee Member' && (
              <ScoringProgressTracker 
                 requisition={requisition}
                 quotations={quotations}
