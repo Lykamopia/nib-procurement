@@ -54,12 +54,10 @@ export async function POST(
 
     // Then, create new assignments for the selected members if they don't already have a submitted score
     for (const memberId of allMemberIds) {
-      const existingAssignment = await prisma.committeeAssignment.findUnique({
+      const existingAssignment = await prisma.committeeAssignment.findFirst({
         where: {
-          userId_requisitionId: {
-            userId: memberId,
-            requisitionId: id,
-          },
+          userId: memberId,
+          requisitionId: id,
         },
       });
 
