@@ -62,6 +62,7 @@ import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
 const quoteFormSchema = z.object({
+  vendorId: z.string().min(1, "Vendor is required."),
   notes: z.string().optional(),
   items: z.array(z.object({
     requisitionItemId: z.string(),
@@ -321,7 +322,7 @@ const QuoteComparison = ({ quotes, requisition, onScore, user, isDeadlinePassed,
                                     <p className="text-muted-foreground text-xs italic">{quote.notes}</p>
                                 </div>
                             )}
-                             {isDeadlinePassed && quote.finalAverageScore != null && (
+                             {isDeadlinePassed && quote.finalAverageScore !== null && quote.finalAverageScore !== undefined && (
                                  <div className="text-center pt-2 border-t">
                                     <h4 className="font-semibold text-sm">Final Score</h4>
                                     <p className="text-2xl font-bold text-primary">{quote.finalAverageScore.toFixed(2)}</p>
@@ -2072,6 +2073,7 @@ export default function QuotationDetailsPage() {
 
             if (currentReq) {
                 const awardedQuote = quoData.find((q: Quotation) => q.status === 'Awarded');
+                const secondStandby = quoData.find((q: Quotation) => q.rank === 2);
                 if (awardedQuote && currentReq.awardResponseDeadline && isPast(new Date(currentReq.awardResponseDeadline))) {
                     toast({
                         title: 'Deadline Missed',
@@ -2244,12 +2246,13 @@ export default function QuotationDetailsPage() {
       if (status === 'PO_Created') return 'completed';
       if (anyAccepted) return 'finalize';
       if (isAwarded) return 'award';
+      if (status === 'RFQ_In_Progress' && isScoringDeadlinePassed) return 'award';
       if (status === 'RFQ_In_Progress' && isDeadlinePassed) return 'committee';
       if (status === 'Approved') return 'rfq';
       if (status === 'RFQ_In_Progress' && !isDeadlinePassed) return 'rfq';
       
       return 'committee';
-  }, [requisition, quotations, isDeadlinePassed, isAwarded]);
+  }, [requisition, quotations, isDeadlinePassed, isAwarded, isScoringDeadlinePassed]);
   
   const formatEvaluationCriteria = (criteria?: EvaluationCriteria) => {
       if (!criteria) return "No specific criteria defined.";
@@ -2486,8 +2489,3 @@ export default function QuotationDetailsPage() {
     </div>
   );
 }
-
-
-
-
-
