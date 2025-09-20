@@ -2464,7 +2464,7 @@ export default function QuotationDetailsPage() {
             </Card>
         )}
         
-        {role === 'Procurement Officer' && (currentStep === 'award' || currentStep === 'committee') && (
+        {role === 'Procurement Officer' && (currentStep === 'award' || currentStep === 'committee') && isDeadlinePassed && (
              <ScoringProgressTracker 
                 requisition={requisition}
                 quotations={quotations}
@@ -2508,3 +2508,4 @@ export default function QuotationDetailsPage() {
     </div>
   );
 }
+

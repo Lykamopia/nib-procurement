@@ -28,8 +28,8 @@ export async function GET(request: Request) {
       quotations: true,
       requester: true,
       approver: true,
-      financialCommitteeMembers: { select: { id: true } },
-      technicalCommitteeMembers: { select: { id: true } },
+      financialCommitteeMembers: { select: { id: true, name: true } },
+      technicalCommitteeMembers: { select: { id: true, name: true } },
     }
   });
 
@@ -217,3 +217,4 @@ export async function PATCH(
     return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
   }
 }
+
