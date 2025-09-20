@@ -9,7 +9,11 @@ export async function GET() {
   const users = await prisma.user.findMany({
     include: { department: true }
   });
-  return NextResponse.json(users.map(u => ({...u, department: u.department?.name })));
+  return NextResponse.json(users.map(u => ({
+    ...u,
+    role: u.role.replace(/_/g, ' '),
+    department: u.department?.name 
+  })));
 }
 
 export async function POST(request: Request) {

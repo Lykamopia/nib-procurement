@@ -35,7 +35,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if(userData) {
             setToken(storedToken);
             setUser(userData.user);
-            setRole(userData.role);
+            setRole(userData.role.replace(/_/g, ' ') as UserRole);
           } else {
             localStorage.removeItem('authToken');
           }

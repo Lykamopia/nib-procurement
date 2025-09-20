@@ -178,7 +178,7 @@ export function UserManagementEditor() {
         name: user.name,
         email: user.email,
         role: user.role,
-        departmentId: user.departmentId || '',
+        departmentId: departments.find(d => d.name === user.department)?.id || '',
         password: '',
       });
     } else {
