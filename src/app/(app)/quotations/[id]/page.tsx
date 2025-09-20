@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
@@ -576,42 +575,48 @@ const CommitteeManagement = ({ requisition, onCommitteeUpdated, open, onOpenChan
                     render={() => (
                     <FormItem className="flex-1 flex flex-col min-h-0">
                         <ScrollArea className="flex-1 rounded-md border h-60">
-                            <div className="space-y-1 p-1">
-                            {availableMembers.map(member => (
-                                <FormField
-                                    key={member.id}
-                                    control={form.control}
-                                    name={`${type}CommitteeMemberIds`}
-                                    render={({ field }) => (
-                                        <FormItem className="flex items-start space-x-4 rounded-md border p-2 has-[:checked]:bg-muted">
-                                            <FormControl>
-                                                <Checkbox
-                                                    checked={field.value?.includes(member.id)}
-                                                    onCheckedChange={(checked) => {
-                                                        return checked
-                                                        ? field.onChange([...(field.value || []), member.id])
-                                                        : field.onChange(field.value?.filter((id) => id !== member.id))
-                                                    }}
-                                                />
-                                            </FormControl>
-                                            <div className="flex items-start gap-3 flex-1">
-                                                <Avatar className="h-8 w-8">
-                                                    <AvatarImage src={`https://picsum.photos/seed/${member.id}/32/32`} data-ai-hint="profile picture" />
-                                                    <AvatarFallback>{member.name.charAt(0)}</AvatarFallback>
-                                                </Avatar>
-                                                <div className="grid gap-0.5">
-                                                    <Label className="font-normal cursor-pointer text-sm">{member.name}</Label>
-                                                    <p className="text-xs text-muted-foreground">{member.email}</p>
-                                                </div>
-                                            </div>
-                                        </FormItem>
-                                    )}
-                                />
-                            ))}
-                            {availableMembers.length === 0 && (
+                            {committeeMembers.length === 0 ? (
+                                <div className="text-center text-muted-foreground py-10 px-4">
+                                    <p className="font-semibold">No Committee Members Found</p>
+                                    <p className="text-xs mt-2">Please add users with the "Committee Member" role in Settings {'>'} User Management.</p>
+                                </div>
+                            ) : availableMembers.length === 0 ? (
                                 <div className="text-center text-muted-foreground py-10">No members available.</div>
+                            ) : (
+                                <div className="space-y-1 p-1">
+                                {availableMembers.map(member => (
+                                    <FormField
+                                        key={member.id}
+                                        control={form.control}
+                                        name={`${type}CommitteeMemberIds`}
+                                        render={({ field }) => (
+                                            <FormItem className="flex items-start space-x-4 rounded-md border p-2 has-[:checked]:bg-muted">
+                                                <FormControl>
+                                                    <Checkbox
+                                                        checked={field.value?.includes(member.id)}
+                                                        onCheckedChange={(checked) => {
+                                                            return checked
+                                                            ? field.onChange([...(field.value || []), member.id])
+                                                            : field.onChange(field.value?.filter((id) => id !== member.id))
+                                                        }}
+                                                    />
+                                                </FormControl>
+                                                <div className="flex items-start gap-3 flex-1">
+                                                    <Avatar className="h-8 w-8">
+                                                        <AvatarImage src={`https://picsum.photos/seed/${member.id}/32/32`} data-ai-hint="profile picture" />
+                                                        <AvatarFallback>{member.name.charAt(0)}</AvatarFallback>
+                                                    </Avatar>
+                                                    <div className="grid gap-0.5">
+                                                        <Label className="font-normal cursor-pointer text-sm">{member.name}</Label>
+                                                        <p className="text-xs text-muted-foreground">{member.email}</p>
+                                                    </div>
+                                                </div>
+                                            </FormItem>
+                                        )}
+                                    />
+                                ))}
+                                </div>
                             )}
-                            </div>
                         </ScrollArea>
                         <FormMessage />
                     </FormItem>
@@ -2118,21 +2123,24 @@ export default function QuotationDetailsPage() {
   }, [requisition]);
 
   const isScoringComplete = useMemo(() => {
-    if (!requisition || quotations.length === 0) return false;
+    if (!requisition || !requisition.financialCommitteeMemberIds || !requisition.technicalCommitteeMemberIds || quotations.length === 0) return false;
     
     const allMemberIds = new Set([
-        ...(requisition.financialCommitteeMemberIds || []),
-        ...(requisition.technicalCommitteeMemberIds || []),
+        ...requisition.financialCommitteeMemberIds,
+        ...requisition.technicalCommitteeMemberIds,
     ]);
 
     if (allMemberIds.size === 0) return false;
     
-    return Array.from(allMemberIds).every(memberId =>
-        quotations.every(quote =>
-            quote.scores?.some(score => score.scorerId === memberId)
-        )
-    );
-  }, [requisition, quotations]);
+    const allAssignments = allUsers.find(u => u.id === user?.id)?.committeeAssignments || [];
+    const thisReqAssignment = allAssignments.find(a => a.requisitionId === requisition.id);
+
+    return Array.from(allMemberIds).every(memberId => {
+        const assignment = allUsers.find(u => u.id === memberId)?.committeeAssignments?.find(a => a.requisitionId === requisition.id);
+        return assignment?.scoresSubmitted || false;
+    });
+
+  }, [requisition, quotations, allUsers, user]);
 
   const handleRfqSent = () => fetchRequisitionAndQuotes();
   const handleQuoteAdded = () => { setAddFormOpen(false); fetchRequisitionAndQuotes(); }
@@ -2234,13 +2242,13 @@ export default function QuotationDetailsPage() {
 
       if (status === 'PO_Created') return 'completed';
       if (anyAccepted) return 'finalize';
-      if (isScoringDeadlinePassed && !anyAwardedOrAccepted) return 'award';
+      if (isScoringDeadlinePassed && isScoringComplete) return 'award';
       if (status === 'RFQ_In_Progress' && isDeadlinePassed) return 'committee';
       if (status === 'RFQ_In_Progress' && !isDeadlinePassed) return 'rfq';
       if (status === 'Approved') return 'rfq';
       
-      return 'committee';
-  }, [requisition, quotations, isDeadlinePassed, isScoringDeadlinePassed]);
+      return 'committee'; // Default catch-all
+  }, [requisition, quotations, isDeadlinePassed, isScoringDeadlinePassed, isScoringComplete]);
   
   const formatEvaluationCriteria = (criteria?: EvaluationCriteria) => {
       if (!criteria) return "No specific criteria defined.";
@@ -2433,7 +2441,7 @@ export default function QuotationDetailsPage() {
             </Card>
         )}
         
-        {(currentStep === 'committee' || (currentStep === 'award' && !isAwarded)) && (
+        {(currentStep === 'committee' || currentStep === 'award') && (
              <ScoringProgressTracker 
                 requisition={requisition}
                 quotations={quotations}
@@ -2447,7 +2455,7 @@ export default function QuotationDetailsPage() {
             />
         )}
         
-        {user.role === 'Committee Member' && currentStep === 'committee' && isDeadlinePassed && (
+        {user.role === 'Committee Member' && (currentStep === 'committee' || currentStep === 'award') && isDeadlinePassed && (
              <CommitteeActions 
                 user={user}
                 requisition={requisition}
