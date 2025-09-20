@@ -2340,7 +2340,7 @@ export default function QuotationDetailsPage() {
             />
         )}
         
-        {(currentStep === 'committee' || currentStep === 'award' || currentStep === 'finalize') && isDeadlinePassed && role !== 'Committee Member' && (
+        {(currentStep === 'committee' || currentStep === 'award' || currentStep === 'finalize') && isDeadlinePassed && role === 'Procurement Officer' && (
             <CommitteeManagement
                 requisition={requisition} 
                 onCommitteeUpdated={fetchRequisitionAndQuotes}
@@ -2411,7 +2411,7 @@ export default function QuotationDetailsPage() {
                                 </AlertDialogContent>
                             </AlertDialog>
                         )}
-                        {role !== 'Committee Member' && (
+                        {role === 'Procurement Officer' && (
                             <Dialog open={isAddFormOpen} onOpenChange={setAddFormOpen}>
                                 <DialogTrigger asChild>
                                     <Button disabled={isAwarded} variant="outline" className="w-full"><PlusCircle className="mr-2 h-4 w-4"/>Add Quote</Button>
@@ -2462,7 +2462,7 @@ export default function QuotationDetailsPage() {
             </Card>
         )}
         
-        {currentStep === 'award' && isScoringDeadlinePassed && role !== 'Committee Member' && (
+        {role === 'Procurement Officer' && currentStep === 'award' && (
              <ScoringProgressTracker 
                 requisition={requisition}
                 quotations={quotations}
@@ -2485,7 +2485,7 @@ export default function QuotationDetailsPage() {
              />
         )}
         
-        {isAccepted && requisition.status !== 'PO_Created' && role !== 'Committee Member' && (
+        {isAccepted && requisition.status !== 'PO_Created' && role === 'Procurement Officer' && (
             <ContractManagement requisition={requisition} />
         )}
          {requisition && (
