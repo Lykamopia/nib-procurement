@@ -163,7 +163,7 @@ async function main() {
 
    // Seed Quotations
    for (const quote of seedData.quotations) {
-       const { items, answers, scores, ...quoteData } = quote;
+       const { items, answers, scores, requisitionId, ...quoteData } = quote;
        const createdQuote = await prisma.quotation.create({
            data: {
                ...quoteData,
@@ -171,7 +171,7 @@ async function main() {
                deliveryDate: new Date(quoteData.deliveryDate),
                createdAt: new Date(quoteData.createdAt),
                vendor: { connect: { id: quote.vendorId } },
-               requisition: { connect: { id: quote.requisitionId } },
+               requisition: { connect: { id: requisitionId } },
            }
        });
 
