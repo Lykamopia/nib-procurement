@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -67,7 +66,7 @@ export function RequisitionsTable() {
   const router = useRouter();
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<RequisitionStatus | 'all'>('all');
+  const [statusFilter, setStatusFilter] = useState<string | 'all'>('all');
   const [requesterFilter, setRequesterFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState<Date | undefined>(undefined);
   const [currentPage, setCurrentPage] = useState(1);
@@ -183,11 +182,11 @@ export function RequisitionsTable() {
   }, [filteredRequisitions, currentPage]);
 
 
-  const getStatusVariant = (status: RequisitionStatus) => {
+  const getStatusVariant = (status: string) => {
     switch (status) {
       case 'Approved':
         return 'default';
-      case 'Pending Approval':
+      case 'Pending_Approval':
         return 'secondary';
       case 'Rejected':
         return 'destructive';
@@ -257,10 +256,10 @@ export function RequisitionsTable() {
             <SelectContent>
               <SelectItem value="all">All Statuses</SelectItem>
               <SelectItem value="Draft">Draft</SelectItem>
-              <SelectItem value="Pending Approval">Pending Approval</SelectItem>
+              <SelectItem value="Pending_Approval">Pending Approval</SelectItem>
               <SelectItem value="Approved">Approved</SelectItem>
               <SelectItem value="Rejected">Rejected</SelectItem>
-              <SelectItem value="PO Created">PO Created</SelectItem>
+              <SelectItem value="PO_Created">PO Created</SelectItem>
             </SelectContent>
           </Select>
           <Select value={requesterFilter} onValueChange={setRequesterFilter}>
@@ -314,7 +313,7 @@ export function RequisitionsTable() {
                     <TableCell>{req.requesterName}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        <Badge variant={getStatusVariant(req.status)}>{req.status}</Badge>
+                        <Badge variant={getStatusVariant(req.status)}>{req.status.replace(/_/g, ' ')}</Badge>
                          {req.status === 'Rejected' && req.approverComment && (
                           <TooltipProvider>
                             <Tooltip>
@@ -356,7 +355,7 @@ export function RequisitionsTable() {
                                 Edit
                                 </Button>
                             )}
-                             {(req.status === 'Draft' || req.status === 'Pending Approval') && req.requesterId === user?.id && (
+                             {(req.status === 'Draft' || req.status === 'Pending_Approval') && req.requesterId === user?.id && (
                                 <AlertDialog>
                                     <AlertDialogTrigger asChild>
                                         <Button variant="destructive" size="sm">
@@ -420,7 +419,7 @@ export function RequisitionsTable() {
               <ChevronLeft className="h-4 w-4" />
             </Button>
             <span className="text-sm">
-              Page {currentPage} of {totalPages}
+              Page {currentPage > 0 ? currentPage : 1} of {totalPages > 0 ? totalPages : 1}
             </span>
             <Button
               variant="outline"
@@ -452,4 +451,3 @@ export function RequisitionsTable() {
     </>
   );
 }
-

@@ -31,8 +31,10 @@ export async function GET(
       return NextResponse.json({ error: 'Requisition not found' }, { status: 404 });
     }
     
+    // Formatting data to match client-side expectations
     const formatted = {
         ...requisition,
+        status: requisition.status.replace(/_/g, ' '),
         requesterName: users.find(u => u.id === requisition.requesterId)?.name || 'Unknown',
         financialCommitteeMemberIds: requisition.financialCommitteeMembers.map(m => m.id),
         technicalCommitteeMemberIds: requisition.technicalCommitteeMembers.map(m => m.id),
@@ -72,7 +74,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'You are not authorized to delete this requisition.' }, { status: 403 });
     }
 
-    if (requisition.status !== 'Draft' && requisition.status !== 'Pending Approval') {
+    if (requisition.status !== 'Draft' && requisition.status !== 'Pending_Approval') {
       return NextResponse.json({ error: `Cannot delete a requisition with status "${requisition.status}".` }, { status: 403 });
     }
     

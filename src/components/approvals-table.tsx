@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -100,7 +99,7 @@ export function ApprovalsTable() {
         throw new Error('Failed to fetch requisitions');
       }
       const data: PurchaseRequisition[] = await response.json();
-      const pending = data.filter(req => req.status === 'Pending Approval');
+      const pending = data.filter(req => req.status === 'Pending_Approval');
       setRequisitions(pending);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'An unknown error occurred');
@@ -237,7 +236,7 @@ export function ApprovalsTable() {
               <ChevronLeft className="h-4 w-4" />
             </Button>
             <span className="text-sm">
-              Page {currentPage} of {totalPages}
+              Page {currentPage > 0 ? currentPage : 1} of {totalPages > 0 ? totalPages : 1}
             </span>
             <Button
               variant="outline"
