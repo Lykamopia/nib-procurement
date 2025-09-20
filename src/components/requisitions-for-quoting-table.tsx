@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -20,7 +19,7 @@ import {
 } from './ui/card';
 import { Button } from './ui/button';
 import { PurchaseRequisition } from '@/lib/types';
-import { format } from 'date-fns';
+import { format, isPast } from 'date-fns';
 import { Badge } from './ui/badge';
 import { useRouter } from 'next/navigation';
 import { ArrowRight, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, FileX2, Loader2 } from 'lucide-react';
@@ -47,17 +46,23 @@ export function RequisitionsForQuotingTable() {
             }
             let data: PurchaseRequisition[] = await response.json();
             
-            if (role === 'Committee Member' && user) {
-                data = data.filter(r => 
-                    (r.financialCommitteeMemberIds?.includes(user.id)) ||
-                    (r.technicalCommitteeMemberIds?.includes(user.id))
-                );
-            }
+            let relevantRequisitions = data;
 
-            const availableForQuoting = data.filter(r => 
-                r.status === 'Approved' || r.status === 'RFQ In Progress' || r.status === 'PO Created'
-            );
-            setRequisitions(availableForQuoting);
+            if (role === 'Procurement Officer') {
+               relevantRequisitions = data.filter(r => 
+                r.status === 'Approved' || r.status === 'RFQ_In_Progress' || r.status === 'PO_Created'
+              );
+            } else if (role === 'Committee Member' && user) {
+                relevantRequisitions = data.filter(r => 
+                    ((r.financialCommitteeMemberIds?.includes(user.id)) ||
+                    (r.technicalCommitteeMemberIds?.includes(user.id))) &&
+                    r.status === 'RFQ_In_Progress' && r.deadline && isPast(new Date(r.deadline))
+                );
+            } else {
+              relevantRequisitions = [];
+            }
+            
+            setRequisitions(relevantRequisitions);
         } catch (e) {
             setError(e instanceof Error ? e.message : 'An unknown error occurred');
         } finally {
@@ -82,8 +87,8 @@ export function RequisitionsForQuotingTable() {
 
   const getStatusVariant = (status: string) => {
     if (status === 'Approved') return 'default';
-    if (status === 'RFQ In Progress') return 'secondary';
-    if (status === 'PO Created') return 'outline';
+    if (status === 'RFQ_In_Progress') return 'secondary';
+    if (status === 'PO_Created') return 'outline';
     return 'default';
   }
 
@@ -122,7 +127,7 @@ export function RequisitionsForQuotingTable() {
                     <TableCell>{req.department}</TableCell>
                     <TableCell>{format(new Date(req.updatedAt), 'PP')}</TableCell>
                     <TableCell>
-                      <Badge variant={getStatusVariant(req.status)}>{req.status}</Badge>
+                      <Badge variant={getStatusVariant(req.status)}>{req.status.replace(/_/g, ' ')}</Badge>
                     </TableCell>
                     <TableCell className="text-right">
                        <Button variant="outline" size="sm">
@@ -162,4 +167,3 @@ export function RequisitionsForQuotingTable() {
     </Card>
   );
 }
-
