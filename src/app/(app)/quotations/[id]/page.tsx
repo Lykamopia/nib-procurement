@@ -2075,27 +2075,14 @@ export default function QuotationDetailsPage() {
         setLoading(true);
         setLastPOCreated(null);
         try {
-            const [reqResponse, venResponse, quoResponse, usersResponse] = await Promise.all([
-                fetch('/api/requisitions'),
+            const [reqResponse, venResponse, quoResponse] = await Promise.all([
+                fetch(`/api/requisitions/${id}`),
                 fetch('/api/vendors'),
                 fetch(`/api/quotations?requisitionId=${id}`),
-                fetch('/api/users'), // We need all users to check scoring status
             ]);
-            const allReqs = await reqResponse.json();
+            const currentReq = await reqResponse.json();
             const venData = await venResponse.json();
             const quoData = await quoResponse.json();
-            const allUsersData = await usersResponse.json();
-            if (user && !allUsers.some(u => u.id === user.id)) {
-                 // The auth context might not be updated yet, so we manually check
-                const currentUserData = allUsersData.find((u:User) => u.id === user.id);
-                if (currentUserData) {
-                    const { token } = JSON.parse(localStorage.getItem('authToken') || '{}');
-                    login(token, currentUserData, currentUserData.role);
-                }
-            }
-
-
-            const currentReq = allReqs.find((r: PurchaseRequisition) => r.id === id);
 
             if (currentReq) {
                 // Check for expired award and auto-promote if necessary
@@ -2110,13 +2097,11 @@ export default function QuotationDetailsPage() {
                     await handleAwardChange(promoteAction);
                     // Refetch after the change
                     const [refetchedReqRes, refetchedQuoRes] = await Promise.all([
-                        fetch('/api/requisitions'),
+                        fetch(`/api/requisitions/${id}`),
                         fetch(`/api/quotations?requisitionId=${id}`)
                     ]);
-                    const refetchedReqs = await refetchedReqRes.json();
-                    const refetchedQuos = await refetchedQuoRes.json();
-                    setRequisition(refetchedReqs.find((r: PurchaseRequisition) => r.id === id));
-                    setQuotations(refetchedQuos);
+                    setRequisition(await refetchedReqRes.json());
+                    setQuotations(await refetchedQuoRes.json());
                 } else {
                     setRequisition(currentReq);
                     setQuotations(quoData);
@@ -2136,10 +2121,10 @@ export default function QuotationDetailsPage() {
 
 
   useEffect(() => {
-    if (id) {
+    if (id && user) { // ensure user is loaded
         fetchRequisitionAndQuotes();
     }
-  }, [id]);
+  }, [id, user]);
 
   const handleRfqSent = () => {
     fetchRequisitionAndQuotes();
@@ -2161,26 +2146,13 @@ export default function QuotationDetailsPage() {
   
    const handleFinalizeScores = async (awardResponseDeadline?: Date) => {
         if (!user || !requisition) return;
-
-        let durationMinutes: number | undefined;
-        if (awardResponseDeadline) {
-          if (isBefore(awardResponseDeadline, new Date())) {
-            toast({
-              variant: 'destructive',
-              title: 'Invalid Deadline',
-              description: 'The award response deadline must be in the future.',
-            });
-            return;
-          }
-          durationMinutes = (awardResponseDeadline.getTime() - new Date().getTime()) / (1000 * 60);
-        }
         
         setIsFinalizing(true);
         try {
              const response = await fetch(`/api/requisitions/${requisition.id}/finalize-scores`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId: user.id, awardResponseDeadline, awardResponseDurationMinutes: durationMinutes }),
+                body: JSON.stringify({ userId: user.id, awardResponseDeadline }),
             });
             if (!response.ok) {
                 const errorData = await response.json();
@@ -2378,8 +2350,8 @@ export default function QuotationDetailsPage() {
         {(currentStep === 'award' || currentStep === 'finalize' || currentStep === 'completed') && (
             <>
                 {/* Always render committee management when in award step so dialog can open */}
-                {(currentStep === 'award' || currentStep === 'finalize' || currentStep === 'completed') && (
-                    <div className="hidden">
+                {(currentStep === 'award' || currentStep === 'finalize' || currentStep === 'completed') && role === 'Procurement Officer' && (
+                     <div className="hidden">
                         <CommitteeManagement
                             requisition={requisition}
                             onCommitteeUpdated={fetchRequisitionAndQuotes}
@@ -2501,7 +2473,7 @@ export default function QuotationDetailsPage() {
             </>
         )}
         
-        {currentStep === 'award' && (role === 'Procurement Officer' || role === 'Committee') && quotations.length > 0 && (
+        {currentStep === 'award' && (role === 'Procurement Officer' || role === 'Committee') && quotations.length > 0 && role === 'Procurement Officer' && (
              <ScoringProgressTracker 
                 requisition={requisition}
                 quotations={quotations}

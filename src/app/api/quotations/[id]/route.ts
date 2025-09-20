@@ -2,27 +2,46 @@
 'use server';
 
 import { NextResponse } from 'next/server';
-import { quotations, auditLogs, requisitions } from '@/lib/data-store';
-import { users } from '@/lib/auth-store';
-import { Quotation } from '@/lib/types';
+import { prisma } from '@/lib/prisma';
+import { users, auditLogs } from '@/lib/data-store';
 import { addDays } from 'date-fns';
 
 export async function GET(
   request: Request,
   { params }: { params: { id: string } }
 ) {
-  console.log(`GET /api/quotations/${params.id}`);
   try {
     const { id } = params;
-    const requisition = requisitions.find((r) => r.id === id);
+    const requisition = await prisma.purchaseRequisition.findUnique({
+      where: { id },
+      include: {
+        items: true,
+        customQuestions: true,
+        evaluationCriteria: {
+          include: {
+            financialCriteria: true,
+            technicalCriteria: true,
+          }
+        },
+        financialCommitteeMembers: { select: { id: true, name: true, email: true } },
+        technicalCommitteeMembers: { select: { id: true, name: true, email: true } },
+      }
+    });
 
     if (!requisition) {
-      console.error(`Requisition with ID ${id} not found.`);
       return NextResponse.json({ error: 'Requisition not found' }, { status: 404 });
     }
     
-    console.log('Found requisition:', requisition);
-    return NextResponse.json(requisition);
+    // Formatting data to match client-side expectations
+    const formatted = {
+        ...requisition,
+        status: requisition.status.replace(/_/g, ' '),
+        requesterName: users.find(u => u.id === requisition.requesterId)?.name || 'Unknown',
+        financialCommitteeMemberIds: requisition.financialCommitteeMembers.map(m => m.id),
+        technicalCommitteeMemberIds: requisition.technicalCommitteeMembers.map(m => m.id),
+    };
+
+    return NextResponse.json(formatted);
   } catch (error) {
      console.error('Failed to fetch requisition:', error);
      if (error instanceof Error) {
@@ -38,56 +57,73 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
     const quoteId = params.id;
-    console.log(`PATCH /api/quotations/${quoteId}`);
     try {
         const body = await request.json();
-        const { userId, items, notes, answers } = body;
+        const { userId, items, notes, answers, cpoDocumentUrl } = body;
 
         const user = users.find(u => u.id === userId);
         if (!user) {
             return NextResponse.json({ error: 'User not found' }, { status: 404 });
         }
         
-        const quoteIndex = quotations.findIndex(q => q.id === quoteId);
-        if (quoteIndex === -1) {
+        const quote = await prisma.quotation.findUnique({
+             where: { id: quoteId },
+             include: { requisition: true }
+        });
+
+        if (!quote) {
             return NextResponse.json({ error: 'Quotation not found' }, { status: 404 });
         }
-
-        const quote = quotations[quoteIndex];
         
-        // Check if any quote for this requisition is already awarded or on standby
-        const isAwardProcessStarted = quotations.some(q => q.requisitionId === quote.requisitionId && (q.status === 'Awarded' || q.status === 'Standby'));
+        const isAwardProcessStarted = await prisma.quotation.count({
+            where: {
+                requisitionId: quote.requisitionId,
+                status: { in: ['Awarded', 'Standby', 'Accepted', 'Declined', 'Failed'] }
+            }
+        }) > 0;
+
         if (isAwardProcessStarted) {
             return NextResponse.json({ error: 'Cannot edit quote after award process has started.' }, { status: 403 });
         }
         
         let totalPrice = 0;
         let maxLeadTime = 0;
-        const quoteItems = items.map((item: any) => {
-            totalPrice += item.unitPrice * item.quantity;
+        items.forEach((item: any) => {
+            totalPrice += (item.unitPrice || 0) * (item.quantity || 0);
             if (item.leadTimeDays > maxLeadTime) {
                 maxLeadTime = item.leadTimeDays;
             }
-            return {
-                requisitionItemId: item.requisitionItemId,
-                name: item.name,
-                quantity: item.quantity,
-                unitPrice: Number(item.unitPrice),
-                leadTimeDays: Number(item.leadTimeDays),
-            };
         });
 
-        const updatedQuote: Quotation = {
-            ...quote,
-            items: quoteItems,
-            totalPrice,
-            deliveryDate: addDays(new Date(), maxLeadTime),
-            notes: notes,
-            answers: answers,
-            createdAt: new Date(), // Update timestamp to reflect edit time
-        };
+        // Delete old items and answers, then create new ones
+        await prisma.quoteItem.deleteMany({ where: { quotationId: quoteId } });
+        await prisma.quoteAnswer.deleteMany({ where: { quotationId: quoteId } });
 
-        quotations[quoteIndex] = updatedQuote;
+        const updatedQuote = await prisma.quotation.update({
+            where: { id: quoteId },
+            data: {
+                totalPrice,
+                deliveryDate: addDays(new Date(), maxLeadTime),
+                notes,
+                cpoDocumentUrl,
+                items: {
+                    create: items.map((item: any) => ({
+                        requisitionItemId: item.requisitionItemId,
+                        name: item.name,
+                        quantity: item.quantity,
+                        unitPrice: Number(item.unitPrice),
+                        leadTimeDays: Number(item.leadTimeDays),
+                        brandDetails: item.brandDetails,
+                    }))
+                },
+                answers: {
+                     create: answers?.map((ans: any) => ({
+                        questionId: ans.questionId,
+                        answer: ans.answer,
+                    }))
+                }
+            }
+        });
 
         auditLogs.unshift({
             id: `log-${Date.now()}`,

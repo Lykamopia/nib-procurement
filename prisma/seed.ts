@@ -169,7 +169,9 @@ async function main() {
                ...quoteData,
                status: quoteData.status.replace(/ /g, '_') as any,
                deliveryDate: new Date(quoteData.deliveryDate),
-               createdAt: new Date(quoteData.createdAt)
+               createdAt: new Date(quoteData.createdAt),
+               vendor: { connect: { id: quote.vendorId } },
+               requisition: { connect: { id: quote.requisitionId } },
            }
        });
 
