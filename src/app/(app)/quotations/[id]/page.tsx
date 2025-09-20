@@ -1151,7 +1151,7 @@ const WorkflowStepper = ({ step }: { step: 'rfq' | 'committee' | 'award' | 'fina
         const currentIndex = stepOrder.indexOf(currentStep);
         const targetIndex = stepOrder.indexOf(targetStep);
         if (currentIndex > targetIndex) return 'completed';
-        if (currentIndex === targetStep) return 'active';
+        if (currentIndex === targetIndex) return 'active';
         return 'inactive';
     };
 
@@ -1486,6 +1486,8 @@ const ScoringProgressTracker = ({
   onCommitteeUpdate,
   isFinalizing,
   isAwarded,
+  isScoringComplete,
+  isScoringDeadlinePassed,
 }: {
   requisition: PurchaseRequisition;
   quotations: Quotation[];
@@ -1494,6 +1496,8 @@ const ScoringProgressTracker = ({
   onCommitteeUpdate: (open: boolean) => void;
   isFinalizing: boolean;
   isAwarded: boolean;
+  isScoringComplete: boolean;
+  isScoringDeadlinePassed: boolean;
 }) => {
     const [awardResponseDeadline, setAwardResponseDeadline] = useState<Date | undefined>();
     const [isExtendDialogOpen, setExtendDialogOpen] = useState(false);
@@ -1501,7 +1505,6 @@ const ScoringProgressTracker = ({
     const [selectedMember, setSelectedMember] = useState<User | null>(null);
     
     const { toast } = useToast();
-    const isScoringDeadlinePassed = requisition.scoringDeadline && isPast(new Date(requisition.scoringDeadline));
 
     const assignedCommitteeMembers = useMemo(() => {
         const allIds = [
@@ -1536,8 +1539,7 @@ const ScoringProgressTracker = ({
     }, [assignedCommitteeMembers, quotations, isScoringDeadlinePassed]);
     
     const overdueMembers = scoringStatus.filter(s => s.isOverdue);
-    const allHaveScored = scoringStatus.every(s => s.hasScoredAll);
-
+    
     const handleFinalizeClick = () => {
         if (awardResponseDeadline && isBefore(awardResponseDeadline, new Date())) {
             toast({
@@ -1554,7 +1556,7 @@ const ScoringProgressTracker = ({
         <Card className="mt-6">
             <CardHeader>
                 <CardTitle className="flex items-center gap-2"><GanttChart /> Scoring Progress</CardTitle>
-                <CardDescription>Track the committee's scoring progress. The award can be finalized once all members have submitted their scores for all quotations.</CardDescription>
+                <CardDescription>Track the committee's scoring progress. The award can be finalized once all members have submitted their scores.</CardDescription>
             </CardHeader>
             <CardContent>
                 <ul className="space-y-3">
@@ -1596,7 +1598,7 @@ const ScoringProgressTracker = ({
             <CardFooter>
                  <AlertDialog>
                     <AlertDialogTrigger asChild>
-                        <Button disabled={!allHaveScored || isFinalizing || isAwarded}>
+                        <Button disabled={!isScoringComplete || !isScoringDeadlinePassed || isFinalizing || isAwarded}>
                             {isFinalizing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             Finalize Scores and Award
                         </Button>
@@ -2116,21 +2118,21 @@ export default function QuotationDetailsPage() {
   }, [requisition]);
 
   const isScoringComplete = useMemo(() => {
-    if (!requisition) return false;
-    const allMemberIds = [
-        ...(requisition.financialCommitteeMemberIds || []),
-        ...(requisition.technicalCommitteeMemberIds || [])
-    ];
-    if (allMemberIds.length === 0) return false; // Not complete if no one is assigned
-    if (quotations.length === 0) return true; // Vacuously true if there are no quotes to score
+    if (!requisition || quotations.length === 0) return false;
 
-    // Check that every member has scored every quote
-    return allMemberIds.every(memberId => 
-        quotations.every(quote => 
-            quote.scores?.some(score => score.scorerId === memberId)
-        )
+    const allMemberIds = [
+      ...(requisition.financialCommitteeMemberIds || []),
+      ...(requisition.technicalCommitteeMemberIds || []),
+    ];
+    const uniqueMemberIds = [...new Set(allMemberIds)];
+    if (uniqueMemberIds.length === 0) return false;
+
+    return uniqueMemberIds.every(memberId => 
+      quotations.every(quote => 
+        quote.scores?.some(score => score.scorerId === memberId)
+      )
     );
-  }, [requisition, quotations, allUsers]);
+  }, [requisition, quotations]);
 
   const handleRfqSent = () => fetchRequisitionAndQuotes();
   const handleQuoteAdded = () => { setAddFormOpen(false); fetchRequisitionAndQuotes(); }
@@ -2440,6 +2442,8 @@ export default function QuotationDetailsPage() {
                 onCommitteeUpdate={setCommitteeDialogOpen}
                 isFinalizing={isFinalizing}
                 isAwarded={isAwarded}
+                isScoringComplete={isScoringComplete}
+                isScoringDeadlinePassed={isScoringDeadlinePassed}
             />
         )}
         
@@ -2473,3 +2477,4 @@ export default function QuotationDetailsPage() {
     </div>
   );
 }
+
