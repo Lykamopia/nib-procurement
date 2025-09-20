@@ -1107,7 +1107,7 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
             </CardContent>
             <CardFooter>
                  {isSent ? (
-                    <Badge variant="default" className="gap-2">
+                    <Badge variant="default" className="gap-2 bg-green-600">
                         <CheckCircle className="h-4 w-4" />
                         RFQ Distributed on {format(new Date(requisition.updatedAt), 'PP')}
                     </Badge>
@@ -2468,7 +2468,4 @@ export default function QuotationDetailsPage() {
     </div>
   );
 }
-
-
-
 
