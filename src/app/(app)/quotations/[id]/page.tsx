@@ -1146,10 +1146,10 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
 };
 
 const WorkflowStepper = ({ step }: { step: 'rfq' | 'committee' | 'award' | 'finalize' | 'completed' }) => {
-    const getStepState = (currentStep: string, targetStep: string) => {
+    const getStepState = (currentStepKey: string, targetStepKey: string) => {
         const stepOrder = ['rfq', 'committee', 'award', 'finalize', 'completed'];
-        const currentIndex = stepOrder.indexOf(currentStep);
-        const targetIndex = stepOrder.indexOf(targetStep);
+        const currentIndex = stepOrder.indexOf(currentStepKey);
+        const targetIndex = stepOrder.indexOf(targetStepKey);
         if (currentIndex > targetIndex) return 'completed';
         if (currentIndex === targetIndex) return 'active';
         return 'inactive';
@@ -1157,7 +1157,7 @@ const WorkflowStepper = ({ step }: { step: 'rfq' | 'committee' | 'award' | 'fina
 
     const steps = [
         { key: 'rfq', label: 'Send RFQ' },
-        { key: 'committee', label: 'Assign Committee & Score' },
+        { key: 'committee', label: 'Assign & Score' },
         { key: 'award', label: 'Award' },
         { key: 'finalize', label: 'Finalize' }
     ];
@@ -2119,18 +2119,18 @@ export default function QuotationDetailsPage() {
 
   const isScoringComplete = useMemo(() => {
     if (!requisition || quotations.length === 0) return false;
+    
+    const allMemberIds = new Set([
+        ...(requisition.financialCommitteeMemberIds || []),
+        ...(requisition.technicalCommitteeMemberIds || []),
+    ]);
 
-    const allMemberIds = [
-      ...(requisition.financialCommitteeMemberIds || []),
-      ...(requisition.technicalCommitteeMemberIds || []),
-    ];
-    const uniqueMemberIds = [...new Set(allMemberIds)];
-    if (uniqueMemberIds.length === 0) return false;
-
-    return uniqueMemberIds.every(memberId => 
-      quotations.every(quote => 
-        quote.scores?.some(score => score.scorerId === memberId)
-      )
+    if (allMemberIds.size === 0) return false;
+    
+    return Array.from(allMemberIds).every(memberId =>
+        quotations.every(quote =>
+            quote.scores?.some(score => score.scorerId === memberId)
+        )
     );
   }, [requisition, quotations]);
 
@@ -2229,18 +2229,18 @@ export default function QuotationDetailsPage() {
   const currentStep = useMemo((): 'rfq' | 'committee' | 'award' | 'finalize' | 'completed' => {
       if (!requisition) return 'rfq';
       const status = requisition.status;
-      const anyAwardedOrAccepted = quotations.some(q => ['Awarded', 'Accepted', 'Declined', 'Failed'].includes(q.status));
+      const anyAwardedOrAccepted = quotations.some(q => ['Awarded', 'Accepted'].includes(q.status));
       const anyAccepted = quotations.some(q => q.status === 'Accepted');
 
       if (status === 'PO_Created') return 'completed';
       if (anyAccepted) return 'finalize';
-      if (anyAwardedOrAccepted) return 'award';
+      if (isScoringDeadlinePassed && !anyAwardedOrAccepted) return 'award';
       if (status === 'RFQ_In_Progress' && isDeadlinePassed) return 'committee';
       if (status === 'RFQ_In_Progress' && !isDeadlinePassed) return 'rfq';
       if (status === 'Approved') return 'rfq';
       
       return 'committee';
-  }, [requisition, quotations, isDeadlinePassed]);
+  }, [requisition, quotations, isDeadlinePassed, isScoringDeadlinePassed]);
   
   const formatEvaluationCriteria = (criteria?: EvaluationCriteria) => {
       if (!criteria) return "No specific criteria defined.";
@@ -2433,7 +2433,7 @@ export default function QuotationDetailsPage() {
             </Card>
         )}
         
-        {currentStep === 'committee' && quotations.length > 0 && isDeadlinePassed && (
+        {(currentStep === 'committee' || (currentStep === 'award' && !isAwarded)) && (
              <ScoringProgressTracker 
                 requisition={requisition}
                 quotations={quotations}
@@ -2473,7 +2473,7 @@ export default function QuotationDetailsPage() {
                 isOpen={isReportOpen}
                 onClose={() => setReportOpen(false)}
             />
-        )}
+         )}
     </div>
   );
 }

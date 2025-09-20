@@ -49,7 +49,7 @@ async function main() {
   // Seed Users
   for (const user of seedData.users) {
     // Prisma doesn't like extra fields like committeeAssignments or direct foreign keys when using connect
-    const { committeeAssignments, departmentId, department, ...userData } = user;
+    const { committeeAssignments, departmentId, ...userData } = user;
     await prisma.user.create({
       data: {
           ...userData,
@@ -107,8 +107,8 @@ async function main() {
               requester: { connect: { id: requesterId } },
               approver: approverId ? { connect: { id: approverId } } : undefined,
               department: departmentRecord ? { connect: { id: departmentRecord.id } } : undefined,
-              financialCommitteeMembers: { connect: financialCommitteeMemberIds?.map(id => ({ id })) },
-              technicalCommitteeMembers: { connect: technicalCommitteeMemberIds?.map(id => ({ id })) },
+              financialCommitteeMembers: financialCommitteeMemberIds?.length ? { connect: financialCommitteeMemberIds.map(id => ({ id })) } : undefined,
+              technicalCommitteeMembers: technicalCommitteeMemberIds?.length ? { connect: technicalCommitteeMemberIds.map(id => ({ id })) } : undefined,
               deadline: reqData.deadline ? new Date(reqData.deadline) : undefined,
               scoringDeadline: reqData.scoringDeadline ? new Date(reqData.scoringDeadline) : undefined,
               awardResponseDeadline: reqData.awardResponseDeadline ? new Date(reqData.awardResponseDeadline) : undefined,
