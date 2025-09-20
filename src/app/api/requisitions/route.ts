@@ -58,6 +58,7 @@ export async function POST(request: Request) {
     const newRequisition = await prisma.purchaseRequisition.create({
         data: {
             requester: { connect: { id: user.id } },
+            requesterName: body.requesterName, // Add the missing field
             department: { connect: { name: body.department } },
             title: body.title,
             justification: body.justification,
