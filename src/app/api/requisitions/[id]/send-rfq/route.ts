@@ -30,7 +30,9 @@ export async function POST(
         where: { id },
         data: {
             status: 'RFQ_In_Progress',
-            allowedVendorIds: vendorIds, // Note: This field may need to be adjusted based on the prisma schema
+            // If vendorIds is 'all', store an empty array to signify open to all.
+            // Otherwise, store the provided array of vendor IDs.
+            allowedVendorIds: vendorIds === 'all' ? [] : vendorIds,
             scoringDeadline: scoringDeadline ? new Date(scoringDeadline) : undefined,
             deadline: deadline ? new Date(deadline) : undefined,
             cpoAmount: cpoAmount,
