@@ -21,6 +21,7 @@ export async function GET() {
         },
         financialCommitteeMembers: { select: { id: true } },
         technicalCommitteeMembers: { select: { id: true } },
+        quotations: true, // Include quotations to check vendor status
       },
       orderBy: {
         createdAt: 'desc',

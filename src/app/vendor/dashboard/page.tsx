@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -65,21 +64,36 @@ export default function VendorDashboardPage() {
                     }
                     throw new Error('Failed to fetch requisitions.');
                 }
-                const data: PurchaseRequisition[] = await response.json();
+                const allRequisitions: PurchaseRequisition[] = await response.json();
 
-                // 1. Filter for requisitions open for quoting
-                const openForQuoting = data.filter(r => 
-                    r.status === 'RFQ In Progress' &&
-                    (r.allowedVendorIds === 'all' || (Array.isArray(r.allowedVendorIds) && r.allowedVendorIds.includes(user.vendorId!))) &&
-                    (!r.deadline || !isPast(new Date(r.deadline)))
-                );
-                setOpenRequisitions(openForQuoting);
-                
-                // 2. Filter for requisitions where the vendor's quote was awarded
-                const vendorAwards = data.filter(req => {
-                    return req.quotations?.some(quote => quote.vendorId === user.vendorId && quote.status === 'Awarded');
+                const vendorAwards: PurchaseRequisition[] = [];
+                const availableForQuoting: PurchaseRequisition[] = [];
+
+                allRequisitions.forEach(req => {
+                    // Check if awarded to the current vendor
+                    const awardedQuote = req.quotations?.find(
+                        (q: Quotation) => q.vendorId === user.vendorId && q.status === 'Awarded'
+                    );
+
+                    if (awardedQuote) {
+                        vendorAwards.push(req);
+                    } 
+                    // Check if open for quoting
+                    else if (
+                        req.status === 'RFQ_In_Progress' &&
+                        (!req.deadline || !isPast(new Date(req.deadline)))
+                    ) {
+                        const isPublic = req.allowedVendorIds && req.allowedVendorIds.length === 0;
+                        const isPrivateAndAllowed = req.allowedVendorIds && req.allowedVendorIds.includes(user.vendorId!);
+                        
+                        if (isPublic || isPrivateAndAllowed) {
+                           availableForQuoting.push(req);
+                        }
+                    }
                 });
+                
                 setAwardedRequisitions(vendorAwards);
+                setOpenRequisitions(availableForQuoting);
 
             } catch (err) {
                 setError(err instanceof Error ? err.message : 'An unknown error occurred.');
