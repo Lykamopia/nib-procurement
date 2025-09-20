@@ -330,7 +330,7 @@ const QuoteComparison = ({ quotes, requisition, onScore, user, isDeadlinePassed,
                              )}
                         </CardContent>
                         <CardFooter className="flex flex-col gap-2">
-                            {canUserScore && (
+                            {canUserScore && isDeadlinePassed && (
                                 <Button className="w-full" variant={hasUserScored ? "secondary" : "outline"} onClick={() => onScore(quote)} disabled={isScoringDeadlinePassed && !hasUserScored}>
                                     {hasUserScored ? <Check className="mr-2 h-4 w-4"/> : <Edit2 className="mr-2 h-4 w-4" />}
                                     {hasUserScored ? 'View Your Score' : 'Score this Quote'}
@@ -1602,8 +1602,8 @@ const ScoringProgressTracker = ({
                     ))}
                 </ul>
             </CardContent>
-             <CardFooter>
-                 {isScoringDeadlinePassed && (
+             {isScoringDeadlinePassed && (
+                <CardFooter>
                     <AlertDialog>
                         <AlertDialogTrigger asChild>
                             <Button disabled={!isScoringComplete || isFinalizing || isAwarded}>
@@ -1666,8 +1666,8 @@ const ScoringProgressTracker = ({
                             </AlertDialogFooter>
                         </AlertDialogContent>
                     </AlertDialog>
-                 )}
-            </CardFooter>
+                </CardFooter>
+             )}
             {selectedMember && (
                 <>
                     <ExtendDeadlineDialog 
@@ -1981,9 +1981,24 @@ const CommitteeActions = ({
             setIsSubmitting(false);
         }
     };
-
-    if (user.role !== 'Committee Member' || scoresAlreadyFinalized) {
-        return null;
+    
+    if (scoresAlreadyFinalized) {
+        return (
+            <Card>
+                <CardHeader>
+                    <CardTitle>Evaluation Complete</CardTitle>
+                </CardHeader>
+                <CardContent>
+                     <Alert variant="default" className="border-green-600">
+                        <CheckCircle className="h-4 w-4 text-green-600" />
+                        <AlertTitle>Thank you!</AlertTitle>
+                        <AlertDescription>
+                            You have already submitted your final scores for this requisition. No further action is needed.
+                        </AlertDescription>
+                    </Alert>
+                </CardContent>
+            </Card>
+        )
     }
 
     return (
@@ -2459,7 +2474,7 @@ export default function QuotationDetailsPage() {
             />
         )}
         
-        {user.role === 'Committee Member' && (currentStep === 'committee' || currentStep === 'award') && isDeadlinePassed && (
+        {user.role === 'Committee Member' && isDeadlinePassed && (
              <CommitteeActions 
                 user={user}
                 requisition={requisition}
