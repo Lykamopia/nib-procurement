@@ -60,7 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('authToken', newToken);
     setToken(newToken);
     setUser(loggedInUser);
-    setRole(loggedInRole);
+    setRole(loggedInRole.replace(/_/g, ' ') as UserRole);
   };
   
   const switchUser = async (userId: string) => {

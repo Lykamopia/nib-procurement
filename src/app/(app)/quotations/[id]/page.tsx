@@ -2241,13 +2241,13 @@ export default function QuotationDetailsPage() {
 
       if (status === 'PO_Created') return 'completed';
       if (anyAccepted) return 'finalize';
-      if (isScoringDeadlinePassed) return 'award';
+      if (isAwarded) return 'award';
       if (status === 'RFQ_In_Progress' && isDeadlinePassed) return 'committee';
       if (status === 'Approved') return 'rfq';
       if (status === 'RFQ_In_Progress' && !isDeadlinePassed) return 'rfq';
       
       return 'committee';
-  }, [requisition, quotations, isDeadlinePassed, isScoringDeadlinePassed]);
+  }, [requisition, quotations, isDeadlinePassed, isAwarded]);
   
   const formatEvaluationCriteria = (criteria?: EvaluationCriteria) => {
       if (!criteria) return "No specific criteria defined.";
@@ -2440,7 +2440,7 @@ export default function QuotationDetailsPage() {
             </Card>
         )}
         
-        {(currentStep === 'committee' || currentStep === 'award') && isDeadlinePassed && (
+        {currentStep === 'award' && (
              <ScoringProgressTracker 
                 requisition={requisition}
                 quotations={quotations}
@@ -2484,6 +2484,7 @@ export default function QuotationDetailsPage() {
     </div>
   );
 }
+
 
 
 
