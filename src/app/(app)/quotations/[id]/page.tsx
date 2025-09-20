@@ -1602,7 +1602,7 @@ const ScoringProgressTracker = ({
                     ))}
                 </ul>
             </CardContent>
-             {isScoringDeadlinePassed && (
+             {(isScoringDeadlinePassed || isScoringComplete) && (
                 <CardFooter>
                     <AlertDialog>
                         <AlertDialogTrigger asChild>
@@ -2372,6 +2372,7 @@ export default function QuotationDetailsPage() {
                             )}
                         </div>
                     </div>
+                    {role !== 'Committee Member' && (
                     <div className="flex items-center gap-2 w-full sm:w-auto">
                         {isAwarded && isScoringComplete && role === 'Procurement Officer' && (
                             <Button variant="secondary" onClick={() => setReportOpen(true)}>
@@ -2420,6 +2421,7 @@ export default function QuotationDetailsPage() {
                             </Dialog>
                         )}
                     </div>
+                    )}
                 </CardHeader>
                 <CardContent>
                 {loading ? (
@@ -2462,7 +2464,7 @@ export default function QuotationDetailsPage() {
             </Card>
         )}
         
-        {role === 'Procurement Officer' && currentStep === 'award' && (
+        {role === 'Procurement Officer' && (currentStep === 'award' || currentStep === 'committee') && (
              <ScoringProgressTracker 
                 requisition={requisition}
                 quotations={quotations}
@@ -2476,7 +2478,7 @@ export default function QuotationDetailsPage() {
             />
         )}
         
-        {user.role === 'Committee Member' && isDeadlinePassed && (
+        {user.role === 'Committee Member' && isDeadlinePassed && quotations.length > 0 && (
              <CommitteeActions 
                 user={user}
                 requisition={requisition}
