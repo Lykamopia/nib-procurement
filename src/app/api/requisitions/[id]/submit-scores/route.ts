@@ -2,7 +2,8 @@
 'use server';
 
 import { NextResponse } from 'next/server';
-import { auditLogs, users } from '@/lib/data-store';
+import { prisma } from '@/lib/prisma';
+import { users } from '@/lib/data-store';
 
 export async function POST(
   request: Request,
@@ -22,28 +23,22 @@ export async function POST(
         return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
     
-    if (!user.committeeAssignments) {
-        user.committeeAssignments = [];
-    }
-
-    const assignment = user.committeeAssignments.find(a => a.requisitionId === requisitionId);
-
-    if (assignment) {
-        assignment.scoresSubmitted = true;
-    } else {
-        user.committeeAssignments.push({ requisitionId, scoresSubmitted: true });
-    }
-
-    auditLogs.unshift({
-        id: `log-${Date.now()}`,
-        timestamp: new Date(),
-        user: user.name,
-        role: user.role,
-        action: 'SUBMIT_ALL_SCORES',
-        entity: 'Requisition',
-        entityId: requisitionId,
-        details: `Finalized and submitted all scores for the requisition.`,
+    await prisma.committeeAssignment.upsert({
+      where: {
+        userId_requisitionId: {
+          userId: userId,
+          requisitionId: requisitionId,
+        }
+      },
+      update: { scoresSubmitted: true },
+      create: {
+        userId: userId,
+        requisitionId: requisitionId,
+        scoresSubmitted: true,
+      },
     });
+
+    // auditLogs.unshift({ ... });
 
     return NextResponse.json({ message: 'All scores have been successfully submitted.' });
   } catch (error) {

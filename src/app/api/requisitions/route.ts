@@ -3,57 +3,100 @@
 
 import { NextResponse } from 'next/server';
 import type { PurchaseRequisition, RequisitionStatus } from '@/lib/types';
-import { requisitions, auditLogs } from '@/lib/data-store';
-import { users } from '@/lib/data-store';
+import { prisma } from '@/lib/prisma';
+import { users } from '@/lib/data-store'; // Still using in-memory users for now
 
 export async function GET() {
-  console.log('GET /api/requisitions - Fetching all requisitions.');
-  return NextResponse.json(requisitions);
+  console.log('GET /api/requisitions - Fetching all requisitions from DB.');
+  try {
+    const requisitions = await prisma.purchaseRequisition.findMany({
+      include: {
+        items: true,
+        customQuestions: true,
+        evaluationCriteria: {
+            include: {
+                financialCriteria: true,
+                technicalCriteria: true,
+            }
+        },
+        financialCommitteeMembers: { select: { id: true } },
+        technicalCommitteeMembers: { select: { id: true } },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    const formattedRequisitions = requisitions.map(req => ({
+        ...req,
+        financialCommitteeMemberIds: req.financialCommitteeMembers.map(m => m.id),
+        technicalCommitteeMemberIds: req.technicalCommitteeMembers.map(m => m.id),
+    }));
+
+    return NextResponse.json(formattedRequisitions);
+  } catch (error) {
+    console.error('Failed to fetch requisitions:', error);
+    if (error instanceof Error) {
+        return NextResponse.json({ error: 'Failed to fetch requisitions', details: error.message }, { status: 500 });
+    }
+    return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
+  }
 }
 
 export async function POST(request: Request) {
-  console.log('POST /api/requisitions - Creating new requisition.');
+  console.log('POST /api/requisitions - Creating new requisition in DB.');
   try {
     const body = await request.json();
     console.log('Request body:', body);
     
+    // Using in-memory user data for now
     const user = users.find(u => u.name === body.requesterName);
-
-    const itemsWithIds = body.items.map((item: any, index: number) => ({...item, id: `ITEM-${Date.now()}-${index}`}));
-    const questionsWithIds = body.customQuestions?.map((q: any, index: number) => ({...q, id: `Q-${Date.now()}-${index}`})) || [];
+    if (!user) {
+        return NextResponse.json({ error: 'Requester user not found' }, { status: 404 });
+    }
     
-    const newRequisition: PurchaseRequisition = {
-      id: `REQ-${Date.now()}`,
-      requesterId: user?.id || 'temp-user-id',
-      requesterName: body.requesterName,
-      title: body.title,
-      department: body.department,
-      items: itemsWithIds,
-      customQuestions: questionsWithIds,
-      evaluationCriteria: body.evaluationCriteria,
-      totalPrice: 0,
-      justification: body.justification,
-      status: 'Draft',
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      quotations: [], // Initialize quotations array
-    };
+    const newRequisition = await prisma.purchaseRequisition.create({
+        data: {
+            requester: { connect: { id: user.id } },
+            department: { connect: { name: body.department } },
+            title: body.title,
+            justification: body.justification,
+            status: 'Draft',
+            items: {
+                create: body.items.map((item: any) => ({
+                    name: item.name,
+                    quantity: item.quantity,
+                    description: item.description || ''
+                }))
+            },
+            customQuestions: {
+                create: body.customQuestions?.map((q: any) => ({
+                    questionText: q.questionText,
+                    questionType: q.questionType,
+                    options: q.options || [],
+                }))
+            },
+            evaluationCriteria: {
+                create: {
+                    financialWeight: body.evaluationCriteria.financialWeight,
+                    technicalWeight: body.evaluationCriteria.technicalWeight,
+                    financialCriteria: {
+                        create: body.evaluationCriteria.financialCriteria.map((c:any) => ({ name: c.name, weight: c.weight }))
+                    },
+                    technicalCriteria: {
+                        create: body.evaluationCriteria.technicalCriteria.map((c:any) => ({ name: c.name, weight: c.weight }))
+                    }
+                }
+            }
+        },
+        include: { items: true, customQuestions: true, evaluationCriteria: true }
+    });
 
-    requisitions.unshift(newRequisition);
-    console.log('Created new requisition:', newRequisition);
+    console.log('Created new requisition in DB:', newRequisition);
 
-    const auditLogEntry = {
-      id: `log-${Date.now()}-${Math.random()}`,
-      timestamp: new Date(),
-      user: newRequisition.requesterName || 'Unknown',
-      role: user?.role || 'Requester',
-      action: 'CREATE',
-      entity: 'Requisition',
-      entityId: newRequisition.id,
-      details: `Created new requisition "${newRequisition.title}"`,
-    };
-    auditLogs.unshift(auditLogEntry);
-    console.log('Added audit log:', auditLogEntry);
+    // Audit log can still use in-memory for now or be updated later
+    // const auditLogEntry = { ... };
+    // auditLogs.unshift(auditLogEntry);
 
     return NextResponse.json(newRequisition, { status: 201 });
   } catch (error) {
@@ -69,86 +112,82 @@ export async function POST(request: Request) {
 export async function PATCH(
   request: Request,
 ) {
-  console.log('PATCH /api/requisitions - Updating requisition status or content.');
+  console.log('PATCH /api/requisitions - Updating requisition status or content in DB.');
   try {
     const body = await request.json();
-    console.log('Request body:', body);
-    const { id, status, userId, comment } = body;
-
-    const requisitionIndex = requisitions.findIndex((r) => r.id === id);
-    if (requisitionIndex === -1) {
-      console.error('Requisition not found for ID:', id);
-      return NextResponse.json({ error: 'Requisition not found' }, { status: 404 });
-    }
+    const { id, status, userId, comment, ...updateData } = body;
 
     const user = users.find(u => u.id === userId);
     if (!user) {
-        console.error('User not found for ID:', userId);
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    const requisition = requisitions[requisitionIndex];
-    const oldStatus = requisition.status;
+    const requisition = await prisma.purchaseRequisition.findUnique({ where: { id }});
+    if (!requisition) {
+      return NextResponse.json({ error: 'Requisition not found' }, { status: 404 });
+    }
+
+    let dataToUpdate: any = {};
     
-    let auditDetails = ``;
-
     // This handles editing a rejected requisition and resubmitting
-    if (oldStatus === 'Rejected' && status === 'Pending Approval') {
-        requisition.title = body.title;
-        requisition.department = body.department;
-        requisition.items = body.items;
-        requisition.customQuestions = body.customQuestions;
-        requisition.justification = body.justification;
-        requisition.evaluationCriteria = body.evaluationCriteria;
-        
-        const total = 0; // Price is no longer estimated here
-        requisition.totalPrice = total;
-        
-        requisition.status = 'Pending Approval';
-        requisition.approverId = undefined;
-        requisition.approverComment = undefined;
-        auditDetails = `Edited and resubmitted for approval.`;
-    } else if (status) { // This handles normal status changes (draft -> pending, pending -> approved/rejected)
-        requisition.status = status as RequisitionStatus;
-        auditDetails = `Changed status from "${oldStatus}" to "${status}"`;
-
-        if (status === 'Pending Approval') {
-            const total = 0; // Price is no longer estimated here
-            requisition.totalPrice = total;
-            auditDetails = `Submitted for approval.`
-        }
-
-        if (status === 'Approved' || status === 'Rejected') {
-            requisition.approverId = userId;
-            requisition.approverComment = comment;
-
-            if (status === 'Approved') {
-                auditDetails = `Approved requisition. Comment: "${comment}"`
-            } else {
-                auditDetails = `Rejected requisition. Comment: "${comment}"`
+    if (requisition.status === 'Rejected' && status === 'Pending Approval') {
+        dataToUpdate = {
+            title: updateData.title,
+            justification: updateData.justification,
+            department: { connect: { name: updateData.department } },
+            status: 'Pending Approval',
+            approverId: null,
+            approverComment: null,
+            // We need to delete old items and create new ones
+            items: {
+                deleteMany: {},
+                create: updateData.items.map((item: any) => ({
+                    name: item.name,
+                    quantity: item.quantity,
+                    description: item.description || ''
+                })),
+            },
+            // Same for questions and criteria
+            customQuestions: {
+                deleteMany: {},
+                create: updateData.customQuestions?.map((q: any) => ({
+                    questionText: q.questionText,
+                    questionType: q.questionType,
+                    options: q.options || [],
+                })),
+            },
+        };
+        // Handle evaluation criteria update by deleting old and creating new
+         await prisma.evaluationCriteria.deleteMany({ where: { requisitionId: id } });
+         dataToUpdate.evaluationCriteria = {
+            create: {
+                financialWeight: updateData.evaluationCriteria.financialWeight,
+                technicalWeight: updateData.evaluationCriteria.technicalWeight,
+                financialCriteria: {
+                    create: updateData.evaluationCriteria.financialCriteria.map((c:any) => ({ name: c.name, weight: c.weight }))
+                },
+                technicalCriteria: {
+                    create: updateData.evaluationCriteria.technicalCriteria.map((c:any) => ({ name: c.name, weight: c.weight }))
+                }
             }
+        };
+
+    } else if (status) { // This handles normal status changes
+        dataToUpdate.status = status as RequisitionStatus;
+        if (status === 'Approved' || status === 'Rejected') {
+            dataToUpdate.approverId = userId;
+            dataToUpdate.approverComment = comment;
         }
     } else {
         return NextResponse.json({ error: 'No valid update action specified.' }, { status: 400 });
     }
-
-    requisition.updatedAt = new Date();
     
-    const auditLogEntry = {
-        id: `log-${Date.now()}-${Math.random()}`,
-        timestamp: new Date(),
-        user: user.name,
-        role: user.role,
-        action: 'UPDATE',
-        entity: 'Requisition',
-        entityId: id,
-        details: auditDetails,
-    };
-    auditLogs.unshift(auditLogEntry);
-    console.log('Added audit log:', auditLogEntry);
+    const updatedRequisition = await prisma.purchaseRequisition.update({
+      where: { id },
+      data: dataToUpdate,
+    });
 
-    console.log('Successfully updated requisition:', requisition);
-    return NextResponse.json(requisition);
+    return NextResponse.json(updatedRequisition);
   } catch (error) {
     console.error('Failed to update requisition:', error);
     if (error instanceof Error) {

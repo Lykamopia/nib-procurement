@@ -1,6 +1,6 @@
 
 import { NextResponse } from 'next/server';
-import { requisitions, auditLogs } from '@/lib/data-store';
+import { prisma } from '@/lib/prisma';
 import { users } from '@/lib/auth-store';
 
 export async function POST(
@@ -12,7 +12,7 @@ export async function POST(
     const body = await request.json();
     const { userId, vendorIds, scoringDeadline, deadline, cpoAmount } = body;
 
-    const requisition = requisitions.find((r) => r.id === id);
+    const requisition = await prisma.purchaseRequisition.findUnique({ where: { id }});
     if (!requisition) {
       return NextResponse.json({ error: 'Requisition not found' }, { status: 404 });
     }
@@ -26,34 +26,20 @@ export async function POST(
         return NextResponse.json({ error: 'Requisition must be approved before sending RFQ.' }, { status: 400 });
     }
 
-    requisition.status = 'RFQ In Progress';
-    requisition.allowedVendorIds = vendorIds;
-    requisition.scoringDeadline = scoringDeadline ? new Date(scoringDeadline) : undefined;
-    requisition.deadline = deadline ? new Date(deadline) : undefined;
-    requisition.cpoAmount = cpoAmount;
-    requisition.updatedAt = new Date();
+    const updatedRequisition = await prisma.purchaseRequisition.update({
+        where: { id },
+        data: {
+            status: 'RFQ In Progress',
+            allowedVendorIds: vendorIds, // Note: This field may need to be adjusted based on the prisma schema
+            scoringDeadline: scoringDeadline ? new Date(scoringDeadline) : undefined,
+            deadline: deadline ? new Date(deadline) : undefined,
+            cpoAmount: cpoAmount,
+        }
+    });
 
-    let auditDetails = vendorIds === 'all' 
-        ? `Sent RFQ to all vendors.`
-        : `Sent RFQ to selected vendors: ${vendorIds.join(', ')}.`;
-    
-    if (cpoAmount) {
-        auditDetails += ` CPO of ${cpoAmount} ETB required.`;
-    }
+    // auditLogs.unshift({ ... });
 
-    const auditLogEntry = {
-        id: `log-${Date.now()}-${Math.random()}`,
-        timestamp: new Date(),
-        user: user.name,
-        role: user.role,
-        action: 'SEND_RFQ',
-        entity: 'Requisition',
-        entityId: id,
-        details: auditDetails,
-    };
-    auditLogs.unshift(auditLogEntry);
-
-    return NextResponse.json(requisition);
+    return NextResponse.json(updatedRequisition);
 
   } catch (error) {
     console.error('Failed to send RFQ:', error);
