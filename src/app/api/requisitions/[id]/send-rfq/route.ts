@@ -29,7 +29,7 @@ export async function POST(
     const updatedRequisition = await prisma.purchaseRequisition.update({
         where: { id },
         data: {
-            status: 'RFQ In Progress',
+            status: 'RFQ_In_Progress',
             allowedVendorIds: vendorIds, // Note: This field may need to be adjusted based on the prisma schema
             scoringDeadline: scoringDeadline ? new Date(scoringDeadline) : undefined,
             deadline: deadline ? new Date(deadline) : undefined,
