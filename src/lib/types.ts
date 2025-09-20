@@ -9,7 +9,7 @@ export type UserRole =
   | 'Receiving'
   | 'Vendor'
   | 'Committee Member'
-  | 'Committee';
+  | 'Committee'; // This can be removed if all are 'Committee Member'
 
 export type CommitteeAssignment = {
   requisitionId: string;

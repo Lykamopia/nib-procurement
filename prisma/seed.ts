@@ -95,7 +95,6 @@ async function main() {
           financialCommitteeMemberIds,
           technicalCommitteeMemberIds,
           department,
-          committeeMemberIds, // old field, remove it
           ...reqData 
       } = requisition;
 
@@ -108,13 +107,26 @@ async function main() {
               requester: { connect: { id: requesterId } },
               approver: approverId ? { connect: { id: approverId } } : undefined,
               department: departmentRecord ? { connect: { id: departmentRecord.id } } : undefined,
-              financialCommitteeMembers: financialCommitteeMemberIds ? { connect: financialCommitteeMemberIds.map(id => ({ id })) } : undefined,
-              technicalCommitteeMembers: technicalCommitteeMemberIds ? { connect: technicalCommitteeMemberIds.map(id => ({ id })) } : undefined,
+              financialCommitteeMembers: { connect: financialCommitteeMemberIds?.map(id => ({ id })) },
+              technicalCommitteeMembers: { connect: technicalCommitteeMemberIds?.map(id => ({ id })) },
               deadline: reqData.deadline ? new Date(reqData.deadline) : undefined,
               scoringDeadline: reqData.scoringDeadline ? new Date(reqData.scoringDeadline) : undefined,
               awardResponseDeadline: reqData.awardResponseDeadline ? new Date(reqData.awardResponseDeadline) : undefined,
           }
       });
+
+      if (financialCommitteeMemberIds || technicalCommitteeMemberIds) {
+          const allMemberIds = [...new Set([...(financialCommitteeMemberIds || []), ...(technicalCommitteeMemberIds || [])])];
+          for (const memberId of allMemberIds) {
+              await prisma.committeeAssignment.create({
+                  data: {
+                      userId: memberId,
+                      requisitionId: createdRequisition.id,
+                      scoresSubmitted: false,
+                  }
+              });
+          }
+      }
       
       // Seed RequisitionItems
       if (items) {

@@ -256,6 +256,11 @@ const QuoteComparison = ({ quotes, requisition, onScore, user, isDeadlinePassed,
             default: return null;
         }
     }
+    
+    const canUserScore = (user.role === 'Committee Member') && (
+        requisition.financialCommitteeMemberIds?.includes(user.id) || 
+        requisition.technicalCommitteeMemberIds?.includes(user.id)
+    );
 
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -324,7 +329,7 @@ const QuoteComparison = ({ quotes, requisition, onScore, user, isDeadlinePassed,
                              )}
                         </CardContent>
                         <CardFooter className="flex flex-col gap-2">
-                            {user.role === 'Committee Member' && (
+                            {canUserScore && (
                                 <Button className="w-full" variant={hasUserScored ? "secondary" : "outline"} onClick={() => onScore(quote)} disabled={isScoringDeadlinePassed && !hasUserScored}>
                                     {hasUserScored ? <Check className="mr-2 h-4 w-4"/> : <Edit2 className="mr-2 h-4 w-4" />}
                                     {hasUserScored ? 'View Your Score' : 'Score this Quote'}
@@ -462,7 +467,7 @@ const CommitteeManagement = ({ requisition, onCommitteeUpdated, open, onOpenChan
             setDeadlineDate(new Date(requisition.scoringDeadline));
             setDeadlineTime(format(new Date(requisition.scoringDeadline), 'HH:mm'));
         }
-    }, [requisition, form]);
+    }, [requisition, form, open]);
 
     const handleSaveCommittee = async (values: CommitteeFormValues) => {
         if (!user || !finalDeadline) {
@@ -701,6 +706,9 @@ const CommitteeManagement = ({ requisition, onCommitteeUpdated, open, onOpenChan
                                         <MemberSelection type="technical" />
                                     </div>
                                 </div>
+                                {form.formState.errors.financialCommitteeMemberIds && (
+                                    <p className="text-sm font-medium text-destructive">{form.formState.errors.financialCommitteeMemberIds.message}</p>
+                                )}
                         </div>
                         <DialogFooter className="pt-4 border-t mt-4">
                             <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
@@ -1249,22 +1257,25 @@ const ScoringDialog = ({
         resolver: zodResolver(scoreFormSchema),
     });
 
+    const isFinancialScorer = requisition.financialCommitteeMemberIds?.includes(user.id);
+    const isTechnicalScorer = requisition.technicalCommitteeMemberIds?.includes(user.id);
+
     useEffect(() => {
         if (quote && requisition) {
             const existingScore = quote.scores?.find(s => s.scorerId === user.id);
             form.reset({
                 committeeComment: existingScore?.committeeComment || "",
-                financialScores: requisition.evaluationCriteria?.financialCriteria.map(c => {
+                financialScores: isFinancialScorer ? requisition.evaluationCriteria?.financialCriteria.map(c => {
                     const existing = existingScore?.financialScores.find(s => s.criterionId === c.id);
                     return { criterionId: c.id, score: existing?.score || 0, comment: existing?.comment || "" };
-                }) || [],
-                technicalScores: requisition.evaluationCriteria?.technicalCriteria.map(c => {
+                }) || [] : [],
+                technicalScores: isTechnicalScorer ? requisition.evaluationCriteria?.technicalCriteria.map(c => {
                     const existing = existingScore?.technicalScores.find(s => s.criterionId === c.id);
                     return { criterionId: c.id, score: existing?.score || 0, comment: existing?.comment || "" };
-                }) || [],
+                }) || [] : [],
             });
         }
-    }, [quote, requisition, user, form]);
+    }, [quote, requisition, user, form, isFinancialScorer, isTechnicalScorer]);
 
     const onSubmit = async (values: ScoreFormValues) => {
         setSubmitting(true);
@@ -1295,9 +1306,6 @@ const ScoringDialog = ({
     
     if (!requisition.evaluationCriteria) return null;
     const existingScore = quote.scores?.find(s => s.scorerId === user.id);
-
-    const isFinancialScorer = requisition.financialCommitteeMemberIds?.includes(user.id);
-    const isTechnicalScorer = requisition.technicalCommitteeMemberIds?.includes(user.id);
 
     if (!existingScore && isScoringDeadlinePassed) {
         return (
@@ -1424,7 +1432,7 @@ const ScoringDialog = ({
                 </div>
             </ScrollArea>
              <DialogFooter className="pt-4 flex items-center justify-between">
-                <Button type="button" onClick={() => form.reset()} variant="ghost">Reset Form</Button>
+                <Button type="button" onClick={() => form.reset()} variant="ghost" disabled={!!existingScore}>Reset Form</Button>
                  {existingScore ? (
                     <p className="text-sm text-muted-foreground">You have already scored this quote.</p>
                  ) : (
@@ -2113,13 +2121,15 @@ export default function QuotationDetailsPage() {
         ...(requisition.financialCommitteeMemberIds || []),
         ...(requisition.technicalCommitteeMemberIds || [])
     ];
-    if (allMemberIds.length === 0) return false;
-    if (quotations.length === 0) return false;
+    if (allMemberIds.length === 0) return false; // Not complete if no one is assigned
+    if (quotations.length === 0) return true; // Vacuously true if there are no quotes to score
 
-    return allMemberIds.every(memberId => {
-        const member = allUsers.find(u => u.id === memberId);
-        return member?.committeeAssignments?.some(a => a.requisitionId === requisition.id && a.scoresSubmitted) || false;
-    });
+    // Check that every member has scored every quote
+    return allMemberIds.every(memberId => 
+        quotations.every(quote => 
+            quote.scores?.some(score => score.scorerId === memberId)
+        )
+    );
   }, [requisition, quotations, allUsers]);
 
   const handleRfqSent = () => fetchRequisitionAndQuotes();
@@ -2148,7 +2158,7 @@ export default function QuotationDetailsPage() {
          const response = await fetch(`/api/requisitions/${requisition.id}/finalize-scores`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId: user.id, awardResponseDeadline, awardResponseDurationMinutes }),
+            body: JSON.stringify({ userId: user.id, awardResponseDeadline }),
         });
         if (!response.ok) {
             const errorData = await response.json();
@@ -2215,25 +2225,20 @@ export default function QuotationDetailsPage() {
   }
 
   const currentStep = useMemo((): 'rfq' | 'committee' | 'award' | 'finalize' | 'completed' => {
-    if (!requisition) return 'rfq';
-    const status = requisition.status;
-    const anyAwarded = quotations.some(q => ['Awarded', 'Accepted', 'Declined', 'Failed'].includes(q.status));
-    const anyAccepted = quotations.some(q => q.status === 'Accepted');
+      if (!requisition) return 'rfq';
+      const status = requisition.status;
+      const anyAwardedOrAccepted = quotations.some(q => ['Awarded', 'Accepted', 'Declined', 'Failed'].includes(q.status));
+      const anyAccepted = quotations.some(q => q.status === 'Accepted');
 
-    if (status === 'PO_Created') return 'completed';
-    if (anyAccepted) return 'finalize';
-    if (anyAwarded) return 'award';
-    if (status === 'RFQ_In_Progress') {
-        const deadline = requisition.deadline ? new Date(requisition.deadline) : null;
-        if (deadline && isPast(deadline)) {
-            return 'committee';
-        }
-        return 'rfq';
-    }
-    if (status === 'Approved') return 'rfq';
-    
-    return 'committee';
-  }, [requisition, quotations]);
+      if (status === 'PO_Created') return 'completed';
+      if (anyAccepted) return 'finalize';
+      if (anyAwardedOrAccepted) return 'award';
+      if (status === 'RFQ_In_Progress' && isDeadlinePassed) return 'committee';
+      if (status === 'RFQ_In_Progress' && !isDeadlinePassed) return 'rfq';
+      if (status === 'Approved') return 'rfq';
+      
+      return 'committee';
+  }, [requisition, quotations, isDeadlinePassed]);
   
   const formatEvaluationCriteria = (criteria?: EvaluationCriteria) => {
       if (!criteria) return "No specific criteria defined.";
@@ -2468,4 +2473,3 @@ export default function QuotationDetailsPage() {
     </div>
   );
 }
-
