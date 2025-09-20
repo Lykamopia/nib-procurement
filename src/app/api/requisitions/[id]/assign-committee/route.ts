@@ -52,22 +52,26 @@ export async function POST(
       }
     });
 
-    // Then, create new assignments for the selected members
+    // Then, create new assignments for the selected members if they don't already have a submitted score
     for (const memberId of allMemberIds) {
-      await prisma.committeeAssignment.upsert({
+      const existingAssignment = await prisma.committeeAssignment.findUnique({
         where: {
           userId_requisitionId: {
             userId: memberId,
             requisitionId: id,
-          }
+          },
         },
-        update: {}, // Don't update if it exists (e.g., if scores were already submitted)
-        create: {
-          userId: memberId,
-          requisitionId: id,
-          scoresSubmitted: false
-        }
       });
+
+      if (!existingAssignment) {
+        await prisma.committeeAssignment.create({
+          data: {
+            userId: memberId,
+            requisitionId: id,
+            scoresSubmitted: false,
+          },
+        });
+      }
     }
 
     const committeeMembers = await prisma.user.findMany({
