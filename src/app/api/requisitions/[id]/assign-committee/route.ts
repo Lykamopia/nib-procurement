@@ -1,4 +1,3 @@
-
 'use server';
 
 import { NextResponse } from 'next/server';
@@ -54,10 +53,12 @@ export async function POST(
 
     // Then, create new assignments for the selected members if they don't already have a submitted score
     for (const memberId of allMemberIds) {
-      const existingAssignment = await prisma.committeeAssignment.findFirst({
+      const existingAssignment = await prisma.committeeAssignment.findUnique({
         where: {
-          userId: memberId,
-          requisitionId: id,
+          userId_requisitionId: {
+            userId: memberId,
+            requisitionId: id,
+          },
         },
       });
 

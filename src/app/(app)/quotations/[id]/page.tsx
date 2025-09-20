@@ -2293,9 +2293,9 @@ export default function QuotationDetailsPage() {
   
   return (
     <div className="space-y-6">
-        <Button variant="outline" onClick={() => router.push('/quotations')}>
+        <Button variant="outline" onClick={() => router.back()}>
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to All Requisitions
+            Back to List
         </Button>
         
         {role !== 'Committee Member' && (
