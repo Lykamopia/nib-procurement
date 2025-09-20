@@ -28,9 +28,19 @@ export async function GET(request: Request) {
       quotations: true,
       requester: true,
       approver: true,
+      financialCommitteeMembers: { select: { id: true } },
+      technicalCommitteeMembers: { select: { id: true } },
     }
   });
-  return NextResponse.json(requisitions);
+
+  // Manual mapping to flatten the committee member IDs
+  const formattedRequisitions = requisitions.map(req => ({
+      ...req,
+      financialCommitteeMemberIds: req.financialCommitteeMembers.map(m => m.id),
+      technicalCommitteeMemberIds: req.technicalCommitteeMembers.map(m => m.id),
+  }));
+
+  return NextResponse.json(formattedRequisitions);
 }
 
 export async function POST(request: Request) {
