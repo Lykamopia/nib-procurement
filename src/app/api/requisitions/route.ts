@@ -150,7 +150,7 @@ export async function PATCH(
             title: updateData.title,
             justification: updateData.justification,
             department: { connect: { name: updateData.department } },
-            status: 'Pending Approval',
+            status: status.replace(/ /g, '_'),
             totalPrice: totalPrice,
             approverId: null,
             approverComment: null,
@@ -190,7 +190,7 @@ export async function PATCH(
         };
 
     } else if (status) { // This handles normal status changes
-        dataToUpdate.status = status as RequisitionStatus;
+        dataToUpdate.status = status.replace(/ /g, '_');
         if (status === 'Approved' || status === 'Rejected') {
             dataToUpdate.approverId = userId;
             dataToUpdate.approverComment = comment;
