@@ -2049,15 +2049,19 @@ export default function QuotationDetailsPage() {
         setLastPOCreated(null);
         try {
             const [reqResponse, venResponse, quoResponse, usersResponse] = await Promise.all([
-                fetch('/api/requisitions'),
+                fetch(`/api/requisitions/${id}`),
                 fetch('/api/vendors'),
                 fetch(`/api/quotations?requisitionId=${id}`),
                 fetch('/api/users'), 
             ]);
-            const allReqs = await reqResponse.json();
+
+            if (!reqResponse.ok) throw new Error('Failed to fetch requisition details.');
+
+            const currentReq = await reqResponse.json();
             const venData = await venResponse.json();
             const quoData = await quoResponse.json();
             const allUsersData = await usersResponse.json();
+
             if (user && !allUsers.some(u => u.id === user.id)) {
                 const currentUserData = allUsersData.find((u:User) => u.id === user.id);
                 if (currentUserData) {
@@ -2065,8 +2069,6 @@ export default function QuotationDetailsPage() {
                     login(token, currentUserData, currentUserData.role as any);
                 }
             }
-
-            const currentReq = allReqs.find((r: PurchaseRequisition) => r.id === id);
 
             if (currentReq) {
                 const awardedQuote = quoData.find((q: Quotation) => q.status === 'Awarded');
@@ -2079,12 +2081,12 @@ export default function QuotationDetailsPage() {
                     const promoteAction = awardedQuote.rank === 1 && secondStandby ? 'promote_second' : 'promote_third';
                     await handleAwardChange(promoteAction);
                     const [refetchedReqRes, refetchedQuoRes] = await Promise.all([
-                        fetch('/api/requisitions'),
+                        fetch(`/api/requisitions/${id}`),
                         fetch(`/api/quotations?requisitionId=${id}`)
                     ]);
-                    const refetchedReqs = await refetchedReqRes.json();
+                    const refetchedReq = await refetchedReqRes.json();
                     const refetchedQuos = await refetchedQuoRes.json();
-                    setRequisition(refetchedReqs.find((r: PurchaseRequisition) => r.id === id));
+                    setRequisition(refetchedReq);
                     setQuotations(refetchedQuos);
                 } else {
                     setRequisition(currentReq);
@@ -2318,7 +2320,7 @@ export default function QuotationDetailsPage() {
             />
         )}
         
-        {(currentStep === 'committee' || currentStep === 'award') && isDeadlinePassed && (
+        {(currentStep === 'committee' || currentStep === 'award' || currentStep === 'finalize') && isDeadlinePassed && (
             <CommitteeManagement
                 requisition={requisition} 
                 onCommitteeUpdated={fetchRequisitionAndQuotes}
@@ -2440,7 +2442,7 @@ export default function QuotationDetailsPage() {
             </Card>
         )}
         
-        {currentStep === 'award' && (
+        {currentStep === 'award' && isScoringDeadlinePassed && (
              <ScoringProgressTracker 
                 requisition={requisition}
                 quotations={quotations}
@@ -2484,6 +2486,7 @@ export default function QuotationDetailsPage() {
     </div>
   );
 }
+
 
 
 
