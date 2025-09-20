@@ -54,19 +54,27 @@ export async function POST(request: Request) {
     if (!user) {
         return NextResponse.json({ error: 'Requester user not found' }, { status: 404 });
     }
+
+    const totalPrice = body.items.reduce((acc: number, item: any) => {
+        const price = item.unitPrice || 0;
+        const quantity = item.quantity || 0;
+        return acc + (price * quantity);
+    }, 0);
     
     const newRequisition = await prisma.purchaseRequisition.create({
         data: {
             requester: { connect: { id: user.id } },
-            requesterName: body.requesterName, // Add the missing field
+            requesterName: body.requesterName,
             department: { connect: { name: body.department } },
             title: body.title,
             justification: body.justification,
             status: 'Draft',
+            totalPrice: totalPrice,
             items: {
                 create: body.items.map((item: any) => ({
                     name: item.name,
                     quantity: item.quantity,
+                    unitPrice: item.unitPrice || 0,
                     description: item.description || ''
                 }))
             },
@@ -132,11 +140,18 @@ export async function PATCH(
     
     // This handles editing a rejected requisition and resubmitting
     if (requisition.status === 'Rejected' && status === 'Pending Approval') {
+        const totalPrice = updateData.items.reduce((acc: number, item: any) => {
+            const price = item.unitPrice || 0;
+            const quantity = item.quantity || 0;
+            return acc + (price * quantity);
+        }, 0);
+
         dataToUpdate = {
             title: updateData.title,
             justification: updateData.justification,
             department: { connect: { name: updateData.department } },
             status: 'Pending Approval',
+            totalPrice: totalPrice,
             approverId: null,
             approverComment: null,
             // We need to delete old items and create new ones
@@ -145,6 +160,7 @@ export async function PATCH(
                 create: updateData.items.map((item: any) => ({
                     name: item.name,
                     quantity: item.quantity,
+                    unitPrice: item.unitPrice || 0,
                     description: item.description || ''
                 })),
             },

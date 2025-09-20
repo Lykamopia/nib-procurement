@@ -159,7 +159,6 @@ export function NeedsRecognitionForm({ existingRequisition, onSuccess }: NeedsRe
     try {
       const formattedValues = {
         ...values,
-        items: values.items.map(item => ({...item, unitPrice: undefined })), // Ensure unitPrice is not sent
         customQuestions: values.customQuestions?.map(q => ({
           ...q,
           options: q.options?.map(opt => opt.value)
@@ -167,7 +166,7 @@ export function NeedsRecognitionForm({ existingRequisition, onSuccess }: NeedsRe
       };
       
       const body = isEditMode ? 
-        { ...formattedValues, id: existingRequisition.id, status: 'Pending Approval', userId: user?.id, totalPrice: 0 } : 
+        { ...formattedValues, id: existingRequisition.id, status: 'Pending Approval', userId: user?.id } : 
         formattedValues;
       
       const response = await fetch('/api/requisitions', {

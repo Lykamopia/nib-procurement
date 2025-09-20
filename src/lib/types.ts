@@ -1,5 +1,4 @@
 
-
 export type UserRole =
   | 'Requester'
   | 'Approver'
@@ -48,7 +47,7 @@ export type RequisitionItem = {
   name: string;
   description: string;
   quantity: number;
-  unitPrice?: number;
+  unitPrice: number;
 };
 
 export type QuestionType = 'text' | 'boolean' | 'multiple-choice';
@@ -86,7 +85,7 @@ export type PurchaseRequisition = {
   title: string;
   department: string;
   items: RequisitionItem[];
-  totalPrice?: number;
+  totalPrice: number;
   justification: string;
   status: RequisitionStatus;
   createdAt: Date;
