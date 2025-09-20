@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
@@ -1600,69 +1601,71 @@ const ScoringProgressTracker = ({
                     ))}
                 </ul>
             </CardContent>
-            <CardFooter>
-                 <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                        <Button disabled={!isScoringComplete || !isScoringDeadlinePassed || isFinalizing || isAwarded}>
-                            {isFinalizing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            Finalize Scores and Award
-                        </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle>Finalize Awards?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                                This will tally all scores and automatically assign statuses. Set a deadline for the winning vendor to respond.
-                            </AlertDialogDescription>
-                        </AlertDialogHeader>
-                         <div className="py-4">
-                            <Label htmlFor='award-response-deadline'>Award Response Deadline</Label>
-                             <Popover>
-                                <PopoverTrigger asChild>
-                                    <Button
-                                        id="award-response-deadline"
-                                        variant={"outline"}
-                                        className={cn(
-                                        "w-full justify-start text-left font-normal mt-2",
-                                        !awardResponseDeadline && "text-muted-foreground"
-                                        )}
-                                    >
-                                        <CalendarIcon className="mr-2 h-4 w-4" />
-                                        {awardResponseDeadline ? format(awardResponseDeadline, "PPP p") : <span>Pick a date and time</span>}
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0">
-                                    <Calendar
-                                        mode="single"
-                                        selected={awardResponseDeadline}
-                                        onSelect={setAwardResponseDeadline}
-                                        disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
-                                        initialFocus
-                                    />
-                                    <div className="p-2 border-t border-border">
-                                        <p className="text-xs text-muted-foreground text-center mb-2">Set Time</p>
-                                        <div className="flex gap-2">
-                                        <Input
-                                            type="time"
-                                            defaultValue={awardResponseDeadline ? format(awardResponseDeadline, 'HH:mm') : '17:00'}
-                                            onChange={(e) => {
-                                                const [hours, minutes] = e.target.value.split(':').map(Number);
-                                                setAwardResponseDeadline(d => setMinutes(setHours(d || new Date(), hours), minutes));
-                                            }}
+             <CardFooter>
+                 {isScoringDeadlinePassed && (
+                    <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                            <Button disabled={!isScoringComplete || isFinalizing || isAwarded}>
+                                {isFinalizing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                Finalize Scores and Award
+                            </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>Finalize Awards?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    This will tally all scores and automatically assign statuses. Set a deadline for the winning vendor to respond.
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <div className="py-4">
+                                <Label htmlFor='award-response-deadline'>Award Response Deadline</Label>
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            id="award-response-deadline"
+                                            variant={"outline"}
+                                            className={cn(
+                                            "w-full justify-start text-left font-normal mt-2",
+                                            !awardResponseDeadline && "text-muted-foreground"
+                                            )}
+                                        >
+                                            <CalendarIcon className="mr-2 h-4 w-4" />
+                                            {awardResponseDeadline ? format(awardResponseDeadline, "PPP p") : <span>Pick a date and time</span>}
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0">
+                                        <Calendar
+                                            mode="single"
+                                            selected={awardResponseDeadline}
+                                            onSelect={setAwardResponseDeadline}
+                                            disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                                            initialFocus
                                         />
+                                        <div className="p-2 border-t border-border">
+                                            <p className="text-xs text-muted-foreground text-center mb-2">Set Time</p>
+                                            <div className="flex gap-2">
+                                            <Input
+                                                type="time"
+                                                defaultValue={awardResponseDeadline ? format(awardResponseDeadline, 'HH:mm') : '17:00'}
+                                                onChange={(e) => {
+                                                    const [hours, minutes] = e.target.value.split(':').map(Number);
+                                                    setAwardResponseDeadline(d => setMinutes(setHours(d || new Date(), hours), minutes));
+                                                }}
+                                            />
+                                            </div>
                                         </div>
-                                    </div>
-                                </PopoverContent>
-                            </Popover>
-                        </div>
-                        <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={handleFinalizeClick} disabled={!awardResponseDeadline}>
-                                Proceed
-                            </AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
+                                    </PopoverContent>
+                                </Popover>
+                            </div>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={handleFinalizeClick} disabled={!awardResponseDeadline}>
+                                    Proceed
+                                </AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
+                 )}
             </CardFooter>
             {selectedMember && (
                 <>
@@ -2123,24 +2126,21 @@ export default function QuotationDetailsPage() {
   }, [requisition]);
 
   const isScoringComplete = useMemo(() => {
-    if (!requisition || !requisition.financialCommitteeMemberIds || !requisition.technicalCommitteeMemberIds || quotations.length === 0) return false;
+    if (!requisition || !allUsers || quotations.length === 0) return false;
     
     const allMemberIds = new Set([
-        ...requisition.financialCommitteeMemberIds,
-        ...requisition.technicalCommitteeMemberIds,
+        ...(requisition.financialCommitteeMemberIds || []),
+        ...(requisition.technicalCommitteeMemberIds || []),
     ]);
 
-    if (allMemberIds.size === 0) return false;
-    
-    const allAssignments = allUsers.find(u => u.id === user?.id)?.committeeAssignments || [];
-    const thisReqAssignment = allAssignments.find(a => a.requisitionId === requisition.id);
+    if (allMemberIds.size === 0) return true; // No committee assigned, scoring is trivially complete
 
     return Array.from(allMemberIds).every(memberId => {
         const assignment = allUsers.find(u => u.id === memberId)?.committeeAssignments?.find(a => a.requisitionId === requisition.id);
         return assignment?.scoresSubmitted || false;
     });
 
-  }, [requisition, quotations, allUsers, user]);
+  }, [requisition, quotations, allUsers]);
 
   const handleRfqSent = () => fetchRequisitionAndQuotes();
   const handleQuoteAdded = () => { setAddFormOpen(false); fetchRequisitionAndQuotes(); }
@@ -2237,18 +2237,17 @@ export default function QuotationDetailsPage() {
   const currentStep = useMemo((): 'rfq' | 'committee' | 'award' | 'finalize' | 'completed' => {
       if (!requisition) return 'rfq';
       const status = requisition.status;
-      const anyAwardedOrAccepted = quotations.some(q => ['Awarded', 'Accepted'].includes(q.status));
       const anyAccepted = quotations.some(q => q.status === 'Accepted');
 
       if (status === 'PO_Created') return 'completed';
       if (anyAccepted) return 'finalize';
-      if (isScoringDeadlinePassed && isScoringComplete) return 'award';
+      if (isScoringDeadlinePassed) return 'award';
       if (status === 'RFQ_In_Progress' && isDeadlinePassed) return 'committee';
-      if (status === 'RFQ_In_Progress' && !isDeadlinePassed) return 'rfq';
       if (status === 'Approved') return 'rfq';
+      if (status === 'RFQ_In_Progress' && !isDeadlinePassed) return 'rfq';
       
-      return 'committee'; // Default catch-all
-  }, [requisition, quotations, isDeadlinePassed, isScoringDeadlinePassed, isScoringComplete]);
+      return 'committee';
+  }, [requisition, quotations, isDeadlinePassed, isScoringDeadlinePassed]);
   
   const formatEvaluationCriteria = (criteria?: EvaluationCriteria) => {
       if (!criteria) return "No specific criteria defined.";
@@ -2319,7 +2318,7 @@ export default function QuotationDetailsPage() {
             />
         )}
         
-        {currentStep === 'committee' && (
+        {(currentStep === 'committee' || currentStep === 'award') && isDeadlinePassed && (
             <CommitteeManagement
                 requisition={requisition} 
                 onCommitteeUpdated={fetchRequisitionAndQuotes}
@@ -2441,7 +2440,7 @@ export default function QuotationDetailsPage() {
             </Card>
         )}
         
-        {(currentStep === 'committee' || currentStep === 'award') && (
+        {(currentStep === 'committee' || currentStep === 'award') && isDeadlinePassed && (
              <ScoringProgressTracker 
                 requisition={requisition}
                 quotations={quotations}
@@ -2485,4 +2484,6 @@ export default function QuotationDetailsPage() {
     </div>
   );
 }
+
+
 
