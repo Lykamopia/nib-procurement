@@ -55,11 +55,7 @@ export function RequisitionsForQuotingTable() {
             }
 
             const availableForQuoting = data.filter(r => 
-                r.status === 'Approved' || 
-                r.status === 'RFQ In Progress' || 
-                r.status === 'PO Created' ||
-                r.status === 'Fulfilled' ||
-                r.status === 'Closed'
+                r.status === 'Approved'
             );
             setRequisitions(availableForQuoting);
         } catch (e) {
