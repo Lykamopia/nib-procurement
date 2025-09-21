@@ -43,6 +43,7 @@ export async function POST(request: Request) {
       data: {
         purchaseOrder: { connect: { id: purchaseOrderId } },
         vendor: { connect: { id: vendorId } },
+        vendorId: vendorId, // Add the required vendorId field
         invoiceDate: new Date(invoiceDate),
         totalAmount,
         status: 'Pending',
