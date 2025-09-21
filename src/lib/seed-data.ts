@@ -79,6 +79,7 @@ const seedData: AppData = {
             requesterName: 'Alice',
             title: 'New Laptops for Design Team',
             department: 'Design',
+            departmentId: 'DEPT-1',
             items: [
                 { id: 'ITEM-1', name: 'MacBook Pro 16-inch', quantity: 5, unitPrice: 2499, description: '' },
                 { id: 'ITEM-2', name: '4K Monitor', quantity: 5, unitPrice: 799, description: '' }
@@ -97,6 +98,7 @@ const seedData: AppData = {
             requesterName: 'Bob',
             title: 'Office Supplies Replenishment',
             department: 'Operations',
+            departmentId: 'DEPT-2',
             items: [
                 { id: 'ITEM-3', name: 'Printer Paper (Case)', quantity: 10, unitPrice: 45, description: '' },
                 { id: 'ITEM-4', name: 'Toner Cartridge', quantity: 4, unitPrice: 150, description: '' }
@@ -114,6 +116,7 @@ const seedData: AppData = {
             requesterName: 'Charlie',
             title: 'Software License Renewals',
             department: 'IT',
+            departmentId: 'DEPT-3',
             items: [
               { id: 'ITEM-5', name: 'Project Management Tool (Annual)', quantity: 20, unitPrice: 240, description: '' },
             ],

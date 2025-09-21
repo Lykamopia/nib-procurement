@@ -297,6 +297,7 @@ export function RequisitionsTable() {
                 <TableHead>Req. ID</TableHead>
                 <TableHead>Title</TableHead>
                 <TableHead>Requester</TableHead>
+                <TableHead>Department</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Created At</TableHead>
                 <TableHead>Deadline</TableHead>
@@ -311,6 +312,7 @@ export function RequisitionsTable() {
                     <TableCell className="font-medium text-primary">{req.id}</TableCell>
                     <TableCell>{req.title}</TableCell>
                     <TableCell>{req.requesterName}</TableCell>
+                    <TableCell>{req.department}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <Badge variant={getStatusVariant(req.status)}>{req.status.replace(/_/g, ' ')}</Badge>
@@ -383,7 +385,7 @@ export function RequisitionsTable() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={8} className="h-48 text-center">
+                  <TableCell colSpan={9} className="h-48 text-center">
                     <div className="flex flex-col items-center gap-4">
                         <ListX className="h-16 w-16 text-muted-foreground/50" />
                         <div className="space-y-1">

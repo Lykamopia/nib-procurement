@@ -13,6 +13,7 @@ export async function GET() {
       include: {
         items: true,
         customQuestions: true,
+        department: true,
         evaluationCriteria: {
             include: {
                 financialCriteria: true,
@@ -30,6 +31,7 @@ export async function GET() {
 
     const formattedRequisitions = requisitions.map(req => ({
         ...req,
+        department: req.department?.name || 'N/A',
         financialCommitteeMemberIds: req.financialCommitteeMembers.map(m => m.id),
         technicalCommitteeMemberIds: req.technicalCommitteeMembers.map(m => m.id),
     }));

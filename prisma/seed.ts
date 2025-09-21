@@ -95,6 +95,7 @@ async function main() {
           financialCommitteeMemberIds,
           technicalCommitteeMemberIds,
           department,
+          departmentId,
           committeeMemberIds, // old field, remove it
           ...reqData 
       } = requisition;
@@ -107,7 +108,7 @@ async function main() {
               status: reqData.status.replace(/ /g, '_') as any,
               requester: { connect: { id: requesterId } },
               approver: approverId ? { connect: { id: approverId } } : undefined,
-              department: departmentRecord ? { connect: { id: departmentRecord.id } } : undefined,
+              department: departmentId ? { connect: { id: departmentId } } : undefined,
               financialCommitteeMembers: financialCommitteeMemberIds ? { connect: financialCommitteeMemberIds.map(id => ({ id })) } : undefined,
               technicalCommitteeMembers: technicalCommitteeMemberIds ? { connect: technicalCommitteeMemberIds.map(id => ({ id })) } : undefined,
               deadline: reqData.deadline ? new Date(reqData.deadline) : undefined,
