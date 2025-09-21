@@ -32,7 +32,7 @@ export async function POST(request: Request) {
         const newReceipt = await tx.goodsReceiptNote.create({
           data: {
               purchaseOrder: { connect: { id: purchaseOrderId } },
-              receivedBy: user.name, // Corrected field
+              receivedBy: { connect: { id: user.id } },
               items: {
                   create: items.map((item: any) => ({
                       poItemId: item.poItemId,
