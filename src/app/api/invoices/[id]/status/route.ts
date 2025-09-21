@@ -1,10 +1,11 @@
 
+
 'use server';
 
 import { NextResponse } from 'next/server';
-import { auditLogs, invoices } from '@/lib/data-store';
+import { prisma } from '@/lib/prisma';
+import { auditLogs } from '@/lib/data-store';
 import { users } from '@/lib/auth-store';
-import { InvoiceStatus } from '@/lib/types';
 
 export async function PATCH(
   request: Request,
@@ -17,7 +18,8 @@ export async function PATCH(
     console.log('Request body:', body);
     const { status, userId } = body;
 
-    if (!['Approved for Payment', 'Disputed'].includes(status)) {
+    const validStatuses = ['Approved for Payment', 'Disputed'];
+    if (!validStatuses.includes(status)) {
       console.error('Invalid status provided:', status);
       return NextResponse.json({ error: 'Invalid status provided.' }, { status: 400 });
     }
@@ -28,7 +30,7 @@ export async function PATCH(
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
     
-    const invoiceToUpdate = invoices.find(inv => inv.id === invoiceId);
+    const invoiceToUpdate = await prisma.invoice.findUnique({ where: { id: invoiceId } });
     if (!invoiceToUpdate) {
         console.error('Invoice not found for ID:', invoiceId);
         return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
@@ -36,7 +38,10 @@ export async function PATCH(
     console.log('Found invoice to update:', invoiceToUpdate);
 
     const oldStatus = invoiceToUpdate.status;
-    invoiceToUpdate.status = status as InvoiceStatus;
+    const updatedInvoice = await prisma.invoice.update({
+        where: { id: invoiceId },
+        data: { status: status.replace(/ /g, '_') }
+    });
     
     const auditLogEntry = {
         id: `log-${Date.now()}-${Math.random()}`,
@@ -51,8 +56,8 @@ export async function PATCH(
     auditLogs.unshift(auditLogEntry);
     console.log('Added audit log:', auditLogEntry);
 
-    console.log('Successfully updated invoice. Sending back:', invoiceToUpdate);
-    return NextResponse.json(invoiceToUpdate);
+    console.log('Successfully updated invoice. Sending back:', updatedInvoice);
+    return NextResponse.json(updatedInvoice);
   } catch (error) {
     console.error('Failed to update invoice status:', error);
     if (error instanceof Error) {

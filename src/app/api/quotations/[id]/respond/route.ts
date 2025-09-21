@@ -47,16 +47,11 @@ export async function POST(
                 data: { status: 'Accepted' }
             });
 
-            const vendor = await tx.vendor.findUnique({ where: { id: quote.vendorId } });
-            if (!vendor) {
-                throw new Error('Vendor not found');
-            }
-
             const newPO = await tx.purchaseOrder.create({
                 data: {
                     requisition: { connect: { id: requisition.id } },
                     requisitionTitle: requisition.title,
-                    vendor: { connect: { id: vendor.id } },
+                    vendor: { connect: { id: quote.vendorId } },
                     items: {
                         create: quote.items.map(item => ({
                             requisitionItemId: item.requisitionItemId,
@@ -161,5 +156,3 @@ export async function POST(
     return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
   }
 }
-
-    

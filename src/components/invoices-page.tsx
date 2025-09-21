@@ -471,11 +471,11 @@ export function InvoicesPage() {
     setMatchingDetailsOpen(true);
   }
 
-  const getStatusVariant = (status: InvoiceStatus) => {
+  const getStatusVariant = (status: string) => {
     switch (status) {
       case 'Paid': return 'default';
       case 'Pending': return 'secondary';
-      case 'Approved for Payment': return 'secondary';
+      case 'Approved_for_Payment': return 'secondary';
       case 'Disputed': return 'destructive';
       default: return 'outline';
     }
@@ -534,7 +534,7 @@ export function InvoicesPage() {
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-col gap-1">
-                        <Badge variant={getStatusVariant(invoice.status)}>{invoice.status}</Badge>
+                        <Badge variant={getStatusVariant(invoice.status)}>{invoice.status.replace(/_/g, ' ')}</Badge>
                          {invoice.status === 'Paid' && invoice.paymentReference && (
                            <span className="text-xs text-muted-foreground">{invoice.paymentReference}</span>
                          )}
@@ -561,7 +561,7 @@ export function InvoicesPage() {
                                 </Button>
                             </>
                         )}
-                        {invoice.status === 'Approved for Payment' && (
+                        {invoice.status === 'Approved_for_Payment' && (
                             <AlertDialog>
                                 <AlertDialogTrigger asChild>
                                     <Button size="sm">
@@ -584,9 +584,9 @@ export function InvoicesPage() {
                                 </AlertDialogContent>
                             </AlertDialog>
                         )}
-                         {invoice.status === 'Paid' && (
+                         {invoice.status === 'Paid' && invoice.paymentDate && (
                              <div className="flex items-center text-sm text-green-600">
-                                 <CheckCircle className="mr-2 h-4 w-4"/> Paid on {format(new Date(invoice.paymentDate!), 'PP')}
+                                 <CheckCircle className="mr-2 h-4 w-4"/> Paid on {format(new Date(invoice.paymentDate), 'PP')}
                              </div>
                          )}
                       </div>

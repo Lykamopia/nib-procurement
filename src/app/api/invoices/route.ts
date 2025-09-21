@@ -1,17 +1,27 @@
 
 
+'use server';
+
 import { NextResponse } from 'next/server';
-import { purchaseOrders, invoices as invoiceStore, auditLogs, quotations } from '@/lib/data-store';
-import { Invoice } from '@/lib/types';
+import { prisma } from '@/lib/prisma';
+import { auditLogs } from '@/lib/data-store';
 import { users } from '@/lib/auth-store';
 
 export async function GET() {
-  console.log('GET /api/invoices - Fetching all invoices.');
-  return NextResponse.json(invoiceStore);
+  console.log('GET /api/invoices - Fetching all invoices from DB.');
+  try {
+    const invoices = await prisma.invoice.findMany({
+      orderBy: { invoiceDate: 'desc' },
+    });
+    return NextResponse.json(invoices);
+  } catch (error) {
+    console.error('Failed to fetch invoices:', error);
+    return NextResponse.json({ error: 'Failed to fetch invoices' }, { status: 500 });
+  }
 }
 
 export async function POST(request: Request) {
-  console.log('POST /api/invoices - Creating new invoice.');
+  console.log('POST /api/invoices - Creating new invoice in DB.');
   try {
     const body = await request.json();
     console.log('Request body:', body);
@@ -23,49 +33,46 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    const po = purchaseOrders.find(p => p.id === purchaseOrderId);
+    const po = await prisma.purchaseOrder.findUnique({ where: { id: purchaseOrderId } });
     if (!po) {
       console.error('Purchase Order not found for ID:', purchaseOrderId);
       return NextResponse.json({ error: 'Purchase Order not found' }, { status: 404 });
     }
 
-    const newInvoice: Invoice = {
-      id: `INV-${Date.now()}`,
-      purchaseOrderId,
-      vendorId,
-      invoiceDate: new Date(invoiceDate),
-      items: items.map((item: any) => ({
-        ...item,
-        id: `INV-ITEM-${Date.now()}-${Math.random()}`
-      })),
-      totalAmount,
-      status: 'Pending',
-      documentUrl,
-    };
+    const newInvoice = await prisma.invoice.create({
+      data: {
+        purchaseOrder: { connect: { id: purchaseOrderId } },
+        vendor: { connect: { id: vendorId } },
+        invoiceDate: new Date(invoiceDate),
+        totalAmount,
+        status: 'Pending',
+        documentUrl,
+        items: {
+          create: items.map((item: any) => ({
+            name: item.name,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            totalPrice: item.totalPrice,
+          })),
+        },
+      },
+    });
 
-    invoiceStore.unshift(newInvoice);
-    if (!po.invoices) {
-      po.invoices = [];
-    }
-    po.invoices.push(newInvoice);
-    console.log('Created new invoice and linked to PO:', newInvoice);
+    console.log('Created new invoice in DB and linked to PO:', newInvoice);
     
-    // Find the specific quote that was awarded to this vendor for this PO's requisition
-    const awardedQuote = quotations.find(q => 
-        q.requisitionId === po.requisitionId && 
-        q.vendorId === vendorId &&
-        (q.status === 'Awarded' || q.status === 'Invoice Submitted')
-    );
+    await prisma.quotation.updateMany({
+        where: {
+            requisitionId: po.requisitionId,
+            vendorId: vendorId,
+            status: 'Accepted'
+        },
+        data: {
+            status: 'Invoice_Submitted'
+        }
+    });
+    console.log(`Updated status to "Invoice Submitted" for quotes related to vendor ${vendorId} on requisition ${po.requisitionId}`);
 
-    if (awardedQuote) {
-        awardedQuote.status = 'Invoice Submitted';
-        console.log(`Updated status to "Invoice Submitted" for quote ${awardedQuote.id}`);
-    } else {
-        console.warn(`Could not find matching awarded quote for vendor ${vendorId} on requisition ${po.requisitionId} to update status.`);
-    }
-
-
-    const auditLogEntry = {
+    auditLogs.unshift({
         id: `log-${Date.now()}-${Math.random()}`,
         timestamp: new Date(),
         user: user.name,
@@ -74,9 +81,8 @@ export async function POST(request: Request) {
         entity: 'Invoice',
         entityId: newInvoice.id,
         details: `Created Invoice for PO ${purchaseOrderId}.`,
-    };
-    auditLogs.unshift(auditLogEntry);
-    console.log('Added audit log:', auditLogEntry);
+    });
+    console.log('Added audit log:');
 
     return NextResponse.json(newInvoice, { status: 201 });
   } catch (error) {

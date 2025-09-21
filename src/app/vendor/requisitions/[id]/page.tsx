@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -79,7 +78,7 @@ function InvoiceSubmissionForm({ po, onInvoiceSubmitted }: { po: PurchaseOrder; 
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     purchaseOrderId: po.id,
-                    vendorId: po.vendor.id,
+                    vendorId: po.vendorId, // Use vendorId from PO
                     invoiceDate: values.invoiceDate,
                     documentUrl: values.documentUrl,
                     items: po.items,
@@ -829,5 +828,3 @@ export default function VendorRequisitionPage() {
         </div>
     )
 }
-
-    
