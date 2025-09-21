@@ -57,7 +57,10 @@ export function RequisitionsForQuotingTable() {
             // For POs, show requisitions that are approved or in the quotation/award lifecycle
             if (role === 'Procurement Officer' || role === 'Committee') {
                  const relevantStatuses = ['Approved', 'RFQ In Progress', 'PO Created', 'Fulfilled', 'Closed'];
-                 data = data.filter(r => relevantStatuses.includes(r.status));
+                 data = data.filter(r => {
+                    const normalizedStatus = r.status.replace(/_/g, ' ');
+                    return relevantStatuses.includes(normalizedStatus);
+                 });
             }
 
             setRequisitions(data);
