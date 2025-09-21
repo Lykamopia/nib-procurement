@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -55,13 +54,10 @@ export function RequisitionsForQuotingTable() {
                 );
             }
             
-            // For POs, show requisitions that are in the quotation/award lifecycle
+            // For POs, show requisitions that are approved or in the quotation/award lifecycle
             if (role === 'Procurement Officer' || role === 'Committee') {
-                 const relevantStatuses = ['RFQ In Progress', 'PO Created', 'Fulfilled', 'Closed'];
-                 data = data.filter(r => relevantStatuses.includes(r.status));
-            } else {
-                // For other roles, just show approved ones for potential RFQ
-                data = data.filter(r => r.status === 'Approved');
+                 const relevantStatuses = ['Approved', 'RFQ In Progress', 'PO Created', 'Fulfilled', 'Closed'];
+                 data = data.filter(r => relevantStatuses.includes(r.status.replace(/ /g, '_')));
             }
 
             setRequisitions(data);
@@ -107,6 +103,9 @@ export function RequisitionsForQuotingTable() {
     }
     if (req.status === 'RFQ In Progress' && !deadlinePassed) {
         return <Badge variant="outline">Accepting Quotes</Badge>;
+    }
+    if (req.status === 'Approved') {
+        return <Badge variant="default" className="bg-blue-500 text-white">Ready for RFQ</Badge>;
     }
     
     return <Badge variant="outline">{req.status}</Badge>;
