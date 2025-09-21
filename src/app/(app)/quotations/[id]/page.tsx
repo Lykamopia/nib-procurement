@@ -317,7 +317,7 @@ const QuoteComparison = ({ quotes, requisition, onScore, user, isDeadlinePassed,
                                     <p className="text-muted-foreground text-xs italic">{quote.notes}</p>
                                 </div>
                             )}
-                             {isDeadlinePassed && quote.finalAverageScore !== undefined && (
+                             {isDeadlinePassed && typeof quote.finalAverageScore === 'number' && (
                                  <div className="text-center pt-2 border-t">
                                     <h4 className="font-semibold text-sm">Final Score</h4>
                                     <p className="text-2xl font-bold text-primary">{quote.finalAverageScore.toFixed(2)}</p>
