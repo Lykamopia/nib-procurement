@@ -20,7 +20,7 @@ import {
 } from './ui/card';
 import { Button } from './ui/button';
 import { PurchaseRequisition } from '@/lib/types';
-import { format } from 'date-fns';
+import { format, isPast } from 'date-fns';
 import { Badge } from './ui/badge';
 import { useRouter } from 'next/navigation';
 import { ArrowRight, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, FileX2, Loader2 } from 'lucide-react';
@@ -34,7 +34,7 @@ export function RequisitionsForQuotingTable() {
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const router = useRouter();
-  const { user, role } = useAuth();
+  const { user, allUsers, role } = useAuth();
 
 
   useEffect(() => {
@@ -47,17 +47,24 @@ export function RequisitionsForQuotingTable() {
             }
             let data: PurchaseRequisition[] = await response.json();
             
+             // For Committee Members, only show requisitions they are assigned to.
             if (role === 'Committee Member' && user) {
                 data = data.filter(r => 
                     (r.financialCommitteeMemberIds?.includes(user.id)) ||
                     (r.technicalCommitteeMemberIds?.includes(user.id))
                 );
             }
+            
+            // For POs, show requisitions that are in the quotation/award lifecycle
+            if (role === 'Procurement Officer' || role === 'Committee') {
+                 const relevantStatuses = ['RFQ In Progress', 'PO Created', 'Fulfilled', 'Closed'];
+                 data = data.filter(r => relevantStatuses.includes(r.status));
+            } else {
+                // For other roles, just show approved ones for potential RFQ
+                data = data.filter(r => r.status === 'Approved');
+            }
 
-            const availableForQuoting = data.filter(r => 
-                r.status === 'Approved'
-            );
-            setRequisitions(availableForQuoting);
+            setRequisitions(data);
         } catch (e) {
             setError(e instanceof Error ? e.message : 'An unknown error occurred');
         } finally {
@@ -80,11 +87,29 @@ export function RequisitionsForQuotingTable() {
     router.push(`/quotations/${reqId}`);
   }
 
-  const getStatusVariant = (status: string) => {
-    if (status === 'Approved') return 'default';
-    if (status === 'RFQ In Progress') return 'secondary';
-    if (status === 'PO Created') return 'outline';
-    return 'default';
+  const getStatusBadge = (req: PurchaseRequisition) => {
+    const deadlinePassed = req.deadline ? isPast(new Date(req.deadline)) : false;
+    const scoringDeadlinePassed = req.scoringDeadline ? isPast(new Date(req.scoringDeadline)) : false;
+    const isAwarded = req.quotations?.some(q => q.status === 'Awarded');
+    const isAccepted = req.quotations?.some(q => q.status === 'Accepted');
+
+    if (req.status === 'PO Created' || isAccepted) {
+        return <Badge variant="default">PO Created</Badge>;
+    }
+    if (isAwarded) {
+        return <Badge variant="secondary">Vendor Awarded</Badge>;
+    }
+    if (deadlinePassed && !scoringDeadlinePassed && req.committeeName) {
+         return <Badge variant="secondary">Scoring in Progress</Badge>;
+    }
+    if (deadlinePassed && !req.committeeName) {
+        return <Badge variant="destructive">Needs Committee</Badge>;
+    }
+    if (req.status === 'RFQ In Progress' && !deadlinePassed) {
+        return <Badge variant="outline">Accepting Quotes</Badge>;
+    }
+    
+    return <Badge variant="outline">{req.status}</Badge>;
   }
 
   if (loading) return <div className="flex h-64 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
@@ -93,9 +118,12 @@ export function RequisitionsForQuotingTable() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Requisitions Ready for Quotation</CardTitle>
+        <CardTitle>Requisitions in Quotation</CardTitle>
         <CardDescription>
-          Select a requisition to view existing quotes or add a new one.
+          {role === 'Committee Member' 
+            ? 'Requisitions assigned to you for scoring.'
+            : 'Manage requisitions that are in the quotation, scoring, and award process.'
+          }
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -107,7 +135,7 @@ export function RequisitionsForQuotingTable() {
                 <TableHead>Req. ID</TableHead>
                 <TableHead>Title</TableHead>
                 <TableHead>Department</TableHead>
-                <TableHead>Date Approved</TableHead>
+                <TableHead>Quote Deadline</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead></TableHead>
               </TableRow>
@@ -120,13 +148,15 @@ export function RequisitionsForQuotingTable() {
                     <TableCell className="font-medium text-primary">{req.id}</TableCell>
                     <TableCell>{req.title}</TableCell>
                     <TableCell>{req.department}</TableCell>
-                    <TableCell>{format(new Date(req.updatedAt), 'PP')}</TableCell>
                     <TableCell>
-                      <Badge variant={getStatusVariant(req.status)}>{req.status}</Badge>
+                        {req.deadline ? format(new Date(req.deadline), 'PP') : 'N/A'}
+                    </TableCell>
+                    <TableCell>
+                      {getStatusBadge(req)}
                     </TableCell>
                     <TableCell className="text-right">
                        <Button variant="outline" size="sm">
-                          Manage Quotes <ArrowRight className="ml-2 h-4 w-4" />
+                          {role === 'Committee Member' ? 'View & Score' : 'Manage'} <ArrowRight className="ml-2 h-4 w-4" />
                        </Button>
                     </TableCell>
                   </TableRow>
@@ -138,7 +168,12 @@ export function RequisitionsForQuotingTable() {
                       <FileX2 className="h-16 w-16 text-muted-foreground/50" />
                       <div className="space-y-1">
                         <p className="font-semibold">No Requisitions Found</p>
-                        <p className="text-muted-foreground">There are no requisitions currently assigned to you for quotation or scoring.</p>
+                        <p className="text-muted-foreground">
+                            {role === 'Committee Member'
+                                ? 'There are no requisitions currently assigned to you for scoring.'
+                                : 'There are no requisitions currently in the RFQ process.'
+                            }
+                        </p>
                       </div>
                     </div>
                   </TableCell>
