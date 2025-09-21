@@ -41,9 +41,8 @@ export async function POST(request: Request) {
 
     const newInvoice = await prisma.invoice.create({
       data: {
-        purchaseOrder: { connect: { id: purchaseOrderId } },
-        vendor: { connect: { id: vendorId } },
-        vendorId: vendorId, // Add the required vendorId field
+        purchaseOrderId: purchaseOrderId,
+        vendorId: vendorId,
         invoiceDate: new Date(invoiceDate),
         totalAmount,
         status: 'Pending',
