@@ -1,13 +1,9 @@
 
-
 import { NextResponse } from 'next/server';
-import { purchaseOrders, requisitions, vendors, auditLogs } from '@/lib/data-store';
-import { PurchaseOrder } from '@/lib/types';
-import { users } from '@/lib/auth-store';
+import { prisma } from '@/lib/prisma';
+import { users, auditLogs } from '@/lib/data-store'; // auditLogs still in-memory
 
 export async function POST(request: Request) {
-  // This endpoint is now deprecated in favor of the vendor-response flow.
-  // Kept for potential future use or direct PO creation scenarios.
   try {
     const body = await request.json();
     const { requisitionId, userId } = body;
@@ -17,7 +13,11 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    const requisition = requisitions.find(r => r.id === requisitionId);
+    const requisition = await prisma.purchaseRequisition.findUnique({ 
+        where: { id: requisitionId },
+        include: { quotations: { include: { items: true }} }
+    });
+
     if (!requisition) {
       return NextResponse.json({ error: 'Requisition not found' }, { status: 404 });
     }
@@ -28,38 +28,44 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No accepted quote found for this requisition' }, { status: 400 });
     }
 
-    const vendor = vendors.find(v => v.id === acceptedQuote.vendorId);
+    const vendor = await prisma.vendor.findUnique({ where: { id: acceptedQuote.vendorId } });
     if (!vendor) {
       return NextResponse.json({ error: 'Vendor not found' }, { status: 404 });
     }
 
-    const newPO: PurchaseOrder = {
-      id: `PO-${Date.now()}`,
-      requisitionId,
-      requisitionTitle: requisition.title,
-      vendor,
-      items: acceptedQuote.items.map(item => ({
-          id: item.requisitionItemId,
-          name: item.name,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-          totalPrice: item.quantity * item.unitPrice,
-          receivedQuantity: 0,
-      })),
-      totalAmount: acceptedQuote.totalPrice,
-      status: 'Issued',
-      createdAt: new Date(),
-      contract: requisition.contract,
-      notes: requisition.negotiationNotes,
-    };
-
-    purchaseOrders.unshift(newPO);
+    const newPO = await prisma.purchaseOrder.create({
+        data: {
+            requisition: { connect: { id: requisition.id } },
+            requisitionTitle: requisition.title,
+            vendor: { connect: { id: vendor.id } },
+            items: {
+                create: acceptedQuote.items.map(item => ({
+                    requisitionItemId: item.requisitionItemId,
+                    name: item.name,
+                    quantity: item.quantity,
+                    unitPrice: item.unitPrice,
+                    totalPrice: item.quantity * item.unitPrice,
+                    receivedQuantity: 0,
+                }))
+            },
+            totalAmount: acceptedQuote.totalPrice,
+            status: 'Issued',
+            contract: requisition.contract ? {
+                fileName: requisition.contract.fileName,
+                uploadDate: requisition.contract.uploadDate,
+            } : undefined,
+            notes: requisition.negotiationNotes,
+        }
+    });
     
     // Update requisition with PO ID
-    requisition.purchaseOrderId = newPO.id;
-    requisition.status = 'PO Created';
-    requisition.updatedAt = new Date();
-
+    await prisma.purchaseRequisition.update({
+        where: { id: requisitionId },
+        data: {
+            purchaseOrderId: newPO.id,
+            status: 'PO_Created',
+        }
+    });
 
     auditLogs.unshift({
         id: `log-${Date.now()}-${Math.random()}`,
@@ -84,5 +90,24 @@ export async function POST(request: Request) {
 }
 
 export async function GET() {
-  return NextResponse.json(purchaseOrders);
+    try {
+        const purchaseOrders = await prisma.purchaseOrder.findMany({
+            include: {
+                vendor: true,
+                items: true,
+                receipts: { include: { items: true } },
+                invoices: { include: { items: true } },
+            },
+            orderBy: {
+                createdAt: 'desc'
+            }
+        });
+        return NextResponse.json(purchaseOrders);
+    } catch (error) {
+        console.error('Failed to fetch purchase orders:', error);
+        if (error instanceof Error) {
+            return NextResponse.json({ error: 'Failed to fetch purchase orders', details: error.message }, { status: 500 });
+        }
+        return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
+    }
 }

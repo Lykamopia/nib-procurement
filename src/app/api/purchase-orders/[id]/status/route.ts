@@ -2,7 +2,8 @@
 'use server';
 
 import { NextResponse } from 'next/server';
-import { auditLogs, purchaseOrders } from '@/lib/data-store';
+import { prisma } from '@/lib/prisma';
+import { auditLogs } from '@/lib/data-store';
 import { users } from '@/lib/auth-store';
 import { PurchaseOrderStatus } from '@/lib/types';
 
@@ -25,13 +26,16 @@ export async function PATCH(
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
     
-    const poToUpdate = purchaseOrders.find(po => po.id === poId);
+    const poToUpdate = await prisma.purchaseOrder.findUnique({ where: { id: poId }});
     if (!poToUpdate) {
         return NextResponse.json({ error: 'Purchase Order not found' }, { status: 404 });
     }
 
     const oldStatus = poToUpdate.status;
-    poToUpdate.status = status as PurchaseOrderStatus;
+    const updatedPO = await prisma.purchaseOrder.update({
+        where: { id: poId },
+        data: { status: status.replace(/ /g, '_') as any }
+    });
     
     const auditLogEntry = {
         id: `log-${Date.now()}-${Math.random()}`,
@@ -45,7 +49,7 @@ export async function PATCH(
     };
     auditLogs.unshift(auditLogEntry);
 
-    return NextResponse.json(poToUpdate);
+    return NextResponse.json(updatedPO);
   } catch (error) {
     console.error('Failed to update PO status:', error);
     if (error instanceof Error) {
