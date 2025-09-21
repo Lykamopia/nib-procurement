@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -597,7 +598,7 @@ export default function VendorRequisitionPage() {
                     </div>
                 )}
                 <div className="space-y-2">
-                    {quote.items.map((item, index) => (
+                    {quote.items && quote.items.map((item, index) => (
                         <Card key={`${item.requisitionItemId}-${index}`} className="p-3">
                             <div className="flex justify-between">
                                 <div>
