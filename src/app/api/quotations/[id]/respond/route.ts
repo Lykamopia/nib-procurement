@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { NextResponse } from 'next/server';
@@ -58,6 +59,7 @@ export async function POST(
                     vendor: { connect: { id: vendor.id } },
                     items: {
                         create: quote.items.map(item => ({
+                            requisitionItemId: item.requisitionItemId,
                             name: item.name,
                             quantity: item.quantity,
                             unitPrice: item.unitPrice,
@@ -67,9 +69,6 @@ export async function POST(
                     },
                     totalAmount: quote.totalPrice,
                     status: 'Issued',
-                    // These are nullable in the schema, so they are not required here
-                    // contract: requisition.contract ? { ...requisition.contract } : undefined,
-                    // notes: requisition.negotiationNotes
                 }
             });
 
@@ -162,3 +161,5 @@ export async function POST(
     return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
   }
 }
+
+    
