@@ -1,12 +1,12 @@
 
+'use server';
 
 import { NextResponse } from 'next/server';
-import { purchaseOrders, goodsReceipts, auditLogs, quotations } from '@/lib/data-store';
-import { users } from '@/lib/auth-store';
-import { GoodsReceiptNote, PurchaseOrderStatus } from '@/lib/types';
+import { prisma } from '@/lib/prisma';
+import { users, auditLogs, quotations } from '@/lib/data-store'; // auditLogs and quotations are still in-memory for now
 
 export async function POST(request: Request) {
-  console.log('POST /api/receipts - Creating new goods receipt.');
+  console.log('POST /api/receipts - Creating new goods receipt in DB.');
   try {
     const body = await request.json();
     console.log('Request body:', body);
@@ -18,78 +18,98 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    const po = purchaseOrders.find(p => p.id === purchaseOrderId);
-    if (!po) {
-      console.error('Purchase Order not found for ID:', purchaseOrderId);
-      return NextResponse.json({ error: 'Purchase Order not found' }, { status: 404 });
-    }
-    console.log('Found PO to receive against:', po);
+    const txResult = await prisma.$transaction(async (tx) => {
+        const po = await tx.purchaseOrder.findUnique({ 
+            where: { id: purchaseOrderId },
+            include: { items: true }
+        });
 
-    const newReceipt: GoodsReceiptNote = {
-      id: `GRN-${Date.now()}`,
-      purchaseOrderId,
-      receivedById: userId,
-      receivedBy: user.name,
-      receivedDate: new Date(),
-      items: items,
-    };
-    
-    goodsReceipts.unshift(newReceipt);
-    if (!po.receipts) {
-        po.receipts = [];
-    }
-    po.receipts.push(newReceipt);
-    console.log('Created new GRN:', newReceipt);
+        if (!po) {
+          throw new Error('Purchase Order not found');
+        }
+        console.log('Found PO to receive against:', po);
 
-    let allItemsDelivered = true;
-    po.items.forEach(poItem => {
-        const receivedItem = items.find((i: { poItemId: string; }) => i.poItemId === poItem.id);
-        if (receivedItem) {
-            poItem.receivedQuantity = (poItem.receivedQuantity || 0) + receivedItem.quantityReceived;
+        const newReceipt = await tx.goodsReceiptNote.create({
+          data: {
+              purchaseOrder: { connect: { id: purchaseOrderId } },
+              receivedById: userId,
+              receivedBy: user.name,
+              items: {
+                  create: items.map((item: any) => ({
+                      poItemId: item.poItemId,
+                      quantityReceived: item.quantityReceived,
+                      condition: item.condition,
+                      notes: item.notes,
+                  }))
+              }
+          }
+        });
+        console.log('Created new GRN in DB:', newReceipt);
+
+        let allItemsDelivered = true;
+        for (const poItem of po.items) {
+            const receivedItem = items.find((i: { poItemId: string; }) => i.poItemId === poItem.id);
+            let newReceivedQuantity = poItem.receivedQuantity;
+            if (receivedItem) {
+                newReceivedQuantity += receivedItem.quantityReceived;
+            }
+
+            await tx.pOItem.update({
+                where: { id: poItem.id },
+                data: { receivedQuantity: newReceivedQuantity }
+            });
+
+            if (newReceivedQuantity < poItem.quantity) {
+                allItemsDelivered = false;
+            }
         }
-        if (poItem.receivedQuantity < poItem.quantity) {
-            allItemsDelivered = false;
+
+        const newPOStatus = allItemsDelivered ? 'Delivered' : 'Partially_Delivered';
+        await tx.purchaseOrder.update({
+            where: { id: purchaseOrderId },
+            data: { status: newPOStatus }
+        });
+        console.log(`Updated PO ${po.id} status to ${newPOStatus}`);
+        
+        // This part remains in-memory as quotations are not yet fully migrated
+        if (newPOStatus === 'Delivered') {
+            quotations.forEach(q => {
+                if (q.requisitionId === po.requisitionId && q.status === 'Standby') {
+                    q.status = 'Rejected';
+                    const auditLogEntry = {
+                        id: `log-${Date.now()}-${Math.random()}`,
+                        timestamp: new Date(),
+                        user: 'System',
+                        role: 'Admin' as const,
+                        action: 'AUTO_REJECT_STANDBY',
+                        entity: 'Quotation',
+                        entityId: q.id,
+                        details: `Automatically rejected standby quote from ${q.vendorName} as primary PO ${po.id} was fulfilled.`,
+                    };
+                    auditLogs.unshift(auditLogEntry);
+                }
+            });
+            console.log(`PO ${po.id} fulfilled. Standby quotes for requisition ${po.requisitionId} have been rejected.`);
         }
+
+        const auditLogEntry = {
+            id: `log-${Date.now()}-${Math.random()}`,
+            timestamp: new Date(),
+            user: user.name,
+            role: user.role,
+            action: 'RECEIVE_GOODS',
+            entity: 'PurchaseOrder',
+            entityId: po.id,
+            details: `Created Goods Receipt Note ${newReceipt.id}. PO status: ${newPOStatus.replace(/_/g, ' ')}.`,
+        };
+        auditLogs.unshift(auditLogEntry);
+        console.log('Added audit log:', auditLogEntry);
+
+        return newReceipt;
     });
 
-    po.status = allItemsDelivered ? 'Delivered' : 'Partially Delivered';
-    console.log(`Updated PO ${po.id} status to ${po.status}`);
 
-    // If fully delivered, reject standby quotes
-    if (po.status === 'Delivered') {
-        quotations.forEach(q => {
-            if (q.requisitionId === po.requisitionId && q.status === 'Standby') {
-                q.status = 'Rejected';
-                const auditLogEntry = {
-                    id: `log-${Date.now()}-${Math.random()}`,
-                    timestamp: new Date(),
-                    user: 'System',
-                    role: 'Admin' as const,
-                    action: 'AUTO_REJECT_STANDBY',
-                    entity: 'Quotation',
-                    entityId: q.id,
-                    details: `Automatically rejected standby quote from ${q.vendorName} as primary PO ${po.id} was fulfilled.`,
-                };
-                auditLogs.unshift(auditLogEntry);
-            }
-        });
-        console.log(`PO ${po.id} fulfilled. Standby quotes for requisition ${po.requisitionId} have been rejected.`);
-    }
-
-    const auditLogEntry = {
-        id: `log-${Date.now()}-${Math.random()}`,
-        timestamp: new Date(),
-        user: user.name,
-        role: user.role,
-        action: 'RECEIVE_GOODS',
-        entity: 'PurchaseOrder',
-        entityId: po.id,
-        details: `Created Goods Receipt Note ${newReceipt.id}. PO status: ${po.status}.`,
-    };
-    auditLogs.unshift(auditLogEntry);
-    console.log('Added audit log:', auditLogEntry);
-
-    return NextResponse.json(newReceipt, { status: 201 });
+    return NextResponse.json(txResult, { status: 201 });
   } catch (error) {
     console.error('Failed to create goods receipt:', error);
     if (error instanceof Error) {

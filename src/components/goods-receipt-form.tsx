@@ -73,7 +73,7 @@ export function GoodsReceiptForm() {
         const response = await fetch('/api/purchase-orders');
         const data: PurchaseOrder[] = await response.json();
         // Filter for POs that are not yet fully delivered or cancelled
-        setPurchaseOrders(data.filter(po => !['Delivered', 'Cancelled'].includes(po.status)));
+        setPurchaseOrders(data.filter(po => ['Issued', 'Acknowledged', 'Shipped', 'Partially_Delivered'].includes(po.status)));
       } catch (error) {
         toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch purchase orders.' });
       } finally {
