@@ -26,6 +26,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { useRouter } from 'next/navigation';
 import { Input } from './ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
+import { useToast } from '@/hooks/use-toast';
 
 const PAGE_SIZE = 10;
 
@@ -37,22 +38,35 @@ export function ContractsPage() {
   const [statusFilter, setStatusFilter] = useState('All');
   const { user, role } = useAuth();
   const router = useRouter();
+  const { toast } = useToast();
   
   useEffect(() => {
     const fetchContracts = async () => {
       setLoading(true);
       try {
         const response = await fetch('/api/contracts');
-        const data: Contract[] = await response.json();
-        setContracts(data);
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.error || "Failed to fetch contracts");
+        }
+        if (Array.isArray(data)) {
+          setContracts(data);
+        } else {
+          throw new Error("Received invalid data from server.");
+        }
       } catch (error) {
         console.error("Failed to fetch contracts", error);
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: error instanceof Error ? error.message : "Could not fetch contracts data."
+        })
       } finally {
         setLoading(false);
       }
     };
     fetchContracts();
-  }, []);
+  }, [toast]);
 
   const filteredContracts = useMemo(() => {
     return contracts
