@@ -1287,8 +1287,7 @@ const ScoringDialog = ({
             finalScore += totalTechnicalScore * (criteria.technicalWeight / 100);
         }
 
-        // If a user is on both committees, their score is a direct weighted average.
-        // If they are on only one, we need to normalize their score to be out of 100.
+        // If a user is on only one committee, their score is the direct weighted average of that part.
         if (isFinancialScorer && !isTechnicalScorer) {
             return totalFinancialScore;
         }
@@ -1296,6 +1295,7 @@ const ScoringDialog = ({
             return totalTechnicalScore;
         }
 
+        // If on both, it's the full weighted score.
         return finalScore;
     }
 
