@@ -180,7 +180,15 @@ export async function PATCH(
             },
         };
         // Handle evaluation criteria update by deleting old and creating new
-         await prisma.evaluationCriteria.deleteMany({ where: { requisitionId: id } });
+         const oldCriteria = await prisma.evaluationCriteria.findUnique({
+            where: { requisitionId: id },
+         });
+         if (oldCriteria) {
+             await prisma.financialCriterion.deleteMany({ where: { evaluationCriteriaId: oldCriteria.id } });
+             await prisma.technicalCriterion.deleteMany({ where: { evaluationCriteriaId: oldCriteria.id } });
+             await prisma.evaluationCriteria.delete({ where: { id: oldCriteria.id } });
+         }
+
          dataToUpdate.evaluationCriteria = {
             create: {
                 financialWeight: updateData.evaluationCriteria.financialWeight,
