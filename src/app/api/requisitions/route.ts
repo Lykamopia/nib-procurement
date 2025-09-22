@@ -152,7 +152,7 @@ export async function POST(request: Request) {
 
     await prisma.auditLog.create({
         data: {
-            transactionId: finalRequisition.transactionId,
+            transactionId: finalRequisition.id,
             user: { connect: { id: user.id } },
             timestamp: new Date(),
             action: 'CREATE_REQUISITION',
@@ -284,6 +284,7 @@ export async function PATCH(
         data: {
             transactionId: updatedRequisition.transactionId,
             user: { connect: { id: user.id } },
+            timestamp: new Date(),
             action: auditAction,
             entity: 'Requisition',
             entityId: id,
