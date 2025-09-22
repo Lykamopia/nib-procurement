@@ -1,8 +1,10 @@
 
-
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import Image from 'next/image';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 import {
   Table,
   TableBody,
@@ -31,74 +33,126 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronsRight,
-  CheckCircle,
-  FilePlus,
-  ThumbsUp,
-  XCircle,
-  Edit,
   ArchiveX,
   Loader2,
+  Printer,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from './ui/dialog';
-import { cn } from '@/lib/utils';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger, DialogFooter } from './ui/dialog';
 import { useAuth } from '@/contexts/auth-context';
+import { ScrollArea } from './ui/scroll-area';
 
 const PAGE_SIZE = 15;
 
 const getStatusVariant = (status: string) => {
     status = status.toLowerCase();
-    if (status.includes('approve') || status.includes('match') || status.includes('paid')) return 'default';
-    if (status.includes('pending') || status.includes('submitted') || status.includes('issued')) return 'secondary';
-    if (status.includes('reject') || status.includes('dispute') || status.includes('mismatch')) return 'destructive';
+    if (status.includes('approve') || status.includes('match') || status.includes('paid') || status.includes('verified') || status.includes('delivered')) return 'default';
+    if (status.includes('pending') || status.includes('submitted') || status.includes('issued') || status.includes('progress')) return 'secondary';
+    if (status.includes('reject') || status.includes('dispute') || status.includes('mismatch') || status.includes('cancelled')) return 'destructive';
     return 'outline';
 };
 
-const getActionIcon = (action: string) => {
-    const lowerAction = action.toLowerCase();
-    if (lowerAction.includes('create')) return <FilePlus className="h-4 w-4" />;
-    if (lowerAction.includes('approve')) return <ThumbsUp className="h-4 w-4" />;
-    if (lowerAction.includes('reject')) return <XCircle className="h-4 w-4" />;
-    if (lowerAction.includes('update') || lowerAction.includes('edit')) return <Edit className="h-4 w-4" />;
-    if (lowerAction.includes('submit')) return <CheckCircle className="h-4 w-4" />;
-    return <History className="h-4 w-4" />;
-}
-
 const AuditTrailDialog = ({ document, auditTrail }: { document: DocumentRecord, auditTrail: AuditLogType[] }) => {
+    const { toast } = useToast();
+    const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+    const printRef = useRef<HTMLDivElement>(null);
+
+    const handleGeneratePdf = async () => {
+        const input = printRef.current;
+        if (!input) return;
+
+        setIsGeneratingPdf(true);
+        toast({ title: "Generating PDF...", description: "This may take a moment." });
+
+        try {
+            const canvas = await html2canvas(input, {
+                scale: 2,
+                useCORS: true,
+                backgroundColor: null, // Use transparent background for canvas
+            });
+            const imgData = canvas.toDataURL('image/png');
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = pdf.internal.pageSize.getHeight();
+            const imgWidth = canvas.width;
+            const imgHeight = canvas.height;
+            const ratio = imgWidth / imgHeight;
+            let width = pdfWidth - 20; // with margin
+            let height = width / ratio;
+
+            if (height > pdfHeight - 20) {
+                 height = pdfHeight - 20;
+                 width = height * ratio;
+            }
+            
+            const x = (pdfWidth - width) / 2;
+            const y = 10;
+            
+            pdf.addImage(imgData, 'PNG', x, y, width, height);
+            
+            pdf.save(`Audit-Trail-${document.id}.pdf`);
+            toast({ title: "PDF Generated", description: "Your report has been downloaded." });
+
+        } catch (error) {
+            console.error(error);
+            toast({ variant: 'destructive', title: "PDF Generation Failed", description: "An error occurred while creating the PDF." });
+        } finally {
+            setIsGeneratingPdf(false);
+        }
+    }
+
+
     return (
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-3xl flex flex-col h-[90vh]">
             <DialogHeader>
                 <DialogTitle>Audit Trail for {document.type}: {document.id}</DialogTitle>
                 <DialogDescription>
                     Showing all events related to this document, from newest to oldest.
                 </DialogDescription>
             </DialogHeader>
-            <div className="max-h-[60vh] overflow-y-auto p-1">
-                {auditTrail.length > 0 ? (
-                    <div className="relative pl-6">
-                        <div className="absolute left-6 top-0 h-full w-0.5 bg-border -translate-x-1/2"></div>
-                        {auditTrail.map((log, index) => (
-                           <div key={log.id} className="relative mb-8">
-                               <div className="absolute -left-3 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-secondary">
-                                   <div className="h-3 w-3 rounded-full bg-primary"></div>
-                               </div>
-                               <div className="pl-8">
-                                   <div className="flex items-center justify-between">
-                                        <Badge variant={log.action.includes('CREATE') ? 'default' : 'secondary'}>{log.action}</Badge>
-                                        <time className="text-xs text-muted-foreground">{format(new Date(log.timestamp), 'PPpp')}</time>
-                                   </div>
-                                    <p className="mt-2 text-sm text-muted-foreground">{log.details}</p>
-                                    <p className="mt-2 text-xs text-muted-foreground">
-                                        By <span className="font-semibold text-foreground">{log.user}</span> ({log.role})
-                                    </p>
-                               </div>
-                           </div>
-                        ))}
+             <div className="flex-grow overflow-hidden">
+                <ScrollArea className="h-full">
+                    <div ref={printRef} className="p-1 space-y-6 bg-background text-foreground print:bg-white print:text-black">
+                        {/* Header for PDF */}
+                        <div className="hidden print:block text-center mb-8 pt-4">
+                            <Image src="/logo.png" alt="Logo" width={40} height={40} className="mx-auto mb-2" />
+                            <h1 className="text-2xl font-bold text-black">Audit Trail Report</h1>
+                            <p className="text-gray-600">{document.type}: {document.id}</p>
+                            <p className="text-sm text-gray-500">Report Generated: {format(new Date(), 'PPpp')}</p>
+                        </div>
+                        {auditTrail.length > 0 ? (
+                            <div className="relative pl-6">
+                                <div className="absolute left-6 top-0 h-full w-0.5 bg-border -translate-x-1/2"></div>
+                                {auditTrail.map((log, index) => (
+                                <div key={log.id} className="relative mb-8">
+                                    <div className="absolute -left-3 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-secondary print:bg-gray-200">
+                                        <div className="h-3 w-3 rounded-full bg-primary print:bg-blue-500"></div>
+                                    </div>
+                                    <div className="pl-8">
+                                        <div className="flex items-center justify-between">
+                                            <Badge variant={getStatusVariant(log.action)}>{log.action.replace(/_/g, ' ')}</Badge>
+                                            <time className="text-xs text-muted-foreground print:text-gray-600">{format(new Date(log.timestamp), 'PPpp')}</time>
+                                        </div>
+                                        <p className="mt-2 text-sm text-muted-foreground print:text-gray-700">{log.details}</p>
+                                        <p className="mt-2 text-xs text-muted-foreground print:text-gray-600">
+                                            By <span className="font-semibold text-foreground print:text-black">{log.user}</span> ({log.role})
+                                        </p>
+                                    </div>
+                                </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="text-center h-24 flex items-center justify-center text-muted-foreground">No audit history found for this document.</div>
+                        )}
                     </div>
-                ) : (
-                    <div className="text-center h-24 flex items-center justify-center">No audit history found for this document.</div>
-                )}
-            </div>
+                </ScrollArea>
+             </div>
+             <DialogFooter>
+                <Button onClick={handleGeneratePdf} variant="outline" disabled={isGeneratingPdf}>
+                    {isGeneratingPdf ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Printer className="mr-2 h-4 w-4"/>}
+                    Print / Export PDF
+                </Button>
+            </DialogFooter>
         </DialogContent>
     )
 }
@@ -133,13 +187,16 @@ export function RecordsPage() {
   }, []);
   
   const filteredRecords = useMemo(() => {
-    return records.filter(record => {
-        if (role !== 'Procurement Officer' && user) {
-            // This is a simplified check. A robust implementation would check against user ID.
-            if (record.user !== user.name) {
-                return false;
-            }
-        }
+    let relevantRecords = records;
+    if (role === 'Requester' && user) {
+        relevantRecords = records.filter(r => r.user === user.name && r.type === 'Requisition');
+    } else if (role === 'Finance') {
+        relevantRecords = records.filter(r => ['Invoice', 'Purchase Order'].includes(r.type));
+    } else if (role === 'Receiving') {
+        relevantRecords = records.filter(r => ['Goods Receipt', 'Purchase Order'].includes(r.type));
+    }
+
+    return relevantRecords.filter(record => {
         const lowerSearch = searchTerm.toLowerCase();
         return (
             record.id.toLowerCase().includes(lowerSearch) ||
@@ -191,7 +248,6 @@ export function RecordsPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-10">#</TableHead>
                 <TableHead>Doc ID</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>Title</TableHead>
@@ -203,9 +259,8 @@ export function RecordsPage() {
             </TableHeader>
             <TableBody>
               {paginatedRecords.length > 0 ? (
-                paginatedRecords.map((record, index) => (
+                paginatedRecords.map((record) => (
                   <TableRow key={`${record.type}-${record.id}`}>
-                    <TableCell className="text-muted-foreground">{(currentPage - 1) * PAGE_SIZE + index + 1}</TableCell>
                     <TableCell className="font-medium text-primary">{record.id}</TableCell>
                     <TableCell>{record.type}</TableCell>
                     <TableCell>{record.title}</TableCell>

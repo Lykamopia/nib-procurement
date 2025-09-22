@@ -1,84 +1,139 @@
 
+'use server';
+
 import { NextResponse } from 'next/server';
-import { requisitions, purchaseOrders, goodsReceipts, invoices, quotations, auditLogs } from '@/lib/data-store';
-import { DocumentRecord } from '@/lib/types';
+import { prisma } from '@/lib/prisma';
+import { DocumentRecord, User, Vendor } from '@/lib/types';
+
+// Helper function to find user/vendor names efficiently
+const createNameFinder = (users: User[], vendors: Vendor[]) => {
+    const userMap = new Map(users.map(u => [u.id, u.name]));
+    const vendorMap = new Map(vendors.map(v => [v.id, v.name]));
+    return (id: string | null | undefined, type: 'user' | 'vendor') => {
+        if (!id) return 'N/A';
+        if (type === 'user') return userMap.get(id) || 'Unknown User';
+        return vendorMap.get(id) || 'Unknown Vendor';
+    }
+}
 
 export async function GET() {
-  const allRecords: DocumentRecord[] = [];
+    try {
+        const [requisitions, quotations, purchaseOrders, goodsReceipts, invoices, auditLogs, users, vendors] = await Promise.all([
+            prisma.purchaseRequisition.findMany({ include: { department: true } }),
+            prisma.quotation.findMany(),
+            prisma.purchaseOrder.findMany({ include: { vendor: true } }),
+            prisma.goodsReceiptNote.findMany({ include: { receivedBy: true } }),
+            prisma.invoice.findMany(),
+            prisma.auditLog.findMany({ include: { user: true }, orderBy: { timestamp: 'desc' } }),
+            prisma.user.findMany(),
+            prisma.vendor.findMany(),
+        ]);
 
-  requisitions.forEach(r => {
-    allRecords.push({
-      id: r.id,
-      type: 'Requisition',
-      title: r.title,
-      status: r.status,
-      date: r.createdAt,
-      amount: r.totalPrice,
-      user: r.requesterName || 'N/A',
-      relatedTo: [],
-    });
-  });
+        const getName = createNameFinder(users, vendors);
+        const allRecords: DocumentRecord[] = [];
 
-  quotations.forEach(q => {
-    allRecords.push({
-        id: q.id,
-        type: 'Quotation',
-        title: `Quote from ${q.vendorName}`,
-        status: q.status,
-        date: q.createdAt,
-        amount: q.totalPrice,
-        user: q.vendorName,
-        relatedTo: [q.requisitionId]
-    })
-  })
+        requisitions.forEach(r => {
+            allRecords.push({
+                id: r.id,
+                type: 'Requisition',
+                title: r.title,
+                status: r.status.replace(/_/g, ' '),
+                date: r.createdAt,
+                amount: r.totalPrice,
+                user: r.requesterName || 'N/A',
+                relatedTo: [r.id], // A requisition is related to itself for audit purposes
+            });
+        });
 
-  purchaseOrders.forEach(po => {
-    allRecords.push({
-      id: po.id,
-      type: 'Purchase Order',
-      title: po.requisitionTitle,
-      status: po.status,
-      date: po.createdAt,
-      amount: po.totalAmount,
-      user: po.vendor.name,
-      relatedTo: [po.requisitionId],
-    });
-  });
-  
-  goodsReceipts.forEach(grn => {
-    allRecords.push({
-        id: grn.id,
-        type: 'Goods Receipt',
-        title: `GRN for PO ${grn.purchaseOrderId}`,
-        status: 'Completed',
-        date: grn.receivedDate,
-        amount: 0,
-        user: grn.receivedBy,
-        relatedTo: [grn.purchaseOrderId]
-    })
-  })
+        quotations.forEach(q => {
+            allRecords.push({
+                id: q.id,
+                type: 'Quotation',
+                title: `Quote from ${q.vendorName}`,
+                status: q.status.replace(/_/g, ' '),
+                date: q.createdAt,
+                amount: q.totalPrice,
+                user: q.vendorName,
+                relatedTo: [q.requisitionId, q.id]
+            });
+        });
 
-  invoices.forEach(inv => {
-    allRecords.push({
-      id: inv.id,
-      type: 'Invoice',
-      title: `Invoice for PO ${inv.purchaseOrderId}`,
-      status: inv.status,
-      date: inv.invoiceDate,
-      amount: inv.totalAmount,
-      user: 'Finance Team',
-      relatedTo: [inv.purchaseOrderId],
-    });
-  });
+        purchaseOrders.forEach(po => {
+            allRecords.push({
+                id: po.id,
+                type: 'Purchase Order',
+                title: po.requisitionTitle,
+                status: po.status.replace(/_/g, ' '),
+                date: po.createdAt,
+                amount: po.totalAmount,
+                user: po.vendor.name,
+                relatedTo: [po.requisitionId, po.id],
+            });
+        });
 
-  // Sort all records by date descending
-  allRecords.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        goodsReceipts.forEach(grn => {
+            allRecords.push({
+                id: grn.id,
+                type: 'Goods Receipt',
+                title: `GRN for PO ${grn.purchaseOrderId}`,
+                status: 'Completed',
+                date: grn.receivedDate,
+                amount: 0, // GRNs don't typically have an amount
+                user: grn.receivedBy.name,
+                relatedTo: [grn.purchaseOrderId, grn.id]
+            });
+        });
 
-  // Add audit log data to each record
-  const recordsWithAudit = allRecords.map(record => ({
-      ...record,
-      auditTrail: auditLogs.filter(log => log.entityId === record.id || record.relatedTo.includes(log.entityId))
-  }));
+        invoices.forEach(inv => {
+            allRecords.push({
+                id: inv.id,
+                type: 'Invoice',
+                title: `Invoice for PO ${inv.purchaseOrderId}`,
+                status: inv.status.replace(/_/g, ' '),
+                date: inv.invoiceDate,
+                amount: inv.totalAmount,
+                user: getName(inv.vendorId, 'vendor'),
+                relatedTo: [inv.purchaseOrderId, inv.id],
+            });
+        });
 
-  return NextResponse.json(recordsWithAudit);
+        // Sort all records by date descending
+        allRecords.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        
+        // Create a map for efficient audit log lookup
+        const auditLogMap = new Map<string, any[]>();
+        auditLogs.forEach(log => {
+            if (!auditLogMap.has(log.entityId)) {
+                auditLogMap.set(log.entityId, []);
+            }
+            auditLogMap.get(log.entityId)?.push({
+                ...log,
+                role: log.user?.role.replace(/_/g, ' ') || 'System',
+                user: log.user?.name || 'System'
+            });
+        });
+
+        // Add audit trails to each record
+        const recordsWithAudit = allRecords.map(record => {
+            const relatedLogs = new Set<any>();
+            record.relatedTo.forEach(relatedId => {
+                const logs = auditLogMap.get(relatedId) || [];
+                logs.forEach(log => relatedLogs.add(log));
+            });
+            const sortedLogs = Array.from(relatedLogs).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+            return {
+                ...record,
+                auditTrail: sortedLogs,
+            };
+        });
+
+        return NextResponse.json(recordsWithAudit);
+
+    } catch (error) {
+        console.error('Failed to fetch records:', error);
+        if (error instanceof Error) {
+            return NextResponse.json({ error: 'Failed to fetch records', details: error.message }, { status: 500 });
+        }
+        return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
+    }
 }
