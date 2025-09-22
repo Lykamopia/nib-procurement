@@ -102,6 +102,7 @@ export async function POST(request: Request) {
             data: {
                 transactionId: requisition.transactionId,
                 user: { connect: { id: vendor.user.id } },
+                timestamp: new Date(),
                 action: 'SUBMIT_QUOTATION',
                 entity: 'Quotation',
                 entityId: newQuotation.id,
