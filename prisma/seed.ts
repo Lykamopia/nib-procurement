@@ -49,7 +49,7 @@ async function main() {
   // Seed non-vendor users first
   const nonVendorUsers = seedData.users.filter(u => u.role !== 'Vendor');
   for (const user of nonVendorUsers) {
-    const { committeeAssignments, departmentId, department, ...userData } = user;
+    const { committeeAssignments, departmentId, department, vendorId, ...userData } = user;
     await prisma.user.create({
       data: {
           ...userData,
@@ -86,6 +86,7 @@ async function main() {
     const createdVendor = await prisma.vendor.create({
       data: {
           ...vendorData,
+          userId: createdUser.id, // Explicitly provide the userId
           kycStatus: vendorData.kycStatus.replace(/ /g, '_') as any,
           user: { connect: { id: createdUser.id } }
       },
@@ -309,7 +310,7 @@ async function main() {
     await prisma.auditLog.create({
       data: {
           ...logData,
-          role: log.role.replace(/ /g, '_') as any,
+          role: log.role.replace(/_/g, '_') as any,
           timestamp: new Date(log.timestamp),
           user: userForLog ? { connect: { id: userForLog.id } } : undefined
       },
