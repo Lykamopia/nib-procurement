@@ -80,6 +80,7 @@ export type EvaluationCriteria = {
 
 export type PurchaseRequisition = {
   id:string; // Will be UUID
+  transactionId: string;
   requesterId: string; // User ID
   requesterName: string;
   title: string;
@@ -112,6 +113,7 @@ export type PurchaseRequisition = {
 
 export type AuditLog = {
   id: string; // Will be UUID
+  transactionId: string;
   timestamp: Date;
   user: string;
   role: UserRole;
@@ -176,6 +178,7 @@ export type CommitteeScoreSet = {
 
 export type Quotation = {
     id: string;
+    transactionId: string;
     requisitionId: string;
     vendorId: string;
     vendorName: string;
@@ -205,6 +208,7 @@ export type PurchaseOrderStatus = 'Issued' | 'Acknowledged' | 'Shipped' | 'Parti
 
 export type PurchaseOrder = {
     id: string;
+    transactionId: string;
     requisitionId: string;
     requisitionTitle: string;
     vendor: Vendor;
@@ -230,6 +234,7 @@ export type ReceiptItem = {
 
 export type GoodsReceiptNote = {
     id: string;
+    transactionId: string;
     purchaseOrderId: string;
     receivedBy: string; // User's name
     receivedById: string; // User's ID
@@ -250,6 +255,7 @@ export type InvoiceStatus = 'Pending' | 'Approved for Payment' | 'Paid' | 'Dispu
 
 export type Invoice = {
   id: string;
+  transactionId: string;
   purchaseOrderId: string;
   vendorId: string;
   invoiceDate: Date;
@@ -296,6 +302,6 @@ export type DocumentRecord = {
     date: Date;
     amount: number;
     user: string;
-    relatedTo: string[];
+    transactionId: string;
     auditTrail?: AuditLog[];
 }

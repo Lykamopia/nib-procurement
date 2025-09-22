@@ -69,6 +69,7 @@ export async function POST(request: Request) {
 
     const newQuotation = await prisma.quotation.create({
         data: {
+            transactionId: requisition.transactionId,
             requisition: { connect: { id: requisitionId } },
             vendor: { connect: { id: vendorId } },
             vendorName: vendor.name,
@@ -99,6 +100,7 @@ export async function POST(request: Request) {
     if (vendor.user) {
         await prisma.auditLog.create({
             data: {
+                transactionId: requisition.transactionId,
                 user: { connect: { id: vendor.user.id } },
                 action: 'SUBMIT_QUOTATION',
                 entity: 'Quotation',

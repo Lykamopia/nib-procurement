@@ -39,6 +39,7 @@ export async function POST(request: Request) {
 
     const newInvoice = await prisma.invoice.create({
       data: {
+        transactionId: po.transactionId,
         purchaseOrderId: purchaseOrderId,
         vendorId: vendorId,
         invoiceDate: new Date(invoiceDate),
@@ -72,6 +73,7 @@ export async function POST(request: Request) {
 
     await prisma.auditLog.create({
         data: {
+            transactionId: po.transactionId,
             user: { connect: { id: user.id } },
             action: 'CREATE_INVOICE',
             entity: 'Invoice',

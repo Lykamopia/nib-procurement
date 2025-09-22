@@ -31,6 +31,7 @@ export async function POST(request: Request) {
 
         const newReceipt = await tx.goodsReceiptNote.create({
           data: {
+              transactionId: po.transactionId,
               purchaseOrder: { connect: { id: purchaseOrderId } },
               receivedBy: { connect: { id: user.id } },
               items: {
@@ -83,6 +84,7 @@ export async function POST(request: Request) {
 
         await prisma.auditLog.create({
             data: {
+                transactionId: po.transactionId,
                 user: { connect: { id: user.id } },
                 action: 'RECEIVE_GOODS',
                 entity: 'PurchaseOrder',

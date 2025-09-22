@@ -140,13 +140,27 @@ export async function POST(request: Request) {
         include: { items: true, customQuestions: true, evaluationCriteria: true }
     });
 
-    console.log('Created new requisition in DB:', newRequisition);
+    // Set the transactionId to be its own ID after creation
+    const finalRequisition = await prisma.purchaseRequisition.update({
+        where: { id: newRequisition.id },
+        data: { transactionId: newRequisition.id }
+    });
 
-    // Audit log can still use in-memory for now or be updated later
-    // const auditLogEntry = { ... };
-    // auditLogs.unshift(auditLogEntry);
 
-    return NextResponse.json(newRequisition, { status: 201 });
+    console.log('Created new requisition in DB:', finalRequisition);
+
+    await prisma.auditLog.create({
+        data: {
+            transactionId: finalRequisition.transactionId,
+            user: { connect: { id: user.id } },
+            action: 'CREATE_REQUISITION',
+            entity: 'Requisition',
+            entityId: finalRequisition.id,
+            details: `Created new requisition: "${finalRequisition.title}".`,
+        }
+    });
+
+    return NextResponse.json(finalRequisition, { status: 201 });
   } catch (error) {
     console.error('Failed to create requisition:', error);
     if (error instanceof Error) {
@@ -176,6 +190,8 @@ export async function PATCH(
     }
 
     let dataToUpdate: any = {};
+    let auditAction = 'UPDATE_REQUISITION';
+    let auditDetails = `Updated requisition ${id}.`;
     
     // This handles editing a draft or rejected requisition and resubmitting
     if ((requisition.status === 'Draft' || requisition.status === 'Rejected') && updateData.title) {
@@ -236,12 +252,22 @@ export async function PATCH(
                 }
             }
         };
+        
+        if (status) {
+            auditAction = 'SUBMIT_FOR_APPROVAL';
+            auditDetails = `Requisition ${id} ("${updateData.title}") was edited and submitted for approval.`;
+        }
 
     } else if (status) { // This handles normal status changes (approve, reject, submit)
         dataToUpdate.status = status.replace(/ /g, '_');
         if (status === 'Approved' || status === 'Rejected') {
             dataToUpdate.approver = { connect: { id: userId } };
             dataToUpdate.approverComment = comment;
+            auditAction = status === 'Approved' ? 'APPROVE_REQUISITION' : 'REJECT_REQUISITION';
+            auditDetails = `Requisition ${id} was ${status.toLowerCase()} with comment: "${comment}".`
+        } else if (status === 'Pending Approval') {
+            auditAction = 'SUBMIT_FOR_APPROVAL';
+            auditDetails = `Draft requisition ${id} was submitted for approval.`;
         }
     } else {
         return NextResponse.json({ error: 'No valid update action specified.' }, { status: 400 });
@@ -250,6 +276,17 @@ export async function PATCH(
     const updatedRequisition = await prisma.purchaseRequisition.update({
       where: { id },
       data: dataToUpdate,
+    });
+    
+    await prisma.auditLog.create({
+        data: {
+            transactionId: updatedRequisition.transactionId,
+            user: { connect: { id: user.id } },
+            action: auditAction,
+            entity: 'Requisition',
+            entityId: id,
+            details: auditDetails,
+        }
     });
 
     return NextResponse.json(updatedRequisition);
@@ -264,12 +301,10 @@ export async function PATCH(
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = params;
     const body = await request.json();
-    const { userId } = body;
+    const { id, userId } = body;
 
     const user = users.find(u => u.id === userId);
     if (!user) {
@@ -303,7 +338,16 @@ export async function DELETE(
 
     await prisma.purchaseRequisition.delete({ where: { id } });
 
-    // auditLogs.unshift({ ... });
+    await prisma.auditLog.create({
+        data: {
+            transactionId: requisition.transactionId,
+            user: { connect: { id: user.id } },
+            action: 'DELETE_REQUISITION',
+            entity: 'Requisition',
+            entityId: id,
+            details: `Deleted requisition: "${requisition.title}".`,
+        }
+    });
 
     return NextResponse.json({ message: 'Requisition deleted successfully.' });
   } catch (error) {

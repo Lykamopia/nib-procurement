@@ -35,12 +35,12 @@ export async function POST(request: Request) {
 
     const newPO = await prisma.purchaseOrder.create({
         data: {
+            transactionId: requisition.transactionId,
             requisition: { connect: { id: requisition.id } },
             requisitionTitle: requisition.title,
             vendor: { connect: { id: vendor.id } },
             items: {
                 create: acceptedQuote.items.map(item => ({
-                    requisitionItemId: item.requisitionItemId,
                     name: item.name,
                     quantity: item.quantity,
                     unitPrice: item.unitPrice,
@@ -69,6 +69,7 @@ export async function POST(request: Request) {
 
     await prisma.auditLog.create({
         data: {
+            transactionId: requisition.transactionId,
             user: { connect: { id: user.id } },
             action: 'CREATE_PO',
             entity: 'PurchaseOrder',

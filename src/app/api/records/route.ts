@@ -41,7 +41,7 @@ export async function GET() {
                 date: r.createdAt,
                 amount: r.totalPrice,
                 user: r.requesterName || 'N/A',
-                relatedTo: [r.id], // A requisition is related to itself for audit purposes
+                transactionId: r.transactionId,
             });
         });
 
@@ -54,7 +54,7 @@ export async function GET() {
                 date: q.createdAt,
                 amount: q.totalPrice,
                 user: q.vendorName,
-                relatedTo: [q.requisitionId, q.id]
+                transactionId: q.transactionId
             });
         });
 
@@ -67,7 +67,7 @@ export async function GET() {
                 date: po.createdAt,
                 amount: po.totalAmount,
                 user: po.vendor.name,
-                relatedTo: [po.requisitionId, po.id],
+                transactionId: po.transactionId,
             });
         });
 
@@ -80,7 +80,7 @@ export async function GET() {
                 date: grn.receivedDate,
                 amount: 0, // GRNs don't typically have an amount
                 user: grn.receivedBy.name,
-                relatedTo: [grn.purchaseOrderId, grn.id]
+                transactionId: grn.transactionId,
             });
         });
 
@@ -93,37 +93,35 @@ export async function GET() {
                 date: inv.invoiceDate,
                 amount: inv.totalAmount,
                 user: getName(inv.vendorId, 'vendor'),
-                relatedTo: [inv.purchaseOrderId, inv.id],
+                transactionId: inv.transactionId,
             });
         });
 
         // Sort all records by date descending
         allRecords.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
         
-        // Create a map for efficient audit log lookup
+        // Group audit logs by transactionId for efficient lookup
         const auditLogMap = new Map<string, any[]>();
         auditLogs.forEach(log => {
-            if (!auditLogMap.has(log.entityId)) {
-                auditLogMap.set(log.entityId, []);
+            if (log.transactionId) {
+                if (!auditLogMap.has(log.transactionId)) {
+                    auditLogMap.set(log.transactionId, []);
+                }
+                auditLogMap.get(log.transactionId)?.push({
+                    ...log,
+                    role: log.user?.role.replace(/_/g, ' ') || 'System',
+                    user: log.user?.name || 'System'
+                });
             }
-            auditLogMap.get(log.entityId)?.push({
-                ...log,
-                role: log.user?.role.replace(/_/g, ' ') || 'System',
-                user: log.user?.name || 'System'
-            });
         });
 
-        // Add audit trails to each record
+        // Add audit trails to each record using the transactionId
         const recordsWithAudit = allRecords.map(record => {
-            const relatedLogs = new Set<any>();
-            record.relatedTo.forEach(relatedId => {
-                const logs = auditLogMap.get(relatedId) || [];
-                logs.forEach(log => relatedLogs.add(log));
-            });
-            const sortedLogs = Array.from(relatedLogs).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+            const relatedLogs = auditLogMap.get(record.transactionId) || [];
+            // The logs are already sorted by timestamp descending from the initial query
             return {
                 ...record,
-                auditTrail: sortedLogs,
+                auditTrail: relatedLogs,
             };
         });
 
