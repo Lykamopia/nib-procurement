@@ -1,4 +1,5 @@
 
+
 export type UserRole =
   | 'Requester'
   | 'Approver'
@@ -59,10 +60,22 @@ export type CustomQuestion = {
   options?: string[];
 };
 
-export type ContractDetails = {
-    fileName: string;
-    uploadDate: Date;
+export type ContractStatus = 'Draft' | 'Active' | 'Expired';
+
+export type Contract = {
+  id: string;
+  contractNumber: string;
+  requisitionId: string;
+  requisition: { title: string };
+  vendorId: string;
+  vendor: { name: string };
+  startDate: Date;
+  endDate: Date;
+  filePath?: string;
+  status: ContractStatus;
+  createdAt: Date;
 }
+
 
 export type EvaluationCriterion = {
   id: string;
@@ -94,7 +107,6 @@ export type PurchaseRequisition = {
   approverId?: string;
   approverComment?: string;
   quotations?: Quotation[];
-  contract?: ContractDetails;
   negotiationNotes?: string;
   purchaseOrderId?: string;
   allowedVendorIds?: 'all' | string[];
@@ -216,7 +228,6 @@ export type PurchaseOrder = {
     totalAmount: number;
     status: PurchaseOrderStatus;
     createdAt: Date;
-    contract?: ContractDetails;
     notes?: string;
     receipts?: GoodsReceiptNote[];
     invoices?: Invoice[];

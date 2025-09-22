@@ -18,12 +18,13 @@ const createNameFinder = (users: User[], vendors: Vendor[]) => {
 
 export async function GET() {
     try {
-        const [requisitions, quotations, purchaseOrders, goodsReceipts, invoices, auditLogs, users, vendors] = await Promise.all([
+        const [requisitions, quotations, purchaseOrders, goodsReceipts, invoices, contracts, auditLogs, users, vendors] = await Promise.all([
             prisma.purchaseRequisition.findMany({ include: { department: true } }),
             prisma.quotation.findMany(),
             prisma.purchaseOrder.findMany({ include: { vendor: true } }),
             prisma.goodsReceiptNote.findMany({ include: { receivedBy: true } }),
             prisma.invoice.findMany(),
+            prisma.contract.findMany({ include: { requisition: { select: { title: true }}, vendor: { select: { name: true }}}}),
             prisma.auditLog.findMany({ include: { user: true }, orderBy: { timestamp: 'desc' } }),
             prisma.user.findMany(),
             prisma.vendor.findMany(),
@@ -94,6 +95,19 @@ export async function GET() {
                 amount: inv.totalAmount,
                 user: getName(inv.vendorId, 'vendor'),
                 transactionId: inv.transactionId,
+            });
+        });
+
+        contracts.forEach(c => {
+             allRecords.push({
+                id: c.id,
+                type: 'Contract',
+                title: `Contract for: ${c.requisition.title}`,
+                status: c.status.replace(/_/g, ' '),
+                date: c.createdAt,
+                amount: 0,
+                user: c.vendor.name,
+                transactionId: c.requisitionId, // Use requisitionId as transactionId
             });
         });
 

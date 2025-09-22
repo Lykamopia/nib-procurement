@@ -25,20 +25,12 @@ export async function POST(
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    const updatedRequisition = await prisma.purchaseRequisition.update({
-        where: { id },
-        data: {
-            contract: {
-                fileName: fileName,
-                uploadDate: new Date(),
-            },
-            negotiationNotes: notes
-        }
-    });
+    // This endpoint is now deprecated in favor of the new /api/contracts endpoint.
+    // The logic has been moved to POST /api/contracts
     
     // auditLogs.unshift({ ... });
 
-    return NextResponse.json(updatedRequisition);
+    return NextResponse.json({ message: "This endpoint is deprecated" }, { status: 410 });
 
   } catch (error) {
     console.error('Failed to update contract details:', error);
