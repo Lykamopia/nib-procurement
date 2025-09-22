@@ -34,7 +34,7 @@ import {
 } from './ui/dialog';
 import { Input } from './ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, PlusCircle, ThumbsUp, ThumbsDown, FileUp, FileText, Banknote, CheckCircle, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, CheckCircle2, AlertTriangle, Clock } from 'lucide-react';
+import { Loader2, PlusCircle, ThumbsUp, ThumbsDown, FileUp, FileText, Banknote, CheckCircle, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, CheckCircle2, AlertTriangle, Clock, List } from 'lucide-react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -44,6 +44,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Badge } from './ui/badge';
 import { cn } from '@/lib/utils';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from './ui/alert-dialog';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 
 
 const invoiceSchema = z.object({
@@ -331,7 +332,27 @@ function MatchDetailsDialog({ result, onResolve, onCancel }: { result: MatchingR
   );
 }
 
-const MatchingStatusBadge = ({ invoiceId, onStatusClick }: { invoiceId: string, onStatusClick: (result: MatchingResult) => void }) => {
+const MatchStatus = ({ po, grn, invoice }: { po: boolean, grn: boolean, invoice: boolean }) => {
+  const StatusItem = ({ complete, label }: { complete: boolean, label: string }) => (
+    <div className={cn("flex items-center gap-2", complete ? "text-green-600" : "text-amber-600")}>
+      {complete ? <CheckCircle className="h-4 w-4" /> : <Clock className="h-4 w-4" />}
+      <span className="font-medium">{label}:</span>
+      <span>{complete ? "Submitted" : "Waiting"}</span>
+    </div>
+  );
+
+  return (
+    <div className="p-2 space-y-2">
+        <h4 className="font-semibold text-foreground flex items-center gap-2"><List className="h-4 w-4"/>Match Status</h4>
+        <StatusItem complete={po} label="Purchase Order" />
+        <StatusItem complete={grn} label="Goods Receipt" />
+        <StatusItem complete={invoice} label="Invoice" />
+    </div>
+  );
+};
+
+
+const MatchingStatusBadge = ({ invoiceId, onStatusClick, setMatchStatus }: { invoiceId: string, onStatusClick: (result: MatchingResult) => void, setMatchStatus: (status: MatchingStatus) => void }) => {
     const [result, setResult] = useState<MatchingResult | null>(null);
     const [loading, setLoading] = useState(true);
 
@@ -343,35 +364,59 @@ const MatchingStatusBadge = ({ invoiceId, onStatusClick }: { invoiceId: string, 
                 if (response.ok) {
                     const data = await response.json();
                     setResult(data);
+                    setMatchStatus(data.status);
+                } else {
+                     setMatchStatus('Pending');
                 }
             } catch (error) {
                 console.error(`Failed to fetch matching status for invoice ${invoiceId}`, error);
+                 setMatchStatus('Pending');
             } finally {
                 setLoading(false);
             }
         };
         fetchStatus();
-    }, [invoiceId]);
+    }, [invoiceId, setMatchStatus]);
 
     if (loading || !result) {
         return <Badge variant="outline"><Loader2 className="mr-2 h-3 w-3 animate-spin"/>Checking</Badge>;
     }
     
+    if (result.status === 'Pending') {
+        const poExists = result.details.poTotal > 0;
+        const grnExists = result.details.grnTotalQuantity > 0;
+        const invExists = result.details.invoiceTotal > 0;
+        return (
+            <TooltipProvider>
+                <Tooltip>
+                    <TooltipTrigger>
+                        <Badge variant="secondary"><Clock className="mr-2 h-3 w-3" />Pending</Badge>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                        <MatchStatus po={poExists} grn={grnExists} invoice={invExists} />
+                    </TooltipContent>
+                </Tooltip>
+            </TooltipProvider>
+        );
+    }
+    
     const isClickable = result.status === 'Mismatched' || result.status === 'Matched';
     const BadgeComponent = (
         <Badge 
-            variant={result.status === 'Matched' ? 'default' : result.status === 'Mismatched' ? 'destructive' : 'secondary'}
+            variant={result.status === 'Matched' ? 'default' : 'destructive'}
             className={cn(isClickable && "cursor-pointer")}
-            onClick={() => isClickable && onStatusClick(result)}
         >
             {result.status === 'Matched' && <CheckCircle2 className="mr-2 h-3 w-3" />}
             {result.status === 'Mismatched' && <AlertTriangle className="mr-2 h-3 w-3" />}
-            {result.status === 'Pending' && <Clock className="mr-2 h-3 w-3" />}
             {result.status}
         </Badge>
     );
 
-    return isClickable ? BadgeComponent : BadgeComponent;
+    return isClickable ? (
+        <DialogTrigger asChild>
+            {BadgeComponent}
+        </DialogTrigger>
+    ) : BadgeComponent;
 }
 
 export function InvoicesPage() {
@@ -381,6 +426,9 @@ export function InvoicesPage() {
   const [isMatchingDetailsOpen, setMatchingDetailsOpen] = useState(false);
   const [selectedMatchResult, setSelectedMatchResult] = useState<MatchingResult | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [invoiceMatchStatuses, setInvoiceMatchStatuses] = useState<Record<string, MatchingStatus>>({});
+  const [activeAction, setActiveAction] = useState<string | null>(null);
+
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -420,6 +468,7 @@ export function InvoicesPage() {
   
   const handleAction = async (invoiceId: string, status: 'Approved for Payment' | 'Disputed') => {
       if (!user) return;
+      setActiveAction(invoiceId);
       try {
           const response = await fetch(`/api/invoices/${invoiceId}/status`, {
               method: 'PATCH',
@@ -435,11 +484,14 @@ export function InvoicesPage() {
             title: 'Error',
             description: error instanceof Error ? error.message : 'An unknown error occurred.',
         });
+      } finally {
+        setActiveAction(null);
       }
   }
 
   const handlePayment = async (invoiceId: string) => {
     if (!user) return;
+     setActiveAction(invoiceId);
      try {
         const response = await fetch(`/api/payments`, {
             method: 'POST',
@@ -458,13 +510,18 @@ export function InvoicesPage() {
             title: 'Error',
             description: error instanceof Error ? error.message : 'An unknown error occurred.',
         });
+    } finally {
+        setActiveAction(null);
     }
   }
   
   const handleStatusClick = (result: MatchingResult) => {
     setSelectedMatchResult(result);
-    setMatchingDetailsOpen(true);
   }
+  
+  const setMatchStatusForInvoice = (invoiceId: string, status: MatchingStatus) => {
+      setInvoiceMatchStatuses(prev => ({ ...prev, [invoiceId]: status }));
+  };
 
   const getStatusVariant = (status: string) => {
     switch (status) {
@@ -518,14 +575,30 @@ export function InvoicesPage() {
             </TableHeader>
             <TableBody>
               {paginatedInvoices.length > 0 ? (
-                paginatedInvoices.map((invoice, index) => (
+                paginatedInvoices.map((invoice, index) => {
+                  const isActionDisabled = invoiceMatchStatuses[invoice.id] !== 'Matched';
+                  const isActionLoading = activeAction === invoice.id;
+                  
+                  return (
                   <TableRow key={invoice.id}>
                     <TableCell className="text-muted-foreground">{(currentPage - 1) * PAGE_SIZE + index + 1}</TableCell>
                     <TableCell className="font-medium text-primary">{invoice.id}</TableCell>
                     <TableCell>{invoice.purchaseOrderId}</TableCell>
                     <TableCell>{format(new Date(invoice.invoiceDate), 'PP')}</TableCell>
                      <TableCell>
-                      <MatchingStatusBadge invoiceId={invoice.id} onStatusClick={handleStatusClick} />
+                      <Dialog>
+                        <MatchingStatusBadge invoiceId={invoice.id} onStatusClick={handleStatusClick} setMatchStatus={(status) => setMatchStatusForInvoice(invoice.id, status)} />
+                        {selectedMatchResult && (
+                           <MatchDetailsDialog
+                                result={selectedMatchResult}
+                                onResolve={() => {
+                                    setSelectedMatchResult(null);
+                                    fetchInvoices();
+                                }}
+                                onCancel={() => setSelectedMatchResult(null)}
+                            />
+                        )}
+                      </Dialog>
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-col gap-1">
@@ -544,23 +617,25 @@ export function InvoicesPage() {
                                     variant="outline" 
                                     size="sm" 
                                     onClick={() => handleAction(invoice.id, 'Approved for Payment')}
+                                    disabled={isActionDisabled || isActionLoading}
                                 >
-                                <ThumbsUp className="mr-2 h-4 w-4" /> Approve
+                                {isActionLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ThumbsUp className="mr-2 h-4 w-4" />} Approve
                                 </Button>
                                 <Button 
                                     variant="destructive" 
                                     size="sm"
                                     onClick={() => handleAction(invoice.id, 'Disputed')}
+                                    disabled={isActionLoading}
                                 >
-                                <ThumbsDown className="mr-2 h-4 w-4" /> Dispute
+                                {isActionLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ThumbsDown className="mr-2 h-4 w-4" />} Dispute
                                 </Button>
                             </>
                         )}
                         {invoice.status === 'Approved_for_Payment' && (
                             <AlertDialog>
                                 <AlertDialogTrigger asChild>
-                                    <Button size="sm">
-                                        <Banknote className="mr-2 h-4 w-4" /> Pay Invoice
+                                    <Button size="sm" disabled={isActionLoading}>
+                                         {isActionLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Banknote className="mr-2 h-4 w-4" />} Pay Invoice
                                     </Button>
                                 </AlertDialogTrigger>
                                 <AlertDialogContent>
@@ -587,7 +662,7 @@ export function InvoicesPage() {
                       </div>
                     </TableCell>
                   </TableRow>
-                ))
+                )})
               ) : (
                 <TableRow>
                   <TableCell colSpan={8} className="h-24 text-center">
@@ -611,18 +686,7 @@ export function InvoicesPage() {
         </div>
       </CardContent>
     </Card>
-    <Dialog open={isMatchingDetailsOpen} onOpenChange={setMatchingDetailsOpen}>
-      {selectedMatchResult && (
-        <MatchDetailsDialog
-            result={selectedMatchResult}
-            onResolve={() => {
-                setMatchingDetailsOpen(false);
-                fetchInvoices();
-            }}
-            onCancel={() => setMatchingDetailsOpen(false)}
-        />
-      )}
-    </Dialog>
     </>
   );
 }
+
