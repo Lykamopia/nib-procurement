@@ -63,7 +63,6 @@ const PAGE_SIZE = 10;
 function AddInvoiceForm({ onInvoiceAdded }: { onInvoiceAdded: () => void }) {
     const [isSubmitting, setSubmitting] = useState(false);
     const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
-    const [vendors, setVendors] = useState<Vendor[]>([]);
     const { user } = useAuth();
     const { toast } = useToast();
 
@@ -82,10 +81,6 @@ function AddInvoiceForm({ onInvoiceAdded }: { onInvoiceAdded: () => void }) {
             const poResponse = await fetch('/api/purchase-orders');
             const poData = await poResponse.json();
             setPurchaseOrders(poData.filter((po: PurchaseOrder) => po.status !== 'Cancelled'));
-            
-            const vendorResponse = await fetch('/api/vendors');
-            const vendorData = await vendorResponse.json();
-            setVendors(vendorData);
         };
         fetchData();
     }, []);

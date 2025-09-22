@@ -1,9 +1,10 @@
 
 
 import { NextResponse } from 'next/server';
-import { purchaseOrders, auditLogs, invoices } from '@/lib/data-store';
+import { auditLogs } from '@/lib/data-store';
 import { performThreeWayMatch } from '@/services/matching-service';
 import { users } from '@/lib/auth-store';
+import { prisma } from '@/lib/prisma';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -13,27 +14,47 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Invoice ID is required' }, { status: 400 });
   }
 
-  const invoice = invoices.find(inv => inv.id === invoiceId);
-  if (!invoice) {
-    return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
-  }
+  try {
+    const invoice = await prisma.invoice.findUnique({
+      where: { id: invoiceId },
+    });
 
-  const po = purchaseOrders.find(p => p.id === invoice.purchaseOrderId);
-  if (!po) {
-    // This case might happen if an invoice is added without a PO.
-    // Return a pending state.
-    const pendingResult = {
-        poId: invoice.purchaseOrderId,
-        status: 'Pending' as const,
-        quantityMatch: false,
-        priceMatch: false,
-        details: { /* empty details */ }
+    if (!invoice) {
+      return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
     }
-     return NextResponse.json(pendingResult);
-  }
 
-  const result = performThreeWayMatch(po);
-  return NextResponse.json(result);
+    const po = await prisma.purchaseOrder.findUnique({
+      where: { id: invoice.purchaseOrderId },
+      include: {
+        items: true,
+        receipts: { include: { items: true } },
+        invoices: { include: { items: true } },
+      }
+    });
+
+    if (!po) {
+      const pendingResult = {
+          poId: invoice.purchaseOrderId,
+          status: 'Pending' as const,
+          quantityMatch: false,
+          priceMatch: false,
+          details: { /* empty details */ }
+      };
+      return NextResponse.json(pendingResult);
+    }
+    
+    // The type from prisma include should be compatible with what performThreeWayMatch expects.
+    // A type assertion might be necessary if the inferred type isn't precise enough.
+    const result = performThreeWayMatch(po as any);
+    return NextResponse.json(result);
+
+  } catch (error) {
+    console.error('Failed to perform matching:', error);
+    if (error instanceof Error) {
+        return NextResponse.json({ error: 'Failed to process request', details: error.message }, { status: 500 });
+    }
+    return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
+  }
 }
 
 export async function POST(request: Request) {
@@ -43,19 +64,27 @@ export async function POST(request: Request) {
         console.log('Request body:', body);
         const { poId, userId } = body;
 
-        const po = purchaseOrders.find(p => p.id === poId);
-        if (!po) {
-            console.error('Purchase Order not found for ID:', poId);
-            return NextResponse.json({ error: 'Purchase Order not found' }, { status: 404 });
-        }
-
         const user = users.find(u => u.id === userId);
         if (!user) {
             console.error('User not found for ID:', userId);
             return NextResponse.json({ error: 'User not found' }, { status: 404 });
         }
 
-        po.status = 'Matched';
+        const po = await prisma.purchaseOrder.update({
+            where: { id: poId },
+            data: { status: 'Matched' },
+            include: {
+                items: true,
+                receipts: { include: { items: true } },
+                invoices: { include: { items: true } },
+            }
+        });
+
+        if (!po) {
+            console.error('Purchase Order not found for ID:', poId);
+            return NextResponse.json({ error: 'Purchase Order not found' }, { status: 404 });
+        }
+
         console.log(`PO ${poId} status updated to Matched.`);
         
         const auditLogEntry = {
@@ -71,7 +100,7 @@ export async function POST(request: Request) {
         auditLogs.unshift(auditLogEntry);
         console.log('Added audit log:', auditLogEntry);
 
-        const result = performThreeWayMatch(po);
+        const result = performThreeWayMatch(po as any);
         return NextResponse.json(result);
     } catch (error) {
         console.error('Failed to resolve mismatch:', error);
