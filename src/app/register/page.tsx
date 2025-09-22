@@ -30,32 +30,78 @@ export default function RegisterPage() {
   const [address, setAddress] = useState('');
   const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
+  const [licenseFile, setLicenseFile] = useState<File | null>(null);
+  const [taxIdFile, setTaxIdFile] = useState<File | null>(null);
   const router = useRouter();
   const { login: authLogin } = useAuth();
   const { toast } = useToast();
   const role: UserRole = 'Vendor'; // Hardcode role to Vendor
 
+  const uploadFile = async (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('directory', 'kyc'); // Specify the subdirectory for KYC docs
+
+    const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+    });
+    const result = await response.json();
+    if (!response.ok) {
+        throw new Error(result.error || 'File upload failed.');
+    }
+    return result.path;
+  }
+
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!licenseFile || !taxIdFile) {
+        toast({
+            variant: 'destructive',
+            title: 'Missing Documents',
+            description: 'Please upload both business license and tax ID documents.',
+        });
+        return;
+    }
     setLoading(true);
 
-    const vendorDetails = { contactPerson, address, phone };
+    try {
+        const [licensePath, taxIdPath] = await Promise.all([
+            uploadFile(licenseFile),
+            uploadFile(taxIdFile)
+        ]);
 
-    const result = await register(name, email, password, role, vendorDetails);
-    if (result) {
-      authLogin(result.token, result.user, result.role);
-      toast({
-        title: 'Registration Successful',
-        description: `Welcome, ${result.user.name}! Your vendor application is pending verification.`,
-      });
-      router.push('/');
-    } else {
-      toast({
-        variant: 'destructive',
-        title: 'Registration Failed',
-        description: 'A user with this email already exists.',
-      });
-      setLoading(false);
+        const vendorDetails = { 
+            contactPerson, 
+            address, 
+            phone,
+            licensePath,
+            taxIdPath
+        };
+
+        const result = await register(name, email, password, role, vendorDetails);
+        if (result) {
+        authLogin(result.token, result.user, result.role);
+        toast({
+            title: 'Registration Successful',
+            description: `Welcome, ${result.user.name}! Your vendor application is pending verification.`,
+        });
+        router.push('/');
+        } else {
+        toast({
+            variant: 'destructive',
+            title: 'Registration Failed',
+            description: 'A user with this email already exists.',
+        });
+        setLoading(false);
+        }
+    } catch (error) {
+        toast({
+            variant: 'destructive',
+            title: 'Registration Error',
+            description: error instanceof Error ? error.message : 'An unexpected error occurred.',
+        });
+        setLoading(false);
     }
   };
 
@@ -138,12 +184,12 @@ export default function RegisterPage() {
                 </div>
                   <div className="grid gap-2">
                     <Label htmlFor="license">Business License</Label>
-                    <Input id="license" type="file" required />
+                    <Input id="license" type="file" required onChange={(e) => setLicenseFile(e.target.files?.[0] || null)} />
                       <p className="text-xs text-muted-foreground">Upload a PDF of your business license.</p>
                 </div>
                   <div className="grid gap-2">
                     <Label htmlFor="tax-id">Tax ID Document</Label>
-                    <Input id="tax-id" type="file" required />
+                    <Input id="tax-id" type="file" required onChange={(e) => setTaxIdFile(e.target.files?.[0] || null)} />
                       <p className="text-xs text-muted-foreground">Upload a PDF of your tax registration.</p>
                 </div>
             </>

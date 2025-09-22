@@ -8,6 +8,8 @@ type VendorDetails = {
     contactPerson: string;
     address: string;
     phone: string;
+    licensePath: string;
+    taxIdPath: string;
 }
 
 export async function register(
@@ -46,8 +48,8 @@ export async function register(
           userId: newUserId,
           kycStatus: 'Pending',
           kycDocuments: [
-              { name: 'Business License', url: '/placeholder-document.pdf', submittedAt: new Date() },
-              { name: 'Tax ID Document', url: '/placeholder-document.pdf', submittedAt: new Date() },
+              { name: 'Business License', url: vendorDetails.licensePath, submittedAt: new Date() },
+              { name: 'Tax ID Document', url: vendorDetails.taxIdPath, submittedAt: new Date() },
           ]
       };
       vendors.unshift(newVendor);

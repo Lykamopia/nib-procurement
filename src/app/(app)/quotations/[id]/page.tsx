@@ -32,7 +32,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, PlusCircle, Award, XCircle, FileSignature, FileText, Bot, Lightbulb, ArrowLeft, Star, Undo, Check, Send, Search, BadgeHelp, BadgeCheck, BadgeX, Crown, Medal, Trophy, RefreshCw, TimerOff, ClipboardList, TrendingUp, Scale, Edit2, Users, GanttChart, Eye, CheckCircle, CalendarIcon, Timer, Landmark, Settings2, Ban, Printer, FileBarChart2, UserCog, History, AlertCircle } from 'lucide-react';
+import { Loader2, PlusCircle, Award, XCircle, FileSignature, FileText, Bot, Lightbulb, ArrowLeft, Star, Undo, Check, Send, Search, BadgeHelp, BadgeCheck, BadgeX, Crown, Medal, Trophy, RefreshCw, TimerOff, ClipboardList, TrendingUp, Scale, Edit2, Users, GanttChart, Eye, CheckCircle, CalendarIcon, Timer, Landmark, Settings2, Ban, Printer, FileBarChart2, UserCog, History, AlertCircle, FileUp } from 'lucide-react';
 import { useForm, useFieldArray, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -264,7 +264,7 @@ const QuoteComparison = ({ quotes, requisition, onScore, user, isDeadlinePassed,
                                         <div className="text-sm space-y-1 pt-2 border-t">
                                             <h4 className="font-semibold">CPO Document</h4>
                                             <Button asChild variant="link" className="p-0 h-auto">
-                                                <a href={quote.cpoDocumentUrl} target="_blank" rel="noopener noreferrer">{quote.cpoDocumentUrl}</a>
+                                                <a href={quote.cpoDocumentUrl} target="_blank" rel="noopener noreferrer">{quote.cpoDocumentUrl.split('/').pop()}</a>
                                             </Button>
                                         </div>
                                     )}
@@ -317,29 +317,47 @@ const QuoteComparison = ({ quotes, requisition, onScore, user, isDeadlinePassed,
     )
 }
 
-const ContractManagement = ({ requisition }: { requisition: PurchaseRequisition }) => {
+const ContractManagement = ({ requisition, onContractFinalized }: { requisition: PurchaseRequisition, onContractFinalized: () => void }) => {
     const [isSubmitting, setSubmitting] = useState(false);
     const { toast } = useToast();
     const { user } = useAuth();
+    const [file, setFile] = useState<File | null>(null);
 
     const awardedQuote = requisition.quotations?.find(q => q.status === 'Accepted');
 
     const onContractSubmit = async (event: React.FormEvent) => {
         event.preventDefault();
-        if (!user || !awardedQuote) return;
-        setSubmitting(true);
-        // This is a simplified submission. In a real app, you'd handle file uploads.
-        const fileName = (event.target as any).fileName.value;
-        const notes = (event.target as any).notes.value;
+        if (!user || !awardedQuote || !file) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Please select a file to upload.' });
+            return;
+        }
 
+        setSubmitting(true);
         try {
+            const formData = new FormData();
+            formData.append('file', file);
+
+            const uploadResponse = await fetch('/api/upload', {
+                method: 'POST',
+                body: formData,
+            });
+            const uploadResult = await uploadResponse.json();
+            if (!uploadResponse.ok) {
+                throw new Error(uploadResult.error || 'Failed to upload file.');
+            }
+            const filePath = uploadResult.path;
+
+            const notes = (event.target as any).notes.value;
+
             const response = await fetch(`/api/requisitions/${requisition.id}/contract`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ fileName, notes, userId: user.id }),
+                body: JSON.stringify({ fileName: filePath, notes, userId: user.id }),
             });
             if (!response.ok) throw new Error("Failed to save contract details.");
+
             toast({ title: "Contract Details Saved!", description: "The PO can now be formally sent to the vendor." });
+            onContractFinalized();
         } catch (error) {
              toast({
                 variant: 'destructive',
@@ -366,7 +384,7 @@ const ContractManagement = ({ requisition }: { requisition: PurchaseRequisition 
                 <CardContent className="space-y-4">
                      <div>
                         <Label htmlFor="fileName">Final Contract Document</Label>
-                        <Input id="fileName" name="fileName" type="file" />
+                        <Input id="fileName" name="fileName" type="file" onChange={(e) => setFile(e.target.files?.[0] || null)} />
                     </div>
                     <div>
                         <Label htmlFor="notes">Negotiation &amp; Finalization Notes</Label>
@@ -2489,7 +2507,7 @@ export default function QuotationDetailsPage() {
         )}
         
         {isAccepted && requisition.status !== 'PO Created' && role !== 'Committee Member' && (
-            <ContractManagement requisition={requisition} />
+            <ContractManagement requisition={requisition} onContractFinalized={handleContractFinalized} />
         )}
          {requisition && (
             <RequisitionDetailsDialog 
