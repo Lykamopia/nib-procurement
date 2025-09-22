@@ -1,7 +1,10 @@
 
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import Image from 'next/image';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 import {
   Table,
   TableBody,
@@ -33,7 +36,7 @@ import {
 } from './ui/dialog';
 import { Input } from './ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, PlusCircle, ThumbsUp, ThumbsDown, FileUp, FileText, Banknote, CheckCircle, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, CheckCircle2, AlertTriangle, Clock, List } from 'lucide-react';
+import { Loader2, PlusCircle, ThumbsUp, ThumbsDown, FileUp, FileText, Banknote, CheckCircle, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, CheckCircle2, AlertTriangle, Clock, List, Printer } from 'lucide-react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -44,6 +47,7 @@ import { Badge } from './ui/badge';
 import { cn } from '@/lib/utils';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from './ui/alert-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
+import { Separator } from './ui/separator';
 
 
 const invoiceSchema = z.object({
@@ -236,17 +240,34 @@ function AddInvoiceForm({ onInvoiceAdded }: { onInvoiceAdded: () => void }) {
     );
 }
 
-const MatchDetailRow = ({ label, value, isMismatch = false }: { label: string, value: React.ReactNode, isMismatch?: boolean}) => (
-    <div className={cn("flex justify-between py-1", isMismatch && "text-destructive font-bold")}>
-        <span className="text-muted-foreground">{label}</span>
-        <span>{value}</span>
-    </div>
-)
+const MatchDetailRow = ({ label, value, isMismatch = false }: { label: string, value: React.ReactNode, isMismatch?: boolean}) => {
+    const Icon = isMismatch ? AlertTriangle : CheckCircle2;
+    return (
+        <div className={cn("flex justify-between items-center py-2 border-b", isMismatch ? "text-destructive" : "text-emerald-600")}>
+            <span className="flex items-center gap-2 font-medium">
+                <Icon className="h-4 w-4"/>
+                {label}
+            </span>
+            <span className="font-mono">{value}</span>
+        </div>
+    )
+}
 
 function MatchDetailsDialog({ result, onResolve, onCancel }: { result: MatchingResult, onResolve: () => void, onCancel: () => void }) {
     const { user } = useAuth();
     const { toast } = useToast();
     const [isResolving, setResolving] = useState(false);
+    const [poDetails, setPoDetails] = useState<PurchaseOrder | null>(null);
+    const printRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if(result.poId) {
+            fetch(`/api/purchase-orders/${result.poId}`)
+                .then(res => res.json())
+                .then(data => setPoDetails(data));
+        }
+    }, [result.poId]);
+
 
     const handleResolve = async () => {
         if (!user) return;
@@ -270,63 +291,119 @@ function MatchDetailsDialog({ result, onResolve, onCancel }: { result: MatchingR
             setResolving(false);
             onCancel();
         }
+    };
+
+    const handlePrint = async () => {
+        const input = printRef.current;
+        if (!input) return;
+        
+        toast({ title: "Generating PDF...", description: "This may take a moment." });
+
+        try {
+            const canvas = await html2canvas(input, { scale: 2, useCORS: true, backgroundColor: null });
+            const imgData = canvas.toDataURL('image/png');
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = pdf.internal.pageSize.getHeight();
+            const imgWidth = canvas.width;
+            const imgHeight = canvas.height;
+            const ratio = imgWidth / imgHeight;
+            let width = pdfWidth - 20; // with margin
+            let height = width / ratio;
+
+             if (height > pdfHeight - 20) {
+                 height = pdfHeight - 20;
+                 width = height * ratio;
+            }
+            
+            const x = (pdfWidth - width) / 2;
+            const y = 10;
+
+            pdf.addImage(imgData, 'PNG', x, y, width, height);
+            pdf.save(`3-Way-Match-Report-${result.poId}.pdf`);
+            toast({ title: "PDF Generated", description: "Your report has been downloaded." });
+        } catch (error) {
+            console.error("PDF generation error:", error);
+            toast({ variant: 'destructive', title: "PDF Generation Failed", description: "Could not generate the PDF report."});
+        }
     }
     
   return (
      <DialogContent className="max-w-4xl">
-        <DialogHeader>
-            <DialogTitle>Matching Details for PO: {result.poId}</DialogTitle>
-        </DialogHeader>
-        <div className="py-4 grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Card>
-            <CardHeader><CardTitle className="text-base">Totals</CardTitle></CardHeader>
-            <CardContent className="text-sm">
-                <MatchDetailRow label="PO Total" value={`${result.details.poTotal?.toFixed(2) ?? 'N/A'} ETB`} />
-                <MatchDetailRow label="Invoice Total" value={`${result.details.invoiceTotal?.toFixed(2) ?? 'N/A'} ETB`} isMismatch={result.details.poTotal !== result.details.invoiceTotal}/>
-                <MatchDetailRow label="PO Quantity" value={result.details.items?.reduce((acc, i) => acc + i.poQuantity, 0) ?? 'N/A'} />
-                <MatchDetailRow label="GRN Quantity" value={result.details.grnTotalQuantity ?? 'N/A'} isMismatch={result.details.items?.reduce((acc, i) => acc + i.poQuantity, 0) !== result.details.grnTotalQuantity} />
-                <MatchDetailRow label="Invoice Quantity" value={result.details.invoiceTotalQuantity ?? 'N/A'} isMismatch={result.details.items?.reduce((acc, i) => acc + i.poQuantity, 0) !== result.details.invoiceTotalQuantity} />
-            </CardContent>
-            </Card>
-            <Card className="md:col-span-2">
-                <CardHeader><CardTitle className="text-base">Item Breakdown</CardTitle></CardHeader>
-                <CardContent>
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Item</TableHead>
-                                <TableHead>PO Qty</TableHead>
-                                <TableHead>GRN Qty</TableHead>
-                                <TableHead>Inv Qty</TableHead>
-                                <TableHead>PO Price</TableHead>
-                                <TableHead>Inv Price</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {result.details.items?.map(item => (
-                                <TableRow key={item.itemId}>
-                                    <TableCell>{item.itemName}</TableCell>
-                                    <TableCell>{item.poQuantity}</TableCell>
-                                    <TableCell className={cn(!item.quantityMatch && "text-destructive font-bold")}>{item.grnQuantity}</TableCell>
-                                    <TableCell className={cn(!item.quantityMatch && "text-destructive font-bold")}>{item.invoiceQuantity}</TableCell>
-                                    <TableCell>{item.poUnitPrice.toFixed(2)} ETB</TableCell>
-                                    <TableCell className={cn(!item.priceMatch && "text-destructive font-bold")}>{item.invoiceUnitPrice.toFixed(2)} ETB</TableCell>
+        <div ref={printRef} className="p-4 print:p-0 bg-background text-foreground">
+            <DialogHeader className="print:text-black">
+                <div className="flex items-center justify-between mb-4">
+                     <div className='flex items-center gap-2'>
+                        <Image src="/logo.png" alt="Nib InternationalBank Logo" width={32} height={32} className="size-8" />
+                        <div>
+                            <DialogTitle className="text-2xl">Three-Way Match Report</DialogTitle>
+                            <DialogDescription>PO: {result.poId}</DialogDescription>
+                        </div>
+                    </div>
+                     <div className="text-right">
+                        <p className="font-semibold">{poDetails?.vendor.name}</p>
+                        <p className="text-sm text-muted-foreground">Report Date: {format(new Date(), 'PP')}</p>
+                    </div>
+                </div>
+            </DialogHeader>
+            <div className="py-4 grid grid-cols-1 lg:grid-cols-2 gap-6 print:grid-cols-2">
+                <div className="space-y-4">
+                    <h3 className="font-semibold text-lg">Summary</h3>
+                    <div className="text-sm space-y-1">
+                        <MatchDetailRow label="PO vs Invoice Total" value={`${result.details.poTotal?.toFixed(2)} vs ${result.details.invoiceTotal?.toFixed(2)} ETB`} isMismatch={!result.priceMatch} />
+                        <MatchDetailRow label="PO vs GRN Quantity" value={`${result.details.items?.reduce((acc, i) => acc + i.poQuantity, 0) ?? 0} vs ${result.details.grnTotalQuantity}`} isMismatch={result.details.items?.reduce((acc, i) => acc + i.poQuantity, 0) !== result.details.grnTotalQuantity} />
+                        <MatchDetailRow label="PO vs Invoice Quantity" value={`${result.details.items?.reduce((acc, i) => acc + i.poQuantity, 0) ?? 0} vs ${result.details.invoiceTotalQuantity}`} isMismatch={result.details.items?.reduce((acc, i) => acc + i.poQuantity, 0) !== result.details.invoiceTotalQuantity} />
+                    </div>
+                    <Separator className="my-4"/>
+                    <div className="text-sm space-y-2">
+                        <h4 className="font-semibold">Document Dates</h4>
+                         <div className="flex justify-between"><span className="text-muted-foreground">Purchase Order:</span><span>{poDetails?.createdAt ? format(new Date(poDetails.createdAt), 'PP') : 'N/A'}</span></div>
+                        <div className="flex justify-between"><span className="text-muted-foreground">Goods Receipt:</span><span>{poDetails?.receipts?.[0]?.receivedDate ? format(new Date(poDetails.receipts[0].receivedDate), 'PP') : 'N/A'}</span></div>
+                        <div className="flex justify-between"><span className="text-muted-foreground">Invoice:</span><span>{poDetails?.invoices?.[0]?.invoiceDate ? format(new Date(poDetails.invoices[0].invoiceDate), 'PP') : 'N/A'}</span></div>
+                    </div>
+                </div>
+                <div className="space-y-4">
+                    <h3 className="font-semibold text-lg">Item-by-Item Breakdown</h3>
+                     <div className="border rounded-md">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Item</TableHead>
+                                    <TableHead className="text-center">PO</TableHead>
+                                    <TableHead className="text-center">GRN</TableHead>
+                                    <TableHead className="text-center">Inv</TableHead>
                                 </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </CardContent>
-            </Card>
+                            </TableHeader>
+                            <TableBody>
+                                {result.details.items?.map(item => (
+                                    <TableRow key={item.itemId} className={cn(!item.quantityMatch || !item.priceMatch ? "bg-destructive/5" : "bg-emerald-500/5")}>
+                                        <TableCell>
+                                            <p className="font-medium">{item.itemName}</p>
+                                            <p className={cn("text-xs", !item.priceMatch && "text-destructive font-bold")}>
+                                                PO: {item.poUnitPrice.toFixed(2)} vs Inv: {item.invoiceUnitPrice.toFixed(2)}
+                                            </p>
+                                        </TableCell>
+                                        <TableCell className="text-center">{item.poQuantity}</TableCell>
+                                        <TableCell className={cn("text-center", !item.quantityMatch && "text-destructive font-bold")}>{item.grnQuantity}</TableCell>
+                                        <TableCell className={cn("text-center", !item.quantityMatch && "text-destructive font-bold")}>{item.invoiceQuantity}</TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
+                </div>
+            </div>
         </div>
-        {result.status === 'Mismatched' && (
-            <DialogFooter>
-                <Button onClick={onCancel} variant="ghost">Close</Button>
+        <DialogFooter className="print:hidden">
+            <Button onClick={handlePrint} variant="outline"><Printer className="mr-2"/> Print / Export PDF</Button>
+            {result.status === 'Mismatched' && (
                 <Button onClick={handleResolve} disabled={isResolving}>
                     {isResolving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Manually Resolve Mismatch
                 </Button>
-            </DialogFooter>
-      )}
+            )}
+            <Button onClick={onCancel} variant="ghost">Close</Button>
+        </DialogFooter>
     </DialogContent>
   );
 }
@@ -350,10 +427,10 @@ const MatchStatus = ({ po, grn, invoice }: { po: boolean, grn: boolean, invoice:
   );
 };
 
-const MatchingStatusBadge = ({ result, onRefresh }: { result: MatchingResult | 'loading' | null, onRefresh: () => void }) => {
+const MatchingStatusBadge = ({ result, onRefresh }: { result: MatchingResult | null, onRefresh: () => void }) => {
     const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-    if (result === 'loading' || !result) {
+    if (!result) {
         return <Badge variant="outline"><Loader2 className="mr-2 h-3 w-3 animate-spin"/>Checking</Badge>;
     }
     
@@ -409,7 +486,7 @@ const MatchingStatusBadge = ({ result, onRefresh }: { result: MatchingResult | '
 
 export function InvoicesPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [matchResults, setMatchResults] = useState<Record<string, MatchingResult | 'loading' | null>>({});
+  const [matchResults, setMatchResults] = useState<Record<string, MatchingResult | null>>({});
   const [loading, setLoading] = useState(true);
   const [isFormOpen, setFormOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -426,15 +503,11 @@ export function InvoicesPage() {
       const invData: Invoice[] = await invResponse.json();
       setInvoices(invData);
       
-      setMatchResults(prev => {
-        const newResults = {...prev};
-        invData.forEach(inv => {
-            if (!newResults[inv.id]) {
-                newResults[inv.id] = 'loading';
-            }
-        });
-        return newResults;
+      const initialMatchResults: Record<string, null> = {};
+      invData.forEach(inv => {
+          initialMatchResults[inv.id] = null;
       });
+      setMatchResults(initialMatchResults);
 
       const matchPromises = invData.map(inv =>
         fetch(`/api/matching?invoiceId=${inv.id}`)
@@ -443,15 +516,13 @@ export function InvoicesPage() {
       );
 
       const results = await Promise.all(matchPromises);
-      setMatchResults(prev => {
-        const newResults = {...prev};
-        results.forEach(res => {
-          if (res) {
-            newResults[res.id] = res.data;
-          }
-        });
-        return newResults;
+      const newMatchResults: Record<string, MatchingResult | null> = {};
+      results.forEach(res => {
+        if (res) {
+          newMatchResults[res.id] = res.data;
+        }
       });
+      setMatchResults(newMatchResults);
 
     } catch (error) {
       toast({
@@ -581,8 +652,8 @@ export function InvoicesPage() {
             <TableBody>
               {paginatedInvoices.length > 0 ? (
                 paginatedInvoices.map((invoice, index) => {
-                  const matchResult = matchResults[invoice.id] ?? 'loading';
-                  const isActionDisabled = !matchResult || matchResult === 'loading' || matchResult.status !== 'Matched';
+                  const matchResult = matchResults[invoice.id];
+                  const isActionDisabled = !matchResult || matchResult.status !== 'Matched';
                   const isActionLoading = activeAction === invoice.id;
                   
                   return (
