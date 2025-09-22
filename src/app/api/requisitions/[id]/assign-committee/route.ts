@@ -66,7 +66,17 @@ export async function POST(
         });
     }
 
-    // auditLogs.unshift({ ... });
+    await prisma.auditLog.create({
+        data: {
+            timestamp: new Date(),
+            user: { connect: { id: user.id } },
+            action: 'ASSIGN_COMMITTEE',
+            entity: 'Requisition',
+            entityId: id,
+            details: `Assigned/updated committee for requisition ${id}. Name: ${committeeName}.`,
+        }
+    });
+
 
     return NextResponse.json(updatedRequisition);
 

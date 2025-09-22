@@ -66,6 +66,7 @@ export async function POST(
 
     await prisma.auditLog.create({
         data: {
+            timestamp: new Date(),
             user: { connect: { id: user.id } },
             action: auditAction,
             entity: 'Requisition',
