@@ -1,9 +1,8 @@
-
 'use server';
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { users } from '@/lib/auth-store';
+import { users, auditLogs } from '@/lib/data-store';
 
 type RFQAction = 'update' | 'cancel';
 
@@ -31,11 +30,13 @@ export async function POST(
       return NextResponse.json({ error: 'Requisition not found' }, { status: 404 });
     }
 
-    if (requisition.status !== 'RFQ In Progress') {
+    if (requisition.status !== 'RFQ_In_Progress') {
         return NextResponse.json({ error: 'This action is only available for requisitions with an active RFQ.' }, { status: 400 });
     }
 
     let updatedRequisition;
+    let auditAction: string = '';
+    let auditDetails: string = '';
 
     switch (action) {
       case 'update':
@@ -46,6 +47,8 @@ export async function POST(
             where: { id: requisitionId },
             data: { deadline: new Date(newDeadline) }
         });
+        auditAction = 'UPDATE_RFQ_DEADLINE';
+        auditDetails = `Updated RFQ deadline for requisition ${requisitionId} to ${new Date(newDeadline).toLocaleDateString()}. Reason: ${reason}`;
         break;
       case 'cancel':
         await prisma.quotation.updateMany({ where: { requisitionId }, data: { status: 'Rejected' }});
@@ -53,12 +56,23 @@ export async function POST(
             where: { id: requisitionId },
             data: { status: 'Approved', deadline: null }
         });
+        auditAction = 'CANCEL_RFQ';
+        auditDetails = `Cancelled RFQ for requisition ${requisitionId}. Reason: ${reason}`;
         break;
       default:
         return NextResponse.json({ error: 'Invalid action specified.' }, { status: 400 });
     }
 
-    // auditLogs.unshift({ ... });
+    auditLogs.unshift({
+        id: `log-${Date.now()}-${Math.random()}`,
+        timestamp: new Date(),
+        user: user.name,
+        role: user.role,
+        action: auditAction,
+        entity: 'Requisition',
+        entityId: requisitionId,
+        details: auditDetails,
+    });
 
     return NextResponse.json({ message: 'RFQ successfully modified.', requisition: updatedRequisition });
   } catch (error) {

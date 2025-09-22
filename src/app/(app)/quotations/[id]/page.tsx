@@ -80,10 +80,11 @@ const contractFormSchema = z.object({
 function AddQuoteForm({ requisition, vendors, onQuoteAdded }: { requisition: PurchaseRequisition; vendors: Vendor[], onQuoteAdded: () => void }) {
     const [isSubmitting, setSubmitting] = useState(false);
     const { toast } = useToast();
+    const { user } = useAuth();
+
     const form = useForm<z.infer<typeof quoteFormSchema>>({
         resolver: zodResolver(quoteFormSchema),
         defaultValues: {
-            vendorId: "",
             notes: "",
             items: requisition.items.map(item => ({
                 requisitionItemId: item.id,
@@ -100,13 +101,14 @@ function AddQuoteForm({ requisition, vendors, onQuoteAdded }: { requisition: Pur
         name: "items",
     });
 
-    const onSubmit = async (values: z.infer<typeof quoteFormSchema>) => {
+    const onSubmit = async (values: any) => {
+        if (!user) return;
         setSubmitting(true);
         try {
             const response = await fetch('/api/quotations', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ...values, requisitionId: requisition.id }),
+                body: JSON.stringify({ ...values, requisitionId: requisition.id, vendorId: user.vendorId }),
             });
 
             if (!response.ok) {
@@ -143,30 +145,6 @@ function AddQuoteForm({ requisition, vendors, onQuoteAdded }: { requisition: Pur
             </DialogHeader>
             <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                    <FormField
-                        control={form.control}
-                        name="vendorId"
-                        render={({ field }) => (
-                            <FormItem>
-                            <FormLabel>Vendor</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                <FormControl>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select a verified vendor" />
-                                </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                    {verifiedVendors.length > 0 ? (
-                                        verifiedVendors.map(v => <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>)
-                                    ) : (
-                                        <div className="p-4 text-center text-sm text-muted-foreground">No verified vendors available.</div>
-                                    )}
-                                </SelectContent>
-                            </Select>
-                            <FormMessage />
-                            </FormItem>
-                        )}
-                        />
                      <FormField
                         control={form.control}
                         name="notes"
@@ -245,7 +223,7 @@ const QuoteComparison = ({ quotes, requisition, onScore, user, isDeadlinePassed,
             case 'Rejected': return 'destructive';
             case 'Declined': return 'destructive';
             case 'Failed': return 'destructive';
-            case 'Invoice Submitted': return 'outline';
+            case 'Invoice_Submitted': return 'outline';
         }
     }
 
@@ -270,7 +248,7 @@ const QuoteComparison = ({ quotes, requisition, onScore, user, isDeadlinePassed,
                                  {isDeadlinePassed && getRankIcon(quote.rank)}
                                  <span>{quote.vendorName}</span>
                                </div>
-                               <Badge variant={getStatusVariant(quote.status)}>{quote.status}</Badge>
+                               <Badge variant={getStatusVariant(quote.status)}>{quote.status.replace(/_/g, ' ')}</Badge>
                             </CardTitle>
                             <CardDescription>
                                 <span className="text-xs">Submitted {formatDistanceToNow(new Date(quote.createdAt), { addSuffix: true })}</span>
@@ -924,7 +902,7 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
                     userId: user.id, 
-                    vendorIds: distributionType === 'all' ? 'all' : selectedVendors,
+                    vendorIds: distributionType === 'all' ? [] : selectedVendors,
                     deadline,
                     cpoAmount
                 }),
@@ -2420,14 +2398,6 @@ export default function QuotationDetailsPage() {
                                         </AlertDialogFooter>
                                     </AlertDialogContent>
                                 </AlertDialog>
-                            )}
-                            {role !== 'Committee Member' && (
-                                <Dialog open={isAddFormOpen} onOpenChange={setAddFormOpen}>
-                                    <DialogTrigger asChild>
-                                        <Button disabled={isAwarded} variant="outline" className="w-full"><PlusCircle className="mr-2 h-4 w-4"/>Add Quote</Button>
-                                    </DialogTrigger>
-                                    {requisition && <AddQuoteForm requisition={requisition} vendors={vendors} onQuoteAdded={handleQuoteAdded} />}
-                                </Dialog>
                             )}
                         </div>
                     </CardHeader>
