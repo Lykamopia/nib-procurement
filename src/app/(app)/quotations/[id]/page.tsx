@@ -1193,34 +1193,6 @@ const scoreFormSchema = z.object({
 });
 type ScoreFormValues = z.infer<typeof scoreFormSchema>;
 
-
-const clientSideScoreCalculator = (scores: ScoreFormValues, criteria: EvaluationCriteria): number => {
-    if (!criteria || !scores) return 0;
-    
-    let totalFinancialScore = 0;
-    let totalTechnicalScore = 0;
-
-    if (scores.financialScores) {
-        criteria.financialCriteria.forEach((c) => {
-            const score = scores.financialScores.find(s => s.criterionId === c.id)?.score || 0;
-            totalFinancialScore += score * (c.weight / 100);
-        });
-    }
-
-    if (scores.technicalScores) {
-        criteria.technicalCriteria.forEach((c) => {
-            const score = scores.technicalScores.find(s => s.criterionId === c.id)?.score || 0;
-            totalTechnicalScore += score * (c.weight / 100);
-        });
-    }
-
-    const finalScore = (totalFinancialScore * (criteria.financialWeight / 100)) + 
-                       (totalTechnicalScore * (criteria.technicalWeight / 100));
-
-    return finalScore;
-}
-
-
 const ScoringDialog = ({ 
     quote, 
     requisition, 
@@ -1358,9 +1330,6 @@ const ScoringDialog = ({
     };
     
     const currentValues = form.watch();
-    const calculatedScore = (requisition.evaluationCriteria && currentValues.financialScores && currentValues.technicalScores)
-    ? clientSideScoreCalculator(currentValues, requisition.evaluationCriteria)
-    : 0;
 
     return (
          <DialogContent className="max-w-4xl">
@@ -1434,15 +1403,29 @@ const ScoringDialog = ({
                                 </AlertDialogDescription>
                             </AlertDialogHeader>
                             <Card className="my-4">
-                                <CardContent className="pt-6 space-y-2">
-                                    <div className="flex justify-between items-center text-lg">
-                                        <span className="font-semibold">Calculated Final Score:</span>
-                                        <span className="text-2xl font-bold text-primary">{calculatedScore.toFixed(2)} / 100</span>
-                                    </div>
-                                     <div className="text-sm text-muted-foreground italic">
-                                        <p className="font-semibold">Your Comment:</p>
-                                        <p>"{currentValues.committeeComment || 'No comment provided.'}"</p>
-                                    </div>
+                                <CardContent className="pt-6 space-y-4 text-sm">
+                                     {isFinancialScorer && (
+                                        <div>
+                                            <h4 className="font-semibold mb-2">Your Financial Scores:</h4>
+                                            {currentValues.financialScores?.map((s, i) => (
+                                                <div key={i} className="flex justify-between">
+                                                    <span className="text-muted-foreground">{requisition.evaluationCriteria?.financialCriteria[i]?.name}</span>
+                                                    <span>{s.score} / 100</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                     )}
+                                     {isTechnicalScorer && (
+                                        <div>
+                                            <h4 className="font-semibold mb-2">Your Technical Scores:</h4>
+                                            {currentValues.technicalScores?.map((s, i) => (
+                                                <div key={i} className="flex justify-between">
+                                                    <span className="text-muted-foreground">{requisition.evaluationCriteria?.technicalCriteria[i]?.name}</span>
+                                                    <span>{s.score} / 100</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                     )}
                                 </CardContent>
                             </Card>
                             <AlertDialogFooter>
@@ -2485,3 +2468,6 @@ export default function QuotationDetailsPage() {
     </div>
   );
 }
+
+
+    
