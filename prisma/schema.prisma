@@ -1,395 +1,67 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-generator client {
-  provider = "prisma-client-js"
-}
-
 model User {
-  id                        String                @id @default(cuid())
-  name                      String
-  email                     String                @unique
-  password                  String
-  role                      UserRole
-  vendorId                  String?               @unique
-  vendor                    Vendor?               @relation(fields: [vendorId], references: [id])
-  departmentId              String?
-  department                Department?           @relation(fields: [departmentId], references: [id])
-  createdRequisitions       PurchaseRequisition[] @relation("Requester")
-  approvedRequisitions      PurchaseRequisition[] @relation("Approver")
-  auditLogs                 AuditLog[]
-  goodsReceipts             GoodsReceiptNote[]
-  financialCommitteeOn      PurchaseRequisition[] @relation("FinancialCommittee")
-  technicalCommitteeOn      PurchaseRequisition[] @relation("TechnicalCommittee")
-  committeeAssignments      CommitteeAssignment[] @relation("CommitteeMember")
-  committeeScores           CommitteeScoreSet[]
-  
-  @@index([vendorId])
+  id                         String                @id @default(cuid())
+  name                       String
+  email                      String                @unique
+  password                   String
+  role                       UserRole
+  vendorId                   String?               @unique
+  vendor                     Vendor?               @relation(fields: [vendorId], references: [id])
+  departmentId               String?
+  department                 Department?           @relation(fields: [departmentId], references: [id])
+  createdRequisitions        PurchaseRequisition[] @relation("Requester")
+  approvedRequisitions       PurchaseRequisition[] @relation("Approver")
+  financialCommitteeOn       PurchaseRequisition[] @relation("FinancialCommittee")
+  technicalCommitteeOn       PurchaseRequisition[] @relation("TechnicalCommittee")
+  receivedGoods              GoodsReceiptNote[]
+  auditLogs                  AuditLog[]
+  committeeAssignments       CommitteeAssignment[]
+  scoresSubmitted            CommitteeScoreSet[]   @relation("Scorer")
 }
 
 model Department {
   id           String                @id @default(cuid())
   name         String                @unique
-  requisitions PurchaseRequisition[]
   users        User[]
-}
-
-model PurchaseRequisition {
-  id                           String                @id @default(cuid())
-  transactionId                String?               @unique
-  requesterId                  String
-  requester                    User                  @relation("Requester", fields: [requesterId], references: [id])
-  requesterName                String
-  title                        String
-  departmentId                 String?
-  department                   Department?           @relation(fields: [departmentId], references: [id])
-  items                        RequisitionItem[]
-  totalPrice                   Float
-  justification                String
-  status                       RequisitionStatus     @default(Draft)
-  createdAt                    DateTime              @default(now())
-  updatedAt                    DateTime              @updatedAt
-  approverId                   String?
-  approver                     User?                 @relation("Approver", fields: [approverId], references: [id])
-  approverComment              String?
-  purchaseOrderId              String?               @unique
-  purchaseOrder                PurchaseOrder?
-  allowedVendorIds             String[]
-  deadline                     DateTime?
-  scoringDeadline              DateTime?
-  awardResponseDeadline        DateTime?
-  awardResponseDurationMinutes Int?
-  committeeName                String?
-  committeePurpose             String?
-  cpoAmount                    Float?
-  customQuestions              CustomQuestion[]
-  evaluationCriteria           EvaluationCriteria?
-  financialCommitteeMembers    User[]                @relation("FinancialCommittee")
-  technicalCommitteeMembers    User[]                @relation("TechnicalCommittee")
-  quotations                   Quotation[]
-  committeeAssignments         CommitteeAssignment[] @relation("RequisitionAssignments")
-  contracts                    Contract[]
-
-  @@index([requesterId])
-  @@index([approverId])
-}
-
-model RequisitionItem {
-  id            String              @id @default(cuid())
-  requisitionId String
-  requisition   PurchaseRequisition @relation(fields: [requisitionId], references: [id], onDelete: Cascade)
-  name          String
-  description   String?
-  quantity      Int
-  unitPrice     Float
-
-  @@index([requisitionId])
-}
-
-model CustomQuestion {
-  id            String              @id @default(cuid())
-  requisitionId String
-  requisition   PurchaseRequisition @relation(fields: [requisitionId], references: [id], onDelete: Cascade)
-  questionText  String
-  questionType  String
-  options       String[]
-  answers       QuoteAnswer[]
-
-  @@index([requisitionId])
-}
-
-model EvaluationCriteria {
-  id                String                 @id @default(cuid())
-  requisitionId     String                 @unique
-  requisition       PurchaseRequisition    @relation(fields: [requisitionId], references: [id], onDelete: Cascade)
-  financialWeight   Float
-  technicalWeight   Float
-  financialCriteria FinancialCriterion[]
-  technicalCriteria TechnicalCriterion[]
-}
-
-model FinancialCriterion {
-  id                   String             @id @default(cuid())
-  evaluationCriteriaId String
-  evaluationCriteria   EvaluationCriteria @relation(fields: [evaluationCriteriaId], references: [id], onDelete: Cascade)
-  name                 String
-  weight               Float
-
-  @@index([evaluationCriteriaId])
-}
-
-model TechnicalCriterion {
-  id                   String             @id @default(cuid())
-  evaluationCriteriaId String
-  evaluationCriteria   EvaluationCriteria @relation(fields: [evaluationCriteriaId], references: [id], onDelete: Cascade)
-  name                 String
-  weight               Float
-
-  @@index([evaluationCriteriaId])
-}
-
-model CommitteeAssignment {
-  userId          String
-  user            User                @relation("CommitteeMember", fields: [userId], references: [id])
-  requisitionId   String
-  requisition     PurchaseRequisition @relation("RequisitionAssignments", fields: [requisitionId], references: [id])
-  scoresSubmitted Boolean             @default(false)
-
-  @@id([userId, requisitionId])
+  requisitions PurchaseRequisition[]
 }
 
 model Vendor {
-  id            String        @id @default(cuid())
-  name          String
-  contactPerson String
-  email         String        @unique
-  phone         String
-  address       String
-  kycStatus     KycStatus     @default(Pending)
+  id             String         @id @default(cuid())
+  name           String
+  contactPerson  String
+  email          String         @unique
+  phone          String
+  address        String
+  userId         String         @unique // Link to the user account for this vendor
+  user           User?
+  kycStatus      KycStatus
   rejectionReason String?
-  user          User?
-  userId        String        @unique
-  quotations    Quotation[]
-  kycDocuments  KYC_Document[]
+  kycDocuments   KYC_Document[]
+  quotations     Quotation[]
   purchaseOrders PurchaseOrder[]
   contracts      Contract[]
+  createdAt      DateTime       @default(now())
 }
 
 model KYC_Document {
-  id         String   @id @default(cuid())
-  vendorId   String
-  vendor     Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-  name       String
-  url        String
-  submittedAt DateTime @default(now())
-
-  @@index([vendorId])
-}
-
-model Quotation {
-  id                String              @id @default(cuid())
-  transactionId     String?
-  requisitionId     String
-  requisition       PurchaseRequisition @relation(fields: [requisitionId], references: [id])
-  vendorId          String
-  vendor            Vendor              @relation(fields: [vendorId], references: [id])
-  vendorName        String
-  items             QuoteItem[]
-  totalPrice        Float
-  deliveryDate      DateTime
-  createdAt         DateTime            @default(now())
-  status            QuotationStatus
-  notes             String?
-  rank              Int?
-  cpoDocumentUrl    String?
-  answers           QuoteAnswer[]
-  scores            CommitteeScoreSet[]
-
-  finalAverageScore Float?
-
-  @@index([requisitionId])
-  @@index([vendorId])
-}
-
-model QuoteItem {
-  id              String    @id @default(cuid())
-  quotationId     String
-  quotation       Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
-  requisitionItemId String
-  name            String
-  quantity        Int
-  unitPrice       Float
-  leadTimeDays    Int
-  brandDetails    String?
-
-  @@index([quotationId])
-}
-
-model QuoteAnswer {
-  id          String    @id @default(cuid())
-  quotationId String
-  quotation   Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
-  questionId  String
-  question    CustomQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  answer      String
-
-  @@index([quotationId])
-  @@index([questionId])
-}
-
-model CommitteeScoreSet {
-  id               String           @id @default(cuid())
-  quotationId      String
-  quotation        Quotation        @relation(fields: [quotationId], references: [id], onDelete: Cascade)
-  scorerId         String
-  scorer           User             @relation(fields: [scorerId], references: [id])
-  scorerName       String
-  committeeComment String?
-  finalScore       Float
-  submittedAt      DateTime         @default(now())
-  financialScores  FinancialScore[]
-  technicalScores  TechnicalScore[]
-
-  @@unique([quotationId, scorerId])
-}
-
-model FinancialScore {
-  id              String            @id @default(cuid())
-  scoreSetId      String
-  scoreSet        CommitteeScoreSet @relation(fields: [scoreSetId], references: [id], onDelete: Cascade)
-  criterionId     String
-  score           Float
-  comment         String?
-
-  @@index([scoreSetId])
-}
-
-model TechnicalScore {
-  id          String            @id @default(cuid())
-  scoreSetId  String
-  scoreSet    CommitteeScoreSet @relation(fields: [scoreSetId], references: [id], onDelete: Cascade)
-  criterionId String
-  score       Float
-  comment     String?
-
-  @@index([scoreSetId])
-}
-
-model PurchaseOrder {
-  id               String             @id @default(cuid())
-  transactionId    String?
-  requisitionId    String             @unique
-  requisition      PurchaseRequisition @relation(fields: [requisitionId], references: [id])
-  requisitionTitle String
-  vendorId         String
-  vendor           Vendor             @relation(fields: [vendorId], references: [id])
-  items            POItem[]
-  totalAmount      Float
-  status           PurchaseOrderStatus
-  createdAt        DateTime           @default(now())
-  notes            String?
-  receipts         GoodsReceiptNote[]
-  invoices         Invoice[]
-
-  @@index([vendorId])
-}
-
-model POItem {
-  id              String          @id @default(cuid())
-  purchaseOrderId String
-  purchaseOrder   PurchaseOrder   @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
-  name            String
-  quantity        Int
-  unitPrice       Float
-  totalPrice      Float
-  receivedQuantity Int
-  receiptItems    ReceiptItem[]
-
-  @@index([purchaseOrderId])
-}
-
-model GoodsReceiptNote {
-  id              String        @id @default(cuid())
-  transactionId   String?
-  purchaseOrderId String
-  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id])
-  receivedById    String
-  receivedBy      User          @relation(fields: [receivedById], references: [id])
-  receivedDate    DateTime      @default(now())
-  items           ReceiptItem[]
-
-  @@index([purchaseOrderId])
-  @@index([receivedById])
-}
-
-model ReceiptItem {
-  id                 String           @id @default(cuid())
-  goodsReceiptNoteId String
-  goodsReceiptNote   GoodsReceiptNote @relation(fields: [goodsReceiptNoteId], references: [id], onDelete: Cascade)
-  poItemId           String
-  poItem             POItem           @relation(fields: [poItemId], references: [id])
-  quantityReceived   Int
-  condition          ReceiptCondition
-  notes              String?
-
-  @@index([goodsReceiptNoteId])
-  @@index([poItemId])
-}
-
-model Invoice {
-  id               String        @id @default(cuid())
-  transactionId    String?
-  purchaseOrderId  String
-  purchaseOrder    PurchaseOrder @relation(fields: [purchaseOrderId], references: [id])
-  vendorId         String
-  invoiceDate      DateTime
-  items            InvoiceItem[]
-  totalAmount      Float
-  status           InvoiceStatus
-  documentUrl      String?
-  paymentDate      DateTime?
-  paymentReference String?
-
-  @@index([purchaseOrderId])
-}
-
-model InvoiceItem {
-  id        String  @id @default(cuid())
-  invoiceId String
-  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-  name      String
-  quantity  Int
-  unitPrice Float
-  totalPrice Float
-
-  @@index([invoiceId])
-}
-
-model Contract {
-  id              String   @id @default(cuid())
-  contractNumber  String   @unique @default(cuid())
-  requisitionId   String
-  requisition     PurchaseRequisition @relation(fields: [requisitionId], references: [id])
-  vendorId        String
-  vendor          Vendor   @relation(fields: [vendorId], references: [id])
-  startDate       DateTime
-  endDate         DateTime
-  filePath        String?
-  status          String   @default("Draft")
-  createdAt       DateTime @default(now())
-
-  @@index([requisitionId])
-  @@index([vendorId])
-}
-
-
-model AuditLog {
   id          String   @id @default(cuid())
-  transactionId String?
-  timestamp   DateTime @default(now())
-  userId      String?
-  user        User?    @relation(fields: [userId], references: [id])
-  action      String
-  entity      String
-  entityId    String
-  details     String
-
-  @@index([userId])
-}
-
-enum UserRole {
-  Requester
-  Approver
-  Procurement_Officer
-  Finance
-  Admin
-  Receiving
-  Vendor
-  Committee_Member
-  Committee
+  name        String
+  url         String
+  submittedAt DateTime
+  vendorId    String
+  vendor      Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
 }
 
 enum RequisitionStatus {
@@ -403,10 +75,95 @@ enum RequisitionStatus {
   Closed
 }
 
-enum KycStatus {
-  Pending
-  Verified
-  Rejected
+model PurchaseRequisition {
+  id                           String        @id @default(cuid())
+  transactionId                String?       @unique
+  requesterId                  String
+  requester                    User          @relation("Requester", fields: [requesterId], references: [id])
+  requesterName                String
+  title                        String
+  departmentId                 String?
+  department                   Department?   @relation(fields: [departmentId], references: [id])
+  totalPrice                   Float
+  justification                String
+  status                       RequisitionStatus
+  createdAt                    DateTime      @default(now())
+  updatedAt                    DateTime      @updatedAt
+  approverId                   String?
+  approver                     User?         @relation("Approver", fields: [approverId], references: [id])
+  approverComment              String?
+  purchaseOrderId              String?       @unique
+  purchaseOrder                PurchaseOrder?
+  allowedVendorIds             String[]
+  deadline                     DateTime?
+  scoringDeadline              DateTime?
+  awardResponseDeadline        DateTime?
+  awardResponseDurationMinutes Int?
+  committeeName                String?
+  committeePurpose             String?
+  cpoAmount                    Float?
+  items                        RequisitionItem[]
+  customQuestions              CustomQuestion[]
+  evaluationCriteria           EvaluationCriteria?
+  financialCommitteeMembers    User[]        @relation("FinancialCommittee")
+  technicalCommitteeMembers    User[]        @relation("TechnicalCommittee")
+  quotations                   Quotation[]
+  committeeAssignments         CommitteeAssignment[]
+  contracts                    Contract[]
+}
+
+model RequisitionItem {
+  id            String              @id @default(cuid())
+  requisitionId String
+  requisition   PurchaseRequisition @relation(fields: [requisitionId], references: [id], onDelete: Cascade)
+  name          String
+  description   String?
+  quantity      Int
+  unitPrice     Float
+}
+
+enum QuestionType {
+  text
+  boolean
+  multiple_choice
+}
+
+model CustomQuestion {
+  id            String              @id @default(cuid())
+  requisitionId String
+  requisition   PurchaseRequisition @relation(fields: [requisitionId], references: [id], onDelete: Cascade)
+  questionText  String
+  questionType  QuestionType
+  options       String[]
+  answers       QuoteAnswer[]
+}
+
+model EvaluationCriteria {
+  id                String                 @id @default(cuid())
+  requisitionId     String                 @unique
+  requisition       PurchaseRequisition    @relation(fields: [requisitionId], references: [id], onDelete: Cascade)
+  financialWeight   Int
+  technicalWeight   Int
+  financialCriteria FinancialCriterion[]
+  technicalCriteria TechnicalCriterion[]
+}
+
+model FinancialCriterion {
+  id                   String             @id @default(cuid())
+  evaluationCriteriaId String
+  evaluationCriteria   EvaluationCriteria @relation(fields: [evaluationCriteriaId], references: [id], onDelete: Cascade)
+  name                 String
+  weight               Int
+  scores               FinancialScore[]
+}
+
+model TechnicalCriterion {
+  id                   String             @id @default(cuid())
+  evaluationCriteriaId String
+  evaluationCriteria   EvaluationCriteria @relation(fields: [evaluationCriteriaId], references: [id], onDelete: Cascade)
+  name                 String
+  weight               Int
+  scores               TechnicalScore[]
 }
 
 enum QuotationStatus {
@@ -418,6 +175,92 @@ enum QuotationStatus {
   Failed
   Accepted
   Declined
+}
+
+model Quotation {
+  id                String               @id @default(cuid())
+  transactionId     String?
+  requisitionId     String
+  requisition       PurchaseRequisition  @relation(fields: [requisitionId], references: [id])
+  vendorId          String
+  vendor            Vendor               @relation(fields: [vendorId], references: [id])
+  vendorName        String
+  totalPrice        Float
+  deliveryDate      DateTime
+  status            QuotationStatus
+  notes             String?
+  rank              Int?
+  finalAverageScore Float?
+  cpoDocumentUrl    String?
+  createdAt         DateTime             @default(now())
+  items             QuoteItem[]
+  answers           QuoteAnswer[]
+  scores            CommitteeScoreSet[]
+}
+
+model QuoteItem {
+  id            String    @id @default(cuid())
+  quotationId   String
+  quotation     Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  requisitionItemId String? // Can be null if it's an alternative item
+  name          String
+  quantity      Int
+  unitPrice     Float
+  leadTimeDays  Int
+  brandDetails  String?
+}
+
+model QuoteAnswer {
+  id          String         @id @default(cuid())
+  quotationId String
+  quotation   Quotation      @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  questionId  String
+  question    CustomQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  answer      String
+}
+
+model CommitteeAssignment {
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  requisitionId   String
+  requisition     PurchaseRequisition @relation(fields: [requisitionId], references: [id], onDelete: Cascade)
+  scoresSubmitted Boolean  @default(false)
+  
+  @@id([userId, requisitionId])
+}
+
+model CommitteeScoreSet {
+  id                 String           @id @default(cuid())
+  quotationId        String
+  quotation          Quotation        @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  scorerId           String
+  scorer             User             @relation("Scorer", fields: [scorerId], references: [id])
+  scorerName         String
+  committeeComment   String?
+  finalScore         Float
+  submittedAt        DateTime         @default(now())
+  financialScores    FinancialScore[]
+  technicalScores    TechnicalScore[]
+}
+
+model FinancialScore {
+  id              String             @id @default(cuid())
+  scoreSetId      String
+  scoreSet        CommitteeScoreSet  @relation(fields: [scoreSetId], references: [id], onDelete: Cascade)
+  criterionId     String
+  criterion       FinancialCriterion @relation(fields: [criterionId], references: [id])
+  score           Float
+  comment         String?
+}
+
+model TechnicalScore {
+  id              String             @id @default(cuid())
+  scoreSetId      String
+  scoreSet        CommitteeScoreSet  @relation(fields: [scoreSetId], references: [id], onDelete: Cascade)
+  criterionId     String
+  criterion       TechnicalCriterion @relation(fields: [criterionId], references: [id])
+  score           Float
+  comment         String?
 }
 
 enum PurchaseOrderStatus {
@@ -432,10 +275,61 @@ enum PurchaseOrderStatus {
   On_Hold
 }
 
-enum ReceiptCondition {
+model PurchaseOrder {
+  id               String              @id @default(cuid())
+  transactionId    String?
+  requisitionId    String              @unique
+  requisition      PurchaseRequisition @relation(fields: [requisitionId], references: [id])
+  requisitionTitle String
+  vendorId         String
+  vendor           Vendor              @relation(fields: [vendorId], references: [id])
+  totalAmount      Float
+  status           PurchaseOrderStatus
+  createdAt        DateTime            @default(now())
+  items            POItem[]
+  receipts         GoodsReceiptNote[]
+  invoices         Invoice[]
+}
+
+model POItem {
+  id               String         @id @default(cuid())
+  purchaseOrderId  String
+  purchaseOrder    PurchaseOrder  @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  requisitionItemId String? // To trace back to original req item
+  name             String
+  quantity         Int
+  unitPrice        Float
+  totalPrice       Float
+  receivedQuantity Int
+  receiptItems     ReceiptItem[]
+}
+
+enum ReceiptItemCondition {
   Good
   Damaged
   Incorrect
+}
+
+model GoodsReceiptNote {
+  id              String        @id @default(cuid())
+  transactionId   String?
+  purchaseOrderId String
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id])
+  receivedById    String
+  receivedBy      User          @relation(fields: [receivedById], references: [id])
+  receivedDate    DateTime      @default(now())
+  items           ReceiptItem[]
+}
+
+model ReceiptItem {
+  id                 String             @id @default(cuid())
+  goodsReceiptNoteId String
+  goodsReceiptNote   GoodsReceiptNote   @relation(fields: [goodsReceiptNoteId], references: [id], onDelete: Cascade)
+  poItemId           String
+  poItem             POItem             @relation(fields: [poItemId], references: [id])
+  quantityReceived   Int
+  condition          ReceiptItemCondition
+  notes              String?
 }
 
 enum InvoiceStatus {
@@ -443,4 +337,73 @@ enum InvoiceStatus {
   Approved_for_Payment
   Paid
   Disputed
+}
+
+model Invoice {
+  id               String        @id @default(cuid())
+  transactionId    String?
+  purchaseOrderId  String
+  purchaseOrder    PurchaseOrder @relation(fields: [purchaseOrderId], references: [id])
+  vendorId         String
+  invoiceDate      DateTime
+  totalAmount      Float
+  status           InvoiceStatus
+  documentUrl      String?
+  paymentDate      DateTime?
+  paymentReference String?
+  items            InvoiceItem[]
+}
+
+model InvoiceItem {
+  id         String  @id @default(cuid())
+  invoiceId  String
+  invoice    Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  name       String
+  quantity   Int
+  unitPrice  Float
+  totalPrice Float
+}
+
+model Contract {
+  id               String               @id @default(cuid())
+  contractNumber   String               @unique @default(cuid())
+  requisitionId    String               @unique
+  requisition      PurchaseRequisition  @relation(fields: [requisitionId], references: [id])
+  vendorId         String
+  vendor           Vendor               @relation(fields: [vendorId], references: [id])
+  startDate        DateTime
+  endDate          DateTime
+  filePath         String?
+  status           String
+  createdAt        DateTime             @default(now())
+}
+
+model AuditLog {
+  id            String    @id @default(cuid())
+  transactionId String?
+  timestamp     DateTime
+  userId        String?
+  user          User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action        String
+  entity        String
+  entityId      String
+  details       String
+}
+
+enum UserRole {
+  Admin
+  Procurement_Officer
+  Requester
+  Approver
+  Finance
+  Receiving
+  Vendor
+  Committee_Member
+  Committee // Legacy?
+}
+
+enum KycStatus {
+  Pending
+  Verified
+  Rejected
 }
