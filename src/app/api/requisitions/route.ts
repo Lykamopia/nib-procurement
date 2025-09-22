@@ -154,6 +154,7 @@ export async function POST(request: Request) {
         data: {
             transactionId: finalRequisition.transactionId,
             user: { connect: { id: user.id } },
+            timestamp: new Date(),
             action: 'CREATE_REQUISITION',
             entity: 'Requisition',
             entityId: finalRequisition.id,
