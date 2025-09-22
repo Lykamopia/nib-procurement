@@ -2,9 +2,8 @@
 'use server';
 
 import { NextResponse } from 'next/server';
-import { auditLogs, vendors } from '@/lib/data-store';
+import { prisma } from '@/lib/prisma';
 import { users } from '@/lib/auth-store';
-import { KycStatus } from '@/lib/types';
 
 export async function PATCH(
   request: Request,
@@ -28,7 +27,7 @@ export async function PATCH(
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
     
-    const vendorToUpdate = vendors.find(v => v.id === vendorId);
+    const vendorToUpdate = await prisma.vendor.findUnique({ where: { id: vendorId } });
     if (!vendorToUpdate) {
         console.error('Vendor not found for ID:', vendorId);
         return NextResponse.json({ error: 'Vendor not found' }, { status: 404 });
@@ -36,26 +35,27 @@ export async function PATCH(
     console.log('Found vendor to update:', vendorToUpdate);
 
     const oldStatus = vendorToUpdate.kycStatus;
-    vendorToUpdate.kycStatus = status as KycStatus;
-    if (status === 'Rejected') {
-        vendorToUpdate.rejectionReason = rejectionReason;
-    }
+    const updatedVendor = await prisma.vendor.update({
+        where: { id: vendorId },
+        data: {
+            kycStatus: status.replace(/ /g, '_') as any,
+            rejectionReason: status === 'Rejected' ? rejectionReason : null,
+        }
+    });
     
-    const auditLogEntry = {
-        id: `log-${Date.now()}-${Math.random()}`,
-        timestamp: new Date(),
-        user: user.name,
-        role: user.role,
-        action: 'VERIFY_VENDOR',
-        entity: 'Vendor',
-        entityId: vendorId,
-        details: `Updated vendor KYC status from "${oldStatus}" to "${status}". ${rejectionReason ? `Reason: ${rejectionReason}` : ''}`.trim(),
-    };
-    auditLogs.unshift(auditLogEntry);
-    console.log('Added audit log:', auditLogEntry);
+    await prisma.auditLog.create({
+        data: {
+            user: { connect: { id: user.id } },
+            action: 'VERIFY_VENDOR',
+            entity: 'Vendor',
+            entityId: vendorId,
+            details: `Updated vendor KYC status from "${oldStatus}" to "${status}". ${rejectionReason ? `Reason: ${rejectionReason}` : ''}`.trim(),
+        }
+    });
+    console.log('Added audit log:');
 
 
-    return NextResponse.json(vendorToUpdate);
+    return NextResponse.json(updatedVendor);
   } catch (error) {
     console.error('Failed to update vendor status:', error);
     if (error instanceof Error) {

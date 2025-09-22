@@ -1,7 +1,7 @@
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { users, auditLogs } from '@/lib/data-store'; // auditLogs still in-memory
+import { users } from '@/lib/data-store';
 
 export async function POST(request: Request) {
   try {
@@ -67,15 +67,14 @@ export async function POST(request: Request) {
         }
     });
 
-    auditLogs.unshift({
-        id: `log-${Date.now()}-${Math.random()}`,
-        timestamp: new Date(),
-        user: user.name,
-        role: user.role,
-        action: 'CREATE_PO',
-        entity: 'PurchaseOrder',
-        entityId: newPO.id,
-        details: `Created Purchase Order for requisition ${requisitionId} after vendor acceptance.`,
+    await prisma.auditLog.create({
+        data: {
+            user: { connect: { id: user.id } },
+            action: 'CREATE_PO',
+            entity: 'PurchaseOrder',
+            entityId: newPO.id,
+            details: `Created Purchase Order for requisition ${requisitionId} after vendor acceptance.`,
+        }
     });
 
 

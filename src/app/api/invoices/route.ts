@@ -1,10 +1,8 @@
 
-
 'use server';
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { auditLogs } from '@/lib/data-store';
 import { users } from '@/lib/auth-store';
 
 export async function GET() {
@@ -72,15 +70,14 @@ export async function POST(request: Request) {
     });
     console.log(`Updated status to "Invoice Submitted" for quotes related to vendor ${vendorId} on requisition ${po.requisitionId}`);
 
-    auditLogs.unshift({
-        id: `log-${Date.now()}-${Math.random()}`,
-        timestamp: new Date(),
-        user: user.name,
-        role: user.role,
-        action: 'CREATE_INVOICE',
-        entity: 'Invoice',
-        entityId: newInvoice.id,
-        details: `Created Invoice for PO ${purchaseOrderId}.`,
+    await prisma.auditLog.create({
+        data: {
+            user: { connect: { id: user.id } },
+            action: 'CREATE_INVOICE',
+            entity: 'Invoice',
+            entityId: newInvoice.id,
+            details: `Created Invoice for PO ${purchaseOrderId}.`,
+        }
     });
     console.log('Added audit log:');
 

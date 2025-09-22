@@ -2,13 +2,25 @@
 'use server';
 
 import { NextResponse } from 'next/server';
-import { users, departments, auditLogs } from '@/lib/data-store';
-import { User } from '@/lib/types';
+import { prisma } from '@/lib/prisma';
+import { users as inMemoryUsers } from '@/lib/data-store'; // For actor lookup
 
 export async function GET() {
-  // Return all users except vendors
-  const nonVendorUsers = users.filter(u => u.role !== 'Vendor');
-  return NextResponse.json(nonVendorUsers);
+  try {
+    const users = await prisma.user.findMany({
+        where: { role: { not: 'Vendor' } },
+        include: { department: true }
+    });
+    const formattedUsers = users.map(u => ({
+        ...u,
+        role: u.role.replace(/_/g, ' '),
+        department: u.department?.name || 'N/A'
+    }));
+    return NextResponse.json(formattedUsers);
+  } catch (error) {
+    console.error("Failed to fetch users:", error);
+    return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 });
+  }
 }
 
 export async function POST(request: Request) {
@@ -16,7 +28,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { name, email, password, role, departmentId, actorUserId } = body;
 
-    const actor = users.find(u => u.id === actorUserId);
+    const actor = inMemoryUsers.find(u => u.id === actorUserId);
     if (!actor) {
         return NextResponse.json({ error: 'Action performing user not found' }, { status: 404 });
     }
@@ -25,36 +37,29 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'All fields are required' }, { status: 400 });
     }
 
-    if (users.some(u => u.email.toLowerCase() === email.toLowerCase())) {
+    const existingUser = await prisma.user.findUnique({ where: { email } });
+    if (existingUser) {
         return NextResponse.json({ error: 'A user with this email already exists' }, { status: 409 });
     }
-    
-    const department = departments.find(d => d.id === departmentId);
-    if (!department) {
-        return NextResponse.json({ error: 'Selected department not found' }, { status: 404 });
-    }
 
-    const newUser: User = {
-      id: `USER-${Date.now()}`,
-      name,
-      email,
-      password,
-      role,
-      departmentId,
-      department: department.name,
-    };
-
-    users.push(newUser);
+    const newUser = await prisma.user.create({
+        data: {
+            name,
+            email,
+            password, // In a real app, this should be hashed
+            role: role.replace(/ /g, '_'),
+            department: { connect: { id: departmentId } }
+        }
+    });
     
-    auditLogs.unshift({
-        id: `log-${Date.now()}`,
-        timestamp: new Date(),
-        user: actor.name,
-        role: actor.role,
-        action: 'CREATE_USER',
-        entity: 'User',
-        entityId: newUser.id,
-        details: `Created new user "${name}" with role ${role}.`,
+    await prisma.auditLog.create({
+        data: {
+            user: { connect: { id: actor.id } },
+            action: 'CREATE_USER',
+            entity: 'User',
+            entityId: newUser.id,
+            details: `Created new user "${name}" with role ${role}.`,
+        }
     });
 
     return NextResponse.json(newUser, { status: 201 });
@@ -71,7 +76,7 @@ export async function PATCH(request: Request) {
     const body = await request.json();
     const { id, name, email, role, departmentId, password, actorUserId } = body;
 
-    const actor = users.find(u => u.id === actorUserId);
+    const actor = inMemoryUsers.find(u => u.id === actorUserId);
     if (!actor) {
         return NextResponse.json({ error: 'Action performing user not found' }, { status: 404 });
     }
@@ -79,48 +84,39 @@ export async function PATCH(request: Request) {
     if (!id || !name || !email || !role || !departmentId) {
       return NextResponse.json({ error: 'User ID and all fields are required' }, { status: 400 });
     }
-
-    const userIndex = users.findIndex(u => u.id === id);
-    if (userIndex === -1) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    
+    const oldUser = await prisma.user.findUnique({ where: { id } });
+    if (!oldUser) {
+        return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
-
-    if (users.some(u => u.email.toLowerCase() === email.toLowerCase() && u.id !== id)) {
-        return NextResponse.json({ error: 'Another user with this email already exists' }, { status: 409 });
-    }
-
-    const department = departments.find(d => d.id === departmentId);
-    if (!department) {
-        return NextResponse.json({ error: 'Selected department not found' }, { status: 404 });
-    }
-
-    const oldUser = { ...users[userIndex] };
-    const updatedUser = {
-        ...users[userIndex],
+    
+    const updateData: any = {
         name,
         email,
-        role,
-        departmentId,
-        department: department.name,
+        role: role.replace(/ /g, '_'),
+        department: { connect: { id: departmentId } }
     };
-    if (password) {
-        updatedUser.password = password;
-    }
-    users[userIndex] = updatedUser;
 
-    auditLogs.unshift({
-        id: `log-${Date.now()}`,
-        timestamp: new Date(),
-        user: actor.name,
-        role: actor.role,
-        action: 'UPDATE_USER',
-        entity: 'User',
-        entityId: id,
-        details: `Updated user "${oldUser.name}". Name: ${oldUser.name} -> ${name}. Role: ${oldUser.role} -> ${role}.`,
+    if (password) {
+        updateData.password = password; // In a real app, this should be hashed
+    }
+
+    const updatedUser = await prisma.user.update({
+        where: { id },
+        data: updateData
     });
 
+    await prisma.auditLog.create({
+        data: {
+            user: { connect: { id: actor.id } },
+            action: 'UPDATE_USER',
+            entity: 'User',
+            entityId: id,
+            details: `Updated user "${oldUser.name}". Name: ${oldUser.name} -> ${name}. Role: ${oldUser.role.replace(/_/g, ' ')} -> ${role}.`,
+        }
+    });
 
-    return NextResponse.json(users[userIndex]);
+    return NextResponse.json(updatedUser);
   } catch (error) {
      if (error instanceof Error) {
         return NextResponse.json({ error: 'Failed to process request', details: error.message }, { status: 400 });
@@ -134,7 +130,7 @@ export async function DELETE(request: Request) {
     const body = await request.json();
     const { id, actorUserId } = body;
 
-    const actor = users.find(u => u.id === actorUserId);
+    const actor = inMemoryUsers.find(u => u.id === actorUserId);
     if (!actor) {
         return NextResponse.json({ error: 'Action performing user not found' }, { status: 404 });
     }
@@ -142,29 +138,26 @@ export async function DELETE(request: Request) {
     if (!id) {
       return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
     }
-
-    const userIndex = users.findIndex(d => d.id === id);
-    if (userIndex === -1) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
-    }
     
-    if (users[userIndex].role === 'Admin') {
+    const userToDelete = await prisma.user.findUnique({ where: { id } });
+    if (!userToDelete) {
+        return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    if (userToDelete.role === 'Admin') {
         return NextResponse.json({ error: 'Cannot delete an Admin user.' }, { status: 403 });
     }
     
-    const deletedUser = users[userIndex];
-
-    users.splice(userIndex, 1);
+    await prisma.user.delete({ where: { id } });
     
-    auditLogs.unshift({
-        id: `log-${Date.now()}`,
-        timestamp: new Date(),
-        user: actor.name,
-        role: actor.role,
-        action: 'DELETE_USER',
-        entity: 'User',
-        entityId: id,
-        details: `Deleted user: "${deletedUser.name}".`,
+    await prisma.auditLog.create({
+        data: {
+            user: { connect: { id: actor.id } },
+            action: 'DELETE_USER',
+            entity: 'User',
+            entityId: id,
+            details: `Deleted user: "${userToDelete.name}".`,
+        }
     });
 
     return NextResponse.json({ message: 'User deleted successfully' });

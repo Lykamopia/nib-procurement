@@ -3,7 +3,7 @@
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { users, vendors, requisitions, auditLogs } from '@/lib/data-store'; // Still using some in-memory for users/vendors
+import { users } from '@/lib/data-store';
 import { addDays } from 'date-fns';
 
 export async function GET(request: Request) {
@@ -41,7 +41,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { requisitionId, vendorId, items, notes, answers, cpoDocumentUrl } = body;
 
-    const vendor = await prisma.vendor.findUnique({ where: { id: vendorId } });
+    const vendor = await prisma.vendor.findUnique({ where: { id: vendorId }, include: { user: true } });
     if (!vendor) {
       return NextResponse.json({ error: 'Vendor not found' }, { status: 404 });
     }
@@ -96,16 +96,17 @@ export async function POST(request: Request) {
         }
     });
 
-    auditLogs.unshift({
-        id: `log-${Date.now()}-${Math.random()}`,
-        timestamp: new Date(),
-        user: vendor.name, 
-        role: 'Vendor' as const,
-        action: 'SUBMIT_QUOTATION',
-        entity: 'Quotation',
-        entityId: newQuotation.id,
-        details: `Submitted quotation from ${vendor.name} for requisition ${requisitionId}.`,
-    });
+    if (vendor.user) {
+        await prisma.auditLog.create({
+            data: {
+                user: { connect: { id: vendor.user.id } },
+                action: 'SUBMIT_QUOTATION',
+                entity: 'Quotation',
+                entityId: newQuotation.id,
+                details: `Submitted quotation from ${vendor.name} for requisition ${requisitionId}.`,
+            }
+        });
+    }
 
     return NextResponse.json(newQuotation, { status: 201 });
   } catch (error) {

@@ -1,13 +1,20 @@
 
-
 import { NextResponse } from 'next/server';
-import { vendors, auditLogs } from '@/lib/data-store';
-import { Vendor } from '@/lib/types';
-import { users } from '@/lib/auth-store';
+import { prisma } from '@/lib/prisma';
 
 export async function GET() {
   console.log('GET /api/vendors - Fetching all vendors.');
-  return NextResponse.json(vendors);
+  try {
+    const vendors = await prisma.vendor.findMany({
+        orderBy: {
+            createdAt: 'desc',
+        }
+    });
+    return NextResponse.json(vendors);
+  } catch (error) {
+    console.error("Failed to fetch vendors", error);
+    return NextResponse.json({ error: 'Failed to fetch vendors' }, { status: 500 });
+  }
 }
 
 export async function POST(request: Request) {
@@ -16,36 +23,40 @@ export async function POST(request: Request) {
     const body = await request.json();
     console.log('Request body:', body);
 
-    const newVendor: Vendor = {
-      id: `VENDOR-${Date.now()}`,
-      userId: `TEMP-USER-${Date.now()}`, // This should be updated post-registration ideally
-      name: body.name,
-      contactPerson: body.contactPerson,
-      email: body.email,
-      phone: body.phone,
-      address: body.address,
-      kycStatus: 'Pending',
-      kycDocuments: [
-        { name: 'Business License', url: '#', submittedAt: new Date() },
-        { name: 'Tax ID Document', url: '#', submittedAt: new Date() },
-      ],
-    };
+    const { name, contactPerson, email, phone, address } = body;
+    
+    // In a real app, this user would be created via the registration flow first
+    const tempUserId = `TEMP-USER-${Date.now()}`;
 
-    vendors.unshift(newVendor);
+    const newVendor = await prisma.vendor.create({
+        data: {
+          name,
+          contactPerson,
+          email,
+          phone,
+          address,
+          userId: tempUserId, // This is a temporary placeholder
+          kycStatus: 'Pending',
+          kycDocuments: {
+              create: [
+                 { name: 'Business License', url: '#', submittedAt: new Date() },
+                 { name: 'Tax ID Document', url: '#', submittedAt: new Date() },
+              ]
+          }
+        }
+    });
     console.log('Created new vendor:', newVendor);
 
-    const auditLogEntry = {
-        id: `log-${Date.now()}-${Math.random()}`,
-        timestamp: new Date(),
-        user: 'System', // Or the user if available
-        role: 'Admin' as const,
-        action: 'CREATE_VENDOR',
-        entity: 'Vendor',
-        entityId: newVendor.id,
-        details: `Added new vendor "${newVendor.name}" (pending verification).`,
-    };
-    auditLogs.unshift(auditLogEntry);
-    console.log('Added audit log:', auditLogEntry);
+    await prisma.auditLog.create({
+        data: {
+            // No user to connect yet, as this is a public action
+            action: 'CREATE_VENDOR',
+            entity: 'Vendor',
+            entityId: newVendor.id,
+            details: `Added new vendor "${newVendor.name}" (pending verification).`,
+        }
+    });
+    console.log('Added audit log:');
 
     return NextResponse.json(newVendor, { status: 201 });
   } catch (error) {

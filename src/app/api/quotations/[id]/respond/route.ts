@@ -1,12 +1,9 @@
 
-
 'use server';
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { users } from '@/lib/auth-store';
-import { PurchaseOrder } from '@/lib/types';
-import { auditLogs } from '@/lib/data-store'; // Still using in-memory for audit
 
 export async function POST(
   request: Request,
@@ -74,15 +71,14 @@ export async function POST(
                 }
             });
             
-            auditLogs.unshift({
-                id: `log-${Date.now()}`,
-                timestamp: new Date(),
-                user: user.name,
-                role: user.role,
-                action: 'ACCEPT_AWARD',
-                entity: 'Quotation',
-                entityId: quoteId,
-                details: `Vendor accepted award. PO ${newPO.id} auto-generated.`,
+            await tx.auditLog.create({
+                data: {
+                    user: { connect: { id: user.id } },
+                    action: 'ACCEPT_AWARD',
+                    entity: 'Quotation',
+                    entityId: quoteId,
+                    details: `Vendor accepted award. PO ${newPO.id} auto-generated.`,
+                }
             });
             
             return { message: 'Award accepted. PO has been generated.' };
@@ -90,15 +86,14 @@ export async function POST(
         } else if (action === 'reject') {
             await tx.quotation.update({ where: { id: quoteId }, data: { status: 'Declined' }});
 
-            auditLogs.unshift({
-                id: `log-${Date.now()}`,
-                timestamp: new Date(),
-                user: user.name,
-                role: user.role,
-                action: 'REJECT_AWARD',
-                entity: 'Quotation',
-                entityId: quoteId,
-                details: `Vendor declined award.`,
+            await tx.auditLog.create({
+                data: {
+                    user: { connect: { id: user.id } },
+                    action: 'REJECT_AWARD',
+                    entity: 'Quotation',
+                    entityId: quoteId,
+                    details: `Vendor declined award.`,
+                }
             });
 
             const nextRank = (quote.rank || 0) + 1;
@@ -109,15 +104,14 @@ export async function POST(
             if (nextQuote) {
                 await tx.quotation.update({ where: { id: nextQuote.id }, data: { status: 'Awarded' } });
                 
-                auditLogs.unshift({
-                    id: `log-${Date.now()}`,
-                    timestamp: new Date(),
-                    user: 'System',
-                    role: 'Admin',
-                    action: 'PROMOTE_STANDBY',
-                    entity: 'Quotation',
-                    entityId: nextQuote.id,
-                    details: `Promoted standby vendor ${nextQuote.vendorName} to Awarded.`,
+                await tx.auditLog.create({
+                    data: {
+                        // system action, no user
+                        action: 'PROMOTE_STANDBY',
+                        entity: 'Quotation',
+                        entityId: nextQuote.id,
+                        details: `Promoted standby vendor ${nextQuote.vendorName} to Awarded.`,
+                    }
                 });
                 return { message: `Award declined. Next vendor (${nextQuote.vendorName}) has been notified.` };
             } else {
@@ -129,15 +123,13 @@ export async function POST(
                     where: { requisitionId: requisition.id },
                     data: { status: 'Submitted', rank: null }
                 });
-                auditLogs.unshift({
-                    id: `log-${Date.now()}`,
-                    timestamp: new Date(),
-                    user: 'System',
-                    role: 'Admin',
-                    action: 'RESTART_RFQ',
-                    entity: 'Requisition',
-                    entityId: requisition.id,
-                    details: `All vendors declined award. RFQ process has been reset.`,
+                 await tx.auditLog.create({
+                    data: {
+                        action: 'RESTART_RFQ',
+                        entity: 'Requisition',
+                        entityId: requisition.id,
+                        details: `All vendors declined award. RFQ process has been reset.`,
+                    }
                 });
                 return { message: 'Award declined. No more standby vendors. Requisition has been reset for new RFQ process.' };
             }

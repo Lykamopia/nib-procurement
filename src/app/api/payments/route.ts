@@ -1,10 +1,8 @@
 
-
 'use server';
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { auditLogs } from '@/lib/data-store';
 import { users } from '@/lib/auth-store';
 
 export async function POST(
@@ -45,18 +43,16 @@ export async function POST(
     });
     console.log('Invoice updated to Paid status.');
     
-    const auditLogEntry = {
-        id: `log-${Date.now()}-${Math.random()}`,
-        timestamp: new Date(),
-        user: user.name,
-        role: user.role,
-        action: 'PROCESS_PAYMENT',
-        entity: 'Invoice',
-        entityId: invoiceId,
-        details: `Processed payment for invoice ${invoiceId}. Ref: ${paymentReference}.`,
-    };
-    auditLogs.unshift(auditLogEntry);
-    console.log('Added audit log:', auditLogEntry);
+    await prisma.auditLog.create({
+        data: {
+            user: { connect: { id: user.id } },
+            action: 'PROCESS_PAYMENT',
+            entity: 'Invoice',
+            entityId: invoiceId,
+            details: `Processed payment for invoice ${invoiceId}. Ref: ${paymentReference}.`,
+        }
+    });
+    console.log('Added audit log:');
 
     return NextResponse.json(updatedInvoice);
   } catch (error) {

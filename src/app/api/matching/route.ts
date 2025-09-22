@@ -1,7 +1,5 @@
 
-
 import { NextResponse } from 'next/server';
-import { auditLogs } from '@/lib/data-store';
 import { performThreeWayMatch } from '@/services/matching-service';
 import { users } from '@/lib/auth-store';
 import { prisma } from '@/lib/prisma';
@@ -87,18 +85,16 @@ export async function POST(request: Request) {
 
         console.log(`PO ${poId} status updated to Matched.`);
         
-        const auditLogEntry = {
-            id: `log-${Date.now()}-${Math.random()}`,
-            timestamp: new Date(),
-            user: user.name,
-            role: user.role,
-            action: 'MANUAL_MATCH',
-            entity: 'PurchaseOrder',
-            entityId: po.id,
-            details: `Manually resolved and marked PO as Matched.`,
-        };
-        auditLogs.unshift(auditLogEntry);
-        console.log('Added audit log:', auditLogEntry);
+        await prisma.auditLog.create({
+            data: {
+                user: { connect: { id: user.id } },
+                action: 'MANUAL_MATCH',
+                entity: 'PurchaseOrder',
+                entityId: po.id,
+                details: `Manually resolved and marked PO as Matched.`,
+            }
+        });
+        console.log('Added audit log:');
 
         const result = performThreeWayMatch(po as any);
         return NextResponse.json(result);

@@ -3,7 +3,6 @@
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { auditLogs } from '@/lib/data-store';
 import { users } from '@/lib/auth-store';
 import { PurchaseOrderStatus } from '@/lib/types';
 
@@ -37,17 +36,15 @@ export async function PATCH(
         data: { status: status.replace(/ /g, '_') as any }
     });
     
-    const auditLogEntry = {
-        id: `log-${Date.now()}-${Math.random()}`,
-        timestamp: new Date(),
-        user: user.name,
-        role: user.role,
-        action: 'UPDATE_PO_STATUS',
-        entity: 'PurchaseOrder',
-        entityId: poId,
-        details: `Updated PO status from "${oldStatus}" to "${status}".`,
-    };
-    auditLogs.unshift(auditLogEntry);
+    await prisma.auditLog.create({
+        data: {
+            user: { connect: { id: user.id } },
+            action: 'UPDATE_PO_STATUS',
+            entity: 'PurchaseOrder',
+            entityId: poId,
+            details: `Updated PO status from "${oldStatus}" to "${status}".`,
+        }
+    });
 
     return NextResponse.json(updatedPO);
   } catch (error) {

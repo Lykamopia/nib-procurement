@@ -3,7 +3,7 @@
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { users, auditLogs } from '@/lib/data-store';
+import { users } from '@/lib/data-store';
 
 async function tallyAndAwardScores(requisitionId: string, awardResponseDeadline?: Date) {
     const relevantQuotes = await prisma.quotation.findMany({
@@ -77,15 +77,14 @@ export async function POST(
         throw new Error(result.message);
     }
     
-    auditLogs.unshift({
-        id: `log-${Date.now()}`,
-        timestamp: new Date(),
-        user: user.name,
-        role: user.role,
-        action: 'FINALIZE_SCORES',
-        entity: 'Requisition',
-        entityId: requisitionId,
-        details: `Finalized scores and awarded contract to ${result.winner}.`,
+    await prisma.auditLog.create({
+        data: {
+            user: { connect: { id: user.id } },
+            action: 'FINALIZE_SCORES',
+            entity: 'Requisition',
+            entityId: requisitionId,
+            details: `Finalized scores and awarded contract to ${result.winner}.`,
+        }
     });
 
     return NextResponse.json({ message: 'Scores finalized and awards have been made.' });

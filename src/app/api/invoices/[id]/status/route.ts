@@ -1,10 +1,8 @@
 
-
 'use server';
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { auditLogs } from '@/lib/data-store';
 import { users } from '@/lib/auth-store';
 
 export async function PATCH(
@@ -40,21 +38,18 @@ export async function PATCH(
     const oldStatus = invoiceToUpdate.status;
     const updatedInvoice = await prisma.invoice.update({
         where: { id: invoiceId },
-        data: { status: status.replace(/ /g, '_') }
+        data: { status: status.replace(/ /g, '_') as any }
     });
     
-    const auditLogEntry = {
-        id: `log-${Date.now()}-${Math.random()}`,
-        timestamp: new Date(),
-        user: user.name,
-        role: user.role,
-        action: 'UPDATE_INVOICE_STATUS',
-        entity: 'Invoice',
-        entityId: invoiceId,
-        details: `Updated invoice status from "${oldStatus}" to "${status}".`,
-    };
-    auditLogs.unshift(auditLogEntry);
-    console.log('Added audit log:', auditLogEntry);
+    await prisma.auditLog.create({
+        data: {
+            user: { connect: { id: user.id } },
+            action: 'UPDATE_INVOICE_STATUS',
+            entity: 'Invoice',
+            entityId: invoiceId,
+            details: `Updated invoice status from "${oldStatus}" to "${status}".`,
+        }
+    });
 
     console.log('Successfully updated invoice. Sending back:', updatedInvoice);
     return NextResponse.json(updatedInvoice);

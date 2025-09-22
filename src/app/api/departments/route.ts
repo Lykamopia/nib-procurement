@@ -2,11 +2,12 @@
 'use server';
 
 import { NextResponse } from 'next/server';
-import { departments, auditLogs, users } from '@/lib/data-store';
-import { Department } from '@/lib/types';
+import { prisma } from '@/lib/prisma';
+import { users, departments as inMemoryDepartments } from '@/lib/data-store'; // Some data still in-memory
 
 export async function GET() {
-  return NextResponse.json(departments);
+    // This is temporary, should be replaced with Prisma fetch
+    return NextResponse.json(inMemoryDepartments);
 }
 
 export async function POST(request: Request) {
@@ -22,27 +23,24 @@ export async function POST(request: Request) {
     if (!name) {
       return NextResponse.json({ error: 'Department name is required' }, { status: 400 });
     }
-
-    if (departments.some(d => d.name.toLowerCase() === name.toLowerCase())) {
+    
+    const existingDepartment = await prisma.department.findUnique({ where: { name } });
+    if (existingDepartment) {
         return NextResponse.json({ error: 'Department with this name already exists' }, { status: 409 });
     }
 
-    const newDepartment: Department = {
-      id: `DEPT-${Date.now()}`,
-      name,
-    };
+    const newDepartment = await prisma.department.create({
+      data: { name },
+    });
 
-    departments.push(newDepartment);
-
-    auditLogs.unshift({
-        id: `log-${Date.now()}`,
-        timestamp: new Date(),
-        user: user.name,
-        role: user.role,
-        action: 'CREATE_DEPARTMENT',
-        entity: 'Department',
-        entityId: newDepartment.id,
-        details: `Created new department: "${name}".`,
+    await prisma.auditLog.create({
+        data: {
+            user: { connect: { id: user.id } },
+            action: 'CREATE_DEPARTMENT',
+            entity: 'Department',
+            entityId: newDepartment.id,
+            details: `Created new department: "${name}".`,
+        }
     });
 
     return NextResponse.json(newDepartment, { status: 201 });
@@ -67,33 +65,35 @@ export async function PATCH(request: Request) {
     if (!id || !name) {
       return NextResponse.json({ error: 'Department ID and name are required' }, { status: 400 });
     }
-
-    const departmentIndex = departments.findIndex(d => d.id === id);
-    if (departmentIndex === -1) {
+    
+    const department = await prisma.department.findUnique({ where: { id }});
+    if (!department) {
       return NextResponse.json({ error: 'Department not found' }, { status: 404 });
     }
-    
-    const oldName = departments[departmentIndex].name;
+    const oldName = department.name;
 
-    if (departments.some(d => d.name.toLowerCase() === name.toLowerCase() && d.id !== id)) {
+    const existingDepartment = await prisma.department.findFirst({ where: { name, NOT: { id } } });
+    if (existingDepartment) {
         return NextResponse.json({ error: 'Another department with this name already exists' }, { status: 409 });
     }
 
-    departments[departmentIndex].name = name;
+    const updatedDepartment = await prisma.department.update({
+        where: { id },
+        data: { name },
+    });
     
-    auditLogs.unshift({
-        id: `log-${Date.now()}`,
-        timestamp: new Date(),
-        user: user.name,
-        role: user.role,
-        action: 'UPDATE_DEPARTMENT',
-        entity: 'Department',
-        entityId: id,
-        details: `Updated department name from "${oldName}" to "${name}".`,
+    await prisma.auditLog.create({
+        data: {
+            user: { connect: { id: user.id } },
+            action: 'UPDATE_DEPARTMENT',
+            entity: 'Department',
+            entityId: id,
+            details: `Updated department name from "${oldName}" to "${name}".`,
+        }
     });
 
 
-    return NextResponse.json(departments[departmentIndex]);
+    return NextResponse.json(updatedDepartment);
   } catch (error) {
      if (error instanceof Error) {
         return NextResponse.json({ error: 'Failed to process request', details: error.message }, { status: 400 });
@@ -115,25 +115,17 @@ export async function DELETE(request: Request) {
     if (!id) {
       return NextResponse.json({ error: 'Department ID is required' }, { status: 400 });
     }
-
-    const departmentIndex = departments.findIndex(d => d.id === id);
-    if (departmentIndex === -1) {
-      return NextResponse.json({ error: 'Department not found' }, { status: 404 });
-    }
     
-    const deletedDepartment = departments[departmentIndex];
-
-    departments.splice(departmentIndex, 1);
+    const deletedDepartment = await prisma.department.delete({ where: { id } });
     
-    auditLogs.unshift({
-        id: `log-${Date.now()}`,
-        timestamp: new Date(),
-        user: user.name,
-        role: user.role,
-        action: 'DELETE_DEPARTMENT',
-        entity: 'Department',
-        entityId: id,
-        details: `Deleted department: "${deletedDepartment.name}".`,
+    await prisma.auditLog.create({
+        data: {
+            user: { connect: { id: user.id } },
+            action: 'DELETE_DEPARTMENT',
+            entity: 'Department',
+            entityId: id,
+            details: `Deleted department: "${deletedDepartment.name}".`,
+        }
     });
 
     return NextResponse.json({ message: 'Department deleted successfully' });

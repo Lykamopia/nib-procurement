@@ -1,8 +1,9 @@
+
 'use server';
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { users, auditLogs } from '@/lib/data-store';
+import { users } from '@/lib/data-store';
 
 type RFQAction = 'update' | 'cancel';
 
@@ -63,15 +64,14 @@ export async function POST(
         return NextResponse.json({ error: 'Invalid action specified.' }, { status: 400 });
     }
 
-    auditLogs.unshift({
-        id: `log-${Date.now()}-${Math.random()}`,
-        timestamp: new Date(),
-        user: user.name,
-        role: user.role,
-        action: auditAction,
-        entity: 'Requisition',
-        entityId: requisitionId,
-        details: auditDetails,
+    await prisma.auditLog.create({
+        data: {
+            user: { connect: { id: user.id } },
+            action: auditAction,
+            entity: 'Requisition',
+            entityId: requisitionId,
+            details: auditDetails,
+        }
     });
 
     return NextResponse.json({ message: 'RFQ successfully modified.', requisition: updatedRequisition });

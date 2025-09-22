@@ -3,7 +3,7 @@
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { users, auditLogs, quotations } from '@/lib/data-store'; // auditLogs and quotations are still in-memory for now
+import { users } from '@/lib/data-store';
 
 export async function POST(request: Request) {
   console.log('POST /api/receipts - Creating new goods receipt in DB.');
@@ -70,39 +70,27 @@ export async function POST(request: Request) {
         });
         console.log(`Updated PO ${po.id} status to ${newPOStatus}`);
         
-        // This part remains in-memory as quotations are not yet fully migrated
         if (newPOStatus === 'Delivered') {
-            quotations.forEach(q => {
-                if (q.requisitionId === po.requisitionId && q.status === 'Standby') {
-                    q.status = 'Rejected';
-                    const auditLogEntry = {
-                        id: `log-${Date.now()}-${Math.random()}`,
-                        timestamp: new Date(),
-                        user: 'System',
-                        role: 'Admin' as const,
-                        action: 'AUTO_REJECT_STANDBY',
-                        entity: 'Quotation',
-                        entityId: q.id,
-                        details: `Automatically rejected standby quote from ${q.vendorName} as primary PO ${po.id} was fulfilled.`,
-                    };
-                    auditLogs.unshift(auditLogEntry);
-                }
+            await tx.quotation.updateMany({
+                where: {
+                    requisitionId: po.requisitionId,
+                    status: 'Standby'
+                },
+                data: { status: 'Rejected' }
             });
             console.log(`PO ${po.id} fulfilled. Standby quotes for requisition ${po.requisitionId} have been rejected.`);
         }
 
-        const auditLogEntry = {
-            id: `log-${Date.now()}-${Math.random()}`,
-            timestamp: new Date(),
-            user: user.name,
-            role: user.role,
-            action: 'RECEIVE_GOODS',
-            entity: 'PurchaseOrder',
-            entityId: po.id,
-            details: `Created Goods Receipt Note ${newReceipt.id}. PO status: ${newPOStatus.replace(/_/g, ' ')}.`,
-        };
-        auditLogs.unshift(auditLogEntry);
-        console.log('Added audit log:', auditLogEntry);
+        await prisma.auditLog.create({
+            data: {
+                user: { connect: { id: user.id } },
+                action: 'RECEIVE_GOODS',
+                entity: 'PurchaseOrder',
+                entityId: po.id,
+                details: `Created Goods Receipt Note ${newReceipt.id}. PO status: ${newPOStatus.replace(/_/g, ' ')}.`,
+            }
+        });
+        console.log('Added audit log:');
 
         return newReceipt;
     });

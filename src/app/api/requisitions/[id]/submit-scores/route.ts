@@ -3,7 +3,7 @@
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { users, auditLogs } from '@/lib/data-store';
+import { users } from '@/lib/data-store';
 
 export async function POST(
   request: Request,
@@ -38,15 +38,14 @@ export async function POST(
       },
     });
 
-    auditLogs.unshift({
-        id: `log-${Date.now()}`,
-        timestamp: new Date(),
-        user: user.name,
-        role: user.role,
-        action: 'SUBMIT_SCORES',
-        entity: 'Requisition',
-        entityId: requisitionId,
-        details: `Finalized and submitted all scores for requisition.`,
+    await prisma.auditLog.create({
+        data: {
+            user: { connect: { id: user.id } },
+            action: 'SUBMIT_SCORES',
+            entity: 'Requisition',
+            entityId: requisitionId,
+            details: `Finalized and submitted all scores for requisition.`,
+        }
     });
 
     return NextResponse.json({ message: 'All scores have been successfully submitted.' });
