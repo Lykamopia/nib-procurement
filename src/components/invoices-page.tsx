@@ -352,9 +352,10 @@ const MatchStatus = ({ po, grn, invoice }: { po: boolean, grn: boolean, invoice:
 };
 
 
-const MatchingStatusBadge = ({ invoiceId, onStatusClick, setMatchStatus }: { invoiceId: string, onStatusClick: (result: MatchingResult) => void, setMatchStatus: (status: MatchingStatus) => void }) => {
+const MatchingStatusBadge = ({ invoiceId, onStatusChange }: { invoiceId: string, onStatusChange: (status: MatchingStatus) => void }) => {
     const [result, setResult] = useState<MatchingResult | null>(null);
     const [loading, setLoading] = useState(true);
+    const [isDialogOpen, setIsDialogOpen] = useState(false);
 
     useEffect(() => {
         const fetchStatus = async () => {
@@ -364,19 +365,19 @@ const MatchingStatusBadge = ({ invoiceId, onStatusClick, setMatchStatus }: { inv
                 if (response.ok) {
                     const data = await response.json();
                     setResult(data);
-                    setMatchStatus(data.status);
+                    onStatusChange(data.status);
                 } else {
-                     setMatchStatus('Pending');
+                     onStatusChange('Pending');
                 }
             } catch (error) {
                 console.error(`Failed to fetch matching status for invoice ${invoiceId}`, error);
-                 setMatchStatus('Pending');
+                 onStatusChange('Pending');
             } finally {
                 setLoading(false);
             }
         };
         fetchStatus();
-    }, [invoiceId, setMatchStatus]);
+    }, [invoiceId, onStatusChange]);
 
     if (loading || !result) {
         return <Badge variant="outline"><Loader2 className="mr-2 h-3 w-3 animate-spin"/>Checking</Badge>;
@@ -401,6 +402,7 @@ const MatchingStatusBadge = ({ invoiceId, onStatusClick, setMatchStatus }: { inv
     }
     
     const isClickable = result.status === 'Mismatched' || result.status === 'Matched';
+    
     const BadgeComponent = (
         <Badge 
             variant={result.status === 'Matched' ? 'default' : 'destructive'}
@@ -413,9 +415,21 @@ const MatchingStatusBadge = ({ invoiceId, onStatusClick, setMatchStatus }: { inv
     );
 
     return isClickable ? (
-        <DialogTrigger asChild>
-            {BadgeComponent}
-        </DialogTrigger>
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+                {BadgeComponent}
+            </DialogTrigger>
+            {result && (
+                <MatchDetailsDialog
+                    result={result}
+                    onResolve={() => {
+                        setIsDialogOpen(false);
+                        onStatusChange('Matched');
+                    }}
+                    onCancel={() => setIsDialogOpen(false)}
+                />
+            )}
+        </Dialog>
     ) : BadgeComponent;
 }
 
@@ -423,8 +437,6 @@ export function InvoicesPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [isFormOpen, setFormOpen] = useState(false);
-  const [isMatchingDetailsOpen, setMatchingDetailsOpen] = useState(false);
-  const [selectedMatchResult, setSelectedMatchResult] = useState<MatchingResult | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [invoiceMatchStatuses, setInvoiceMatchStatuses] = useState<Record<string, MatchingStatus>>({});
   const [activeAction, setActiveAction] = useState<string | null>(null);
@@ -514,13 +526,9 @@ export function InvoicesPage() {
         setActiveAction(null);
     }
   }
-  
-  const handleStatusClick = (result: MatchingResult) => {
-    setSelectedMatchResult(result);
-  }
-  
-  const setMatchStatusForInvoice = (invoiceId: string, status: MatchingStatus) => {
-      setInvoiceMatchStatuses(prev => ({ ...prev, [invoiceId]: status }));
+
+  const handleStatusChange = (invoiceId: string, status: MatchingStatus) => {
+    setInvoiceMatchStatuses(prev => ({ ...prev, [invoiceId]: status }));
   };
 
   const getStatusVariant = (status: string) => {
@@ -586,19 +594,7 @@ export function InvoicesPage() {
                     <TableCell>{invoice.purchaseOrderId}</TableCell>
                     <TableCell>{format(new Date(invoice.invoiceDate), 'PP')}</TableCell>
                      <TableCell>
-                      <Dialog>
-                        <MatchingStatusBadge invoiceId={invoice.id} onStatusClick={handleStatusClick} setMatchStatus={(status) => setMatchStatusForInvoice(invoice.id, status)} />
-                        {selectedMatchResult && (
-                           <MatchDetailsDialog
-                                result={selectedMatchResult}
-                                onResolve={() => {
-                                    setSelectedMatchResult(null);
-                                    fetchInvoices();
-                                }}
-                                onCancel={() => setSelectedMatchResult(null)}
-                            />
-                        )}
-                      </Dialog>
+                        <MatchingStatusBadge invoiceId={invoice.id} onStatusChange={(status) => handleStatusChange(invoice.id, status)} />
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-col gap-1">
@@ -689,4 +685,3 @@ export function InvoicesPage() {
     </>
   );
 }
-
