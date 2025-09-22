@@ -46,9 +46,9 @@ async function main() {
   }
   console.log('Seeded departments.');
 
-  // Seed Users
-  for (const user of seedData.users) {
-    // Prisma doesn't like extra fields like committeeAssignments or direct foreign keys when using connect
+  // Seed non-vendor users first
+  const nonVendorUsers = seedData.users.filter(u => u.role !== 'Vendor');
+  for (const user of nonVendorUsers) {
     const { committeeAssignments, departmentId, department, ...userData } = user;
     await prisma.user.create({
       data: {
@@ -58,18 +58,45 @@ async function main() {
       },
     });
   }
-  console.log('Seeded users.');
+  console.log('Seeded non-vendor users.');
 
-  // Seed Vendors
+
+  // Seed Vendors and their associated users
   for (const vendor of seedData.vendors) {
       const { kycDocuments, userId, ...vendorData } = vendor;
+      const vendorUser = seedData.users.find(u => u.id === userId);
+
+      if (!vendorUser) {
+          console.warn(`Skipping vendor ${vendor.name} because its user was not found.`);
+          continue;
+      }
+      
+      // Create user for the vendor first
+      const createdUser = await prisma.user.create({
+          data: {
+              id: vendorUser.id,
+              name: vendorUser.name,
+              email: vendorUser.email,
+              password: vendorUser.password,
+              role: vendorUser.role.replace(/ /g, '_') as any,
+          }
+      });
+      
+      // Then create the vendor and link it to the user
     const createdVendor = await prisma.vendor.create({
       data: {
           ...vendorData,
           kycStatus: vendorData.kycStatus.replace(/ /g, '_') as any,
-          user: { connect: { id: vendor.userId } }
+          user: { connect: { id: createdUser.id } }
       },
     });
+
+    // Now, update the user with the vendorId
+    await prisma.user.update({
+        where: { id: createdUser.id },
+        data: { vendorId: createdVendor.id }
+    });
+
     if (kycDocuments) {
         for (const doc of kycDocuments) {
             await prisma.kYC_Document.create({
@@ -81,7 +108,7 @@ async function main() {
         }
     }
   }
-  console.log('Seeded vendors.');
+  console.log('Seeded vendors and their users.');
 
   // Seed Requisitions
   for (const requisition of seedData.requisitions) {
