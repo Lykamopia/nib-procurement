@@ -73,6 +73,7 @@ export async function POST(
             
             await tx.auditLog.create({
                 data: {
+                    timestamp: new Date(),
                     user: { connect: { id: user.id } },
                     action: 'ACCEPT_AWARD',
                     entity: 'Quotation',
@@ -88,6 +89,7 @@ export async function POST(
 
             await tx.auditLog.create({
                 data: {
+                    timestamp: new Date(),
                     user: { connect: { id: user.id } },
                     action: 'REJECT_AWARD',
                     entity: 'Quotation',
@@ -106,7 +108,7 @@ export async function POST(
                 
                 await tx.auditLog.create({
                     data: {
-                        // system action, no user
+                        timestamp: new Date(),
                         action: 'PROMOTE_STANDBY',
                         entity: 'Quotation',
                         entityId: nextQuote.id,
@@ -125,6 +127,7 @@ export async function POST(
                 });
                  await tx.auditLog.create({
                     data: {
+                        timestamp: new Date(),
                         action: 'RESTART_RFQ',
                         entity: 'Requisition',
                         entityId: requisition.id,
@@ -142,7 +145,7 @@ export async function POST(
   } catch (error) {
     console.error('Failed to respond to award:', error);
     if (error instanceof Error) {
-      return NextResponse.json({ error: 'Failed to process request', details: error.message }, { status: 400 });
+      return NextResponse.json({ error: 'Failed to process request', details: error.message }, { status: 500 });
     }
     return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
   }
