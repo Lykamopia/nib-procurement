@@ -78,7 +78,7 @@ function InvoiceSubmissionForm({ po, onInvoiceSubmitted }: { po: PurchaseOrder; 
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     purchaseOrderId: po.id,
-                    vendorId: po.vendorId, // Use vendorId from PO
+                    vendorId: po.vendor.id,
                     invoiceDate: values.invoiceDate,
                     documentUrl: values.documentUrl,
                     items: po.items,
@@ -490,20 +490,22 @@ export default function VendorRequisitionPage() {
         setLoading(true);
         setError(null);
         try {
-             const response = await fetch(`/api/requisitions`);
+             const response = await fetch(`/api/requisitions/${id}`);
              if (!response.ok) {
-                throw new Error('Failed to fetch requisitions data.');
+                throw new Error('Failed to fetch requisition data.');
              }
-             const allReqs: PurchaseRequisition[] = await response.json();
-             const foundReq = allReqs.find(r => r.id === id);
-
+             const foundReq: PurchaseRequisition = await response.json();
+             
              if (!foundReq) {
                  throw new Error('Requisition not found or not available for quoting.');
              }
              
              setRequisition(foundReq);
 
-             const vendorSubmittedQuote = foundReq.quotations?.find(q => q.vendorId === user.vendorId);
+             const quoResponse = await fetch(`/api/quotations?requisitionId=${id}`);
+             const allQuotes: Quotation[] = await quoResponse.json();
+
+             const vendorSubmittedQuote = allQuotes.find(q => q.vendorId === user.vendorId);
              
              if (vendorSubmittedQuote) {
                  setSubmittedQuote(vendorSubmittedQuote);
@@ -577,7 +579,7 @@ export default function VendorRequisitionPage() {
                 <div>
                     <CardTitle>Your Submitted Quote</CardTitle>
                     <CardDescription>
-                        Status: <Badge variant={quote.status === 'Awarded' || quote.status === 'Accepted' ? 'default' : 'secondary'}>{quote.status}</Badge>
+                        Status: <Badge variant={quote.status === 'Awarded' || quote.status === 'Accepted' ? 'default' : 'secondary'}>{quote.status.replace(/_/g, ' ')}</Badge>
                     </CardDescription>
                 </div>
                 {!isAwardProcessStarted && quote.status === 'Submitted' && (

@@ -55,7 +55,7 @@ export default function VendorDashboardPage() {
             setLoading(true);
             setError(null);
             try {
-                const response = await fetch('/api/requisitions', {
+                const response = await fetch('/api/requisitions?forVendor=true', {
                     headers: {
                         'Authorization': `Bearer ${token}`
                     }
@@ -82,11 +82,11 @@ export default function VendorDashboardPage() {
                         vendorAwards.push(req);
                     }
                     else if (
-                        req.status === 'RFQ_In_Progress' &&
+                        req.status === 'RFQ In Progress' &&
                         (!req.deadline || !isPast(new Date(req.deadline))) &&
                         !vendorQuote
                     ) {
-                        const isPublic = req.allowedVendorIds && req.allowedVendorIds.length === 0;
+                        const isPublic = !req.allowedVendorIds || req.allowedVendorIds.length === 0;
                         const isPrivateAndAllowed = req.allowedVendorIds && req.allowedVendorIds.includes(user.vendorId!);
 
                         if (isPublic || isPrivateAndAllowed) {

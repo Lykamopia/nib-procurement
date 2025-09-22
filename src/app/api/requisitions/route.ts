@@ -10,11 +10,16 @@ export async function GET(request: Request) {
   console.log('GET /api/requisitions - Fetching requisitions from DB.');
   const { searchParams } = new URL(request.url);
   const status = searchParams.get('status');
+  const forVendor = searchParams.get('forVendor');
 
   try {
     const whereClause: any = {};
     if (status) {
         whereClause.status = status.replace(/ /g, '_');
+    }
+
+    if (forVendor === 'true') {
+        whereClause.status = 'RFQ_In_Progress';
     }
 
     const requisitions = await prisma.purchaseRequisition.findMany({
