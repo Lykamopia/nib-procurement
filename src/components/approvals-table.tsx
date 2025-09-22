@@ -48,33 +48,6 @@ import { RequisitionDetailsDialog } from './requisition-details-dialog';
 
 const PAGE_SIZE = 10;
 
-function CollapsibleTableRow({ req, onAction, onShowDetails, index }: { req: PurchaseRequisition, onAction: (req: PurchaseRequisition, type: 'approve' | 'reject') => void, onToggle: () => void, onShowDetails: () => void, index: number }) {
-    return (
-        <>
-            <TableRow>
-                <TableCell className="text-muted-foreground">{index + 1}</TableCell>
-                <TableCell className="font-medium text-primary">{req.id}</TableCell>
-                <TableCell>{req.title}</TableCell>
-                <TableCell>{req.requesterName}</TableCell>
-                <TableCell>{format(new Date(req.createdAt), 'PP')}</TableCell>
-                <TableCell>
-                <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={onShowDetails}>
-                        <Eye className="mr-2 h-4 w-4" /> View Details
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={() => onAction(req, 'approve')}>
-                        <Check className="mr-2 h-4 w-4" /> Approve
-                    </Button>
-                    <Button variant="destructive" size="sm" onClick={() => onAction(req, 'reject')}>
-                        <X className="mr-2 h-4 w-4" /> Reject
-                    </Button>
-                </div>
-                </TableCell>
-            </TableRow>
-        </>
-    )
-}
-
 export function ApprovalsTable() {
   const [requisitions, setRequisitions] = useState<PurchaseRequisition[]>([]);
   const [loading, setLoading] = useState(true);
@@ -88,19 +61,16 @@ export function ApprovalsTable() {
   const [isActionDialogOpen, setActionDialogOpen] = useState(false);
   const [isDetailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [actionType, setActionType] = useState<'approve' | 'reject' | null>(null);
-  const [openRequisitionId, setOpenRequisitionId] = useState<string | null>(null);
-
 
   const fetchRequisitions = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/requisitions');
+      const response = await fetch('/api/requisitions?status=Pending_Approval');
       if (!response.ok) {
         throw new Error('Failed to fetch requisitions');
       }
       const data: PurchaseRequisition[] = await response.json();
-      const pending = data.filter(req => req.status === 'Pending_Approval');
-      setRequisitions(pending);
+      setRequisitions(data);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'An unknown error occurred');
     } finally {
@@ -109,8 +79,12 @@ export function ApprovalsTable() {
   };
 
   useEffect(() => {
-    fetchRequisitions();
-  }, []);
+    if (user && user.role === 'Approver') {
+        fetchRequisitions();
+    } else {
+        setLoading(false);
+    }
+  }, [user]);
 
   const handleAction = (req: PurchaseRequisition, type: 'approve' | 'reject') => {
     setSelectedRequisition(req);
@@ -189,14 +163,26 @@ export function ApprovalsTable() {
             <TableBody>
               {paginatedRequisitions.length > 0 ? (
                 paginatedRequisitions.map((req, index) => (
-                  <CollapsibleTableRow 
-                    key={req.id} 
-                    req={req}
-                    index={(currentPage - 1) * PAGE_SIZE + index}
-                    onAction={handleAction} 
-                    onShowDetails={() => handleShowDetails(req)}
-                    onToggle={() => setOpenRequisitionId(openRequisitionId === req.id ? null : req.id)}
-                  />
+                  <TableRow key={req.id}>
+                      <TableCell className="text-muted-foreground">{index + 1}</TableCell>
+                      <TableCell className="font-medium text-primary">{req.id}</TableCell>
+                      <TableCell>{req.title}</TableCell>
+                      <TableCell>{req.requesterName}</TableCell>
+                      <TableCell>{format(new Date(req.createdAt), 'PP')}</TableCell>
+                      <TableCell>
+                      <div className="flex gap-2">
+                          <Button variant="outline" size="sm" onClick={() => handleShowDetails(req)}>
+                              <Eye className="mr-2 h-4 w-4" /> View Details
+                          </Button>
+                          <Button variant="outline" size="sm" onClick={() => handleAction(req, 'approve')}>
+                              <Check className="mr-2 h-4 w-4" /> Approve
+                          </Button>
+                          <Button variant="destructive" size="sm" onClick={() => handleAction(req, 'reject')}>
+                              <X className="mr-2 h-4 w-4" /> Reject
+                          </Button>
+                      </div>
+                      </TableCell>
+                  </TableRow>
                 ))
               ) : (
                 <TableRow>
@@ -214,48 +200,50 @@ export function ApprovalsTable() {
             </TableBody>
           </Table>
         </div>
-        <div className="flex items-center justify-between mt-4">
-          <div className="text-sm text-muted-foreground">
-            Showing {Math.min(1 + (currentPage - 1) * PAGE_SIZE, requisitions.length)} to {Math.min(currentPage * PAGE_SIZE, requisitions.length)} of {requisitions.length} requisitions.
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => setCurrentPage(1)}
-              disabled={currentPage === 1}
-            >
-              <ChevronsLeft className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => setCurrentPage(p => p - 1)}
-              disabled={currentPage === 1}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <span className="text-sm">
-              Page {currentPage > 0 ? currentPage : 1} of {totalPages > 0 ? totalPages : 1}
-            </span>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => setCurrentPage(p => p + 1)}
-              disabled={currentPage === totalPages}
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => setCurrentPage(totalPages)}
-              disabled={currentPage === totalPages}
-            >
-              <ChevronsRight className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
+        {totalPages > 1 && (
+            <div className="flex items-center justify-between mt-4">
+                <div className="text-sm text-muted-foreground">
+                    Showing {Math.min(1 + (currentPage - 1) * PAGE_SIZE, requisitions.length)} to {Math.min(currentPage * PAGE_SIZE, requisitions.length)} of {requisitions.length} requisitions.
+                </div>
+                <div className="flex items-center gap-2">
+                    <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setCurrentPage(1)}
+                    disabled={currentPage === 1}
+                    >
+                    <ChevronsLeft className="h-4 w-4" />
+                    </Button>
+                    <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setCurrentPage(p => p - 1)}
+                    disabled={currentPage === 1}
+                    >
+                    <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <span className="text-sm">
+                    Page {currentPage > 0 ? currentPage : 1} of {totalPages > 0 ? totalPages : 1}
+                    </span>
+                    <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setCurrentPage(p => p + 1)}
+                    disabled={currentPage === totalPages}
+                    >
+                    <ChevronRight className="h-4 w-4" />
+                    </Button>
+                    <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setCurrentPage(totalPages)}
+                    disabled={currentPage === totalPages}
+                    >
+                    <ChevronsRight className="h-4 w-4" />
+                    </Button>
+                </div>
+            </div>
+        )}
       </CardContent>
        <Dialog open={isActionDialogOpen} onOpenChange={setActionDialogOpen}>
         <DialogContent>
