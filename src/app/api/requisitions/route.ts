@@ -157,7 +157,7 @@ export async function PATCH(
             totalPrice: totalPrice,
             // When editing, it always goes back to Pending Approval if a status is provided
             status: status ? status.replace(/ /g, '_') : requisition.status,
-            approverId: null,
+            approver: requisition.approverId ? { disconnect: true } : undefined,
             approverComment: null,
             // We need to delete old items and create new ones
             items: {
@@ -205,7 +205,7 @@ export async function PATCH(
     } else if (status) { // This handles normal status changes (approve, reject, submit)
         dataToUpdate.status = status.replace(/ /g, '_');
         if (status === 'Approved' || status === 'Rejected') {
-            dataToUpdate.approverId = userId;
+            dataToUpdate.approver = { connect: { id: userId } };
             dataToUpdate.approverComment = comment;
         }
     } else {
