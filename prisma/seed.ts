@@ -306,11 +306,11 @@ async function main() {
   // Seed Audit Logs
   for (const log of seedData.auditLogs) {
     const userForLog = seedData.users.find(u => u.name === log.user);
-    const { user, ...logData } = log;
+    // Exclude user and role from logData as they are not direct fields on the model
+    const { user, role, ...logData } = log;
     await prisma.auditLog.create({
       data: {
           ...logData,
-          role: log.role.replace(/_/g, '_') as any,
           timestamp: new Date(log.timestamp),
           user: userForLog ? { connect: { id: userForLog.id } } : undefined
       },
