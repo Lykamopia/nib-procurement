@@ -14,7 +14,7 @@ export async function GET(request: Request) {
   try {
     const whereClause: any = {};
     if (status) {
-        whereClause.status = status;
+        whereClause.status = status.replace(/ /g, '_');
     }
 
     const requisitions = await prisma.purchaseRequisition.findMany({
@@ -78,6 +78,7 @@ export async function POST(request: Request) {
     const newRequisition = await prisma.purchaseRequisition.create({
         data: {
             requester: { connect: { id: user.id } },
+            requesterName: user.name,
             department: { connect: { name: body.department } },
             title: body.title,
             justification: body.justification,
