@@ -31,7 +31,9 @@ export async function GET() {
 
     const formattedRequisitions = requisitions.map(req => ({
         ...req,
+        status: req.status.replace(/_/g, ' '),
         department: req.department?.name || 'N/A',
+        requesterName: users.find(u => u.id === req.requesterId)?.name || 'Unknown',
         financialCommitteeMemberIds: req.financialCommitteeMembers.map(m => m.id),
         technicalCommitteeMemberIds: req.technicalCommitteeMembers.map(m => m.id),
     }));
@@ -67,7 +69,6 @@ export async function POST(request: Request) {
     const newRequisition = await prisma.purchaseRequisition.create({
         data: {
             requester: { connect: { id: user.id } },
-            requesterName: body.requesterName,
             department: { connect: { name: body.department } },
             title: body.title,
             justification: body.justification,
@@ -141,8 +142,8 @@ export async function PATCH(
 
     let dataToUpdate: any = {};
     
-    // This handles editing a rejected requisition and resubmitting
-    if (requisition.status === 'Rejected' && status === 'Pending Approval') {
+    // This handles editing a draft or rejected requisition and resubmitting
+    if ((requisition.status === 'Draft' || requisition.status === 'Rejected') && updateData.title) {
         const totalPrice = updateData.items.reduce((acc: number, item: any) => {
             const price = item.unitPrice || 0;
             const quantity = item.quantity || 0;
@@ -153,8 +154,9 @@ export async function PATCH(
             title: updateData.title,
             justification: updateData.justification,
             department: { connect: { name: updateData.department } },
-            status: status.replace(/ /g, '_'),
             totalPrice: totalPrice,
+            // When editing, it always goes back to Pending Approval if a status is provided
+            status: status ? status.replace(/ /g, '_') : requisition.status,
             approverId: null,
             approverComment: null,
             // We need to delete old items and create new ones
@@ -192,7 +194,7 @@ export async function PATCH(
             }
         };
 
-    } else if (status) { // This handles normal status changes
+    } else if (status) { // This handles normal status changes (approve, reject, submit)
         dataToUpdate.status = status.replace(/ /g, '_');
         if (status === 'Approved' || status === 'Rejected') {
             dataToUpdate.approverId = userId;

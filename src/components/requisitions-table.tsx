@@ -170,7 +170,7 @@ export function RequisitionsTable() {
           (req.requesterName && req.requesterName.toLowerCase().includes(lowerCaseSearch))
         );
       })
-      .filter(req => statusFilter === 'all' || req.status === statusFilter)
+      .filter(req => statusFilter === 'all' || req.status.replace(/ /g, '_') === statusFilter)
       .filter(req => requesterFilter === 'all' || req.requesterName === requesterFilter)
       .filter(req => !dateFilter || new Date(req.createdAt).toDateString() === dateFilter.toDateString());
   }, [requisitions, searchTerm, statusFilter, requesterFilter, dateFilter, role, user]);
@@ -183,10 +183,10 @@ export function RequisitionsTable() {
 
 
   const getStatusVariant = (status: string) => {
-    switch (status) {
+    switch (status.replace(/_/g, ' ')) {
       case 'Approved':
         return 'default';
-      case 'Pending_Approval':
+      case 'Pending Approval':
         return 'secondary';
       case 'Rejected':
         return 'destructive';
@@ -196,35 +196,6 @@ export function RequisitionsTable() {
         return 'outline';
     }
   };
-
-  const BudgetStatusBadge = ({ status }: { status: BudgetStatus }) => {
-    switch(status) {
-      case 'OK':
-        return (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger>
-                <CircleCheck className="h-5 w-5 text-green-500" />
-              </TooltipTrigger>
-              <TooltipContent>Budget OK</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        )
-      case 'Exceeded':
-        return (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger>
-                <CircleAlert className="h-5 w-5 text-destructive" />
-              </TooltipTrigger>
-              <TooltipContent>Budget Exceeded</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        )
-      default:
-        return null;
-    }
-  }
 
   if (loading) return <div className="flex h-64 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   if (error) return <div className="text-destructive">Error: {error}</div>;
@@ -339,22 +310,16 @@ export function RequisitionsTable() {
                             <Button variant="outline" size="sm" onClick={() => handleViewDetails(req)}>
                                 <Eye className="mr-2 h-4 w-4" /> View
                             </Button>
-                            {req.status === 'Draft' && req.requesterId === user?.id && (
-                                <>
-                                <Button variant="outline" size="sm" onClick={() => handleSubmitForApproval(req.id)}>
-                                    <Send className="mr-2 h-4 w-4" />
-                                    Submit
-                                </Button>
+                            {req.requesterId === user?.id && (req.status === 'Draft' || req.status === 'Rejected') && (
                                 <Button variant="outline" size="sm" onClick={() => router.push(`/requisitions/${req.id}/edit`)}>
                                     <FileEdit className="mr-2 h-4 w-4" />
                                     Edit
                                 </Button>
-                                </>
                             )}
-                            {req.status === 'Rejected' && req.requesterId === user?.id && (
-                                <Button variant="outline" size="sm" onClick={() => router.push(`/requisitions/${req.id}/edit`)}>
-                                <FileEdit className="mr-2 h-4 w-4" />
-                                Edit
+                            {req.status === 'Draft' && req.requesterId === user?.id && (
+                                <Button variant="outline" size="sm" onClick={() => handleSubmitForApproval(req.id)}>
+                                    <Send className="mr-2 h-4 w-4" />
+                                    Submit
                                 </Button>
                             )}
                              {(req.status === 'Draft' || req.status === 'Pending_Approval') && req.requesterId === user?.id && (
@@ -362,7 +327,6 @@ export function RequisitionsTable() {
                                     <AlertDialogTrigger asChild>
                                         <Button variant="destructive" size="sm">
                                             <Trash2 className="mr-2 h-4 w-4" />
-                                            Delete
                                         </Button>
                                     </AlertDialogTrigger>
                                     <AlertDialogContent>
