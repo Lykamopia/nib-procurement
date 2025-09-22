@@ -75,6 +75,7 @@ export async function POST(request: Request) {
         data: {
             transactionId: po.transactionId,
             user: { connect: { id: user.id } },
+            timestamp: new Date(),
             action: 'CREATE_INVOICE',
             entity: 'Invoice',
             entityId: newInvoice.id,

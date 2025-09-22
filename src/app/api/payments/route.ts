@@ -46,6 +46,7 @@ export async function POST(
     await prisma.auditLog.create({
         data: {
             user: { connect: { id: user.id } },
+            timestamp: new Date(),
             action: 'PROCESS_PAYMENT',
             entity: 'Invoice',
             entityId: invoiceId,

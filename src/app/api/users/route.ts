@@ -55,6 +55,7 @@ export async function POST(request: Request) {
     await prisma.auditLog.create({
         data: {
             user: { connect: { id: actor.id } },
+            timestamp: new Date(),
             action: 'CREATE_USER',
             entity: 'User',
             entityId: newUser.id,
@@ -109,6 +110,7 @@ export async function PATCH(request: Request) {
     await prisma.auditLog.create({
         data: {
             user: { connect: { id: actor.id } },
+            timestamp: new Date(),
             action: 'UPDATE_USER',
             entity: 'User',
             entityId: id,
@@ -153,6 +155,7 @@ export async function DELETE(request: Request) {
     await prisma.auditLog.create({
         data: {
             user: { connect: { id: actor.id } },
+            timestamp: new Date(),
             action: 'DELETE_USER',
             entity: 'User',
             entityId: id,

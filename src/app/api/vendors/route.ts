@@ -50,6 +50,7 @@ export async function POST(request: Request) {
     await prisma.auditLog.create({
         data: {
             // No user to connect yet, as this is a public action
+            timestamp: new Date(),
             action: 'CREATE_VENDOR',
             entity: 'Vendor',
             entityId: newVendor.id,

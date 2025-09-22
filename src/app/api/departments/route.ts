@@ -36,6 +36,7 @@ export async function POST(request: Request) {
     await prisma.auditLog.create({
         data: {
             user: { connect: { id: user.id } },
+            timestamp: new Date(),
             action: 'CREATE_DEPARTMENT',
             entity: 'Department',
             entityId: newDepartment.id,
@@ -85,6 +86,7 @@ export async function PATCH(request: Request) {
     await prisma.auditLog.create({
         data: {
             user: { connect: { id: user.id } },
+            timestamp: new Date(),
             action: 'UPDATE_DEPARTMENT',
             entity: 'Department',
             entityId: id,
@@ -121,6 +123,7 @@ export async function DELETE(request: Request) {
     await prisma.auditLog.create({
         data: {
             user: { connect: { id: user.id } },
+            timestamp: new Date(),
             action: 'DELETE_DEPARTMENT',
             entity: 'Department',
             entityId: id,

@@ -86,6 +86,7 @@ export async function POST(request: Request) {
             data: {
                 transactionId: po.transactionId,
                 user: { connect: { id: user.id } },
+                timestamp: new Date(),
                 action: 'RECEIVE_GOODS',
                 entity: 'PurchaseOrder',
                 entityId: po.id,

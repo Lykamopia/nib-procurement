@@ -44,6 +44,7 @@ export async function PATCH(
     await prisma.auditLog.create({
         data: {
             user: { connect: { id: user.id } },
+            timestamp: new Date(),
             action: 'UPDATE_INVOICE_STATUS',
             entity: 'Invoice',
             entityId: invoiceId,
