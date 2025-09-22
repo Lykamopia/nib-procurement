@@ -1,4 +1,6 @@
 
+'use server';
+
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { users } from '@/lib/auth-store';
@@ -10,7 +12,7 @@ export async function POST(
   try {
     const { id } = params;
     const body = await request.json();
-    const { userId, vendorIds, scoringDeadline, deadline, cpoAmount } = body;
+    const { userId, vendorIds, deadline, cpoAmount, awardResponseDurationMinutes } = body;
 
     const requisition = await prisma.purchaseRequisition.findUnique({ where: { id }});
     if (!requisition) {
@@ -25,17 +27,26 @@ export async function POST(
     if (requisition.status !== 'Approved') {
         return NextResponse.json({ error: 'Requisition must be approved before sending RFQ.' }, { status: 400 });
     }
+    
+    let finalVendorIds = vendorIds;
+    // If vendorIds is an empty array, it means 'all verified vendors'.
+    if (Array.isArray(vendorIds) && vendorIds.length === 0) {
+        const verifiedVendors = await prisma.vendor.findMany({
+            where: { kycStatus: 'Verified' },
+            select: { id: true }
+        });
+        finalVendorIds = verifiedVendors.map(v => v.id);
+    }
+
 
     const updatedRequisition = await prisma.purchaseRequisition.update({
         where: { id },
         data: {
             status: 'RFQ_In_Progress',
-            // If vendorIds is 'all', store an empty array to signify open to all.
-            // Otherwise, store the provided array of vendor IDs.
-            allowedVendorIds: vendorIds === 'all' ? [] : vendorIds,
-            scoringDeadline: scoringDeadline ? new Date(scoringDeadline) : undefined,
+            allowedVendorIds: finalVendorIds,
             deadline: deadline ? new Date(deadline) : undefined,
             cpoAmount: cpoAmount,
+            awardResponseDurationMinutes: awardResponseDurationMinutes
         }
     });
 

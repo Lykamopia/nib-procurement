@@ -2,9 +2,11 @@
 'use server';
 
 import { NextResponse } from 'next/server';
-import type { PurchaseRequisition, RequisitionStatus } from '@/lib/types';
+import type { PurchaseRequisition } from '@/lib/types';
 import { prisma } from '@/lib/prisma';
 import { users } from '@/lib/data-store'; // Still using in-memory users for now
+import { getUserByToken } from '@/lib/auth';
+import { headers } from 'next/headers';
 
 export async function GET(request: Request) {
   console.log('GET /api/requisitions - Fetching requisitions from DB.');
@@ -19,8 +21,22 @@ export async function GET(request: Request) {
     }
 
     if (forVendor === 'true') {
+        const authHeader = headers().get('Authorization');
+        const token = authHeader?.split(' ')[1];
+        if (!token) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+        const userPayload = await getUserByToken(token);
+        if (!userPayload || !userPayload.user.vendorId) {
+             return NextResponse.json({ error: 'Unauthorized: No valid vendor found for this user.' }, { status: 403 });
+        }
+        
         whereClause.status = 'RFQ_In_Progress';
+        whereClause.allowedVendorIds = {
+            has: userPayload.user.vendorId
+        }
     }
+
 
     const requisitions = await prisma.purchaseRequisition.findMany({
       where: whereClause,
@@ -36,7 +52,11 @@ export async function GET(request: Request) {
         },
         financialCommitteeMembers: { select: { id: true } },
         technicalCommitteeMembers: { select: { id: true } },
-        quotations: true, // Include quotations to check vendor status
+        quotations: {
+            include: {
+                vendor: true
+            }
+        }, // Include quotations to check vendor status
       },
       orderBy: {
         createdAt: 'desc',
