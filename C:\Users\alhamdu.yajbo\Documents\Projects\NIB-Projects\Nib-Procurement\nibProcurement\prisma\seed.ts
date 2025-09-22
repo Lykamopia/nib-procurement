@@ -46,7 +46,7 @@ async function main() {
   }
   console.log('Seeded departments.');
 
-  // Seed Users (excluding vendors first)
+  // Seed Non-Vendor Users first
   const nonVendorUsers = seedData.users.filter(u => u.role !== 'Vendor');
   for (const user of nonVendorUsers) {
     const { committeeAssignments, departmentId, department, vendorId, ...userData } = user;
@@ -114,8 +114,6 @@ async function main() {
           committeeMemberIds, // old field, remove it
           ...reqData 
       } = requisition;
-
-      const departmentRecord = allDepartments.find(d => d.name === department);
 
       const createdRequisition = await prisma.purchaseRequisition.create({
           data: {
@@ -316,15 +314,17 @@ async function main() {
   for (const log of seedData.auditLogs) {
     const userForLog = seedData.users.find(u => u.name === log.user);
     const { user, ...logData } = log;
-    await prisma.auditLog.create({
-      data: {
-          ...logData,
-          role: log.role.replace(/ /g, '_') as any,
-          timestamp: new Date(log.timestamp),
-          user: userForLog ? { connect: { id: userForLog.id } } : undefined,
-          transactionId: log.entityId // A reasonable assumption for old data
-      },
-    });
+    if (userForLog) {
+        await prisma.auditLog.create({
+        data: {
+            ...logData,
+            role: log.role.replace(/ /g, '_') as any,
+            timestamp: new Date(log.timestamp),
+            userId: userForLog.id,
+            transactionId: log.entityId // A reasonable assumption for old data
+        },
+        });
+    }
   }
   console.log('Seeded audit logs.');
 
