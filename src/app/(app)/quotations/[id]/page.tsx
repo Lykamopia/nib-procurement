@@ -202,7 +202,7 @@ function AddQuoteForm({ requisition, vendors, onQuoteAdded }: { requisition: Pur
     );
 }
 
-const QuoteComparison = ({ quotes, requisition, onScore, user, isDeadlinePassed, isScoringDeadlinePassed }: { quotes: Quotation[], requisition: PurchaseRequisition, onScore: (quote: Quotation) => void, user: User, isDeadlinePassed: boolean, isScoringDeadlinePassed: boolean }) => {
+const QuoteComparison = ({ quotes, requisition, onScore, user, isDeadlinePassed, isScoringDeadlinePassed, isAwarded }: { quotes: Quotation[], requisition: PurchaseRequisition, onScore: (quote: Quotation) => void, user: User, isDeadlinePassed: boolean, isScoringDeadlinePassed: boolean, isAwarded: boolean }) => {
 
     if (quotes.length === 0) {
         return (
@@ -295,7 +295,7 @@ const QuoteComparison = ({ quotes, requisition, onScore, user, isDeadlinePassed,
                                     <p className="text-muted-foreground text-xs italic">{quote.notes}</p>
                                 </div>
                             )}
-                             {isDeadlinePassed && typeof quote.finalAverageScore === 'number' && (
+                             {isAwarded && typeof quote.finalAverageScore === 'number' && (
                                  <div className="text-center pt-2 border-t">
                                     <h4 className="font-semibold text-sm">Final Score</h4>
                                     <p className="text-2xl font-bold text-primary">{quote.finalAverageScore.toFixed(2)}</p>
@@ -1262,6 +1262,43 @@ const ScoringDialog = ({
 
     const isFinancialScorer = requisition.financialCommitteeMemberIds?.includes(user.id);
     const isTechnicalScorer = requisition.technicalCommitteeMemberIds?.includes(user.id);
+    
+    const currentValues = form.watch();
+
+    const clientSideScoreCalculator = () => {
+        const criteria = requisition.evaluationCriteria!;
+        let totalFinancialScore = 0;
+        let totalTechnicalScore = 0;
+        let finalScore = 0;
+
+        if (isFinancialScorer && currentValues.financialScores) {
+            criteria.financialCriteria.forEach((c, i) => {
+                const score = currentValues.financialScores[i]?.score || 0;
+                totalFinancialScore += score * (c.weight / 100);
+            });
+            finalScore += totalFinancialScore * (criteria.financialWeight / 100);
+        }
+        
+        if (isTechnicalScorer && currentValues.technicalScores) {
+            criteria.technicalCriteria.forEach((c, i) => {
+                const score = currentValues.technicalScores[i]?.score || 0;
+                totalTechnicalScore += score * (c.weight / 100);
+            });
+            finalScore += totalTechnicalScore * (criteria.technicalWeight / 100);
+        }
+
+        // If a user is on both committees, their score is a direct weighted average.
+        // If they are on only one, we need to normalize their score to be out of 100.
+        if (isFinancialScorer && !isTechnicalScorer) {
+            return totalFinancialScore;
+        }
+        if (isTechnicalScorer && !isFinancialScorer) {
+            return totalTechnicalScore;
+        }
+
+        return finalScore;
+    }
+
 
     if (!existingScore && isScoringDeadlinePassed) {
         return (
@@ -1328,8 +1365,6 @@ const ScoringDialog = ({
             </div>
         ));
     };
-    
-    const currentValues = form.watch();
 
     return (
          <DialogContent className="max-w-4xl">
@@ -1385,7 +1420,7 @@ const ScoringDialog = ({
                 </div>
             </ScrollArea>
              <DialogFooter className="pt-4 flex items-center justify-between">
-                <Button type="button" onClick={() => form.reset()} variant="ghost">Reset Form</Button>
+                <Button type="button" onClick={() => form.reset()} variant="ghost" disabled={!!existingScore}>Reset Form</Button>
                  {existingScore ? (
                     <p className="text-sm text-muted-foreground">You have already scored this quote.</p>
                  ) : (
@@ -1404,6 +1439,11 @@ const ScoringDialog = ({
                             </AlertDialogHeader>
                             <Card className="my-4">
                                 <CardContent className="pt-6 space-y-4 text-sm">
+                                    <div className="text-center">
+                                        <p className="text-muted-foreground">Your Calculated Final Score</p>
+                                        <p className="text-4xl font-bold text-primary">{clientSideScoreCalculator().toFixed(2)}</p>
+                                    </div>
+                                    <Separator/>
                                      {isFinancialScorer && (
                                         <div>
                                             <h4 className="font-semibold mb-2">Your Financial Scores:</h4>
@@ -2397,6 +2437,7 @@ export default function QuotationDetailsPage() {
                             user={user}
                             isDeadlinePassed={isDeadlinePassed}
                             isScoringDeadlinePassed={isScoringDeadlinePassed}
+                            isAwarded={isAwarded}
                         />
                     )}
                     </CardContent>
