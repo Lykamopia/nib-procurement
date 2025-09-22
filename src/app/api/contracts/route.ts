@@ -30,13 +30,21 @@ export async function GET() {
         const contractsWithStatus = contracts.map(c => {
             let status: ContractStatus = 'Draft';
             if (c.startDate && c.endDate) {
-                if (now >= new Date(c.startDate) && now <= new Date(c.endDate)) {
+                const startDate = new Date(c.startDate);
+                const endDate = new Date(c.endDate);
+                if (now >= startDate && now <= endDate) {
                     status = 'Active';
-                } else if (now > new Date(c.endDate)) {
+                } else if (now > endDate) {
                     status = 'Expired';
                 }
             }
-            return { ...c, status };
+            return { 
+                ...c, 
+                status,
+                // Safely access related properties
+                requisition: { title: c.requisition?.title || 'N/A' },
+                vendor: { name: c.vendor?.name || 'N/A' },
+            };
         });
 
         return NextResponse.json(contractsWithStatus);
