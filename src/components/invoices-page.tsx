@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -20,7 +19,7 @@ import {
   CardFooter,
 } from './ui/card';
 import { Button } from './ui/button';
-import { Invoice, InvoiceStatus, PurchaseOrder, Vendor, MatchingResult, MatchingStatus } from '@/lib/types';
+import { Invoice, InvoiceStatus, PurchaseOrder, MatchingResult, MatchingStatus } from '@/lib/types';
 import { format } from 'date-fns';
 import {
   Dialog,
@@ -351,35 +350,10 @@ const MatchStatus = ({ po, grn, invoice }: { po: boolean, grn: boolean, invoice:
   );
 };
 
-
-const MatchingStatusBadge = ({ invoiceId, onStatusChange }: { invoiceId: string, onStatusChange: (status: MatchingStatus) => void }) => {
-    const [result, setResult] = useState<MatchingResult | null>(null);
-    const [loading, setLoading] = useState(true);
+const MatchingStatusBadge = ({ result, onRefresh }: { result: MatchingResult | 'loading' | null, onRefresh: () => void }) => {
     const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-    useEffect(() => {
-        const fetchStatus = async () => {
-            setLoading(true);
-            try {
-                const response = await fetch(`/api/matching?invoiceId=${invoiceId}`);
-                if (response.ok) {
-                    const data = await response.json();
-                    setResult(data);
-                    onStatusChange(data.status);
-                } else {
-                     onStatusChange('Pending');
-                }
-            } catch (error) {
-                console.error(`Failed to fetch matching status for invoice ${invoiceId}`, error);
-                 onStatusChange('Pending');
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchStatus();
-    }, [invoiceId, onStatusChange]);
-
-    if (loading || !result) {
+    if (result === 'loading' || !result) {
         return <Badge variant="outline"><Loader2 className="mr-2 h-3 w-3 animate-spin"/>Checking</Badge>;
     }
     
@@ -424,7 +398,7 @@ const MatchingStatusBadge = ({ invoiceId, onStatusChange }: { invoiceId: string,
                     result={result}
                     onResolve={() => {
                         setIsDialogOpen(false);
-                        onStatusChange('Matched');
+                        onRefresh();
                     }}
                     onCancel={() => setIsDialogOpen(false)}
                 />
@@ -435,23 +409,50 @@ const MatchingStatusBadge = ({ invoiceId, onStatusChange }: { invoiceId: string,
 
 export function InvoicesPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [matchResults, setMatchResults] = useState<Record<string, MatchingResult | 'loading' | null>>({});
   const [loading, setLoading] = useState(true);
   const [isFormOpen, setFormOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [invoiceMatchStatuses, setInvoiceMatchStatuses] = useState<Record<string, MatchingStatus>>({});
   const [activeAction, setActiveAction] = useState<string | null>(null);
 
   const { toast } = useToast();
   const { user } = useAuth();
 
-
-  const fetchInvoices = async () => {
+  const fetchAllData = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      const response = await fetch('/api/invoices');
-      if (!response.ok) throw new Error('Failed to fetch invoices');
-      const data = await response.json();
-      setInvoices(data);
+      const invResponse = await fetch('/api/invoices');
+      if (!invResponse.ok) throw new Error('Failed to fetch invoices');
+      const invData: Invoice[] = await invResponse.json();
+      setInvoices(invData);
+      
+      setMatchResults(prev => {
+        const newResults = {...prev};
+        invData.forEach(inv => {
+            if (!newResults[inv.id]) {
+                newResults[inv.id] = 'loading';
+            }
+        });
+        return newResults;
+      });
+
+      const matchPromises = invData.map(inv =>
+        fetch(`/api/matching?invoiceId=${inv.id}`)
+          .then(res => res.ok ? res.json() : null)
+          .then(data => ({ id: inv.id, data }))
+      );
+
+      const results = await Promise.all(matchPromises);
+      setMatchResults(prev => {
+        const newResults = {...prev};
+        results.forEach(res => {
+          if (res) {
+            newResults[res.id] = res.data;
+          }
+        });
+        return newResults;
+      });
+
     } catch (error) {
       toast({
         variant: 'destructive',
@@ -464,7 +465,7 @@ export function InvoicesPage() {
   };
 
   useEffect(() => {
-    fetchInvoices();
+    fetchAllData();
   }, []);
   
   const totalPages = Math.ceil(invoices.length / PAGE_SIZE);
@@ -475,7 +476,7 @@ export function InvoicesPage() {
 
   const handleInvoiceAdded = () => {
     setFormOpen(false);
-    fetchInvoices();
+    fetchAllData();
   }
   
   const handleAction = async (invoiceId: string, status: 'Approved for Payment' | 'Disputed') => {
@@ -489,7 +490,7 @@ export function InvoicesPage() {
           });
           if (!response.ok) throw new Error(`Failed to mark invoice as ${status}.`);
           toast({ title: "Success", description: `Invoice has been marked as ${status}.`});
-          fetchInvoices();
+          fetchAllData();
       } catch (error) {
           toast({
             variant: 'destructive',
@@ -515,7 +516,7 @@ export function InvoicesPage() {
             throw new Error(errorData.error || 'Failed to process payment.');
         }
         toast({ title: "Payment Processed", description: `Invoice ${invoiceId} has been paid.`});
-        fetchInvoices();
+        fetchAllData();
     } catch (error) {
         toast({
             variant: 'destructive',
@@ -526,10 +527,6 @@ export function InvoicesPage() {
         setActiveAction(null);
     }
   }
-
-  const handleStatusChange = (invoiceId: string, status: MatchingStatus) => {
-    setInvoiceMatchStatuses(prev => ({ ...prev, [invoiceId]: status }));
-  };
 
   const getStatusVariant = (status: string) => {
     switch (status) {
@@ -542,7 +539,7 @@ export function InvoicesPage() {
   };
 
 
-  if (loading) {
+  if (loading && invoices.length === 0) {
     return <div className="flex h-64 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
 
@@ -584,7 +581,8 @@ export function InvoicesPage() {
             <TableBody>
               {paginatedInvoices.length > 0 ? (
                 paginatedInvoices.map((invoice, index) => {
-                  const isActionDisabled = invoiceMatchStatuses[invoice.id] !== 'Matched';
+                  const matchResult = matchResults[invoice.id] ?? 'loading';
+                  const isActionDisabled = !matchResult || matchResult === 'loading' || matchResult.status !== 'Matched';
                   const isActionLoading = activeAction === invoice.id;
                   
                   return (
@@ -594,7 +592,7 @@ export function InvoicesPage() {
                     <TableCell>{invoice.purchaseOrderId}</TableCell>
                     <TableCell>{format(new Date(invoice.invoiceDate), 'PP')}</TableCell>
                      <TableCell>
-                        <MatchingStatusBadge invoiceId={invoice.id} onStatusChange={(status) => handleStatusChange(invoice.id, status)} />
+                        <MatchingStatusBadge result={matchResult} onRefresh={fetchAllData} />
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-col gap-1">
