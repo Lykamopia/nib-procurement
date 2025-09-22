@@ -32,9 +32,10 @@ export async function GET(request: Request) {
         }
         
         whereClause.status = 'RFQ_In_Progress';
-        whereClause.allowedVendorIds = {
-            has: userPayload.user.vendorId
-        }
+        whereClause.OR = [
+          { allowedVendorIds: { isEmpty: true } }, // 'all' vendors
+          { allowedVendorIds: { has: userPayload.user.vendorId } },
+        ];
     }
 
 
