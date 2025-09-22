@@ -204,8 +204,8 @@ export function NeedsRecognitionForm({ existingRequisition, onSuccess }: NeedsRe
   }
 
   const financialWeight = form.watch('evaluationCriteria.financialWeight');
-  const financialTotal = form.watch('evaluationCriteria.financialCriteria').reduce((acc, c) => acc + (Number(c.weight) || 0), 0);
-  const technicalTotal = form.watch('evaluationCriteria.technicalCriteria').reduce((acc, c) => acc + (Number(c.weight) || 0), 0);
+  const financialTotal = (form.watch('evaluationCriteria.financialCriteria') || []).reduce((acc, c) => acc + (Number(c.weight) || 0), 0);
+  const technicalTotal = (form.watch('evaluationCriteria.technicalCriteria') || []).reduce((acc, c) => acc + (Number(c.weight) || 0), 0);
 
   return (
     <Card>
