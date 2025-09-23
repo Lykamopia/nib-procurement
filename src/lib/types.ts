@@ -129,6 +129,7 @@ export type PurchaseRequisition = {
   cpoAmount?: number;
   rfqSettings?: {
       allowQuoteEdits?: boolean;
+      technicalEvaluatorSeesPrices?: boolean;
       [key: string]: any;
   };
 };
@@ -330,3 +331,5 @@ export type DocumentRecord = {
     transactionId: string;
     auditTrail?: AuditLog[];
 }
+
+    

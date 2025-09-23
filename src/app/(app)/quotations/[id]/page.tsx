@@ -235,6 +235,10 @@ const QuoteComparison = ({ quotes, requisition, onScore, user, isDeadlinePassed,
             default: return null;
         }
     }
+    
+    const isTechnicalOnlyScorer = user.role === 'Committee Member' && requisition.technicalCommitteeMemberIds?.includes(user.id) && !requisition.financialCommitteeMemberIds?.includes(user.id);
+    const hidePrices = isTechnicalOnlyScorer && !requisition.rfqSettings?.technicalEvaluatorSeesPrices;
+
 
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -257,8 +261,17 @@ const QuoteComparison = ({ quotes, requisition, onScore, user, isDeadlinePassed,
                         <CardContent className="flex-grow space-y-4">
                              {(isDeadlinePassed || quote.cpoDocumentUrl) ? (
                                 <>
-                                    {isDeadlinePassed && <div className="text-3xl font-bold text-center">{quote.totalPrice.toLocaleString()} ETB</div>}
-                                    {isDeadlinePassed && <div className="text-center text-muted-foreground">Est. Delivery: {format(new Date(quote.deliveryDate), 'PP')}</div>}
+                                    {hidePrices ? (
+                                        <div className="text-center py-4">
+                                            <p className="font-semibold text-muted-foreground">Pricing information is hidden for technical evaluation.</p>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            {isDeadlinePassed && <div className="text-3xl font-bold text-center">{quote.totalPrice.toLocaleString()} ETB</div>}
+                                            {isDeadlinePassed && <div className="text-center text-muted-foreground">Est. Delivery: {format(new Date(quote.deliveryDate), 'PP')}</div>}
+                                        </>
+                                    )}
+
                                     
                                     {quote.cpoDocumentUrl && (
                                         <div className="text-sm space-y-1 pt-2 border-t">
@@ -275,7 +288,7 @@ const QuoteComparison = ({ quotes, requisition, onScore, user, isDeadlinePassed,
                                             {quote.items.map(item => (
                                                 <div key={item.requisitionItemId} className="flex justify-between items-center text-muted-foreground">
                                                     <span>{item.name} x {item.quantity}</span>
-                                                    <span className="font-mono">{item.unitPrice.toFixed(2)} ETB ea.</span>
+                                                    {!hidePrices && <span className="font-mono">{item.unitPrice.toFixed(2)} ETB ea.</span>}
                                                 </div>
                                             ))}
                                         </div>
@@ -431,6 +444,7 @@ const CommitteeManagement = ({ requisition, onCommitteeUpdated, open, onOpenChan
     const [deadlineTime, setDeadlineTime] = useState(
         requisition.scoringDeadline ? format(new Date(requisition.scoringDeadline), 'HH:mm') : '17:00'
     );
+    const [technicalViewPrices, setTechnicalViewPrices] = useState(requisition.rfqSettings?.technicalEvaluatorSeesPrices ?? false);
     
     const form = useForm<CommitteeFormValues>({
         resolver: zodResolver(committeeFormSchema),
@@ -459,6 +473,7 @@ const CommitteeManagement = ({ requisition, onCommitteeUpdated, open, onOpenChan
             setDeadlineDate(new Date(requisition.scoringDeadline));
             setDeadlineTime(format(new Date(requisition.scoringDeadline), 'HH:mm'));
         }
+        setTechnicalViewPrices(requisition.rfqSettings?.technicalEvaluatorSeesPrices ?? false);
     }, [requisition, form]);
 
     const handleSaveCommittee = async (values: CommitteeFormValues) => {
@@ -488,7 +503,11 @@ const CommitteeManagement = ({ requisition, onCommitteeUpdated, open, onOpenChan
                 body: JSON.stringify({ 
                     userId: user.id, 
                     ...values,
-                    scoringDeadline: finalDeadline
+                    scoringDeadline: finalDeadline,
+                    rfqSettings: {
+                        ...requisition.rfqSettings,
+                        technicalEvaluatorSeesPrices: technicalViewPrices
+                    }
                 }),
             });
             const responseData = await response.json();
@@ -656,35 +675,48 @@ const CommitteeManagement = ({ requisition, onCommitteeUpdated, open, onOpenChan
                                         )}
                                     />
                                 </div>
-                                <div className="space-y-2">
-                                    <FormLabel>Committee Scoring Deadline</FormLabel>
-                                    <div className="flex gap-2">
-                                        <Popover>
-                                            <PopoverTrigger asChild>
-                                                <Button
-                                                    variant={"outline"}
-                                                    className={cn("flex-1", !deadlineDate && "text-muted-foreground")}
-                                                >
-                                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                                    {deadlineDate ? format(deadlineDate, "PPP") : <span>Pick a date</span>}
-                                                </Button>
-                                            </PopoverTrigger>
-                                            <PopoverContent className="w-auto p-0">
-                                                <Calendar
-                                                    mode="single"
-                                                    selected={deadlineDate}
-                                                    onSelect={setDeadlineDate}
-                                                    disabled={(date) => date < new Date(new Date().setHours(0,0,0,0))}
-                                                    initialFocus
-                                                />
-                                            </PopoverContent>
-                                        </Popover>
-                                        <Input 
-                                            type="time" 
-                                            className="w-32"
-                                            value={deadlineTime}
-                                            onChange={(e) => setDeadlineTime(e.target.value)}
-                                        />
+                                <div className="grid md:grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <FormLabel>Committee Scoring Deadline</FormLabel>
+                                        <div className="flex gap-2">
+                                            <Popover>
+                                                <PopoverTrigger asChild>
+                                                    <Button
+                                                        variant={"outline"}
+                                                        className={cn("flex-1", !deadlineDate && "text-muted-foreground")}
+                                                    >
+                                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                                        {deadlineDate ? format(deadlineDate, "PPP") : <span>Pick a date</span>}
+                                                    </Button>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-auto p-0">
+                                                    <Calendar
+                                                        mode="single"
+                                                        selected={deadlineDate}
+                                                        onSelect={setDeadlineDate}
+                                                        disabled={(date) => date < new Date(new Date().setHours(0,0,0,0))}
+                                                        initialFocus
+                                                    />
+                                                </PopoverContent>
+                                            </Popover>
+                                            <Input 
+                                                type="time" 
+                                                className="w-32"
+                                                value={deadlineTime}
+                                                onChange={(e) => setDeadlineTime(e.target.value)}
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <FormLabel>Price Visibility</FormLabel>
+                                        <div className="flex items-center space-x-2 rounded-md border p-2 h-10">
+                                            <Switch 
+                                                id="technical-view-prices" 
+                                                checked={technicalViewPrices}
+                                                onCheckedChange={setTechnicalViewPrices}
+                                            />
+                                            <Label htmlFor="technical-view-prices">Allow technical evaluators to see prices</Label>
+                                        </div>
                                     </div>
                                 </div>
                                 
@@ -2544,5 +2576,7 @@ export default function QuotationDetailsPage() {
     </div>
   );
 }
+
+    
 
     
