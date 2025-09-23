@@ -739,7 +739,9 @@ export default function VendorRequisitionPage() {
                             <div className="mt-2 space-y-3">
                                 {requisition.customQuestions.map(q => {
                                     const answer = quote.answers?.find(a => a.questionId === q.id);
-                                    const linkedItem = q.requisitionItemId ? quote.items.find(i => i.requisitionItemId === q.requisitionItemId) : null;
+                                    const linkedItem = q.requisitionItemId && q.requisitionItemId !== 'general' 
+                                        ? quote.items.find(i => i.requisitionItemId === q.requisitionItemId) 
+                                        : null;
                                     if (!answer) return null;
                                     return (
                                         <div key={q.id}>
@@ -975,3 +977,6 @@ export default function VendorRequisitionPage() {
         </div>
     )
 }
+
+
+    
