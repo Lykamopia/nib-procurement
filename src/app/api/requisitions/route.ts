@@ -345,6 +345,7 @@ export async function DELETE(
         data: {
             transactionId: requisition.transactionId,
             user: { connect: { id: user.id } },
+            timestamp: new Date(),
             action: 'DELETE_REQUISITION',
             entity: 'Requisition',
             entityId: id,
@@ -361,3 +362,5 @@ export async function DELETE(
     return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
   }
 }
+
+    

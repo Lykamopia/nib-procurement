@@ -62,6 +62,7 @@ const formSchema = z.object({
         name: z.string().min(2, 'Item name is required.'),
         quantity: z.coerce.number().min(1, 'Quantity must be at least 1.'),
         unitPrice: z.coerce.number().optional(),
+        description: z.string().optional(),
       })
     )
     .min(1, 'At least one item is required.'),
@@ -112,7 +113,8 @@ export function NeedsRecognitionForm({ existingRequisition, onSuccess }: NeedsRe
         items: existingRequisition.items.map(item => ({
             name: item.name,
             quantity: item.quantity,
-            unitPrice: item.unitPrice
+            unitPrice: item.unitPrice,
+            description: item.description,
         })),
         customQuestions: existingRequisition.customQuestions?.map(q => ({
             ...q,
@@ -132,7 +134,7 @@ export function NeedsRecognitionForm({ existingRequisition, onSuccess }: NeedsRe
               { id: `TEC-${Date.now()+1}`, name: 'Warranty and Support', weight: 50 },
           ],
       },
-      items: [{ name: '', quantity: 1, unitPrice: 0 }],
+      items: [{ name: '', quantity: 1, unitPrice: 0, description: '' }],
       customQuestions: [],
     },
   });
@@ -287,14 +289,14 @@ export function NeedsRecognitionForm({ existingRequisition, onSuccess }: NeedsRe
                 {fields.map((field, index) => (
                   <div
                     key={field.id}
-                    className="flex gap-4 items-end p-4 border rounded-lg relative"
+                    className="flex gap-4 items-start p-4 border rounded-lg relative"
                   >
                     <div className="grid grid-cols-1 md:grid-cols-5 gap-4 flex-1">
                       <FormField
                         control={form.control}
                         name={`items.${index}.name`}
                         render={({ field }) => (
-                          <FormItem className="md:col-span-4">
+                          <FormItem className="md:col-span-3">
                             <FormLabel>Item Name</FormLabel>
                             <FormControl>
                               <Input
@@ -319,12 +321,29 @@ export function NeedsRecognitionForm({ existingRequisition, onSuccess }: NeedsRe
                           </FormItem>
                         )}
                       />
+                       <FormField
+                        control={form.control}
+                        name={`items.${index}.description`}
+                        render={({ field }) => (
+                          <FormItem className="md:col-span-5">
+                            <FormLabel>Description (Optional)</FormLabel>
+                            <FormControl>
+                              <Textarea
+                                placeholder="Add any specific details, model numbers, or specifications here..."
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                     </div>
                     <Button
                       type="button"
                       variant="destructive"
                       size="icon"
                       onClick={() => remove(index)}
+                      className="mt-6"
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -337,7 +356,7 @@ export function NeedsRecognitionForm({ existingRequisition, onSuccess }: NeedsRe
                     variant="outline"
                     size="sm"
                     onClick={() =>
-                    append({ name: '', quantity: 1, unitPrice: 0 })
+                    append({ name: '', quantity: 1, unitPrice: 0, description: '' })
                     }
                 >
                     <PlusCircle className="mr-2 h-4 w-4" />
@@ -611,3 +630,5 @@ function QuestionOptions({ index }: { index: number }) {
     </div>
   );
 }
+
+    
