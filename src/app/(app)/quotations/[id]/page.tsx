@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
@@ -36,7 +37,7 @@ import { useForm, useFieldArray, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { PurchaseOrder, PurchaseRequisition, Quotation, Vendor, QuotationStatus, EvaluationCriteria, User, CommitteeScoreSet, EvaluationCriterion } from '@/lib/types';
+import { PurchaseOrder, PurchaseRequisition, Quotation, Vendor, QuotationStatus, EvaluationCriteria, User, CommitteeScoreSet, EvaluationCriterion, QuoteAnswer } from '@/lib/types';
 import { format, formatDistanceToNow, isBefore, isPast, setHours, setMinutes } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
@@ -900,7 +901,7 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
     const { user } = useAuth();
     const { toast } = useToast();
     
-    const isSent = requisition.status === 'RFQ In Progress' || requisition.status === 'PO Created';
+    const isSent = requisition.status === 'RFQ_In_Progress' || requisition.status === 'PO_Created';
 
      useEffect(() => {
         if (requisition.deadline) {
@@ -1009,7 +1010,7 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
                         }
                     </CardDescription>
                 </div>
-                 {isSent && requisition.status !== 'PO Created' && user?.role === 'Procurement Officer' && (
+                 {isSent && requisition.status !== 'PO_Created' && user?.role === 'Procurement Officer' && (
                     <div className="flex gap-2">
                         <Button variant="outline" size="sm" onClick={() => setActionDialog({isOpen: true, type: 'update'})}><Settings2 className="mr-2"/> Update RFQ</Button>
                         <Button variant="destructive" size="sm" onClick={() => setActionDialog({isOpen: true, type: 'cancel'})}><Ban className="mr-2"/> Cancel RFQ</Button>
@@ -1366,6 +1367,17 @@ const ScoringDialog = ({
         return finalScore;
     }
 
+    const VendorResponse = ({ answer, questionType }: { answer: QuoteAnswer, questionType: 'text' | 'boolean' | 'multiple-choice' | 'file' }) => {
+        if (questionType === 'file') {
+            return (
+                <Button asChild variant="link" className="p-0 h-auto">
+                    <a href={answer.answer} target="_blank" rel="noopener noreferrer">View Uploaded File</a>
+                </Button>
+            );
+        }
+        return <p className="text-muted-foreground p-2 bg-muted/50 rounded-md text-sm">{answer.answer}</p>;
+    }
+
 
     if (!existingScore && isScoringDeadlinePassed) {
         return (
@@ -1443,6 +1455,32 @@ const ScoringDialog = ({
             <form onSubmit={form.handleSubmit(onSubmit)}>
             <ScrollArea className="h-[60vh] p-1">
                 <div className="space-y-6">
+
+                    {requisition.customQuestions && requisition.customQuestions.length > 0 && (
+                        <Card>
+                             <CardHeader>
+                                <CardTitle className="text-xl flex items-center gap-2">
+                                    <ClipboardList /> Vendor's Responses
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                {requisition.customQuestions.map(question => {
+                                    const answer = quote.answers?.find(a => a.questionId === question.id);
+                                    return (
+                                        <div key={question.id}>
+                                            <Label className="font-semibold">{question.questionText}</Label>
+                                            {answer ? (
+                                                <VendorResponse answer={answer} questionType={question.questionType} />
+                                            ) : (
+                                                <p className="text-muted-foreground p-2 bg-muted/50 rounded-md text-sm italic">No answer provided.</p>
+                                            )}
+                                        </div>
+                                    )
+                                })}
+                            </CardContent>
+                        </Card>
+                    )}
+
                     {isFinancialScorer && (
                         <Card>
                             <CardHeader>
@@ -2292,10 +2330,10 @@ export default function QuotationDetailsPage() {
     if (requisition.status === 'Approved') {
         return 'rfq';
     }
-    if (requisition.status === 'RFQ In Progress' && !isDeadlinePassed) {
+    if (requisition.status === 'RFQ_In_Progress' && !isDeadlinePassed) {
         return 'rfq';
     }
-     if (requisition.status === 'RFQ In Progress' && isDeadlinePassed) {
+     if (requisition.status === 'RFQ_In_Progress' && isDeadlinePassed) {
         const anyCommittee = (requisition.financialCommitteeMemberIds && requisition.financialCommitteeMemberIds.length > 0) || 
                              (requisition.technicalCommitteeMemberIds && requisition.technicalCommitteeMemberIds.length > 0);
         if (!anyCommittee) {
@@ -2304,7 +2342,7 @@ export default function QuotationDetailsPage() {
         return 'award';
     }
     if (isAccepted) {
-        if (requisition.status === 'PO Created') return 'completed';
+        if (requisition.status === 'PO_Created') return 'completed';
         return 'finalize';
     }
     if (isAwarded) {
@@ -2456,7 +2494,7 @@ export default function QuotationDetailsPage() {
                                     <FileBarChart2 className="mr-2 h-4 w-4" /> View Cumulative Report
                                 </Button>
                             )}
-                            {isAwarded && requisition.status !== 'PO Created' && role === 'Procurement Officer' && (
+                            {isAwarded && requisition.status !== 'PO_Created' && role === 'Procurement Officer' && (
                                 <AlertDialog>
                                     <AlertDialogTrigger asChild>
                                         <Button variant="outline" disabled={isChangingAward} className="w-full">
@@ -2555,7 +2593,7 @@ export default function QuotationDetailsPage() {
              />
         )}
         
-        {isAccepted && requisition.status !== 'PO Created' && role !== 'Committee Member' && (
+        {isAccepted && requisition.status !== 'PO_Created' && role !== 'Committee Member' && (
             <ContractManagement requisition={requisition} onContractFinalized={handleContractFinalized} />
         )}
          {requisition && (
@@ -2580,3 +2618,5 @@ export default function QuotationDetailsPage() {
     
 
     
+
+      
