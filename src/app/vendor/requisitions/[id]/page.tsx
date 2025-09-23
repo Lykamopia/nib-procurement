@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -222,8 +221,50 @@ function QuoteSubmissionForm({ requisition, quote, onQuoteSubmitted }: { requisi
         });
     };
 
+    const handleFileUpload = async (file: File) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('directory', 'quotes');
+        
+        try {
+            const response = await fetch('/api/upload', {
+                method: 'POST',
+                body: formData,
+            });
+            const result = await response.json();
+            if (!response.ok) {
+                throw new Error(result.error || 'File upload failed');
+            }
+            return result.path;
+        } catch (error) {
+            toast({
+                variant: 'destructive',
+                title: 'Upload Failed',
+                description: error instanceof Error ? error.message : 'Could not upload file.',
+            });
+            return null;
+        }
+    };
+
+
     const onSubmit = async (values: z.infer<typeof quoteFormSchema>) => {
         if (!user || !requisition) return;
+        
+        // Manual validation for required answers
+        let hasError = false;
+        if (requisition.customQuestions) {
+            for (let i = 0; i < requisition.customQuestions.length; i++) {
+                const question = requisition.customQuestions[i];
+                if (question.isRequired && (!values.answers || !values.answers[i] || !values.answers[i].answer)) {
+                    form.setError(`answers.${i}.answer`, { type: 'manual', message: 'A response is required for this question.'});
+                    hasError = true;
+                }
+            }
+        }
+        if (hasError) {
+             toast({ variant: 'destructive', title: 'Missing Information', description: 'Please answer all required questions.' });
+            return;
+        }
 
         if (requisition.cpoAmount && requisition.cpoAmount > 0 && !values.cpoDocumentUrl) {
             form.setError("cpoDocumentUrl", { type: "manual", message: "CPO Document is required." });
@@ -292,7 +333,12 @@ function QuoteSubmissionForm({ requisition, quote, onQuoteSubmitted }: { requisi
                                     <FormItem>
                                     <FormLabel>CPO Document (Required)</FormLabel>
                                     <FormControl>
-                                        <Input type="file" accept=".pdf" onChange={(e) => field.onChange(e.target.files?.[0]?.name || "")} />
+                                        <Input type="file" accept=".pdf" onChange={async (e) => {
+                                            if (e.target.files?.[0]) {
+                                                const path = await handleFileUpload(e.target.files[0]);
+                                                if (path) field.onChange(path);
+                                            }
+                                        }} />
                                     </FormControl>
                                     <FormDescription>
                                         A CPO of {requisition.cpoAmount?.toLocaleString()} ETB is required for this requisition.
@@ -386,7 +432,10 @@ function QuoteSubmissionForm({ requisition, quote, onQuoteSubmitted }: { requisi
                                             name={`answers.${index}.answer`}
                                             render={({ field }) => (
                                                 <FormItem>
-                                                    <FormLabel>{question.questionText}</FormLabel>
+                                                    <FormLabel>
+                                                        {question.questionText}
+                                                        {question.isRequired && <span className="text-destructive"> *</span>}
+                                                    </FormLabel>
                                                         {question.questionType === 'text' && (
                                                           <FormControl>
                                                             <Textarea placeholder="Your answer..." {...field} />
@@ -422,6 +471,16 @@ function QuoteSubmissionForm({ requisition, quote, onQuoteSubmitted }: { requisi
                                                                         ))}
                                                                     </SelectContent>
                                                                 </Select>
+                                                            </FormControl>
+                                                        )}
+                                                        {question.questionType === 'file' && (
+                                                            <FormControl>
+                                                                <Input type="file" onChange={async (e) => {
+                                                                    if (e.target.files?.[0]) {
+                                                                        const path = await handleFileUpload(e.target.files[0]);
+                                                                        if (path) field.onChange(path);
+                                                                    }
+                                                                }} />
                                                             </FormControl>
                                                         )}
                                                     <FormMessage />
@@ -835,3 +894,5 @@ export default function VendorRequisitionPage() {
         </div>
     )
 }
+
+    
