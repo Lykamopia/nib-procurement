@@ -87,6 +87,7 @@ export async function POST(request: Request) {
         
         await prisma.auditLog.create({
             data: {
+                timestamp: new Date(),
                 user: { connect: { id: user.id } },
                 action: 'MANUAL_MATCH',
                 entity: 'PurchaseOrder',
