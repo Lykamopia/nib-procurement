@@ -101,8 +101,8 @@ export async function POST(request: Request) {
         await prisma.auditLog.create({
             data: {
                 transactionId: requisition.transactionId,
-                user: { connect: { id: vendor.user.id } },
                 timestamp: new Date(),
+                user: { connect: { id: vendor.user.id } },
                 action: 'SUBMIT_QUOTATION',
                 entity: 'Quotation',
                 entityId: newQuotation.id,

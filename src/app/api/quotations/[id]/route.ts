@@ -3,7 +3,7 @@
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { users, auditLogs } from '@/lib/data-store';
+import { users } from '@/lib/data-store';
 import { addDays } from 'date-fns';
 
 export async function GET(
@@ -125,15 +125,15 @@ export async function PATCH(
             }
         });
 
-        auditLogs.unshift({
-            id: `log-${Date.now()}`,
-            timestamp: new Date(),
-            user: user.name,
-            role: user.role,
-            action: 'UPDATE_QUOTATION',
-            entity: 'Quotation',
-            entityId: quoteId,
-            details: `Updated quote for requisition ${quote.requisitionId}.`,
+        await prisma.auditLog.create({
+            data: {
+                timestamp: new Date(),
+                user: { connect: { id: user.id } },
+                action: 'UPDATE_QUOTATION',
+                entity: 'Quotation',
+                entityId: quoteId,
+                details: `Updated quote for requisition ${quote.requisitionId}.`,
+            }
         });
 
         return NextResponse.json(updatedQuote, { status: 200 });
