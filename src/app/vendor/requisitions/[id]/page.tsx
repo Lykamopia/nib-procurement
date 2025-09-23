@@ -1,7 +1,8 @@
 
+
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { PurchaseOrder, PurchaseRequisition, Quotation, CustomQuestion } from '@/lib/types';
 import { useAuth } from '@/contexts/auth-context';
@@ -316,9 +317,6 @@ function QuoteSubmissionForm({ requisition, quote, onQuoteSubmitted }: { requisi
     const isCpoRequired = !!(requisition.cpoAmount && requisition.cpoAmount > 0);
     const canSubmit = !isCpoRequired || (isCpoRequired && !!cpoDocumentValue);
 
-    const generalQuestions = requisition.customQuestions?.filter(q => !q.requisitionItemId || q.requisitionItemId === 'general');
-
-
     const QuestionInput = ({ question, index }: { question: CustomQuestion, index: number }) => (
         <Card key={question.id} className="p-4 bg-muted/30 border-muted-foreground/20">
             <FormField
@@ -470,7 +468,7 @@ function QuoteSubmissionForm({ requisition, quote, onQuoteSubmitted }: { requisi
                                             />
                                         </div>
                                          {itemSpecificQuestions && itemSpecificQuestions.length > 0 && (
-                                            <div className="mt-4 space-y-3">
+                                            <div className="mt-4 space-y-3 bg-muted/50 p-3 rounded-md">
                                                 {itemSpecificQuestions.map(q => {
                                                     const questionIndex = requisition.customQuestions!.findIndex(cq => cq.id === q.id);
                                                     if (questionIndex === -1) return null;
@@ -490,12 +488,12 @@ function QuoteSubmissionForm({ requisition, quote, onQuoteSubmitted }: { requisi
                             </Button>
                         </div>
                         
-                        {generalQuestions && generalQuestions.length > 0 && (
+                        {(requisition.customQuestions?.some(q => !q.requisitionItemId || q.requisitionItemId === 'general')) && (
                             <>
                                 <Separator />
                                 <h3 className="text-lg font-medium">General Questions</h3>
                                 <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
-                                    {generalQuestions.map(q => {
+                                    {requisition.customQuestions.filter(q => !q.requisitionItemId || q.requisitionItemId === 'general').map(q => {
                                          const questionIndex = requisition.customQuestions!.findIndex(cq => cq.id === q.id);
                                          if (questionIndex === -1) return null;
                                          return <QuestionInput key={q.id} question={q} index={questionIndex} />;
@@ -572,6 +570,8 @@ export default function VendorRequisitionPage() {
     const [submittedQuote, setSubmittedQuote] = useState<Quotation | null>(null);
     const [isInvoiceFormOpen, setInvoiceFormOpen] = useState(false);
     const [isEditingQuote, setIsEditingQuote] = useState(false);
+    
+    const itemRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
     const params = useParams();
     const router = useRouter();
@@ -675,8 +675,17 @@ export default function VendorRequisitionPage() {
     const isResponseDeadlineExpired = requisition.awardResponseDeadline ? isPast(new Date(requisition.awardResponseDeadline)) : false;
 
     const QuoteDisplayCard = ({ quote }: { quote: Quotation }) => {
-    
-        const generalQuestions = requisition.customQuestions?.filter(q => !q.requisitionItemId || q.requisitionItemId === 'general');
+
+        const handleScrollToItem = (itemId: string) => {
+            const element = itemRefs.current[itemId];
+            if (element) {
+                element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                element.classList.add('animate-pulse', 'ring-2', 'ring-primary');
+                setTimeout(() => {
+                    element.classList.remove('animate-pulse', 'ring-2', 'ring-primary');
+                }, 2000);
+            }
+        };
     
         return (
             <Card>
@@ -704,10 +713,9 @@ export default function VendorRequisitionPage() {
                         </div>
                     )}
                     <div className="space-y-2">
-                        {quote.items && quote.items.map((item, index) => {
-                            const itemQuestions = requisition.customQuestions?.filter(q => q.requisitionItemId === item.requisitionItemId);
-                            return (
-                                <Card key={`${item.requisitionItemId}-${index}`} className="p-3">
+                        {quote.items && quote.items.map((item, index) => (
+                            <div key={`${item.requisitionItemId}-${index}`} ref={el => itemRefs.current[item.requisitionItemId] = el}>
+                                <Card className="p-3">
                                     <div className="flex justify-between">
                                         <div>
                                             <p className="font-semibold">{item.name} x {item.quantity}</p>
@@ -721,41 +729,32 @@ export default function VendorRequisitionPage() {
                                             <p className="text-muted-foreground italic">{item.brandDetails}</p>
                                         </div>
                                     )}
-                                    {itemQuestions && itemQuestions.length > 0 && (
-                                        <div className="mt-4 space-y-3">
-                                            {itemQuestions.map(q => {
-                                                const answer = quote.answers?.find(a => a.questionId === q.id);
-                                                return (
-                                                    <div key={q.id} className="ml-4 pl-4 border-l-2">
-                                                         <Label className="text-xs text-muted-foreground">{q.questionText}</Label>
-                                                          {answer ? (
-                                                            <VendorResponse answer={answer} questionType={q.questionType} />
-                                                        ) : (
-                                                            <p className="text-muted-foreground p-2 bg-muted/50 rounded-md text-sm italic">No answer provided.</p>
-                                                        )}
-                                                     </div>
-                                                )
-                                            })}
-                                        </div>
-                                    )}
                                 </Card>
-                            )
-                        })}
+                            </div>
+                        ))}
                     </div>
-                     {generalQuestions && generalQuestions.length > 0 && (
+                     {quote.answers && quote.answers.length > 0 && requisition.customQuestions && (
                         <div>
-                            <h3 className="font-semibold text-sm">General Questions</h3>
-                             <div className="mt-2 space-y-3">
-                                {generalQuestions.map(q => {
+                            <h3 className="font-semibold text-sm">Questions from Requester</h3>
+                            <div className="mt-2 space-y-3">
+                                {requisition.customQuestions.map(q => {
                                     const answer = quote.answers?.find(a => a.questionId === q.id);
+                                    const linkedItem = q.requisitionItemId ? quote.items.find(i => i.requisitionItemId === q.requisitionItemId) : null;
+                                    if (!answer) return null;
                                     return (
                                         <div key={q.id}>
-                                             <Label className="text-xs text-muted-foreground">{q.questionText}</Label>
-                                              {answer ? (
-                                                <VendorResponse answer={answer} questionType={q.questionType} />
-                                            ) : (
-                                                <p className="text-muted-foreground p-2 bg-muted/50 rounded-md text-sm italic">No answer provided.</p>
+                                            {linkedItem && (
+                                                <div 
+                                                    className="text-xs text-muted-foreground pl-2 ml-4 mb-1 border-l-2 border-primary/50 cursor-pointer hover:bg-muted"
+                                                    onClick={() => handleScrollToItem(linkedItem.requisitionItemId)}
+                                                >
+                                                    <span className="font-semibold">Replying to item:</span> {linkedItem.name}
+                                                </div>
                                             )}
+                                             <div className="ml-4 pl-4 border-l-2 border-muted">
+                                                 <Label className="text-xs text-muted-foreground">{q.questionText}</Label>
+                                                  <VendorResponse answer={answer} questionType={q.questionType} />
+                                             </div>
                                          </div>
                                     )
                                 })}
@@ -976,5 +975,3 @@ export default function VendorRequisitionPage() {
         </div>
     )
 }
-
-    
