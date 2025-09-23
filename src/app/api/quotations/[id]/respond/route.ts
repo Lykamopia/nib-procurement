@@ -51,6 +51,7 @@ export async function POST(
                     vendor: { connect: { id: quote.vendorId } },
                     items: {
                         create: quote.items.map(item => ({
+                            requisitionItem: { connect: { id: item.requisitionItemId } },
                             name: item.name,
                             quantity: item.quantity,
                             unitPrice: item.unitPrice,

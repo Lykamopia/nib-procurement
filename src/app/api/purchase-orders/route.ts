@@ -1,7 +1,7 @@
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { users } from '@/lib/data-store';
+import { users, auditLogs } from '@/lib/data-store'; // auditLogs still in-memory
 
 export async function POST(request: Request) {
   try {
@@ -35,12 +35,12 @@ export async function POST(request: Request) {
 
     const newPO = await prisma.purchaseOrder.create({
         data: {
-            transactionId: requisition.transactionId,
             requisition: { connect: { id: requisition.id } },
             requisitionTitle: requisition.title,
             vendor: { connect: { id: vendor.id } },
             items: {
                 create: acceptedQuote.items.map(item => ({
+                    requisitionItem: { connect: { id: item.requisitionItemId } },
                     name: item.name,
                     quantity: item.quantity,
                     unitPrice: item.unitPrice,
@@ -67,15 +67,15 @@ export async function POST(request: Request) {
         }
     });
 
-    await prisma.auditLog.create({
-        data: {
-            transactionId: requisition.transactionId,
-            user: { connect: { id: user.id } },
-            action: 'CREATE_PO',
-            entity: 'PurchaseOrder',
-            entityId: newPO.id,
-            details: `Created Purchase Order for requisition ${requisitionId} after vendor acceptance.`,
-        }
+    auditLogs.unshift({
+        id: `log-${Date.now()}-${Math.random()}`,
+        timestamp: new Date(),
+        user: user.name,
+        role: user.role,
+        action: 'CREATE_PO',
+        entity: 'PurchaseOrder',
+        entityId: newPO.id,
+        details: `Created Purchase Order for requisition ${requisitionId} after vendor acceptance.`,
     });
 
 
