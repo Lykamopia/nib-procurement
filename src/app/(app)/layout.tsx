@@ -52,6 +52,10 @@ export default function AppLayout({
         if (item.path === '/audit-log') {
             return role === 'Procurement Officer';
         }
+        // Hide contracts unless Procurement Officer
+        if (item.path === '/contracts') {
+            return role === 'Procurement Officer';
+        }
         return allowedPaths.includes(item.path);
     });
   }, [role]);

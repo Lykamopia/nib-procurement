@@ -51,7 +51,7 @@ export type RequisitionItem = {
   unitPrice: number;
 };
 
-export type QuestionType = 'text' | 'boolean' | 'multiple-choice';
+export type QuestionType = 'text' | 'boolean' | 'multiple-choice' | 'file';
 
 export type CustomQuestion = {
   id: string;
@@ -107,6 +107,10 @@ export type PurchaseRequisition = {
   approverId?: string;
   approverComment?: string;
   quotations?: Quotation[];
+  contract?: {
+      fileName: string;
+      uploadDate: Date;
+  };
   negotiationNotes?: string;
   purchaseOrderId?: string;
   allowedVendorIds?: 'all' | string[];
@@ -228,6 +232,10 @@ export type PurchaseOrder = {
     totalAmount: number;
     status: PurchaseOrderStatus;
     createdAt: Date;
+    contract?: {
+        fileName: string;
+        uploadDate: Date;
+    };
     notes?: string;
     receipts?: GoodsReceiptNote[];
     invoices?: Invoice[];

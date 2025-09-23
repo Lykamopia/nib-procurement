@@ -74,7 +74,7 @@ const formSchema = z.object({
   customQuestions: z.array(
     z.object({
       questionText: z.string().min(5, 'Question must be at least 5 characters.'),
-      questionType: z.enum(['text', 'boolean', 'multiple-choice']),
+      questionType: z.enum(['text', 'boolean', 'multiple-choice', 'file']),
       options: z.array(z.object({ value: z.string().min(1, "Option cannot be empty.") })).optional(),
     })
   ).optional(),
@@ -479,6 +479,7 @@ export function NeedsRecognitionForm({ existingRequisition, onSuccess }: NeedsRe
                                       <SelectItem value="text">Open-ended Text</SelectItem>
                                       <SelectItem value="boolean">True/False</SelectItem>
                                       <SelectItem value="multiple-choice">Multiple Choice</SelectItem>
+                                      <SelectItem value="file">File Upload</SelectItem>
                                     </SelectContent>
                                   </Select>
                                   <FormMessage />
