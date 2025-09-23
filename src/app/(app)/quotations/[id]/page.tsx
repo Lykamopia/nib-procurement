@@ -32,7 +32,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, PlusCircle, Award, XCircle, FileSignature, FileText, Bot, Lightbulb, ArrowLeft, Star, Undo, Check, Send, Search, BadgeHelp, BadgeCheck, BadgeX, Crown, Medal, Trophy, RefreshCw, TimerOff, ClipboardList, TrendingUp, Scale, Edit2, Users, GanttChart, Eye, CheckCircle, CalendarIcon, Timer, Landmark, Settings2, Ban, Printer, FileBarChart2, UserCog, History, AlertCircle, FileUp } from 'lucide-react';
+import { Loader2, PlusCircle, Award, XCircle, FileSignature, FileText, Bot, Lightbulb, ArrowLeft, Star, Undo, Check, Send, Search, BadgeHelp, BadgeCheck, BadgeX, Crown, Medal, Trophy, RefreshCw, TimerOff, ClipboardList, TrendingUp, Scale, Edit2, Users, GanttChart, Eye, CheckCircle, CalendarIcon, Timer, Landmark, Settings2, Ban, Printer, FileBarChart2, UserCog, History, AlertCircle, FileUp, View } from 'lucide-react';
 import { useForm, useFieldArray, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -61,6 +61,7 @@ import Image from 'next/image';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { Switch } from '@/components/ui/switch';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 
 const quoteFormSchema = z.object({
   notes: z.string().optional(),
@@ -1367,12 +1368,27 @@ const ScoringDialog = ({
         return finalScore;
     }
 
-    const VendorResponse = ({ answer, questionType }: { answer: QuoteAnswer, questionType: 'text' | 'boolean' | 'multiple-choice' | 'file' }) => {
+    const VendorResponse = ({ answer, questionType }: { answer: QuoteAnswer, questionType: QuestionType }) => {
         if (questionType === 'file') {
             return (
-                <Button asChild variant="link" className="p-0 h-auto">
-                    <a href={answer.answer} target="_blank" rel="noopener noreferrer">View Uploaded File</a>
-                </Button>
+                <Sheet>
+                    <SheetTrigger asChild>
+                        <Button variant="outline" size="sm" className="gap-2">
+                           <View className="h-4 w-4"/> View Uploaded File
+                        </Button>
+                    </SheetTrigger>
+                    <SheetContent className="w-full sm:max-w-2xl md:max-w-3xl lg:max-w-4xl xl:max-w-5xl">
+                        <SheetHeader>
+                            <SheetTitle>Document Viewer</SheetTitle>
+                            <SheetDescription>
+                                Viewing document: {answer.answer.split('/').pop()}
+                            </SheetDescription>
+                        </SheetHeader>
+                        <div className="mt-4 h-[calc(100%-4rem)]">
+                             <iframe src={answer.answer} className="w-full h-full border rounded-md" />
+                        </div>
+                    </SheetContent>
+                </Sheet>
             );
         }
         return <p className="text-muted-foreground p-2 bg-muted/50 rounded-md text-sm">{answer.answer}</p>;
