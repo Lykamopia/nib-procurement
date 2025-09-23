@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { NextResponse } from 'next/server';
@@ -127,6 +128,7 @@ export async function PATCH(
 
         await prisma.auditLog.create({
             data: {
+                transactionId: quote.transactionId,
                 timestamp: new Date(),
                 user: { connect: { id: user.id } },
                 action: 'UPDATE_QUOTATION',

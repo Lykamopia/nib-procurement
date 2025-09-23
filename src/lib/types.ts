@@ -168,6 +168,7 @@ export type Vendor = {
 };
 
 export type QuoteItem = {
+    id: string;
     requisitionItemId: string;
     name: string;
     quantity: number;
@@ -331,5 +332,3 @@ export type DocumentRecord = {
     transactionId: string;
     auditTrail?: AuditLog[];
 }
-
-    

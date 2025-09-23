@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -31,12 +32,12 @@ const quoteFormSchema = z.object({
   notes: z.string().optional(),
   items: z.array(z.object({
     requisitionItemId: z.string(),
-    name: z.string(),
-    quantity: z.number(),
+    name: z.string().min(1, "Item name is required"),
+    quantity: z.coerce.number().min(1, "Quantity must be at least 1"),
     unitPrice: z.coerce.number().min(0.01, "Price is required."),
     leadTimeDays: z.coerce.number().min(0, "Lead time is required."),
     brandDetails: z.string().optional(),
-  })),
+  })).min(1, "At least one item is required in the quote."),
   answers: z.array(z.object({
       questionId: z.string(),
       answer: z.string().min(1, "This question requires an answer."),
@@ -200,7 +201,7 @@ function QuoteSubmissionForm({ requisition, quote, onQuoteSubmitted }: { requisi
         },
     });
 
-     const { fields, append, remove, update } = useFieldArray({
+     const { fields, append, remove } = useFieldArray({
         control: form.control,
         name: "items",
     });
@@ -356,11 +357,11 @@ function QuoteSubmissionForm({ requisition, quote, onQuoteSubmitted }: { requisi
                                         <FormField
                                             control={form.control}
                                             name={`items.${index}.name`}
-                                            render={({ field }) => (
+                                            render={({ field: formField }) => (
                                                 <FormItem className="flex-1">
                                                     <FormLabel>Item Name (Qty: {form.getValues(`items.${index}.quantity`)})</FormLabel>
                                                     <FormControl>
-                                                        <Input placeholder="e.g., MacBook Pro 16-inch or alternative" {...field} />
+                                                        <Input placeholder="e.g., MacBook Pro 16-inch or alternative" {...formField} />
                                                     </FormControl>
                                                     <FormMessage />
                                                 </FormItem>
@@ -376,11 +377,11 @@ function QuoteSubmissionForm({ requisition, quote, onQuoteSubmitted }: { requisi
                                         <FormField
                                             control={form.control}
                                             name={`items.${index}.brandDetails`}
-                                            render={({ field }) => (
+                                            render={({ field: formField }) => (
                                                 <FormItem className="md:col-span-2">
                                                     <FormLabel>Brand / Model Details</FormLabel>
                                                     <FormControl>
-                                                        <Textarea placeholder="e.g., Dell XPS 15, HP Spectre x360..." {...field} />
+                                                        <Textarea placeholder="e.g., Dell XPS 15, HP Spectre x360..." {...formField} />
                                                     </FormControl>
                                                     <FormMessage />
                                                 </FormItem>
@@ -389,10 +390,10 @@ function QuoteSubmissionForm({ requisition, quote, onQuoteSubmitted }: { requisi
                                         <FormField
                                             control={form.control}
                                             name={`items.${index}.unitPrice`}
-                                            render={({ field }) => (
+                                            render={({ field: formField }) => (
                                                 <FormItem>
                                                     <FormLabel>Unit Price (ETB)</FormLabel>
-                                                    <FormControl><Input type="number" step="0.01" {...field} value={field.value ?? ''} /></FormControl>
+                                                    <FormControl><Input type="number" step="0.01" {...formField} value={formField.value ?? ''} /></FormControl>
                                                     <FormMessage />
                                                 </FormItem>
                                             )}
@@ -400,10 +401,10 @@ function QuoteSubmissionForm({ requisition, quote, onQuoteSubmitted }: { requisi
                                         <FormField
                                             control={form.control}
                                             name={`items.${index}.leadTimeDays`}
-                                            render={({ field }) => (
+                                            render={({ field: formField }) => (
                                                 <FormItem>
                                                     <FormLabel>Lead Time (Days)</FormLabel>
-                                                    <FormControl><Input type="number" {...field} /></FormControl>
+                                                    <FormControl><Input type="number" {...formField} /></FormControl>
                                                     <FormMessage />
                                                 </FormItem>
                                             )}
@@ -894,5 +895,3 @@ export default function VendorRequisitionPage() {
         </div>
     )
 }
-
-    
