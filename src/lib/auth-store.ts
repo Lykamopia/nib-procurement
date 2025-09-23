@@ -11,3 +11,5 @@ export function seedInitialUsers() {
 
 // Export the live list from the central data store
 export const users = userList;
+
+userList.find(u => u.id === '6')!.email = 'tade2024bdu@gmail.com';
