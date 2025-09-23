@@ -1,6 +1,7 @@
 
 'use client';
 
+import React, { Suspense } from 'react';
 import {
   Card,
   CardContent,
@@ -9,12 +10,21 @@ import {
   CardDescription,
 } from './ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { RolePermissionsEditor } from './role-permissions-editor';
-import { RoleManagementEditor } from './role-management-editor';
-import { DepartmentManagementEditor } from './department-management-editor';
-import { UserManagementEditor } from './user-management-editor';
-import { NotificationSettingsEditor } from './notification-settings-editor';
+import { Loader2 } from 'lucide-react';
 
+// Lazy load the components for each tab
+const RolePermissionsEditor = React.lazy(() => import('./role-permissions-editor').then(module => ({ default: module.RolePermissionsEditor })));
+const RoleManagementEditor = React.lazy(() => import('./role-management-editor').then(module => ({ default: module.RoleManagementEditor })));
+const DepartmentManagementEditor = React.lazy(() => import('./department-management-editor').then(module => ({ default: module.DepartmentManagementEditor })));
+const UserManagementEditor = React.lazy(() => import('./user-management-editor').then(module => ({ default: module.UserManagementEditor })));
+const NotificationSettingsEditor = React.lazy(() => import('./notification-settings-editor').then(module => ({ default: module.NotificationSettingsEditor })));
+
+
+const LoadingFallback = () => (
+  <div className="flex h-64 items-center justify-center">
+    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+  </div>
+);
 
 export function SettingsPage() {
   return (
@@ -41,19 +51,29 @@ export function SettingsPage() {
         </Card>
       </TabsContent>
       <TabsContent value="permissions">
-        <RolePermissionsEditor />
+        <Suspense fallback={<LoadingFallback />}>
+          <RolePermissionsEditor />
+        </Suspense>
       </TabsContent>
        <TabsContent value="roles">
-        <RoleManagementEditor />
+        <Suspense fallback={<LoadingFallback />}>
+          <RoleManagementEditor />
+        </Suspense>
       </TabsContent>
        <TabsContent value="users">
-        <UserManagementEditor />
+        <Suspense fallback={<LoadingFallback />}>
+          <UserManagementEditor />
+        </Suspense>
       </TabsContent>
        <TabsContent value="departments">
-        <DepartmentManagementEditor />
+        <Suspense fallback={<LoadingFallback />}>
+          <DepartmentManagementEditor />
+        </Suspense>
       </TabsContent>
       <TabsContent value="notifications">
-         <NotificationSettingsEditor />
+        <Suspense fallback={<LoadingFallback />}>
+          <NotificationSettingsEditor />
+        </Suspense>
       </TabsContent>
     </Tabs>
   );
