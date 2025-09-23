@@ -472,6 +472,7 @@ function QuoteSubmissionForm({ requisition, quote, onQuoteSubmitted }: { requisi
                                             <div className="mt-4 space-y-3">
                                                 {itemSpecificQuestions.map(q => {
                                                     const questionIndex = requisition.customQuestions!.findIndex(cq => cq.id === q.id);
+                                                    if (questionIndex === -1) return null;
                                                     return <QuestionInput key={q.id} question={q} index={questionIndex} />;
                                                 })}
                                             </div>
@@ -495,6 +496,7 @@ function QuoteSubmissionForm({ requisition, quote, onQuoteSubmitted }: { requisi
                                 <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
                                     {generalQuestions.map(q => {
                                          const questionIndex = requisition.customQuestions!.findIndex(cq => cq.id === q.id);
+                                         if (questionIndex === -1) return null;
                                          return <QuestionInput key={q.id} question={q} index={questionIndex} />;
                                     })}
                                 </div>
@@ -902,6 +904,3 @@ export default function VendorRequisitionPage() {
         </div>
     )
 }
-
-
-      
