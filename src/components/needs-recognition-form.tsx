@@ -520,14 +520,14 @@ export function NeedsRecognitionForm({ existingRequisition, onSuccess }: NeedsRe
                                 render={({ field }) => (
                                     <FormItem>
                                     <FormLabel>Link to Item (Optional)</FormLabel>
-                                    <Select onValueChange={field.onChange} value={field.value} defaultValue="">
+                                    <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value || "general"}>
                                         <FormControl>
                                         <SelectTrigger>
                                             <SelectValue placeholder="Select an item" />
                                         </SelectTrigger>
                                         </FormControl>
                                         <SelectContent>
-                                            <SelectItem value="">General (Not item-specific)</SelectItem>
+                                            <SelectItem value="general">General (Not item-specific)</SelectItem>
                                             {itemsWatch.map((item, itemIndex) => (
                                                 <SelectItem key={item.id} value={item.id!}>
                                                     {`Item ${itemIndex + 1}: ${item.name || 'Untitled Item'}`}
