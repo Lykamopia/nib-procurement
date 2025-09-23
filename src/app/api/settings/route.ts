@@ -4,6 +4,7 @@
 import { NextResponse } from 'next/server';
 import { getSettings, updateSettings } from '@/lib/settings';
 import { users } from '@/lib/data-store';
+import { prisma } from '@/lib/prisma';
 
 export async function GET() {
   try {
