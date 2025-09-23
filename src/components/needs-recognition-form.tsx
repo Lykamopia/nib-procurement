@@ -42,6 +42,7 @@ import { PurchaseRequisition } from '@/lib/types';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { Slider } from './ui/slider';
 import { Badge } from './ui/badge';
+import { Switch } from './ui/switch';
 
 const evaluationCriteriaSchema = z.object({
       id: z.string(),
@@ -60,7 +61,7 @@ const formSchema = z.object({
   items: z
     .array(
       z.object({
-        id: z.string().optional(), // For linking questions
+        id: z.string().optional(),
         name: z.string().min(2, 'Item name is required.'),
         quantity: z.coerce.number().min(1, 'Quantity must be at least 1.'),
         unitPrice: z.coerce.number().optional(),
@@ -76,8 +77,10 @@ const formSchema = z.object({
   }),
   customQuestions: z.array(
     z.object({
+      id: z.string().optional(),
       questionText: z.string().min(5, 'Question must be at least 5 characters.'),
       questionType: z.enum(['text', 'boolean', 'multiple-choice', 'file']),
+      isRequired: z.boolean(),
       options: z.array(z.object({ value: z.string().min(1, "Option cannot be empty.") })).optional(),
       requisitionItemId: z.string().optional(),
     })
@@ -476,7 +479,7 @@ export function NeedsRecognitionForm({ existingRequisition, onSuccess }: NeedsRe
                   return (
                     <div key={field.id} className="flex gap-4 items-start p-4 border rounded-lg">
                       <div className="flex-1 space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
                           <FormField
                             control={form.control}
                             name={`customQuestions.${index}.questionText`}
@@ -536,6 +539,21 @@ export function NeedsRecognitionForm({ existingRequisition, onSuccess }: NeedsRe
                                     </FormItem>
                                 )}
                             />
+                              <FormField
+                                control={form.control}
+                                name={`customQuestions.${index}.isRequired`}
+                                render={({ field }) => (
+                                  <FormItem className="flex flex-col pt-2">
+                                    <FormLabel>Required</FormLabel>
+                                    <FormControl>
+                                       <Switch
+                                          checked={field.value}
+                                          onCheckedChange={field.onChange}
+                                        />
+                                    </FormControl>
+                                  </FormItem>
+                                )}
+                              />
                         </div>
                          {questionType === 'multiple-choice' && (
                           <div className="pl-4 space-y-2">
@@ -562,7 +580,7 @@ export function NeedsRecognitionForm({ existingRequisition, onSuccess }: NeedsRe
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => appendQuestion({ questionText: '', questionType: 'text', options: [] })}
+                  onClick={() => appendQuestion({ questionText: '', questionType: 'text', isRequired: true, options: [] })}
                 >
                   <PlusCircle className="mr-2 h-4 w-4" />
                   Add Question

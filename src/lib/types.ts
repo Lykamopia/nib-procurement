@@ -57,6 +57,7 @@ export type CustomQuestion = {
   id: string;
   questionText: string;
   questionType: QuestionType;
+  isRequired: boolean;
   options?: string[];
   requisitionItemId?: string;
 };
