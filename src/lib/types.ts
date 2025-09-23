@@ -58,6 +58,7 @@ export type CustomQuestion = {
   questionText: string;
   questionType: QuestionType;
   options?: string[];
+  requisitionItemId?: string;
 };
 
 export type ContractStatus = 'Draft' | 'Active' | 'Expired';

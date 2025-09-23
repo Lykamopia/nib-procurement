@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -59,6 +60,7 @@ const formSchema = z.object({
   items: z
     .array(
       z.object({
+        id: z.string().optional(), // For linking questions
         name: z.string().min(2, 'Item name is required.'),
         quantity: z.coerce.number().min(1, 'Quantity must be at least 1.'),
         unitPrice: z.coerce.number().optional(),
@@ -77,6 +79,7 @@ const formSchema = z.object({
       questionText: z.string().min(5, 'Question must be at least 5 characters.'),
       questionType: z.enum(['text', 'boolean', 'multiple-choice', 'file']),
       options: z.array(z.object({ value: z.string().min(1, "Option cannot be empty.") })).optional(),
+      requisitionItemId: z.string().optional(),
     })
   ).optional(),
 }).refine(data => data.evaluationCriteria.financialWeight + data.evaluationCriteria.technicalWeight === 100, {
@@ -111,6 +114,7 @@ export function NeedsRecognitionForm({ existingRequisition, onSuccess }: NeedsRe
         justification: existingRequisition.justification,
         evaluationCriteria: existingRequisition.evaluationCriteria,
         items: existingRequisition.items.map(item => ({
+            id: item.id,
             name: item.name,
             quantity: item.quantity,
             unitPrice: item.unitPrice,
@@ -134,7 +138,7 @@ export function NeedsRecognitionForm({ existingRequisition, onSuccess }: NeedsRe
               { id: `TEC-${Date.now()+1}`, name: 'Warranty and Support', weight: 50 },
           ],
       },
-      items: [{ name: '', quantity: 1, unitPrice: 0, description: '' }],
+      items: [{ id: `ITEM-${Date.now()}`, name: '', quantity: 1, unitPrice: 0, description: '' }],
       customQuestions: [],
     },
   });
@@ -155,6 +159,8 @@ export function NeedsRecognitionForm({ existingRequisition, onSuccess }: NeedsRe
   const { fields: technicalFields, append: appendTechnical, remove: removeTechnical } = useFieldArray({
       control: form.control, name: "evaluationCriteria.technicalCriteria",
   });
+  
+  const itemsWatch = form.watch('items');
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setLoading(true);
@@ -356,7 +362,7 @@ export function NeedsRecognitionForm({ existingRequisition, onSuccess }: NeedsRe
                     variant="outline"
                     size="sm"
                     onClick={() =>
-                    append({ name: '', quantity: 1, unitPrice: 0, description: '' })
+                    append({ id: `ITEM-${Date.now()}`, name: '', quantity: 1, unitPrice: 0, description: '' })
                     }
                 >
                     <PlusCircle className="mr-2 h-4 w-4" />
@@ -470,12 +476,12 @@ export function NeedsRecognitionForm({ existingRequisition, onSuccess }: NeedsRe
                   return (
                     <div key={field.id} className="flex gap-4 items-start p-4 border rounded-lg">
                       <div className="flex-1 space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <FormField
                             control={form.control}
                             name={`customQuestions.${index}.questionText`}
                             render={({ field }) => (
-                              <FormItem className="md:col-span-2">
+                              <FormItem>
                                 <FormLabel>Question {index + 1}</FormLabel>
                                 <FormControl>
                                   <Input placeholder="e.g., What is the warranty period?" {...field} />
@@ -504,6 +510,31 @@ export function NeedsRecognitionForm({ existingRequisition, onSuccess }: NeedsRe
                                   <FormMessage />
                                 </FormItem>
                               )}
+                            />
+                             <FormField
+                                control={form.control}
+                                name={`customQuestions.${index}.requisitionItemId`}
+                                render={({ field }) => (
+                                    <FormItem>
+                                    <FormLabel>Link to Item (Optional)</FormLabel>
+                                    <Select onValueChange={field.onChange} value={field.value} defaultValue="">
+                                        <FormControl>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select an item" />
+                                        </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                            <SelectItem value="">General (Not item-specific)</SelectItem>
+                                            {itemsWatch.map((item, itemIndex) => (
+                                                <SelectItem key={item.id} value={item.id!}>
+                                                    {`Item ${itemIndex + 1}: ${item.name || 'Untitled Item'}`}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                    </FormItem>
+                                )}
                             />
                         </div>
                          {questionType === 'multiple-choice' && (
