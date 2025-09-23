@@ -4,7 +4,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { PurchaseOrder, PurchaseRequisition, Quotation } from '@/lib/types';
+import { PurchaseOrder, PurchaseRequisition, Quotation, CustomQuestion } from '@/lib/types';
 import { useAuth } from '@/contexts/auth-context';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
@@ -315,6 +315,62 @@ function QuoteSubmissionForm({ requisition, quote, onQuoteSubmitted }: { requisi
     const isCpoRequired = !!(requisition.cpoAmount && requisition.cpoAmount > 0);
     const canSubmit = !isCpoRequired || (isCpoRequired && !!cpoDocumentValue);
 
+    const generalQuestions = requisition.customQuestions?.filter(q => !q.requisitionItemId || q.requisitionItemId === 'general');
+
+
+    const QuestionInput = ({ question, index }: { question: CustomQuestion, index: number }) => (
+        <Card key={question.id} className="p-4 bg-muted/30 border-muted-foreground/20">
+            <FormField
+                control={form.control}
+                name={`answers.${index}.answer`}
+                render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>
+                            {question.questionText}
+                            {question.isRequired && <span className="text-destructive"> *</span>}
+                        </FormLabel>
+                        {question.questionType === 'text' && <FormControl><Textarea placeholder="Your answer..." {...field} /></FormControl>}
+                        {question.questionType === 'boolean' && (
+                            <FormControl>
+                                <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex gap-4 pt-2">
+                                    <FormItem className="flex items-center space-x-2">
+                                        <FormControl><RadioGroupItem value="true" id={`${question.id}-true`} /></FormControl>
+                                        <FormLabel htmlFor={`${question.id}-true`} className="font-normal">True</FormLabel>
+                                    </FormItem>
+                                    <FormItem className="flex items-center space-x-2">
+                                        <FormControl><RadioGroupItem value="false" id={`${question.id}-false`} /></FormControl>
+                                        <FormLabel htmlFor={`${question.id}-false`} className="font-normal">False</FormLabel>
+                                    </FormItem>
+                                </RadioGroup>
+                            </FormControl>
+                        )}
+                        {question.questionType === 'multiple-choice' && (
+                            <FormControl>
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <SelectTrigger><SelectValue placeholder="Select an option" /></SelectTrigger>
+                                    <SelectContent>
+                                        {question.options?.map(option => <SelectItem key={option} value={option}>{option}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                            </FormControl>
+                        )}
+                        {question.questionType === 'file' && (
+                            <FormControl>
+                                <Input type="file" onChange={async (e) => {
+                                    if (e.target.files?.[0]) {
+                                        const path = await handleFileUpload(e.target.files[0]);
+                                        if (path) field.onChange(path);
+                                    }
+                                }} />
+                            </FormControl>
+                        )}
+                        <FormMessage />
+                    </FormItem>
+                )}
+            />
+        </Card>
+    );
+
     return (
         <Card>
             <CardHeader>
@@ -351,145 +407,96 @@ function QuoteSubmissionForm({ requisition, quote, onQuoteSubmitted }: { requisi
                         )}
 
                         <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
-                            {fields.map((field, index) => (
-                                <Card key={field.id} className="p-4 relative">
-                                    <div className="flex justify-between items-start">
-                                        <FormField
-                                            control={form.control}
-                                            name={`items.${index}.name`}
-                                            render={({ field: formField }) => (
-                                                <FormItem className="flex-1">
-                                                    <FormLabel>Item Name (Qty: {form.getValues(`items.${index}.quantity`)})</FormLabel>
-                                                    <FormControl>
-                                                        <Input placeholder="e.g., MacBook Pro 16-inch or alternative" {...formField} />
-                                                    </FormControl>
-                                                    <FormMessage />
-                                                </FormItem>
+                            {fields.map((field, index) => {
+                                const itemSpecificQuestions = requisition.customQuestions?.filter(q => q.requisitionItemId === field.requisitionItemId);
+                                return (
+                                    <Card key={field.id} className="p-4 relative">
+                                        <div className="flex justify-between items-start">
+                                            <FormField
+                                                control={form.control}
+                                                name={`items.${index}.name`}
+                                                render={({ field: formField }) => (
+                                                    <FormItem className="flex-1">
+                                                        <FormLabel>Item Name (Qty: {form.getValues(`items.${index}.quantity`)})</FormLabel>
+                                                        <FormControl>
+                                                            <Input placeholder="e.g., MacBook Pro 16-inch or alternative" {...formField} />
+                                                        </FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                        {fields.length > 1 && (
+                                                <Button type="button" variant="ghost" size="icon" className="h-6 w-6 ml-2 mt-7" onClick={() => remove(index)}>
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
                                             )}
-                                        />
-                                       {fields.length > 1 && (
-                                            <Button type="button" variant="ghost" size="icon" className="h-6 w-6 ml-2 mt-7" onClick={() => remove(index)}>
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
+                                        </div>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+                                            <FormField
+                                                control={form.control}
+                                                name={`items.${index}.brandDetails`}
+                                                render={({ field: formField }) => (
+                                                    <FormItem className="md:col-span-2">
+                                                        <FormLabel>Brand / Model Details</FormLabel>
+                                                        <FormControl>
+                                                            <Textarea placeholder="e.g., Dell XPS 15, HP Spectre x360..." {...formField} />
+                                                        </FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                            <FormField
+                                                control={form.control}
+                                                name={`items.${index}.unitPrice`}
+                                                render={({ field: formField }) => (
+                                                    <FormItem>
+                                                        <FormLabel>Unit Price (ETB)</FormLabel>
+                                                        <FormControl><Input type="number" step="0.01" {...formField} value={formField.value ?? ''} /></FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                            <FormField
+                                                control={form.control}
+                                                name={`items.${index}.leadTimeDays`}
+                                                render={({ field: formField }) => (
+                                                    <FormItem>
+                                                        <FormLabel>Lead Time (Days)</FormLabel>
+                                                        <FormControl><Input type="number" {...formField} /></FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                        </div>
+                                         {itemSpecificQuestions && itemSpecificQuestions.length > 0 && (
+                                            <div className="mt-4 space-y-3">
+                                                {itemSpecificQuestions.map(q => {
+                                                    const questionIndex = requisition.customQuestions!.findIndex(cq => cq.id === q.id);
+                                                    return <QuestionInput key={q.id} question={q} index={questionIndex} />;
+                                                })}
+                                            </div>
                                         )}
-                                    </div>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-                                        <FormField
-                                            control={form.control}
-                                            name={`items.${index}.brandDetails`}
-                                            render={({ field: formField }) => (
-                                                <FormItem className="md:col-span-2">
-                                                    <FormLabel>Brand / Model Details</FormLabel>
-                                                    <FormControl>
-                                                        <Textarea placeholder="e.g., Dell XPS 15, HP Spectre x360..." {...formField} />
-                                                    </FormControl>
-                                                    <FormMessage />
-                                                </FormItem>
-                                            )}
-                                        />
-                                        <FormField
-                                            control={form.control}
-                                            name={`items.${index}.unitPrice`}
-                                            render={({ field: formField }) => (
-                                                <FormItem>
-                                                    <FormLabel>Unit Price (ETB)</FormLabel>
-                                                    <FormControl><Input type="number" step="0.01" {...formField} value={formField.value ?? ''} /></FormControl>
-                                                    <FormMessage />
-                                                </FormItem>
-                                            )}
-                                        />
-                                        <FormField
-                                            control={form.control}
-                                            name={`items.${index}.leadTimeDays`}
-                                            render={({ field: formField }) => (
-                                                <FormItem>
-                                                    <FormLabel>Lead Time (Days)</FormLabel>
-                                                    <FormControl><Input type="number" {...formField} /></FormControl>
-                                                    <FormMessage />
-                                                </FormItem>
-                                            )}
-                                        />
-                                    </div>
-                                </Card>
-                            ))}
+                                    </Card>
+                                )
+                            })}
                         </div>
 
                          <div className="mt-4 flex justify-start">
                             <Button type="button" variant="outline" size="sm" onClick={addItem}>
                                 <PlusCircle className="mr-2 h-4 w-4" />
-                                Add Item to Quote
+                                Add Alternative Item
                             </Button>
                         </div>
-
-                         {requisition.customQuestions && requisition.customQuestions.length > 0 && (
+                        
+                        {generalQuestions && generalQuestions.length > 0 && (
                             <>
                                 <Separator />
-                                <h3 className="text-lg font-medium">Additional Questions</h3>
+                                <h3 className="text-lg font-medium">General Questions</h3>
                                 <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
-                                {requisition.customQuestions.map((question, index) => (
-                                    <Card key={question.id} className="p-4">
-                                        <FormField
-                                            control={form.control}
-                                            name={`answers.${index}.answer`}
-                                            render={({ field }) => (
-                                                <FormItem>
-                                                    <FormLabel>
-                                                        {question.questionText}
-                                                        {question.isRequired && <span className="text-destructive"> *</span>}
-                                                    </FormLabel>
-                                                        {question.questionType === 'text' && (
-                                                          <FormControl>
-                                                            <Textarea placeholder="Your answer..." {...field} />
-                                                          </FormControl>
-                                                        )}
-                                                        {question.questionType === 'boolean' && (
-                                                          <FormControl>
-                                                            <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex gap-4 pt-2">
-                                                              <FormItem className="flex items-center space-x-2">
-                                                                <FormControl>
-                                                                  <RadioGroupItem value="true" id={`${question.id}-true`} />
-                                                                </FormControl>
-                                                                <FormLabel htmlFor={`${question.id}-true`} className="font-normal">True</FormLabel>
-                                                              </FormItem>
-                                                              <FormItem className="flex items-center space-x-2">
-                                                                <FormControl>
-                                                                  <RadioGroupItem value="false" id={`${question.id}-false`} />
-                                                                </FormControl>
-                                                                <FormLabel htmlFor={`${question.id}-false`} className="font-normal">False</FormLabel>
-                                                              </FormItem>
-                                                            </RadioGroup>
-                                                          </FormControl>
-                                                        )}
-                                                        {question.questionType === 'multiple-choice' && (
-                                                           <FormControl>
-                                                                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                                    <SelectTrigger>
-                                                                        <SelectValue placeholder="Select an option" />
-                                                                    </SelectTrigger>
-                                                                    <SelectContent>
-                                                                        {question.options?.map(option => (
-                                                                            <SelectItem key={option} value={option}>{option}</SelectItem>
-                                                                        ))}
-                                                                    </SelectContent>
-                                                                </Select>
-                                                            </FormControl>
-                                                        )}
-                                                        {question.questionType === 'file' && (
-                                                            <FormControl>
-                                                                <Input type="file" onChange={async (e) => {
-                                                                    if (e.target.files?.[0]) {
-                                                                        const path = await handleFileUpload(e.target.files[0]);
-                                                                        if (path) field.onChange(path);
-                                                                    }
-                                                                }} />
-                                                            </FormControl>
-                                                        )}
-                                                    <FormMessage />
-                                                </FormItem>
-                                            )}
-                                        />
-                                    </Card>
-                                ))}
+                                    {generalQuestions.map(q => {
+                                         const questionIndex = requisition.customQuestions!.findIndex(cq => cq.id === q.id);
+                                         return <QuestionInput key={q.id} question={q} index={questionIndex} />;
+                                    })}
                                 </div>
                             </>
                         )}
@@ -895,3 +902,6 @@ export default function VendorRequisitionPage() {
         </div>
     )
 }
+
+
+      

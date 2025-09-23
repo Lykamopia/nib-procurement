@@ -37,7 +37,7 @@ import { useForm, useFieldArray, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { PurchaseOrder, PurchaseRequisition, Quotation, Vendor, QuotationStatus, EvaluationCriteria, User, CommitteeScoreSet, EvaluationCriterion, QuoteAnswer } from '@/lib/types';
+import { PurchaseOrder, PurchaseRequisition, Quotation, Vendor, QuotationStatus, EvaluationCriteria, User, CommitteeScoreSet, EvaluationCriterion, QuoteAnswer, QuestionType } from '@/lib/types';
 import { format, formatDistanceToNow, isBefore, isPast, setHours, setMinutes } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
@@ -1480,11 +1480,35 @@ const ScoringDialog = ({
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-4">
-                                {requisition.customQuestions.map(question => {
+                                {requisition.items.map(item => {
+                                    const itemQuestions = requisition.customQuestions!.filter(q => q.requisitionItemId === item.id);
+                                    if (itemQuestions.length === 0) return null;
+                                    return (
+                                        <div key={item.id} className="space-y-3 rounded-md border p-4">
+                                            <h4 className="font-semibold">{item.name}</h4>
+                                            {itemQuestions.map(question => {
+                                                 const answer = quote.answers?.find(a => a.questionId === question.id);
+                                                 return (
+                                                     <div key={question.id} className="ml-4 pl-4 border-l-2">
+                                                         <Label className="text-xs text-muted-foreground">{question.questionText}</Label>
+                                                          {answer ? (
+                                                            <VendorResponse answer={answer} questionType={question.questionType} />
+                                                        ) : (
+                                                            <p className="text-muted-foreground p-2 bg-muted/50 rounded-md text-sm italic">No answer provided.</p>
+                                                        )}
+                                                     </div>
+                                                 )
+                                            })}
+                                        </div>
+                                    )
+                                })}
+                                 <Separator/>
+                                 <h4 className="font-semibold">General Questions</h4>
+                                  {requisition.customQuestions.filter(q => !q.requisitionItemId || q.requisitionItemId === 'general').map(question => {
                                     const answer = quote.answers?.find(a => a.questionId === question.id);
                                     return (
                                         <div key={question.id}>
-                                            <Label className="font-semibold">{question.questionText}</Label>
+                                            <Label>{question.questionText}</Label>
                                             {answer ? (
                                                 <VendorResponse answer={answer} questionType={question.questionType} />
                                             ) : (
@@ -2634,5 +2658,7 @@ export default function QuotationDetailsPage() {
     
 
     
+
+      
 
       
