@@ -3,3 +3,4 @@ config();
 
 // This file is used to register Genkit flows for development.
 // Flows imported here will be available in the Genkit developer UI.
+import './flows/send-email-flow';
