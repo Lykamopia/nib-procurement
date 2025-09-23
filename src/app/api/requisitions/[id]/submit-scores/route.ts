@@ -23,6 +23,7 @@ export async function POST(
         return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
     
+    // Using upsert to handle cases where the assignment might not exist yet, though it should.
     await prisma.committeeAssignment.upsert({
       where: {
         userId_requisitionId: {

@@ -1638,6 +1638,7 @@ const ScoringProgressTracker = ({
   onCommitteeUpdate,
   isFinalizing,
   isAwarded,
+  isScoringComplete,
 }: {
   requisition: PurchaseRequisition;
   quotations: Quotation[];
@@ -1646,6 +1647,7 @@ const ScoringProgressTracker = ({
   onCommitteeUpdate: (open: boolean) => void;
   isFinalizing: boolean;
   isAwarded: boolean;
+  isScoringComplete: boolean;
 }) => {
     const [awardResponseDeadline, setAwardResponseDeadline] = useState<Date | undefined>();
     const [isExtendDialogOpen, setExtendDialogOpen] = useState(false);
@@ -1667,17 +1669,19 @@ const ScoringProgressTracker = ({
     const scoringStatus = useMemo(() => {
         return assignedCommitteeMembers.map(member => {
             const hasScoredAll = quotations.every(quote => quote.scores?.some(score => score.scorerId === member.id));
+            const submittedFinal = member.committeeAssignments?.find(a => a.requisitionId === requisition.id)?.scoresSubmitted || false;
             const firstScore = quotations
                 .flatMap(q => q.scores || [])
                 .filter(s => s.scorerId === member.id)
                 .sort((a,b) => new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime())[0];
-            const isOverdue = isScoringDeadlinePassed && !hasScoredAll;
+            const isOverdue = isScoringDeadlinePassed && !submittedFinal;
 
             return {
                 ...member,
                 hasScoredAll,
                 isOverdue,
-                submittedAt: hasScoredAll ? firstScore?.submittedAt : null,
+                submittedFinal,
+                submittedAt: submittedFinal ? firstScore?.submittedAt : null,
             };
         }).sort((a, b) => {
              if (a.submittedAt && b.submittedAt) return new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime();
@@ -1685,10 +1689,9 @@ const ScoringProgressTracker = ({
              if (b.submittedAt) return 1;
              return 0;
         });
-    }, [assignedCommitteeMembers, quotations, isScoringDeadlinePassed]);
+    }, [assignedCommitteeMembers, quotations, isScoringDeadlinePassed, requisition.id]);
     
     const overdueMembers = scoringStatus.filter(s => s.isOverdue);
-    const allHaveScored = scoringStatus.every(s => s.hasScoredAll);
 
     const handleFinalizeClick = () => {
         if (awardResponseDeadline && isBefore(awardResponseDeadline, new Date())) {
@@ -1723,12 +1726,14 @@ const ScoringProgressTracker = ({
                                 </div>
                            </div>
                             <div className="flex items-center gap-2 mt-2 sm:mt-0 w-full sm:w-auto">
-                                {member.hasScoredAll && member.submittedAt ? (
+                                {member.submittedFinal ? (
                                     <div className="text-right flex-1">
                                         <Badge variant="default" className="bg-green-600"><Check className="mr-1 h-3 w-3" /> Submitted</Badge>
-                                        <p className="text-xs text-muted-foreground mt-1">
-                                            {formatDistanceToNow(new Date(member.submittedAt), { addSuffix: true })}
-                                        </p>
+                                        {member.submittedAt && (
+                                            <p className="text-xs text-muted-foreground mt-1">
+                                                {formatDistanceToNow(new Date(member.submittedAt), { addSuffix: true })}
+                                            </p>
+                                        )}
                                     </div>
                                 ) : member.isOverdue ? (
                                     <>
@@ -1749,7 +1754,7 @@ const ScoringProgressTracker = ({
                 <CardFooter>
                     <AlertDialog>
                         <AlertDialogTrigger asChild>
-                            <Button disabled={!allHaveScored || isFinalizing}>
+                            <Button disabled={!isScoringComplete || isFinalizing}>
                                 {isFinalizing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                 Finalize Scores and Award
                             </Button>
@@ -2208,8 +2213,8 @@ export default function QuotationDetailsPage() {
         ...(requisition.financialCommitteeMemberIds || []),
         ...(requisition.technicalCommitteeMemberIds || [])
     ];
-    if (allMemberIds.length === 0) return false;
-    if (quotations.length === 0) return false;
+    if (allMemberIds.length === 0) return false; // No committee assigned, can't be complete
+    if (quotations.length === 0) return true; // No quotes to score, so scoring is "complete"
 
     // Check if every assigned member has finalized their scores.
     return allMemberIds.every(memberId => {
@@ -2623,6 +2628,7 @@ export default function QuotationDetailsPage() {
                 onCommitteeUpdate={setCommitteeDialogOpen}
                 isFinalizing={isFinalizing}
                 isAwarded={isAwarded}
+                isScoringComplete={isScoringComplete}
             />
         )}
         
