@@ -2373,30 +2373,39 @@ export default function QuotationDetailsPage() {
   }
 
   const getCurrentStep = (): 'rfq' | 'committee' | 'award' | 'finalize' | 'completed' => {
-    if (!requisition) return 'rfq';
-    if (requisition.status === 'Approved') {
-        return 'rfq';
-    }
-    if (requisition.status === 'RFQ_In_Progress' && !isDeadlinePassed) {
-        return 'rfq';
-    }
-     if (requisition.status === 'RFQ_In_Progress' && isDeadlinePassed) {
-        const anyCommittee = (requisition.financialCommitteeMemberIds && requisition.financialCommitteeMemberIds.length > 0) || 
-                             (requisition.technicalCommitteeMemberIds && requisition.technicalCommitteeMemberIds.length > 0);
-        if (!anyCommittee) {
-            return 'committee';
-        }
-        return 'award';
-    }
-    if (isAccepted) {
-        if (requisition.status === 'PO_Created') return 'completed';
-        return 'finalize';
-    }
-    if (isAwarded) {
-        return 'award';
-    }
-    return 'award';
+      if (!requisition) return 'rfq';
+      if (requisition.status === 'Approved') {
+          return 'rfq';
+      }
+      if (requisition.status === 'RFQ_In_Progress' && !isDeadlinePassed) {
+          return 'rfq';
+      }
+      
+      const anyCommitteeAssigned = (requisition.financialCommitteeMemberIds && requisition.financialCommitteeMemberIds.length > 0) ||
+                                (requisition.technicalCommitteeMemberIds && requisition.technicalCommitteeMemberIds.length > 0);
+
+      if (requisition.status === 'RFQ_In_Progress' && isDeadlinePassed) {
+          if (!anyCommitteeAssigned) {
+              return 'committee';
+          }
+          return 'award';
+      }
+      
+      if (isAccepted) {
+          if (requisition.status === 'PO_Created') return 'completed';
+          return 'finalize';
+      }
+      if (isAwarded) {
+          return 'award';
+      }
+      
+      if (anyCommitteeAssigned) {
+          return 'award';
+      }
+      
+      return 'committee';
   };
+  
   const currentStep = getCurrentStep();
   
   const formatEvaluationCriteria = (criteria?: EvaluationCriteria) => {
