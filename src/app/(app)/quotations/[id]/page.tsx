@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
@@ -60,7 +59,7 @@ import { Calendar } from '@/components/ui/calendar';
 import Image from 'next/image';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-import { Switch } from '../ui/switch';
+import { Switch } from '@/components/ui/switch';
 
 const quoteFormSchema = z.object({
   notes: z.string().optional(),
@@ -2545,6 +2544,5 @@ export default function QuotationDetailsPage() {
     </div>
   );
 }
-
 
     
