@@ -12,7 +12,7 @@ export async function POST(
   try {
     const { id } = params;
     const body = await request.json();
-    const { userId, vendorIds, deadline, cpoAmount, awardResponseDurationMinutes } = body;
+    const { userId, vendorIds, deadline, cpoAmount, awardResponseDurationMinutes, rfqSettings } = body;
 
     const requisition = await prisma.purchaseRequisition.findUnique({ where: { id }});
     if (!requisition) {
@@ -46,7 +46,8 @@ export async function POST(
             allowedVendorIds: finalVendorIds,
             deadline: deadline ? new Date(deadline) : undefined,
             cpoAmount: cpoAmount,
-            awardResponseDurationMinutes: awardResponseDurationMinutes
+            awardResponseDurationMinutes: awardResponseDurationMinutes,
+            rfqSettings: rfqSettings || {},
         }
     });
 

@@ -127,6 +127,10 @@ export type PurchaseRequisition = {
   committeeName?: string;
   committeePurpose?: string;
   cpoAmount?: number;
+  rfqSettings?: {
+      allowQuoteEdits?: boolean;
+      [key: string]: any;
+  };
 };
 
 export type AuditLog = {

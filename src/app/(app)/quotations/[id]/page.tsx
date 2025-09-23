@@ -60,6 +60,7 @@ import { Calendar } from '@/components/ui/calendar';
 import Image from 'next/image';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import { Switch } from '../ui/switch';
 
 const quoteFormSchema = z.object({
   notes: z.string().optional(),
@@ -864,6 +865,7 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
     const [deadlineTime, setDeadlineTime] = useState('17:00');
     const [cpoAmount, setCpoAmount] = useState<number | undefined>(requisition.cpoAmount);
     const [actionDialog, setActionDialog] = useState<{isOpen: boolean, type: 'update' | 'cancel'}>({isOpen: false, type: 'update'});
+    const [allowQuoteEdits, setAllowQuoteEdits] = useState(requisition.rfqSettings?.allowQuoteEdits ?? true);
     const { user } = useAuth();
     const { toast } = useToast();
     
@@ -878,6 +880,7 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
             setDeadlineTime('17:00');
         }
         setCpoAmount(requisition.cpoAmount);
+        setAllowQuoteEdits(requisition.rfqSettings?.allowQuoteEdits ?? true);
     }, [requisition]);
 
     const deadline = useMemo(() => {
@@ -922,7 +925,10 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
                     userId: user.id, 
                     vendorIds: distributionType === 'all' ? [] : selectedVendors,
                     deadline,
-                    cpoAmount
+                    cpoAmount,
+                    rfqSettings: {
+                        allowQuoteEdits
+                    }
                 }),
             });
 
@@ -1043,6 +1049,18 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
                         />
                      </div>
                     <p className="text-xs text-muted-foreground">Optional. If set, vendors must submit a CPO of this amount to qualify.</p>
+                </div>
+                 <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                        <Label htmlFor="allow-edits">Allow Quote Edits</Label>
+                         <Switch
+                            id="allow-edits"
+                            checked={allowQuoteEdits}
+                            onCheckedChange={setAllowQuoteEdits}
+                            disabled={isSent}
+                        />
+                    </div>
+                    <p className="text-xs text-muted-foreground">If enabled, vendors can edit their submitted quotes until the deadline passes.</p>
                 </div>
 
                 {distributionType === 'select' && (

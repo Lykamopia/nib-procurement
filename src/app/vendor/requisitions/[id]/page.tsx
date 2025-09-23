@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -482,7 +483,11 @@ export default function VendorRequisitionPage() {
     const { token, user } = useAuth();
     const { toast } = useToast();
     
-    const isAwardProcessStarted = requisition?.quotations?.some(q => q.status === 'Awarded' || q.status === 'Standby' || q.status === 'Accepted' || q.status === 'Declined') ?? false;
+    const isAwardProcessStarted = requisition?.quotations?.some(q => ['Awarded', 'Standby', 'Accepted', 'Declined', 'Failed'].includes(q.status)) ?? false;
+    const isDeadlinePassed = requisition?.deadline ? isPast(new Date(requisition.deadline)) : false;
+    const allowEdits = requisition?.rfqSettings?.allowQuoteEdits ?? true;
+
+    const canEditQuote = submittedQuote?.status === 'Submitted' && !isAwardProcessStarted && !isDeadlinePassed && allowEdits;
 
     const fetchRequisitionData = async () => {
         if (!id || !token || !user) return;
@@ -582,7 +587,7 @@ export default function VendorRequisitionPage() {
                         Status: <Badge variant={quote.status === 'Awarded' || quote.status === 'Accepted' ? 'default' : 'secondary'}>{quote.status.replace(/_/g, ' ')}</Badge>
                     </CardDescription>
                 </div>
-                {!isAwardProcessStarted && quote.status === 'Submitted' && (
+                {canEditQuote && (
                     <Button variant="outline" size="sm" onClick={() => setIsEditingQuote(true)}>
                         <FileEdit className="mr-2 h-4 w-4" /> Edit Quote
                     </Button>
@@ -649,7 +654,7 @@ export default function VendorRequisitionPage() {
                             <Info className="h-4 w-4 text-blue-500" />
                             <AlertTitle>Quote Under Review</AlertTitle>
                             <AlertDescription>
-                                {isAwardProcessStarted ? 'The award process has begun. Your quote can no longer be edited.' : 'Your quote has been submitted and is awaiting review. You can still edit it until an award decision is made.'}
+                                {canEditQuote ? 'Your quote has been submitted. You can still edit it until the deadline passes or an award is made.' : 'Your quote is under review and can no longer be edited.'}
                             </AlertDescription>
                         </Alert>
                      </CardFooter>
