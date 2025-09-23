@@ -17,6 +17,7 @@ import { Textarea } from './ui/textarea';
 import { Label } from './ui/label';
 import { useAuth } from '@/contexts/auth-context';
 import { AppSettings } from '@/lib/settings';
+import { prisma } from '@/lib/prisma';
 
 export function NotificationSettingsEditor() {
   const [settings, setSettings] = useState<AppSettings | null>(null);
