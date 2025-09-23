@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Card,
   CardContent,
@@ -12,18 +12,24 @@ import {
 } from '@/components/ui/card';
 import { Button } from './ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Save, Eye } from 'lucide-react';
+import { Loader2, Save, Eye, Bold, Italic, Link, Code, Heading1, Heading2, Pilcrow } from 'lucide-react';
 import { Textarea } from './ui/textarea';
 import { Label } from './ui/label';
 import { useAuth } from '@/contexts/auth-context';
 import { AppSettings } from '@/lib/settings';
-import { Separator } from './ui/separator';
+
+const placeholders = [
+    { value: '{{{vendorName}}}', label: 'Vendor Name' },
+    { value: '{{{requisitionTitle}}}', label: 'Requisition Title' },
+    { value: '{{{portalLink}}}', label: 'Portal Link' },
+];
 
 export function NotificationSettingsEditor() {
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   const { user } = useAuth();
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -88,6 +94,46 @@ export function NotificationSettingsEditor() {
       });
     }
   };
+  
+  const insertText = (text: string, isTag = false) => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selectedText = textarea.value.substring(start, end);
+    let newText;
+
+    if (isTag) {
+        const [openingTag, closingTag] = text.split('}{');
+        newText = `${openingTag}${selectedText}${closingTag}`;
+    } else {
+        newText = text;
+    }
+    
+    const before = textarea.value.substring(0, start);
+    const after = textarea.value.substring(end);
+    
+    const fullText = before + newText + after;
+
+    if (settings) {
+         setSettings({
+            ...settings,
+            notificationTemplates: {
+              ...settings.notificationTemplates,
+              awardAnnouncement: fullText,
+            },
+        });
+    }
+
+    // Set focus and cursor position after state update
+    setTimeout(() => {
+        textarea.focus();
+        const newCursorPos = start + newText.length - (isTag ? 0 : selectedText.length);
+        textarea.setSelectionRange(newCursorPos, newCursorPos);
+    }, 0);
+  };
+
 
   const templatePreview = (template: string) => {
     const sampleData = {
@@ -96,9 +142,9 @@ export function NotificationSettingsEditor() {
         portalLink: '#'
     };
     return template
-        .replace(/{{{vendorName}}}/g, sampleData.vendorName)
-        .replace(/{{{requisitionTitle}}}/g, sampleData.requisitionTitle)
-        .replace(/{{{portalLink}}}/g, sampleData.portalLink);
+        .replace(/{{{vendorName}}}/g, `<span class="font-bold text-primary">${sampleData.vendorName}</span>`)
+        .replace(/{{{requisitionTitle}}}/g, `<span class="italic text-primary">${sampleData.requisitionTitle}</span>`)
+        .replace(/{{{portalLink}}}/g, `<a href="#" class="text-blue-500 underline">${sampleData.portalLink}</a>`);
   }
 
   if (isLoading) {
@@ -123,18 +169,29 @@ export function NotificationSettingsEditor() {
                 <Label htmlFor="award-template" className="text-base font-semibold">
                     Vendor Award Announcement
                 </Label>
-                <p className="text-sm text-muted-foreground mb-2">
-                    This email is sent to a vendor when they win a contract. Available placeholders:
-                    <code className="mx-1 p-1 bg-muted rounded-sm text-xs font-mono">{`{{{vendorName}}}`}</code>
-                    <code className="mx-1 p-1 bg-muted rounded-sm text-xs font-mono">{`{{{requisitionTitle}}}`}</code>
-                    <code className="mx-1 p-1 bg-muted rounded-sm text-xs font-mono">{`{{{portalLink}}}`}</code>
-                </p>
+                <div className="flex flex-wrap gap-1 my-2">
+                    {placeholders.map(p => (
+                         <Button key={p.value} type="button" variant="outline" size="sm" onClick={() => insertText(p.value)}>
+                            <Code className="mr-2 h-3 w-3"/>
+                            {p.label}
+                        </Button>
+                    ))}
+                </div>
+                 <div className="flex items-center gap-1 p-2 rounded-md border bg-muted">
+                    <Button type="button" variant="ghost" size="icon" onClick={() => insertText('<strong>}{</strong>', true)}><Bold/></Button>
+                    <Button type="button" variant="ghost" size="icon" onClick={() => insertText('<em>}{</em>', true)}><Italic/></Button>
+                    <Button type="button" variant="ghost" size="icon" onClick={() => insertText('<a href="#">}{</a>', true)}><Link/></Button>
+                     <Button type="button" variant="ghost" size="icon" onClick={() => insertText('<h1>}{</h1>', true)}><Heading1/></Button>
+                     <Button type="button" variant="ghost" size="icon" onClick={() => insertText('<h2>}{</h2>', true)}><Heading2/></Button>
+                     <Button type="button" variant="ghost" size="icon" onClick={() => insertText('<p>}{</p>', true)}><Pilcrow/></Button>
+                </div>
                 <Textarea
                     id="award-template"
+                    ref={textareaRef}
                     value={settings?.notificationTemplates.awardAnnouncement || ''}
                     onChange={handleTemplateChange}
                     rows={20}
-                    className="font-mono text-xs"
+                    className="font-mono text-xs mt-2"
                     placeholder="Enter your custom HTML email template here..."
                 />
             </div>
