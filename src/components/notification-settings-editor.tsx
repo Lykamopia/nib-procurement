@@ -17,7 +17,6 @@ import { Textarea } from './ui/textarea';
 import { Label } from './ui/label';
 import { useAuth } from '@/contexts/auth-context';
 import { AppSettings } from '@/lib/settings';
-import { prisma } from '@/lib/prisma';
 
 export function NotificationSettingsEditor() {
   const [settings, setSettings] = useState<AppSettings | null>(null);
@@ -76,17 +75,17 @@ export function NotificationSettingsEditor() {
       setIsLoading(false);
     }
   };
-  
+
   const handleTemplateChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-      if (settings) {
-          setSettings({
-              ...settings,
-              notificationTemplates: {
-                  ...settings.notificationTemplates,
-                  awardAnnouncement: e.target.value
-              }
-          });
-      }
+    if (settings) {
+      setSettings({
+        ...settings,
+        notificationTemplates: {
+          ...settings.notificationTemplates,
+          awardAnnouncement: e.target.value,
+        },
+      });
+    }
   };
 
   if (isLoading) {
@@ -112,9 +111,9 @@ export function NotificationSettingsEditor() {
           </Label>
           <p className="text-sm text-muted-foreground mb-2">
             This email is sent to a vendor when they win a contract. Available placeholders:
-            <code className="mx-1 p-1 bg-muted rounded-sm text-xs">{{{vendorName}}}</code>
-            <code className="mx-1 p-1 bg-muted rounded-sm text-xs">{{{requisitionTitle}}}</code>
-            <code className="mx-1 p-1 bg-muted rounded-sm text-xs">{{{portalLink}}}</code>
+            <code className="mx-1 p-1 bg-muted rounded-sm text-xs">{'{{{vendorName}}}'}</code>
+            <code className="mx-1 p-1 bg-muted rounded-sm text-xs">{'{{{requisitionTitle}}}'}</code>
+            <code className="mx-1 p-1 bg-muted rounded-sm text-xs">{'{{{portalLink}}}'}</code>
           </p>
           <Textarea
             id="award-template"
