@@ -13,6 +13,7 @@ import { RolePermissionsEditor } from './role-permissions-editor';
 import { RoleManagementEditor } from './role-management-editor';
 import { DepartmentManagementEditor } from './department-management-editor';
 import { UserManagementEditor } from './user-management-editor';
+import { NotificationSettingsEditor } from './notification-settings-editor';
 
 
 export function SettingsPage() {
@@ -52,17 +53,7 @@ export function SettingsPage() {
         <DepartmentManagementEditor />
       </TabsContent>
       <TabsContent value="notifications">
-         <Card>
-          <CardHeader>
-            <CardTitle>Notification Settings</CardTitle>
-            <CardDescription>
-              Manage how and when you receive notifications. This page is under construction.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p>Future notification settings will be available here.</p>
-          </CardContent>
-        </Card>
+         <NotificationSettingsEditor />
       </TabsContent>
     </Tabs>
   );

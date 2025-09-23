@@ -1,0 +1,6 @@
+
+{
+  "notificationTemplates": {
+    "awardAnnouncement": "<h1>Congratulations, {{{vendorName}}}!</h1>\n<p>You have been awarded the contract for the requisition: <strong>{{{requisitionTitle}}}</strong>.</p>\n<p>Please log in to your vendor portal to review the award and take the next steps.</p>\n<a href=\"{{{portalLink}}}\">Click here to view the award</a>\n<p>Thank you for your submission.</p>\n<p>Sincerely,<br/>The Nib Procurement Team</p>"
+  }
+}

@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { users } from '@/lib/data-store';
 import { sendEmailFlow } from '@/ai/flows/send-email-flow';
+import { getSettings } from '@/lib/settings';
 
 async function tallyAndAwardScores(requisitionId: string, awardResponseDeadline?: Date) {
     const requisition = await prisma.purchaseRequisition.findUnique({
@@ -105,14 +106,15 @@ export async function POST(
         const requisition = await prisma.purchaseRequisition.findUnique({ where: { id: requisitionId }});
         const vendor = result.winner.vendor;
         if (vendor && vendor.email && requisition) {
-            const emailHtml = `
-                <h1>Congratulations, ${vendor.name}!</h1>
-                <p>You have been awarded the contract for the requisition: <strong>${requisition.title}</strong>.</p>
-                <p>Please log in to your vendor portal to review the award and take the next steps.</p>
-                <a href="${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:9002'}/vendor/requisitions/${requisitionId}">Click here to view the award</a>
-                <p>Thank you for your submission.</p>
-                <p>Sincerely,<br/>The Nib Procurement Team</p>
-            `;
+            const settings = await getSettings();
+            const awardTemplate = settings.notificationTemplates.awardAnnouncement;
+
+            const portalLink = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:9002'}/vendor/requisitions/${requisitionId}`;
+
+            const emailHtml = awardTemplate
+                .replace(/{{{vendorName}}}/g, vendor.name)
+                .replace(/{{{requisitionTitle}}}/g, requisition.title)
+                .replace(/{{{portalLink}}}/g, portalLink);
             
             await sendEmailFlow({
                 to: vendor.email,
