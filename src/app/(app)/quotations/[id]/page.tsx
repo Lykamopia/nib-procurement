@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
@@ -31,12 +32,12 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, PlusCircle, Award, XCircle, FileSignature, FileText, Bot, Lightbulb, ArrowLeft, Star, Undo, Check, Send, Search, BadgeHelp, BadgeCheck, BadgeX, Crown, Medal, Trophy, RefreshCw, TimerOff, ClipboardList, TrendingUp, Scale, Edit2, Users, GanttChart, Eye, CheckCircle, CalendarIcon, Timer, Landmark, Settings2, Ban, Printer, FileBarChart2, UserCog, History, AlertCircle, FileUp } from 'lucide-react';
+import { Loader2, PlusCircle, Award, XCircle, FileSignature, FileText, Bot, Lightbulb, ArrowLeft, Star, Undo, Check, Send, Search, BadgeHelp, BadgeCheck, BadgeX, Crown, Medal, Trophy, RefreshCw, TimerOff, ClipboardList, TrendingUp, Scale, Edit2, Users, GanttChart, Eye, CheckCircle, CalendarIcon, Timer, Landmark, Settings2, Ban, Printer, FileBarChart2, UserCog, History, AlertCircle, FileUp, TrophyIcon } from 'lucide-react';
 import { useForm, useFieldArray, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { PurchaseOrder, PurchaseRequisition, Quotation, Vendor, QuotationStatus, EvaluationCriteria, User, CommitteeScoreSet, EvaluationCriterion } from '@/lib/types';
+import { PurchaseOrder, PurchaseRequisition, Quotation, Vendor, QuotationStatus, EvaluationCriteria, User, CommitteeScoreSet, EvaluationCriterion, QuoteItem } from '@/lib/types';
 import { format, formatDistanceToNow, isBefore, isPast, setHours, setMinutes } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
@@ -224,6 +225,7 @@ const QuoteComparison = ({ quotes, requisition, onScore, user, isDeadlinePassed,
             case 'Declined': return 'destructive';
             case 'Failed': return 'destructive';
             case 'Invoice_Submitted': return 'outline';
+            case 'Partially_Awarded': return 'default';
         }
     }
 
@@ -245,7 +247,7 @@ const QuoteComparison = ({ quotes, requisition, onScore, user, isDeadlinePassed,
             {quotes.sort((a, b) => (a.rank || 4) - (b.rank || 4)).map(quote => {
                 const hasUserScored = quote.scores?.some(s => s.scorerId === user.id);
                 return (
-                    <Card key={quote.id} className={cn("flex flex-col", (quote.status === 'Awarded' || quote.status === 'Accepted') && 'border-primary ring-2 ring-primary')}>
+                    <Card key={quote.id} className={cn("flex flex-col", (quote.status === 'Awarded' || quote.status === 'Accepted' || quote.status === 'Partially_Awarded') && 'border-primary ring-2 ring-primary')}>
                        <CardHeader>
                             <CardTitle className="flex justify-between items-start">
                                <div className="flex items-center gap-2">
@@ -1247,16 +1249,19 @@ const WorkflowStepper = ({ step }: { step: 'rfq' | 'committee' | 'award' | 'fina
 
 const scoreFormSchema = z.object({
   committeeComment: z.string().optional(),
-  financialScores: z.array(z.object({
-      criterionId: z.string(),
-      score: z.coerce.number().min(0, "Min score is 0").max(100, "Max score is 100"),
-      comment: z.string().optional()
-  })),
-  technicalScores: z.array(z.object({
-      criterionId: z.string(),
-      score: z.coerce.number().min(0, "Min score is 0").max(100, "Max score is 100"),
-      comment: z.string().optional()
-  })),
+  itemScores: z.array(z.object({
+    quoteItemId: z.string(),
+    financialScores: z.array(z.object({
+        criterionId: z.string(),
+        score: z.coerce.number().min(0, "Min score is 0").max(100, "Max score is 100"),
+        comment: z.string().optional()
+    })),
+    technicalScores: z.array(z.object({
+        criterionId: z.string(),
+        score: z.coerce.number().min(0, "Min score is 0").max(100, "Max score is 100"),
+        comment: z.string().optional()
+    })),
+  }))
 });
 type ScoreFormValues = z.infer<typeof scoreFormSchema>;
 
@@ -1275,6 +1280,7 @@ const ScoringDialog = ({
 }) => {
     const { toast } = useToast();
     const [isSubmitting, setSubmitting] = useState(false);
+    const [activeItemIndex, setActiveItemIndex] = useState(0);
     
     const form = useForm<ScoreFormValues>({
         resolver: zodResolver(scoreFormSchema),
@@ -1285,14 +1291,20 @@ const ScoringDialog = ({
             const existingScore = quote.scores?.find(s => s.scorerId === user.id);
             form.reset({
                 committeeComment: existingScore?.committeeComment || "",
-                financialScores: requisition.evaluationCriteria?.financialCriteria.map(c => {
-                    const existing = existingScore?.financialScores.find(s => s.criterionId === c.id);
-                    return { criterionId: c.id, score: existing?.score || 0, comment: existing?.comment || "" };
-                }) || [],
-                technicalScores: requisition.evaluationCriteria?.technicalCriteria.map(c => {
-                    const existing = existingScore?.technicalScores.find(s => s.criterionId === c.id);
-                    return { criterionId: c.id, score: existing?.score || 0, comment: existing?.comment || "" };
-                }) || [],
+                itemScores: quote.items.map(qItem => {
+                    const existingItemScore = existingScore?.itemScores.find(iScore => iScore.quoteItemId === qItem.id);
+                    return {
+                        quoteItemId: qItem.id,
+                        financialScores: requisition.evaluationCriteria?.financialCriteria.map(c => {
+                            const existing = existingItemScore?.financialScores.find(s => s.criterionId === c.id);
+                            return { criterionId: c.id, score: existing?.score || 0, comment: existing?.comment || "" };
+                        }) || [],
+                        technicalScores: requisition.evaluationCriteria?.technicalCriteria.map(c => {
+                             const existing = existingItemScore?.technicalScores.find(s => s.criterionId === c.id);
+                            return { criterionId: c.id, score: existing?.score || 0, comment: existing?.comment || "" };
+                        }) || []
+                    }
+                })
             });
         }
     }, [quote, requisition, user, form]);
@@ -1329,43 +1341,53 @@ const ScoringDialog = ({
 
     const isFinancialScorer = requisition.financialCommitteeMemberIds?.includes(user.id);
     const isTechnicalScorer = requisition.technicalCommitteeMemberIds?.includes(user.id);
+
+    const renderCriteria = (type: 'financial' | 'technical', itemIndex: number) => {
+        const criteria = type === 'financial' ? requisition.evaluationCriteria!.financialCriteria : requisition.evaluationCriteria!.technicalCriteria;
+        return criteria.map((criterion, criterionIndex) => (
+            <div key={criterion.id} className="space-y-2 rounded-md border p-4">
+                <div className="flex justify-between items-center">
+                    <FormLabel>{criterion.name}</FormLabel>
+                    <Badge variant="secondary">Weight: {criterion.weight}%</Badge>
+                </div>
+                 <FormField
+                    control={form.control}
+                    name={`itemScores.${itemIndex}.${type}Scores.${criterionIndex}.score`}
+                    render={({ field }) => (
+                         <FormItem>
+                            <FormControl>
+                                <div className="flex items-center gap-4">
+                                <Slider
+                                    defaultValue={[field.value]}
+                                    max={100}
+                                    step={5}
+                                    onValueChange={(v) => field.onChange(v[0])}
+                                    disabled={!!existingScore}
+                                />
+                                <Input type="number" {...field} className="w-24" disabled={!!existingScore} />
+                                </div>
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                 />
+                 <FormField
+                    control={form.control}
+                    name={`itemScores.${itemIndex}.${type}Scores.${criterionIndex}.comment`}
+                    render={({ field }) => (
+                         <FormItem>
+                             <FormControl>
+                                <Textarea placeholder="Optional comment for this criterion..." {...field} rows={2} disabled={!!existingScore} />
+                             </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                 />
+            </div>
+        ));
+    };
     
-    const currentValues = form.watch();
-
-    const clientSideScoreCalculator = () => {
-        const criteria = requisition.evaluationCriteria!;
-        let totalFinancialScore = 0;
-        let totalTechnicalScore = 0;
-        let finalScore = 0;
-
-        if (isFinancialScorer && currentValues.financialScores) {
-            criteria.financialCriteria.forEach((c, i) => {
-                const score = currentValues.financialScores[i]?.score || 0;
-                totalFinancialScore += score * (c.weight / 100);
-            });
-            finalScore += totalFinancialScore * (criteria.financialWeight / 100);
-        }
-        
-        if (isTechnicalScorer && currentValues.technicalScores) {
-            criteria.technicalCriteria.forEach((c, i) => {
-                const score = currentValues.technicalScores[i]?.score || 0;
-                totalTechnicalScore += score * (c.weight / 100);
-            });
-            finalScore += totalTechnicalScore * (criteria.technicalWeight / 100);
-        }
-
-        // If a user is on only one committee, their score is the direct weighted average of that part.
-        if (isFinancialScorer && !isTechnicalScorer) {
-            return totalFinancialScore;
-        }
-        if (isTechnicalScorer && !isFinancialScorer) {
-            return totalTechnicalScore;
-        }
-
-        // If on both, it's the full weighted score.
-        return finalScore;
-    }
-
+    const activeQuoteItem = quote.items[activeItemIndex];
 
     if (!existingScore && isScoringDeadlinePassed) {
         return (
@@ -1387,107 +1409,80 @@ const ScoringDialog = ({
             </DialogContent>
         );
     }
-
-    const renderCriteria = (type: 'financial' | 'technical') => {
-        const criteria = type === 'financial' ? requisition.evaluationCriteria!.financialCriteria : requisition.evaluationCriteria!.technicalCriteria;
-        return criteria.map((criterion, index) => (
-            <div key={criterion.id} className="space-y-2 rounded-md border p-4">
-                <div className="flex justify-between items-center">
-                    <FormLabel>{criterion.name}</FormLabel>
-                    <Badge variant="secondary">Weight: {criterion.weight}%</Badge>
-                </div>
-                 <FormField
-                    control={form.control}
-                    name={`${type}Scores.${index}.score`}
-                    render={({ field }) => (
-                         <FormItem>
-                            <FormControl>
-                                <div className="flex items-center gap-4">
-                                <Slider
-                                    defaultValue={[field.value]}
-                                    max={100}
-                                    step={5}
-                                    onValueChange={(v) => field.onChange(v[0])}
-                                    disabled={!!existingScore}
-                                />
-                                <Input type="number" {...field} className="w-24" disabled={!!existingScore} />
-                                </div>
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                 />
-                 <FormField
-                    control={form.control}
-                    name={`${type}Scores.${index}.comment`}
-                    render={({ field }) => (
-                         <FormItem>
-                             <FormControl>
-                                <Textarea placeholder="Optional comment for this criterion..." {...field} rows={2} disabled={!!existingScore} />
-                             </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )}
-                 />
-            </div>
-        ));
-    };
-
+    
     return (
          <DialogContent className="max-w-4xl">
             <DialogHeader>
                 <DialogTitle>Score Quotation from {quote.vendorName}</DialogTitle>
-                <DialogDescription>Evaluate this quote against the requester's criteria. Your scores will be combined with other committee members' to determine the final ranking.</DialogDescription>
+                <DialogDescription>Evaluate each item against the requester's criteria. Your scores will be combined with other committee members' to determine the final ranking.</DialogDescription>
             </DialogHeader>
             <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)}>
-            <ScrollArea className="h-[60vh] p-1">
-                <div className="space-y-6">
-                    {isFinancialScorer && (
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="text-xl flex items-center gap-2">
-                                    <Scale /> Financial Evaluation ({requisition.evaluationCriteria.financialWeight}%)
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                {renderCriteria('financial')}
-                            </CardContent>
-                        </Card>
-                    )}
-                    {isTechnicalScorer && (
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="text-xl flex items-center gap-2">
-                                    <TrendingUp /> Technical Evaluation ({requisition.evaluationCriteria.technicalWeight}%)
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                {renderCriteria('technical')}
-                            </CardContent>
-                        </Card>
-                    )}
-                     <Card>
-                        <CardHeader><CardTitle className="text-xl">Overall Comment</CardTitle></CardHeader>
-                        <CardContent>
-                             <FormField
-                                control={form.control}
-                                name="committeeComment"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormControl>
-                                            <Textarea placeholder="Provide an overall summary or justification for your scores..." {...field} rows={4} disabled={!!existingScore} />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                             />
-                        </CardContent>
-                    </Card>
+            <div className="grid grid-cols-4 gap-6">
+                <div className="col-span-1">
+                    <h3 className="font-semibold mb-2">Items to Score</h3>
+                    <div className="space-y-2">
+                        {quote.items.map((item, index) => (
+                             <Button
+                                key={item.id}
+                                type="button"
+                                variant={index === activeItemIndex ? 'secondary' : 'ghost'}
+                                className="w-full justify-start text-left h-auto py-2"
+                                onClick={() => setActiveItemIndex(index)}
+                            >
+                                {item.name}
+                            </Button>
+                        ))}
+                    </div>
                 </div>
-            </ScrollArea>
-             <DialogFooter className="pt-4 flex items-center justify-between">
-                <Button type="button" onClick={() => form.reset()} variant="ghost" disabled={!!existingScore}>Reset Form</Button>
+                <div className="col-span-3">
+                    <ScrollArea className="h-[60vh] p-1">
+                        <div className="space-y-6">
+                            <h3 className="font-bold text-lg">Scoring for: <span className="text-primary">{activeQuoteItem.name}</span></h3>
+                            {isFinancialScorer && (
+                                <Card>
+                                    <CardHeader>
+                                        <CardTitle className="text-xl flex items-center gap-2">
+                                            <Scale /> Financial Evaluation ({requisition.evaluationCriteria.financialWeight}%)
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="space-y-4">
+                                        {renderCriteria('financial', activeItemIndex)}
+                                    </CardContent>
+                                </Card>
+                            )}
+                            {isTechnicalScorer && (
+                                <Card>
+                                    <CardHeader>
+                                        <CardTitle className="text-xl flex items-center gap-2">
+                                            <TrendingUp /> Technical Evaluation ({requisition.evaluationCriteria.technicalWeight}%)
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="space-y-4">
+                                        {renderCriteria('technical', activeItemIndex)}
+                                    </CardContent>
+                                </Card>
+                            )}
+                        </div>
+                    </ScrollArea>
+                </div>
+            </div>
+             <Separator className="my-4"/>
+             <FormField
+                control={form.control}
+                name="committeeComment"
+                render={({ field }) => (
+                    <FormItem>
+                         <FormLabel className="text-lg font-semibold">Overall Comment</FormLabel>
+                        <FormControl>
+                            <Textarea placeholder="Provide an overall summary or justification for your scores for this entire quotation..." {...field} rows={4} disabled={!!existingScore} />
+                        </FormControl>
+                        <FormMessage />
+                    </FormItem>
+                )}
+             />
+
+             <DialogFooter className="pt-4 flex items-center justify-between mt-4">
                  {existingScore ? (
                     <p className="text-sm text-muted-foreground">You have already scored this quote.</p>
                  ) : (
@@ -1504,37 +1499,7 @@ const ScoringDialog = ({
                                     Please review your evaluation before submitting. This action cannot be undone.
                                 </AlertDialogDescription>
                             </AlertDialogHeader>
-                            <Card className="my-4">
-                                <CardContent className="pt-6 space-y-4 text-sm">
-                                    <div className="text-center">
-                                        <p className="text-muted-foreground">Your Calculated Final Score</p>
-                                        <p className="text-4xl font-bold text-primary">{clientSideScoreCalculator().toFixed(2)}</p>
-                                    </div>
-                                    <Separator/>
-                                     {isFinancialScorer && (
-                                        <div>
-                                            <h4 className="font-semibold mb-2">Your Financial Scores:</h4>
-                                            {currentValues.financialScores?.map((s, i) => (
-                                                <div key={i} className="flex justify-between">
-                                                    <span className="text-muted-foreground">{requisition.evaluationCriteria?.financialCriteria[i]?.name}</span>
-                                                    <span>{s.score} / 100</span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                     )}
-                                     {isTechnicalScorer && (
-                                        <div>
-                                            <h4 className="font-semibold mb-2">Your Technical Scores:</h4>
-                                            {currentValues.technicalScores?.map((s, i) => (
-                                                <div key={i} className="flex justify-between">
-                                                    <span className="text-muted-foreground">{requisition.evaluationCriteria?.technicalCriteria[i]?.name}</span>
-                                                    <span>{s.score} / 100</span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                     )}
-                                </CardContent>
-                            </Card>
+                           
                             <AlertDialogFooter>
                                 <AlertDialogCancel>Go Back &amp; Edit</AlertDialogCancel>
                                 <AlertDialogAction onClick={form.handleSubmit(onSubmit)} disabled={isSubmitting}>
@@ -1564,7 +1529,7 @@ const ScoringProgressTracker = ({
   requisition: PurchaseRequisition;
   quotations: Quotation[];
   allUsers: User[];
-  onFinalize: (awardResponseDeadline?: Date) => void;
+  onFinalize: (awardStrategy: 'all' | 'item', awards: any, awardResponseDeadline?: Date) => void;
   onCommitteeUpdate: (open: boolean) => void;
   isFinalizing: boolean;
   isAwarded: boolean;
@@ -1573,6 +1538,7 @@ const ScoringProgressTracker = ({
     const [isExtendDialogOpen, setExtendDialogOpen] = useState(false);
     const [isReportDialogOpen, setReportDialogOpen] = useState(false);
     const [selectedMember, setSelectedMember] = useState<User | null>(null);
+    const [isAwardCenterOpen, setAwardCenterOpen] = useState(false);
     
     const { toast } = useToast();
     const isScoringDeadlinePassed = requisition.scoringDeadline && isPast(new Date(requisition.scoringDeadline));
@@ -1612,17 +1578,6 @@ const ScoringProgressTracker = ({
     const overdueMembers = scoringStatus.filter(s => s.isOverdue);
     const allHaveScored = scoringStatus.every(s => s.hasScoredAll);
 
-    const handleFinalizeClick = () => {
-        if (awardResponseDeadline && isBefore(awardResponseDeadline, new Date())) {
-            toast({
-                variant: 'destructive',
-                title: 'Invalid Deadline',
-                description: 'The award response deadline must be in the future.',
-            });
-            return;
-        }
-        onFinalize(awardResponseDeadline);
-    }
 
     return (
         <Card className="mt-6">
@@ -1668,68 +1623,20 @@ const ScoringProgressTracker = ({
                 </ul>
             </CardContent>
             <CardFooter>
-                 <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                        <Button disabled={!allHaveScored || isFinalizing || isAwarded}>
+                 <Dialog open={isAwardCenterOpen} onOpenChange={setAwardCenterOpen}>
+                    <DialogTrigger asChild>
+                         <Button disabled={!allHaveScored || isFinalizing || isAwarded}>
                             {isFinalizing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             Finalize Scores and Award
                         </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle>Finalize Awards?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                                This will tally all scores and automatically assign statuses. Set a deadline for the winning vendor to respond.
-                            </AlertDialogDescription>
-                        </AlertDialogHeader>
-                         <div className="py-4">
-                            <Label htmlFor='award-response-deadline'>Award Response Deadline</Label>
-                             <Popover>
-                                <PopoverTrigger asChild>
-                                    <Button
-                                        id="award-response-deadline"
-                                        variant={"outline"}
-                                        className={cn(
-                                        "w-full justify-start text-left font-normal mt-2",
-                                        !awardResponseDeadline && "text-muted-foreground"
-                                        )}
-                                    >
-                                        <CalendarIcon className="mr-2 h-4 w-4" />
-                                        {awardResponseDeadline ? format(awardResponseDeadline, "PPP p") : <span>Pick a date and time</span>}
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0">
-                                    <Calendar
-                                        mode="single"
-                                        selected={awardResponseDeadline}
-                                        onSelect={setAwardResponseDeadline}
-                                        disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
-                                        initialFocus
-                                    />
-                                    <div className="p-2 border-t border-border">
-                                        <p className="text-xs text-muted-foreground text-center mb-2">Set Time</p>
-                                        <div className="flex gap-2">
-                                        <Input
-                                            type="time"
-                                            defaultValue={awardResponseDeadline ? format(awardResponseDeadline, 'HH:mm') : '17:00'}
-                                            onChange={(e) => {
-                                                const [hours, minutes] = e.target.value.split(':').map(Number);
-                                                setAwardResponseDeadline(d => setMinutes(setHours(d || new Date(), hours), minutes));
-                                            }}
-                                        />
-                                        </div>
-                                    </div>
-                                </PopoverContent>
-                            </Popover>
-                        </div>
-                        <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={handleFinalizeClick} disabled={!awardResponseDeadline}>
-                                Proceed
-                            </AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
+                    </DialogTrigger>
+                    <AwardCenterDialog 
+                        requisition={requisition}
+                        quotations={quotations}
+                        onFinalize={onFinalize}
+                        onClose={() => setAwardCenterOpen(false)}
+                    />
+                 </Dialog>
             </CardFooter>
             {selectedMember && (
                 <>
@@ -1851,26 +1758,30 @@ const CumulativeScoringReportDialog = ({ requisition, quotations, isOpen, onClos
                                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                     <div>
                                                         <h4 className="font-semibold text-sm mb-2 text-gray-800">Financial Evaluation ({requisition.evaluationCriteria?.financialWeight}%)</h4>
-                                                        {scoreSet.financialScores.map(s => (
-                                                             <div key={s.criterionId} className="text-xs p-2 bg-gray-50 rounded-md mb-2">
-                                                                <div className="flex justify-between items-center font-medium">
-                                                                    <p>{getCriterionName(s.criterionId, requisition.evaluationCriteria?.financialCriteria)}</p>
-                                                                    <p className="font-bold">{s.score}/100</p>
+                                                        {scoreSet.itemScores.map(iScore => (
+                                                            iScore.financialScores.map(s => (
+                                                                <div key={s.criterionId} className="text-xs p-2 bg-gray-50 rounded-md mb-2">
+                                                                    <div className="flex justify-between items-center font-medium">
+                                                                        <p>{getCriterionName(s.criterionId, requisition.evaluationCriteria?.financialCriteria)}</p>
+                                                                        <p className="font-bold">{s.score}/100</p>
+                                                                    </div>
+                                                                    {s.comment && <p className="italic text-gray-500 mt-1 pl-1 border-l-2 border-gray-300">"{s.comment}"</p>}
                                                                 </div>
-                                                                {s.comment && <p className="italic text-gray-500 mt-1 pl-1 border-l-2 border-gray-300">"{s.comment}"</p>}
-                                                            </div>
+                                                            ))
                                                         ))}
                                                     </div>
                                                      <div>
                                                         <h4 className="font-semibold text-sm mb-2 text-gray-800">Technical Evaluation ({requisition.evaluationCriteria?.technicalWeight}%)</h4>
-                                                        {scoreSet.technicalScores.map(s => (
-                                                             <div key={s.criterionId} className="text-xs p-2 bg-gray-50 rounded-md mb-2">
-                                                                <div className="flex justify-between items-center font-medium">
-                                                                    <p>{getCriterionName(s.criterionId, requisition.evaluationCriteria?.technicalCriteria)}</p>
-                                                                    <p className="font-bold">{s.score}/100</p>
+                                                        {scoreSet.itemScores.map(iScore => (
+                                                            iScore.technicalScores.map(s => (
+                                                                <div key={s.criterionId} className="text-xs p-2 bg-gray-50 rounded-md mb-2">
+                                                                    <div className="flex justify-between items-center font-medium">
+                                                                        <p>{getCriterionName(s.criterionId, requisition.evaluationCriteria?.technicalCriteria)}</p>
+                                                                        <p className="font-bold">{s.score}/100</p>
+                                                                    </div>
+                                                                    {s.comment && <p className="italic text-gray-500 mt-1 pl-1 border-l-2 border-gray-300">"{s.comment}"</p>}
                                                                 </div>
-                                                                {s.comment && <p className="italic text-gray-500 mt-1 pl-1 border-l-2 border-gray-300">"{s.comment}"</p>}
-                                                            </div>
+                                                            ))
                                                         ))}
                                                     </div>
                                                 </div>
@@ -2106,8 +2017,8 @@ export default function QuotationDetailsPage() {
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isReportOpen, setReportOpen] = useState(false);
 
-  const isAwarded = useMemo(() => quotations.some(q => q.status === 'Awarded' || q.status === 'Accepted' || q.status === 'Declined' || q.status === 'Failed'), [quotations]);
-  const isAccepted = useMemo(() => quotations.some(q => q.status === 'Accepted'), [quotations]);
+  const isAwarded = useMemo(() => quotations.some(q => q.status === 'Awarded' || q.status === 'Accepted' || q.status === 'Declined' || q.status === 'Failed' || q.status === 'Partially_Awarded'), [quotations]);
+  const isAccepted = useMemo(() => quotations.some(q => q.status === 'Accepted' || q.status === 'Partially_Awarded'), [quotations]);
   const secondStandby = useMemo(() => quotations.find(q => q.rank === 2), [quotations]);
   const thirdStandby = useMemo(() => quotations.find(q => q.rank === 3), [quotations]);
   const prevAwardedFailed = useMemo(() => quotations.some(q => q.status === 'Failed'), [quotations]);
@@ -2212,7 +2123,7 @@ export default function QuotationDetailsPage() {
     setLastPOCreated(po);
   }
   
-   const handleFinalizeScores = async (awardResponseDeadline?: Date) => {
+   const handleFinalizeScores = async (awardStrategy: 'all' | 'item', awards: any, awardResponseDeadline?: Date) => {
         if (!user || !requisition) return;
         
         setIsFinalizing(true);
@@ -2220,7 +2131,7 @@ export default function QuotationDetailsPage() {
              const response = await fetch(`/api/requisitions/${requisition.id}/finalize-scores`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId: user.id, awardResponseDeadline }),
+                body: JSON.stringify({ userId: user.id, awardResponseDeadline, awardStrategy, awards }),
             });
             if (!response.ok) {
                 const errorData = await response.json();
@@ -2576,7 +2487,6 @@ export default function QuotationDetailsPage() {
     </div>
   );
 }
-
     
 
     

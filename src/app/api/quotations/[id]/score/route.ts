@@ -1,23 +1,24 @@
 
+
 'use server';
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { users, auditLogs } from '@/lib/data-store';
-import { EvaluationCriterion } from '@/lib/types';
+import { EvaluationCriterion, QuoteItem } from '@/lib/types';
 
 // This function needs to be defined locally or imported
-function calculateFinalScore(scores: { financialScores: any[], technicalScores: any[] }, criteria: any): number {
+function calculateFinalScore(scores: any, criteria: any, quoteItem: QuoteItem): number {
     let totalFinancialScore = 0;
     let totalTechnicalScore = 0;
 
     criteria.financialCriteria.forEach((c: EvaluationCriterion) => {
-        const score = scores.financialScores.find(s => s.criterionId === c.id)?.score || 0;
+        const score = scores.financialScores.find((s: any) => s.criterionId === c.id)?.score || 0;
         totalFinancialScore += score * (c.weight / 100);
     });
 
     criteria.technicalCriteria.forEach((c: EvaluationCriterion) => {
-        const score = scores.technicalScores.find(s => s.criterionId === c.id)?.score || 0;
+        const score = scores.technicalScores.find((s: any) => s.criterionId === c.id)?.score || 0;
         totalTechnicalScore += score * (c.weight / 100);
     });
 
@@ -42,7 +43,7 @@ export async function POST(
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    const quoteToUpdate = await prisma.quotation.findUnique({ where: { id: quoteId } });
+    const quoteToUpdate = await prisma.quotation.findUnique({ where: { id: quoteId }, include: { items: true } });
     if (!quoteToUpdate) {
         return NextResponse.json({ error: 'Quotation not found' }, { status: 404 });
     }
@@ -65,8 +66,41 @@ export async function POST(
     if (existingScore) {
         return NextResponse.json({ error: 'You have already scored this quotation.' }, { status: 409 });
     }
+    
+    // Calculate overall score for the entire quote
+    let totalWeightedScore = 0;
+    let totalItems = 0;
 
-    const finalScore = calculateFinalScore(scores, requisition.evaluationCriteria);
+    const createdItemScores = scores.itemScores.map((itemScore: any) => {
+        const quoteItem = quoteToUpdate.items.find(i => i.id === itemScore.quoteItemId);
+        if (!quoteItem) return null;
+
+        const finalItemScore = calculateFinalScore(itemScore, requisition.evaluationCriteria, quoteItem);
+        totalWeightedScore += finalItemScore;
+        totalItems++;
+        
+        return {
+            quoteItemId: itemScore.quoteItemId,
+            finalScore: finalItemScore,
+            financialScores: {
+                create: itemScore.financialScores.map((s: any) => ({
+                    criterionId: s.criterionId,
+                    score: s.score,
+                    comment: s.comment
+                }))
+            },
+            technicalScores: {
+                 create: itemScore.technicalScores.map((s: any) => ({
+                    criterionId: s.criterionId,
+                    score: s.score,
+                    comment: s.comment
+                }))
+            }
+        };
+    }).filter(Boolean); // Filter out nulls if quoteItem not found
+
+    const finalAverageScoreForQuote = totalItems > 0 ? totalWeightedScore / totalItems : 0;
+
 
     const createdScoreSet = await prisma.committeeScoreSet.create({
         data: {
@@ -74,27 +108,16 @@ export async function POST(
             scorer: { connect: { id: user.id } },
             scorerName: user.name,
             committeeComment: scores.committeeComment,
-            finalScore,
-            financialScores: {
-                create: scores.financialScores.map((s: any) => ({
-                    criterionId: s.criterionId,
-                    score: s.score,
-                    comment: s.comment
-                }))
-            },
-            technicalScores: {
-                create: scores.technicalScores.map((s: any) => ({
-                    criterionId: s.criterionId,
-                    score: s.score,
-                    comment: s.comment
-                }))
+            finalScore: finalAverageScoreForQuote, // Use the averaged score
+            itemScores: {
+                create: createdItemScores as any[]
             }
         }
     });
     
-    // Update the average score on the quotation
-    const allScores = await prisma.committeeScoreSet.findMany({ where: { quotationId: quoteId } });
-    const averageScore = allScores.reduce((acc, s) => acc + s.finalScore, 0) / allScores.length;
+    // Update the average score on the quotation across all scorers
+    const allScoresForQuote = await prisma.committeeScoreSet.findMany({ where: { quotationId: quoteId } });
+    const averageScore = allScoresForQuote.reduce((acc, s) => acc + s.finalScore, 0) / allScoresForQuote.length;
     await prisma.quotation.update({ where: { id: quoteId }, data: { finalAverageScore: averageScore } });
 
 
@@ -106,7 +129,7 @@ export async function POST(
         action: 'SCORE_QUOTE',
         entity: 'Quotation',
         entityId: quoteId,
-        details: `Submitted scores for quote from ${quoteToUpdate.vendorName}. Final Score: ${finalScore.toFixed(2)}.`,
+        details: `Submitted scores for quote from ${quoteToUpdate.vendorName}. Final Score: ${finalAverageScoreForQuote.toFixed(2)}.`,
     });
 
     return NextResponse.json(createdScoreSet);
@@ -118,4 +141,3 @@ export async function POST(
     return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
   }
 }
-
