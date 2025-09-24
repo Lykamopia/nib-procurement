@@ -7,17 +7,17 @@ import { prisma } from '@/lib/prisma';
 import { users, auditLogs } from '@/lib/data-store';
 import { EvaluationCriterion, QuoteItem } from '@/lib/types';
 
-function calculateFinalItemScore(itemScore: any, criteria: any): number {
+function calculateFinalScore(scores: { financialScores: any[], technicalScores: any[] }, criteria: any): number {
     let totalFinancialScore = 0;
     let totalTechnicalScore = 0;
 
     criteria.financialCriteria.forEach((c: EvaluationCriterion) => {
-        const score = itemScore.financialScores.find((s: any) => s.criterionId === c.id)?.score || 0;
+        const score = scores.financialScores.find((s: any) => s.criterionId === c.id)?.score || 0;
         totalFinancialScore += score * (c.weight / 100);
     });
 
     criteria.technicalCriteria.forEach((c: EvaluationCriterion) => {
-        const score = itemScore.technicalScores.find((s: any) => s.criterionId === c.id)?.score || 0;
+        const score = scores.technicalScores.find((s: any) => s.criterionId === c.id)?.score || 0;
         totalTechnicalScore += score * (c.weight / 100);
     });
 
@@ -66,15 +66,15 @@ export async function POST(
         return NextResponse.json({ error: 'You have already scored this quotation.' }, { status: 409 });
     }
     
-    let totalWeightedScore = 0;
-    let totalItems = scores.itemScores.length;
+    // Since we are not doing per-item scoring at DB level, aggregate scores from the form.
+    // Assuming the form now sends a single set of financial/technical scores.
+    // Let's take the first item's scores as the overall scores for simplicity.
+    const overallScores = scores.itemScores[0];
+    if (!overallScores) {
+        return NextResponse.json({ error: 'No scores provided.' }, { status: 400 });
+    }
 
-    scores.itemScores.forEach((itemScore: any) => {
-        const finalItemScore = calculateFinalItemScore(itemScore, requisition.evaluationCriteria);
-        totalWeightedScore += finalItemScore;
-    });
-
-    const finalAverageScoreForQuote = totalItems > 0 ? totalWeightedScore / totalItems : 0;
+    const finalAverageScoreForQuote = calculateFinalScore(overallScores, requisition.evaluationCriteria);
 
     const createdScoreSet = await prisma.committeeScoreSet.create({
         data: {
@@ -83,33 +83,23 @@ export async function POST(
             scorerName: user.name,
             committeeComment: scores.committeeComment,
             finalScore: finalAverageScoreForQuote,
+            financialScores: {
+                create: overallScores.financialScores.map((s: any) => ({
+                    criterionId: s.criterionId,
+                    score: s.score,
+                    comment: s.comment
+                }))
+            },
+            technicalScores: {
+                 create: overallScores.technicalScores.map((s: any) => ({
+                    criterionId: s.criterionId,
+                    score: s.score,
+                    comment: s.comment
+                }))
+            }
         }
     });
 
-    for (const itemScore of scores.itemScores) {
-         const finalItemScore = calculateFinalItemScore(itemScore, requisition.evaluationCriteria);
-         await prisma.itemScore.create({
-            data: {
-                scoreSet: { connect: { id: createdScoreSet.id } },
-                quoteItemId: itemScore.quoteItemId,
-                finalScore: finalItemScore,
-                financialScores: {
-                    create: itemScore.financialScores.map((s: any) => ({
-                        criterionId: s.criterionId,
-                        score: s.score,
-                        comment: s.comment
-                    }))
-                },
-                technicalScores: {
-                     create: itemScore.technicalScores.map((s: any) => ({
-                        criterionId: s.criterionId,
-                        score: s.score,
-                        comment: s.comment
-                    }))
-                }
-            }
-        });
-    }
 
     const allScoresForQuote = await prisma.committeeScoreSet.findMany({ where: { quotationId: quoteId } });
     const averageScore = allScoresForQuote.reduce((acc, s) => acc + s.finalScore, 0) / allScoresForQuote.length;
