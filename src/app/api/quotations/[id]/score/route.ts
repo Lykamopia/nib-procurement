@@ -55,7 +55,6 @@ export async function POST(
         return NextResponse.json({ error: 'Associated requisition or its evaluation criteria not found.' }, { status: 404 });
     }
     
-    // Check if user has already submitted a final score set for this quote.
     const existingFinalSubmission = await prisma.committeeScoreSet.findFirst({
         where: {
             quotationId: quoteId,
@@ -66,52 +65,65 @@ export async function POST(
     if (existingFinalSubmission) {
         return NextResponse.json({ error: 'You have already submitted your final scores for this quotation.' }, { status: 409 });
     }
-    
-    const createdScoreSet = await prisma.committeeScoreSet.create({
-        data: {
-            quotation: { connect: { id: quoteId } },
-            scorer: { connect: { id: user.id } },
-            scorerName: user.name,
-            committeeComment: scores.committeeComment,
-            finalScore: 0, // This will be calculated later or could be an average
-            itemScores: {
-                create: scores.itemScores.map((itemScore: any) => {
-                    const finalItemScore = calculateFinalItemScore(itemScore, requisition.evaluationCriteria!);
-                    return {
-                        quoteItemId: itemScore.quoteItemId,
-                        finalScore: finalItemScore,
-                        financialScores: {
-                            create: itemScore.financialScores.map((s: any) => ({
-                                criterionId: s.criterionId,
-                                score: s.score,
-                                comment: s.comment,
-                            }))
-                        },
-                        technicalScores: {
-                            create: itemScore.technicalScores.map((s: any) => ({
-                                criterionId: s.criterionId,
-                                score: s.score,
-                                comment: s.comment,
-                            }))
-                        },
-                    }
-                })
-            }
-        }
-    });
-    
-    // Calculate the overall average score for the quotation based on all its item scores
-    const allItemScores = await prisma.itemScore.findMany({
-        where: { scoreSetId: createdScoreSet.id }
-    });
-    const averageScore = allItemScores.reduce((acc, s) => acc + s.finalScore, 0) / (allItemScores.length || 1);
 
+    // 1. Create the main CommitteeScoreSet
+    const createdScoreSet = await prisma.committeeScoreSet.create({
+      data: {
+        quotation: { connect: { id: quoteId } },
+        scorer: { connect: { id: user.id } },
+        scorerName: user.name,
+        committeeComment: scores.committeeComment,
+        finalScore: 0, // Will be updated later
+      },
+    });
+
+    // 2. Loop through item scores and create related records
+    let totalWeightedScore = 0;
+    const totalItems = scores.itemScores.length;
+
+    for (const itemScore of scores.itemScores) {
+        const finalItemScore = calculateFinalItemScore(itemScore, requisition.evaluationCriteria!);
+        totalWeightedScore += finalItemScore;
+
+        const createdItemScore = await prisma.itemScore.create({
+            data: {
+                scoreSet: { connect: { id: createdScoreSet.id } },
+                quoteItemId: itemScore.quoteItemId,
+                finalScore: finalItemScore,
+            }
+        });
+
+        // 3. Create Financial and Technical scores linked to the ItemScore
+        if (itemScore.financialScores && itemScore.financialScores.length > 0) {
+            await prisma.financialScore.createMany({
+                data: itemScore.financialScores.map((s: any) => ({
+                    itemScoreId: createdItemScore.id,
+                    criterionId: s.criterionId,
+                    score: s.score,
+                    comment: s.comment,
+                }))
+            });
+        }
+        if (itemScore.technicalScores && itemScore.technicalScores.length > 0) {
+             await prisma.technicalScore.createMany({
+                data: itemScore.technicalScores.map((s: any) => ({
+                    itemScoreId: createdItemScore.id,
+                    criterionId: s.criterionId,
+                    score: s.score,
+                    comment: s.comment,
+                }))
+            });
+        }
+    }
+
+    // 4. Calculate and update the final average score for the CommitteeScoreSet
+    const averageScoreForSet = totalItems > 0 ? totalWeightedScore / totalItems : 0;
     await prisma.committeeScoreSet.update({
         where: { id: createdScoreSet.id },
-        data: { finalScore: averageScore }
+        data: { finalScore: averageScoreForSet }
     });
-    
-    // Also update the final average score on the quotation itself
+
+    // 5. Update the overall average score on the Quotation itself
     const allScoreSetsForQuote = await prisma.committeeScoreSet.findMany({ where: { quotationId: quoteId }});
     const overallAverage = allScoreSetsForQuote.reduce((acc, s) => acc + s.finalScore, 0) / (allScoreSetsForQuote.length || 1);
     await prisma.quotation.update({
@@ -119,14 +131,13 @@ export async function POST(
         data: { finalAverageScore: overallAverage }
     });
 
-
     await prisma.auditLog.create({
         data: {
             user: { connect: { id: user.id } },
             action: 'SCORE_QUOTE',
             entity: 'Quotation',
             entityId: quoteId,
-            details: `Submitted scores for quote from ${quoteToUpdate.vendorName}. Overall Score: ${averageScore.toFixed(2)}.`,
+            details: `Submitted scores for quote from ${quoteToUpdate.vendorName}. Overall Score: ${averageScoreForSet.toFixed(2)}.`,
         }
     });
 

@@ -11,33 +11,37 @@ import { Vendor } from '@/lib/types';
 
 async function tallyAndAwardScores(requisitionId: string, awardStrategy: 'all' | 'item', awards: any, awardResponseDeadline?: Date) {
     
-    // Set all quotes to rejected initially
+    // Set all quotes to rejected initially, this will be overridden for winners/standby
     await prisma.quotation.updateMany({
         where: { requisitionId: requisitionId },
-        data: { status: 'Rejected', rank: undefined }
+        data: { status: 'Rejected', rank: null }
     });
+    
+    const awardedVendorIds = new Set<string>();
 
     if (awardStrategy === 'all') { // Award all items to one vendor
         const winnerVendorId = Object.keys(awards)[0];
-        const winnerQuote = await prisma.quotation.findFirst({
-            where: { requisitionId, vendorId: winnerVendorId }
-        });
-        
-        if (winnerQuote) {
-            await prisma.quotation.update({
-                where: { id: winnerQuote.id },
-                data: { status: 'Awarded', rank: 1 }
+        if(winnerVendorId) {
+            awardedVendorIds.add(winnerVendorId);
+            const winnerQuote = await prisma.quotation.findFirst({
+                where: { requisitionId, vendorId: winnerVendorId }
             });
+            
+            if (winnerQuote) {
+                await prisma.quotation.update({
+                    where: { id: winnerQuote.id },
+                    data: { status: 'Awarded', rank: 1 }
+                });
+            }
         }
     } else { // Award items individually
         const vendorIds = Object.keys(awards);
         for (const vendorId of vendorIds) {
+            awardedVendorIds.add(vendorId);
             const quote = await prisma.quotation.findFirst({
                 where: { requisitionId, vendorId }
             });
             if (quote) {
-                // If a vendor wins any item, their quote is "Partially Awarded"
-                // A better status might be needed here, but this is a start.
                 await prisma.quotation.update({
                     where: { id: quote.id },
                     data: { status: 'Partially_Awarded' }
@@ -48,15 +52,17 @@ async function tallyAndAwardScores(requisitionId: string, awardStrategy: 'all' |
     
     // Set other high-ranking quotes to Standby
     const allQuotes = await prisma.quotation.findMany({
-        where: { requisitionId },
+        where: { 
+            requisitionId: requisitionId,
+            vendorId: { notIn: Array.from(awardedVendorIds) }
+        },
         orderBy: { finalAverageScore: 'desc' },
         select: { id: true, status: true }
     });
 
-    const nonAwardedQuotes = allQuotes.filter(q => q.status === 'Rejected');
-    for (let i = 0; i < Math.min(2, nonAwardedQuotes.length); i++) {
+    for (let i = 0; i < Math.min(2, allQuotes.length); i++) {
         await prisma.quotation.update({
-            where: { id: nonAwardedQuotes[i].id },
+            where: { id: allQuotes[i].id },
             data: { status: 'Standby', rank: (i + 2) as 2 | 3 }
         });
     }
