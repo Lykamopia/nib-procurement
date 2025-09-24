@@ -6,63 +6,81 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { users } from '@/lib/data-store';
 import { sendEmail } from '@/services/email-service';
-import { Vendor } from '@/lib/types';
+import { Vendor, Quotation, QuoteItem } from '@/lib/types';
 
 
 async function tallyAndAwardScores(requisitionId: string, awardStrategy: 'all' | 'item', awards: any, awardResponseDeadline?: Date) {
     
+    const allQuotesForReq = await prisma.quotation.findMany({
+        where: { requisitionId },
+        include: { 
+            scores: { 
+                include: { 
+                    itemScores: true 
+                } 
+            },
+            items: true,
+        }
+    });
+
+    if (awardStrategy === 'all') {
+        allQuotesForReq.forEach(quote => {
+            let totalScore = 0;
+            let scoredItemsCount = 0;
+            quote.scores.forEach(scoreSet => {
+                scoreSet.itemScores.forEach(itemScore => {
+                    totalScore += itemScore.finalScore;
+                    scoredItemsCount++;
+                })
+            })
+             quote.finalAverageScore = scoredItemsCount > 0 ? totalScore / scoredItemsCount : 0;
+        });
+
+        allQuotesForReq.sort((a, b) => (b.finalAverageScore || 0) - (a.finalAverageScore || 0));
+        
+        allQuotesForReq.forEach((quote, index) => {
+            if (index === 0) {
+                awards[quote.vendorId] = {
+                    vendorName: quote.vendorName,
+                    items: quote.items.map(i => ({
+                        requisitionItemId: i.requisitionItemId,
+                        quoteItemId: i.id
+                    }))
+                };
+            }
+        });
+
+    }
+
     // Set all quotes to rejected initially, this will be overridden for winners/standby
     await prisma.quotation.updateMany({
         where: { requisitionId: requisitionId },
         data: { status: 'Rejected', rank: null }
     });
     
-    const awardedVendorIds = new Set<string>();
+    const awardedVendorIds = new Set<string>(Object.keys(awards));
 
-    if (awardStrategy === 'all') { // Award all items to one vendor
-        const winnerVendorId = Object.keys(awards)[0];
-        if(winnerVendorId) {
-            awardedVendorIds.add(winnerVendorId);
-            const winnerQuote = await prisma.quotation.findFirst({
-                where: { requisitionId, vendorId: winnerVendorId }
+    for (const vendorId of awardedVendorIds) {
+        const quote = allQuotesForReq.find(q => q.vendorId === vendorId);
+        if (quote) {
+             await prisma.quotation.update({
+                where: { id: quote.id },
+                data: { 
+                    status: Object.keys(awards).length > 1 ? 'Partially_Awarded' : 'Awarded',
+                    rank: 1 // All awarded get rank 1
+                }
             });
-            
-            if (winnerQuote) {
-                await prisma.quotation.update({
-                    where: { id: winnerQuote.id },
-                    data: { status: 'Awarded', rank: 1 }
-                });
-            }
-        }
-    } else { // Award items individually
-        const vendorIds = Object.keys(awards);
-        for (const vendorId of vendorIds) {
-            awardedVendorIds.add(vendorId);
-            const quote = await prisma.quotation.findFirst({
-                where: { requisitionId, vendorId }
-            });
-            if (quote) {
-                await prisma.quotation.update({
-                    where: { id: quote.id },
-                    data: { status: 'Partially_Awarded' }
-                });
-            }
         }
     }
     
-    // Set other high-ranking quotes to Standby
-    const allQuotes = await prisma.quotation.findMany({
-        where: { 
-            requisitionId: requisitionId,
-            vendorId: { notIn: Array.from(awardedVendorIds) }
-        },
-        orderBy: { finalAverageScore: 'desc' },
-        select: { id: true, status: true }
-    });
+    const standbyCandidates = allQuotesForReq
+        .filter(q => !awardedVendorIds.has(q.vendorId))
+        .sort((a,b) => (b.finalAverageScore || 0) - (a.finalAverageScore || 0));
 
-    for (let i = 0; i < Math.min(2, allQuotes.length); i++) {
+
+    for (let i = 0; i < Math.min(2, standbyCandidates.length); i++) {
         await prisma.quotation.update({
-            where: { id: allQuotes[i].id },
+            where: { id: standbyCandidates[i].id },
             data: { status: 'Standby', rank: (i + 2) as 2 | 3 }
         });
     }
@@ -150,4 +168,3 @@ export async function POST(
     return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
   }
 }
-

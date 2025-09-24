@@ -168,6 +168,7 @@ export type Vendor = {
 };
 
 export type QuoteItem = {
+    id: string;
     requisitionItemId: string;
     name: string;
     quantity: number;
@@ -181,7 +182,7 @@ export type QuoteAnswer = {
   answer: string;
 }
 
-export type QuotationStatus = 'Submitted' | 'Awarded' | 'Rejected' | 'Standby' | 'Invoice Submitted' | 'Failed' | 'Accepted' | 'Declined';
+export type QuotationStatus = 'Submitted' | 'Awarded' | 'Partially_Awarded' | 'Rejected' | 'Standby' | 'Invoice Submitted' | 'Failed' | 'Accepted' | 'Declined';
 
 export type Score = {
   criterionId: string;
@@ -189,11 +190,19 @@ export type Score = {
   comment?: string;
 }
 
-export type CommitteeScoreSet = {
-    scorerId: string;
-    scorerName: string;
+export type ItemScore = {
+    id: string;
+    quoteItemId: string;
     financialScores: Score[];
     technicalScores: Score[];
+    finalScore: number;
+}
+
+export type CommitteeScoreSet = {
+    id: string;
+    scorerId: string;
+    scorerName: string;
+    itemScores: ItemScore[];
     finalScore: number;
     committeeComment?: string;
     submittedAt: Date;
@@ -331,5 +340,3 @@ export type DocumentRecord = {
     transactionId: string;
     auditTrail?: AuditLog[];
 }
-
-    

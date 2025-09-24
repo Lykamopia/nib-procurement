@@ -14,10 +14,11 @@ async function main() {
   await prisma.pOItem.deleteMany({});
   await prisma.purchaseOrder.deleteMany({});
   await prisma.quoteAnswer.deleteMany({});
-  await prisma.quoteItem.deleteMany({});
   await prisma.financialScore.deleteMany({});
   await prisma.technicalScore.deleteMany({});
+  await prisma.itemScore.deleteMany({});
   await prisma.committeeScoreSet.deleteMany({});
+  await prisma.quoteItem.deleteMany({});
   await prisma.quotation.deleteMany({});
   await prisma.technicalCriterion.deleteMany({});
   await prisma.financialCriterion.deleteMany({});
@@ -196,7 +197,7 @@ async function main() {
        const createdQuote = await prisma.quotation.create({
            data: {
                ...quoteData,
-               status: quoteData.status.replace(/ /g, '_') as any,
+               status: quoteData.status.replace(/_/g, '_') as any,
                deliveryDate: new Date(quoteData.deliveryDate),
                createdAt: new Date(quoteData.createdAt),
                vendor: { connect: { id: vendorId } },
@@ -259,7 +260,7 @@ async function main() {
         const createdInvoice = await prisma.invoice.create({
             data: {
                 ...invoiceData,
-                status: invoiceData.status.replace(/ /g, '_') as any,
+                status: invoiceData.status.replace(/_/g, '_') as any,
                 invoiceDate: new Date(invoiceData.invoiceDate),
                 paymentDate: invoiceData.paymentDate ? new Date(invoiceData.paymentDate) : undefined,
             }
