@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect, useMemo } from 'react';
 import { User, UserRole } from '@/lib/types';
 import { getUserByToken, login as authLoginHelper } from '@/lib/auth';
 import { users } from '@/lib/auth-store';
@@ -73,8 +73,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     window.location.href = '/login';
   };
 
+  const authContextValue = useMemo(() => ({
+      user,
+      token,
+      role,
+      allUsers: allTestUsers,
+      switchUser,
+      login,
+      logout,
+      loading
+  }), [user, token, role, allTestUsers, loading]);
+
+
   return (
-    <AuthContext.Provider value={{ user, token, role, allUsers: allTestUsers, switchUser, login, logout, loading }}>
+    <AuthContext.Provider value={authContextValue}>
       {children}
     </AuthContext.Provider>
   );
