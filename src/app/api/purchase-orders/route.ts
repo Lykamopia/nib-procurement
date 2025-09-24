@@ -40,7 +40,6 @@ export async function POST(request: Request) {
             vendor: { connect: { id: vendor.id } },
             items: {
                 create: acceptedQuote.items.map(item => ({
-                    requisitionItem: { connect: { id: item.requisitionItemId } },
                     requisitionItemId: item.requisitionItemId,
                     name: item.name,
                     quantity: item.quantity,

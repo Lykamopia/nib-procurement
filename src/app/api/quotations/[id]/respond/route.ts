@@ -29,7 +29,7 @@ export async function POST(
           throw new Error('Quotation not found or not owned by this vendor');
         }
         
-        if (quote.status !== 'Awarded') {
+        if (quote.status !== 'Awarded' && quote.status !== 'Partially_Awarded') {
             throw new Error('This quote is not currently in an awarded state.');
         }
         
@@ -51,7 +51,6 @@ export async function POST(
                     vendor: { connect: { id: quote.vendorId } },
                     items: {
                         create: quote.items.map(item => ({
-                            requisitionItem: { connect: { id: item.requisitionItemId } },
                             requisitionItemId: item.requisitionItemId,
                             name: item.name,
                             quantity: item.quantity,
