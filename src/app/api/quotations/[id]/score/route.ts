@@ -66,7 +66,6 @@ export async function POST(
         return NextResponse.json({ error: 'You have already scored this quotation.' }, { status: 409 });
     }
     
-    // Calculate overall score for the entire quote by averaging the final scores of each item
     let totalWeightedScore = 0;
     let totalItems = scores.itemScores.length;
 
@@ -83,38 +82,38 @@ export async function POST(
             scorer: { connect: { id: user.id } },
             scorerName: user.name,
             committeeComment: scores.committeeComment,
-            finalScore: finalAverageScoreForQuote, // Use the averaged score
-            itemScores: {
-                create: scores.itemScores.map((itemScore: any) => {
-                    const finalItemScore = calculateFinalItemScore(itemScore, requisition.evaluationCriteria);
-                    return {
-                        quoteItemId: itemScore.quoteItemId,
-                        finalScore: finalItemScore,
-                        financialScores: {
-                            create: itemScore.financialScores.map((s: any) => ({
-                                criterionId: s.criterionId,
-                                score: s.score,
-                                comment: s.comment
-                            }))
-                        },
-                        technicalScores: {
-                             create: itemScore.technicalScores.map((s: any) => ({
-                                criterionId: s.criterionId,
-                                score: s.score,
-                                comment: s.comment
-                            }))
-                        }
-                    };
-                })
-            }
+            finalScore: finalAverageScoreForQuote,
         }
     });
-    
-    // Update the average score on the quotation across all scorers
+
+    for (const itemScore of scores.itemScores) {
+         const finalItemScore = calculateFinalItemScore(itemScore, requisition.evaluationCriteria);
+         await prisma.itemScore.create({
+            data: {
+                scoreSet: { connect: { id: createdScoreSet.id } },
+                quoteItemId: itemScore.quoteItemId,
+                finalScore: finalItemScore,
+                financialScores: {
+                    create: itemScore.financialScores.map((s: any) => ({
+                        criterionId: s.criterionId,
+                        score: s.score,
+                        comment: s.comment
+                    }))
+                },
+                technicalScores: {
+                     create: itemScore.technicalScores.map((s: any) => ({
+                        criterionId: s.criterionId,
+                        score: s.score,
+                        comment: s.comment
+                    }))
+                }
+            }
+        });
+    }
+
     const allScoresForQuote = await prisma.committeeScoreSet.findMany({ where: { quotationId: quoteId } });
     const averageScore = allScoresForQuote.reduce((acc, s) => acc + s.finalScore, 0) / allScoresForQuote.length;
     await prisma.quotation.update({ where: { id: quoteId }, data: { finalAverageScore: averageScore } });
-
 
     auditLogs.unshift({
         id: `log-${Date.now()}`,
