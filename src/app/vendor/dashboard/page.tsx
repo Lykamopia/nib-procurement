@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { PurchaseRequisition, Quotation } from '@/lib/types';
+import { PurchaseRequisition, Quotation, QuotationStatus } from '@/lib/types';
 import { useAuth } from '@/contexts/auth-context';
 import {
   Card,
@@ -22,11 +22,12 @@ import { cn } from '@/lib/utils';
 
 const PAGE_SIZE = 9;
 
-type RequisitionCardStatus = 'Awarded' | 'Submitted' | 'Not Awarded' | 'Action Required' | 'Accepted' | 'Invoice Submitted';
+type RequisitionCardStatus = 'Awarded' | 'Partially Awarded' | 'Submitted' | 'Not Awarded' | 'Action Required' | 'Accepted' | 'Invoice Submitted';
 
 const VendorStatusBadge = ({ status }: { status: RequisitionCardStatus }) => {
   const statusInfo: Record<RequisitionCardStatus, {text: string, variant: 'default' | 'secondary' | 'destructive' | 'outline', className: string}> = {
     'Awarded': { text: 'Awarded to You', variant: 'default', className: 'bg-green-600 hover:bg-green-700' },
+    'Partially Awarded': { text: 'Partially Awarded', variant: 'default', className: 'bg-green-600 hover:bg-green-700' },
     'Accepted': { text: 'You Accepted', variant: 'default', className: 'bg-blue-600 hover:bg-blue-700' },
     'Invoice Submitted': { text: 'Invoice Submitted', variant: 'default', className: 'bg-purple-600 hover:bg-purple-700' },
     'Submitted': { text: 'Submitted', variant: 'secondary', className: '' },
@@ -71,7 +72,7 @@ export default function VendorDashboardPage() {
                 const vendorAwards: PurchaseRequisition[] = [];
                 const availableForQuoting: PurchaseRequisition[] = [];
                 
-                const awardStatuses: Array<Quotation['status']> = ['Awarded', 'Accepted', 'Invoice Submitted'];
+                const awardStatuses: Array<QuotationStatus> = ['Awarded', 'Partially_Awarded', 'Accepted', 'Invoice_Submitted'];
 
                 allRequisitions.forEach(req => {
                     const vendorQuote = req.quotations?.find(
@@ -115,12 +116,13 @@ export default function VendorDashboardPage() {
         
         if (vendorQuote) {
           if (vendorQuote.status === 'Awarded') return 'Awarded';
+          if (vendorQuote.status === 'Partially_Awarded') return 'Partially Awarded';
           if (vendorQuote.status === 'Accepted') return 'Accepted';
-          if (vendorQuote.status === 'Invoice Submitted') return 'Invoice Submitted';
+          if (vendorQuote.status === 'Invoice_Submitted') return 'Invoice Submitted';
           if (vendorQuote.status === 'Submitted') return 'Submitted';
         }
         
-        const anAwardedQuote = req.quotations?.find(q => q.status === 'Awarded' || q.status === 'Accepted');
+        const anAwardedQuote = req.quotations?.find(q => q.status === 'Awarded' || q.status === 'Accepted' || q.status === 'Partially_Awarded');
         if (anAwardedQuote && (!vendorQuote || vendorQuote.status === 'Rejected')) {
             return 'Not Awarded';
         }
@@ -157,7 +159,7 @@ export default function VendorDashboardPage() {
                                 {awardedRequisitions.map(req => {
                                     const vendorQuote = req.quotations?.find(q => q.vendorId === user.vendorId);
                                     const status = getRequisitionCardStatus(req);
-                                    const isExpired = req.awardResponseDeadline && isPast(new Date(req.awardResponseDeadline)) && status === 'Awarded';
+                                    const isExpired = req.awardResponseDeadline && isPast(new Date(req.awardResponseDeadline)) && (status === 'Awarded' || status === 'Partially Awarded');
                                     return (
                                         <Card key={req.id} className={cn("border-primary ring-2 ring-primary/50 bg-primary/5 relative", isExpired && "opacity-60")}>
                                             <VendorStatusBadge status={status} />
@@ -168,7 +170,7 @@ export default function VendorDashboardPage() {
                                             <CardContent>
                                                 <div className="text-sm text-muted-foreground space-y-2">
                                                     <div><span className="font-semibold text-foreground">Requisition ID:</span> {req.id}</div>
-                                                    {status === 'Awarded' && req.awardResponseDeadline && (
+                                                    {(status === 'Awarded' || status === 'Partially Awarded') && req.awardResponseDeadline && (
                                                         <div className={cn("flex items-center gap-1", isExpired ? "text-destructive" : "text-amber-600")}>
                                                             <Timer className="h-4 w-4" />
                                                             <span className="font-semibold">
@@ -181,7 +183,7 @@ export default function VendorDashboardPage() {
                                             <CardFooter>
                                                 <Button asChild className="w-full" variant="secondary" disabled={isExpired}>
                                                     <Link href={`/vendor/requisitions/${req.id}`}>
-                                                         {status === 'Awarded' && (isExpired ? 'Offer Expired' : 'Respond to Award')}
+                                                         {(status === 'Awarded' || status === 'Partially Awarded') && (isExpired ? 'Offer Expired' : 'Respond to Award')}
                                                          {status === 'Accepted' && 'Submit Invoice'}
                                                          {status === 'Invoice Submitted' && 'View PO / Invoice'}
                                                          <ArrowRight className="ml-2 h-4 w-4" />

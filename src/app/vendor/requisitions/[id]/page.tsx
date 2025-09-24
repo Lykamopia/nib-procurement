@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { PurchaseOrder, PurchaseRequisition, Quotation } from '@/lib/types';
+import { PurchaseOrder, PurchaseRequisition, Quotation, QuoteItem } from '@/lib/types';
 import { useAuth } from '@/contexts/auth-context';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
@@ -542,11 +542,23 @@ export default function VendorRequisitionPage() {
     const { token, user } = useAuth();
     const { toast } = useToast();
     
-    const isAwardProcessStarted = requisition?.quotations?.some(q => ['Awarded', 'Standby', 'Accepted', 'Declined', 'Failed'].includes(q.status)) ?? false;
+    const isAwardProcessStarted = requisition?.quotations?.some(q => ['Awarded', 'Partially_Awarded', 'Standby', 'Accepted', 'Declined', 'Failed'].includes(q.status)) ?? false;
     const isDeadlinePassed = requisition?.deadline ? isPast(new Date(requisition.deadline)) : false;
     const allowEdits = requisition?.rfqSettings?.allowQuoteEdits ?? true;
 
     const canEditQuote = submittedQuote?.status === 'Submitted' && !isAwardProcessStarted && !isDeadlinePassed && allowEdits;
+
+    const awardedItems: QuoteItem[] = useMemo(() => {
+        if (submittedQuote?.status !== 'Partially_Awarded' || !requisition?.purchaseOrderId) {
+            return submittedQuote?.items || [];
+        }
+        
+        const poItems = purchaseOrder?.items.map(item => item.name);
+        if (!poItems) return [];
+        
+        return submittedQuote.items.filter(item => poItems.includes(item.name));
+    }, [submittedQuote, purchaseOrder, requisition]);
+
 
     const fetchRequisitionData = async () => {
         if (!id || !token || !user) return;
@@ -631,19 +643,21 @@ export default function VendorRequisitionPage() {
     if (error) return <div className="text-destructive text-center p-8">{error}</div>;
     if (!requisition) return <div className="text-center p-8">Requisition not found.</div>;
 
-    const isAwarded = submittedQuote?.status === 'Awarded';
+    const isAwarded = submittedQuote?.status === 'Awarded' || submittedQuote?.status === 'Partially_Awarded';
     const isAccepted = submittedQuote?.status === 'Accepted';
     const hasResponded = submittedQuote?.status === 'Accepted' || submittedQuote?.status === 'Declined';
-    const hasSubmittedInvoice = submittedQuote?.status === 'Invoice Submitted';
+    const hasSubmittedInvoice = submittedQuote?.status === 'Invoice_Submitted';
     const isResponseDeadlineExpired = requisition.awardResponseDeadline ? isPast(new Date(requisition.awardResponseDeadline)) : false;
 
-    const QuoteDisplayCard = ({ quote }: { quote: Quotation }) => (
+    const QuoteDisplayCard = ({ quote, itemsToShow }: { quote: Quotation, itemsToShow: QuoteItem[] }) => {
+         const totalQuotedPrice = itemsToShow.reduce((acc, item) => acc + (item.unitPrice * item.quantity), 0);
+         return (
          <Card>
             <CardHeader className="flex flex-row items-start justify-between">
                 <div>
                     <CardTitle>Your Submitted Quote</CardTitle>
                     <CardDescription>
-                        Status: <Badge variant={quote.status === 'Awarded' || quote.status === 'Accepted' ? 'default' : 'secondary'}>{quote.status.replace(/_/g, ' ')}</Badge>
+                        Status: <Badge variant={quote.status === 'Awarded' || quote.status === 'Accepted' || quote.status === 'Partially_Awarded' ? 'default' : 'secondary'}>{quote.status.replace(/_/g, ' ')}</Badge>
                     </CardDescription>
                 </div>
                 {canEditQuote && (
@@ -663,7 +677,7 @@ export default function VendorRequisitionPage() {
                     </div>
                 )}
                 <div className="space-y-2">
-                    {quote.items && quote.items.map((item, index) => (
+                    {itemsToShow && itemsToShow.map((item, index) => (
                         <Card key={`${item.requisitionItemId}-${index}`} className="p-3">
                             <div className="flex justify-between">
                                 <div>
@@ -689,7 +703,7 @@ export default function VendorRequisitionPage() {
                 )}
                  <Separator />
                  <div className="text-right font-bold text-2xl">
-                    Total Quoted Price: {quote.totalPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETB
+                    Total Quoted Price: {totalQuotedPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ETB
                  </div>
                  {isAccepted && purchaseOrder && (
                     <CardFooter className="p-0 pt-4">
@@ -730,7 +744,8 @@ export default function VendorRequisitionPage() {
                  )}
             </CardContent>
         </Card>
-    );
+        )
+    };
 
     return (
         <div className="space-y-6">
@@ -753,6 +768,17 @@ export default function VendorRequisitionPage() {
                              )}
                         </CardDescription>
                     </CardHeader>
+                    {submittedQuote?.status === 'Partially_Awarded' && (
+                        <CardContent>
+                            <Alert>
+                                <Info className="h-4 w-4" />
+                                <AlertTitle>Partial Award</AlertTitle>
+                                <AlertDescription>
+                                    You have been awarded the following item(s): {awardedItems.map(i => i.name).join(', ')}.
+                                </AlertDescription>
+                            </Alert>
+                        </CardContent>
+                    )}
                     <CardFooter className="gap-4">
                         <AlertDialog>
                             <AlertDialogTrigger asChild>
@@ -882,7 +908,7 @@ export default function VendorRequisitionPage() {
                 </Card>
 
                 {submittedQuote && !isEditingQuote ? (
-                    <QuoteDisplayCard quote={submittedQuote} />
+                    <QuoteDisplayCard quote={submittedQuote} itemsToShow={awardedItems} />
                 ) : (
                     <QuoteSubmissionForm 
                         requisition={requisition} 
@@ -894,5 +920,3 @@ export default function VendorRequisitionPage() {
         </div>
     )
 }
-
-    
