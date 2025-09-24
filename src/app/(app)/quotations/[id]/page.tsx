@@ -1412,106 +1412,105 @@ const ScoringDialog = ({
     }
     
     return (
-         <DialogContent className="max-w-4xl">
+         <DialogContent className="max-w-4xl flex flex-col h-[95vh]">
             <DialogHeader>
                 <DialogTitle>Score Quotation from {quote.vendorName}</DialogTitle>
                 <DialogDescription>Evaluate each item against the requester's criteria. Your scores will be combined with other committee members' to determine the final ranking.</DialogDescription>
             </DialogHeader>
             <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)}>
-            <div className="grid grid-cols-4 gap-6">
-                <div className="col-span-1">
-                    <h3 className="font-semibold mb-2">Items to Score</h3>
-                    <div className="space-y-2">
-                        {quote.items.map((item, index) => (
-                             <Button
-                                key={item.id}
-                                type="button"
-                                variant={index === activeItemIndex ? 'secondary' : 'ghost'}
-                                className="w-full justify-start text-left h-auto py-2"
-                                onClick={() => setActiveItemIndex(index)}
-                            >
-                                {item.name}
-                            </Button>
-                        ))}
+            <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col flex-1 min-h-0">
+                <div className="grid grid-cols-4 gap-6 flex-1 min-h-0">
+                    <div className="col-span-1">
+                        <h3 className="font-semibold mb-2">Items to Score</h3>
+                        <div className="space-y-2">
+                            {quote.items.map((item, index) => (
+                                <Button
+                                    key={item.id}
+                                    type="button"
+                                    variant={index === activeItemIndex ? 'secondary' : 'ghost'}
+                                    className="w-full justify-start text-left h-auto py-2"
+                                    onClick={() => setActiveItemIndex(index)}
+                                >
+                                    {item.name}
+                                </Button>
+                            ))}
+                        </div>
+                    </div>
+                    <div className="col-span-3 flex flex-col min-h-0">
+                        <ScrollArea className="flex-1 pr-4 -mr-4">
+                            <div className="space-y-6">
+                                <h3 className="font-bold text-lg">Scoring for: <span className="text-primary">{activeQuoteItem.name}</span></h3>
+                                {isFinancialScorer && (
+                                    <Card>
+                                        <CardHeader>
+                                            <CardTitle className="text-xl flex items-center gap-2">
+                                                <Scale /> Financial Evaluation ({requisition.evaluationCriteria.financialWeight}%)
+                                            </CardTitle>
+                                        </CardHeader>
+                                        <CardContent className="space-y-4">
+                                            {renderCriteria('financial', activeItemIndex)}
+                                        </CardContent>
+                                    </Card>
+                                )}
+                                {isTechnicalScorer && (
+                                    <Card>
+                                        <CardHeader>
+                                            <CardTitle className="text-xl flex items-center gap-2">
+                                                <TrendingUp /> Technical Evaluation ({requisition.evaluationCriteria.technicalWeight}%)
+                                            </CardTitle>
+                                        </CardHeader>
+                                        <CardContent className="space-y-4">
+                                            {renderCriteria('technical', activeItemIndex)}
+                                        </CardContent>
+                                    </Card>
+                                )}
+                                <FormField
+                                    control={form.control}
+                                    name="committeeComment"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel className="text-lg font-semibold">Overall Comment</FormLabel>
+                                            <FormControl>
+                                                <Textarea placeholder="Provide an overall summary or justification for your scores for this entire quotation..." {...field} rows={4} disabled={!!existingScore} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            </div>
+                        </ScrollArea>
                     </div>
                 </div>
-                <div className="col-span-3">
-                    <ScrollArea className="h-[60vh] p-1">
-                        <div className="space-y-6">
-                            <h3 className="font-bold text-lg">Scoring for: <span className="text-primary">{activeQuoteItem.name}</span></h3>
-                            {isFinancialScorer && (
-                                <Card>
-                                    <CardHeader>
-                                        <CardTitle className="text-xl flex items-center gap-2">
-                                            <Scale /> Financial Evaluation ({requisition.evaluationCriteria.financialWeight}%)
-                                        </CardTitle>
-                                    </CardHeader>
-                                    <CardContent className="space-y-4">
-                                        {renderCriteria('financial', activeItemIndex)}
-                                    </CardContent>
-                                </Card>
-                            )}
-                            {isTechnicalScorer && (
-                                <Card>
-                                    <CardHeader>
-                                        <CardTitle className="text-xl flex items-center gap-2">
-                                            <TrendingUp /> Technical Evaluation ({requisition.evaluationCriteria.technicalWeight}%)
-                                        </CardTitle>
-                                    </CardHeader>
-                                    <CardContent className="space-y-4">
-                                        {renderCriteria('technical', activeItemIndex)}
-                                    </CardContent>
-                                </Card>
-                            )}
-                        </div>
-                    </ScrollArea>
-                </div>
-            </div>
-             <Separator className="my-4"/>
-             <FormField
-                control={form.control}
-                name="committeeComment"
-                render={({ field }) => (
-                    <FormItem>
-                         <FormLabel className="text-lg font-semibold">Overall Comment</FormLabel>
-                        <FormControl>
-                            <Textarea placeholder="Provide an overall summary or justification for your scores for this entire quotation..." {...field} rows={4} disabled={!!existingScore} />
-                        </FormControl>
-                        <FormMessage />
-                    </FormItem>
-                )}
-             />
 
-             <DialogFooter className="pt-4 flex items-center justify-between mt-4">
-                 {existingScore ? (
-                    <p className="text-sm text-muted-foreground">You have already scored this quote.</p>
-                 ) : (
-                    <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                            <Button type="button">
-                                Submit Score
-                            </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                            <AlertDialogHeader>
-                                <AlertDialogTitle>Confirm Your Score</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                    Please review your evaluation before submitting. This action cannot be undone.
-                                </AlertDialogDescription>
-                            </AlertDialogHeader>
-                           
-                            <AlertDialogFooter>
-                                <AlertDialogCancel>Go Back &amp; Edit</AlertDialogCancel>
-                                <AlertDialogAction onClick={form.handleSubmit(onSubmit)} disabled={isSubmitting}>
-                                     {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                    Confirm &amp; Submit
-                                </AlertDialogAction>
-                            </AlertDialogFooter>
-                        </AlertDialogContent>
-                    </AlertDialog>
-                 )}
-            </DialogFooter>
+                <DialogFooter className="pt-4 mt-4 border-t">
+                    {existingScore ? (
+                        <p className="text-sm text-muted-foreground">You have already scored this quote.</p>
+                    ) : (
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button type="button">
+                                    Submit Score
+                                </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>Confirm Your Score</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        Please review your evaluation before submitting. This action cannot be undone.
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                            
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>Go Back &amp; Edit</AlertDialogCancel>
+                                    <AlertDialogAction onClick={form.handleSubmit(onSubmit)} disabled={isSubmitting}>
+                                        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                        Confirm &amp; Submit
+                                    </AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                    )}
+                </DialogFooter>
             </form>
             </Form>
         </DialogContent>
