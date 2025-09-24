@@ -1521,7 +1521,6 @@ const ScoringProgressTracker = ({
   isFinalizing: boolean;
   isAwarded: boolean;
 }) => {
-    const [awardResponseDeadline, setAwardResponseDeadline] = useState<Date | undefined>();
     const [isExtendDialogOpen, setExtendDialogOpen] = useState(false);
     const [isReportDialogOpen, setReportDialogOpen] = useState(false);
     const [selectedMember, setSelectedMember] = useState<User | null>(null);
@@ -1802,7 +1801,14 @@ const AwardCenterDialog = ({
     onClose: () => void;
 }) => {
     const [awardStrategy, setAwardStrategy] = useState<'item' | 'all'>('all');
-    const [awardResponseDeadline, setAwardResponseDeadline] = useState<Date|undefined>();
+    const [awardResponseDeadlineDate, setAwardResponseDeadlineDate] = useState<Date|undefined>();
+    const [awardResponseDeadlineTime, setAwardResponseDeadlineTime] = useState('17:00');
+
+    const awardResponseDeadline = useMemo(() => {
+        if (!awardResponseDeadlineDate) return undefined;
+        const [hours, minutes] = awardResponseDeadlineTime.split(':').map(Number);
+        return setMinutes(setHours(awardResponseDeadlineDate, hours), minutes);
+    }, [awardResponseDeadlineDate, awardResponseDeadlineTime]);
     
     // Per-item award logic
     const itemWinners = useMemo(() => {
@@ -1950,29 +1956,37 @@ const AwardCenterDialog = ({
 
              <div className="pt-4 space-y-2">
                 <Label>Vendor Response Deadline (Optional)</Label>
-                 <Popover>
-                    <PopoverTrigger asChild>
-                        <Button
-                            variant={"outline"}
-                            className={cn(
-                            "w-full justify-start text-left font-normal",
-                            !awardResponseDeadline && "text-muted-foreground"
-                            )}
-                        >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {awardResponseDeadline ? format(awardResponseDeadline, "PPP") : <span>Set a deadline for vendors to respond</span>}
-                        </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
-                        <Calendar
-                            mode="single"
-                            selected={awardResponseDeadline}
-                            onSelect={setAwardResponseDeadline}
-                            disabled={(date) => date < new Date(new Date().setHours(0,0,0,0))}
-                            initialFocus
-                        />
-                    </PopoverContent>
-                </Popover>
+                <div className="flex gap-2">
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button
+                                variant={"outline"}
+                                className={cn(
+                                "flex-1 justify-start text-left font-normal",
+                                !awardResponseDeadlineDate && "text-muted-foreground"
+                                )}
+                            >
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {awardResponseDeadlineDate ? format(awardResponseDeadlineDate, "PPP") : <span>Set a date for vendors to respond</span>}
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0">
+                            <Calendar
+                                mode="single"
+                                selected={awardResponseDeadlineDate}
+                                onSelect={setAwardResponseDeadlineDate}
+                                disabled={(date) => date < new Date(new Date().setHours(0,0,0,0))}
+                                initialFocus
+                            />
+                        </PopoverContent>
+                    </Popover>
+                     <Input 
+                        type="time" 
+                        className="w-32"
+                        value={awardResponseDeadlineTime}
+                        onChange={(e) => setAwardResponseDeadlineTime(e.target.value)}
+                    />
+                </div>
             </div>
 
             <DialogFooter>
@@ -2281,7 +2295,7 @@ export default function QuotationDetailsPage() {
                 toast({ variant: 'destructive', title: 'Error', description: 'Requisition not found.' });
             }
             
-            setVendors(venData.vendors || []);
+            setVendors(venData || []);
 
         } catch (error) {
             toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch data.' });
