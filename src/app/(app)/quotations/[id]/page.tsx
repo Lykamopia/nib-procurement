@@ -1758,30 +1758,26 @@ const CumulativeScoringReportDialog = ({ requisition, quotations, isOpen, onClos
                                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                     <div>
                                                         <h4 className="font-semibold text-sm mb-2 text-gray-800">Financial Evaluation ({requisition.evaluationCriteria?.financialWeight}%)</h4>
-                                                        {scoreSet.itemScores.map(iScore => (
-                                                            iScore.financialScores.map(s => (
-                                                                <div key={s.criterionId} className="text-xs p-2 bg-gray-50 rounded-md mb-2">
-                                                                    <div className="flex justify-between items-center font-medium">
-                                                                        <p>{getCriterionName(s.criterionId, requisition.evaluationCriteria?.financialCriteria)}</p>
-                                                                        <p className="font-bold">{s.score}/100</p>
-                                                                    </div>
-                                                                    {s.comment && <p className="italic text-gray-500 mt-1 pl-1 border-l-2 border-gray-300">"{s.comment}"</p>}
+                                                        {scoreSet.financialScores?.map(s => (
+                                                            <div key={s.criterionId} className="text-xs p-2 bg-gray-50 rounded-md mb-2">
+                                                                <div className="flex justify-between items-center font-medium">
+                                                                    <p>{getCriterionName(s.criterionId, requisition.evaluationCriteria?.financialCriteria)}</p>
+                                                                    <p className="font-bold">{s.score}/100</p>
                                                                 </div>
-                                                            ))
+                                                                {s.comment && <p className="italic text-gray-500 mt-1 pl-1 border-l-2 border-gray-300">"{s.comment}"</p>}
+                                                            </div>
                                                         ))}
                                                     </div>
                                                      <div>
                                                         <h4 className="font-semibold text-sm mb-2 text-gray-800">Technical Evaluation ({requisition.evaluationCriteria?.technicalWeight}%)</h4>
-                                                        {scoreSet.itemScores.map(iScore => (
-                                                            iScore.technicalScores.map(s => (
-                                                                <div key={s.criterionId} className="text-xs p-2 bg-gray-50 rounded-md mb-2">
-                                                                    <div className="flex justify-between items-center font-medium">
-                                                                        <p>{getCriterionName(s.criterionId, requisition.evaluationCriteria?.technicalCriteria)}</p>
-                                                                        <p className="font-bold">{s.score}/100</p>
-                                                                    </div>
-                                                                    {s.comment && <p className="italic text-gray-500 mt-1 pl-1 border-l-2 border-gray-300">"{s.comment}"</p>}
+                                                        {scoreSet.technicalScores?.map(s => (
+                                                            <div key={s.criterionId} className="text-xs p-2 bg-gray-50 rounded-md mb-2">
+                                                                <div className="flex justify-between items-center font-medium">
+                                                                    <p>{getCriterionName(s.criterionId, requisition.evaluationCriteria?.technicalCriteria)}</p>
+                                                                    <p className="font-bold">{s.score}/100</p>
                                                                 </div>
-                                                            ))
+                                                                {s.comment && <p className="italic text-gray-500 mt-1 pl-1 border-l-2 border-gray-300">"{s.comment}"</p>}
+                                                            </div>
                                                         ))}
                                                     </div>
                                                 </div>
