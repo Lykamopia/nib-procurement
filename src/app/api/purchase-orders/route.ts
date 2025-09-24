@@ -41,6 +41,7 @@ export async function POST(request: Request) {
             items: {
                 create: acceptedQuote.items.map(item => ({
                     requisitionItem: { connect: { id: item.requisitionItemId } },
+                    requisitionItemId: item.requisitionItemId,
                     name: item.name,
                     quantity: item.quantity,
                     unitPrice: item.unitPrice,
@@ -50,11 +51,6 @@ export async function POST(request: Request) {
             },
             totalAmount: acceptedQuote.totalPrice,
             status: 'Issued',
-            contract: requisition.contract ? {
-                fileName: requisition.contract.fileName,
-                uploadDate: requisition.contract.uploadDate,
-            } : undefined,
-            notes: requisition.negotiationNotes,
         }
     });
     
