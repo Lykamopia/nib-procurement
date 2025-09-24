@@ -1,5 +1,4 @@
 
-
 import type { PurchaseRequisition, AuditLog, Vendor, Quotation, PurchaseOrder, GoodsReceiptNote, Invoice, User, Department } from './types';
 
 export interface AppData {
@@ -33,7 +32,7 @@ const seedData: AppData = {
             userId: '6',
             name: 'Apple Inc.',
             contactPerson: 'Tim Cook',
-            email: 'vendor@apple.com',
+            email: 'tade2024bdu@gmail.com',
             phone: '1-800-MY-APPLE',
             address: '1 Apple Park Way, Cupertino, CA 95014',
             kycStatus: 'Verified',
@@ -204,7 +203,7 @@ const seedData: AppData = {
         { id: '3', name: 'Charlie', email: 'charlie@example.com', password: 'password123', role: 'Procurement Officer', departmentId: 'DEPT-2', department: 'Operations' },
         { id: '4', name: 'David', email: 'david@example.com', password: 'password123', role: 'Receiving', departmentId: 'DEPT-2', department: 'Operations' },
         { id: '5', name: 'Eve', email: 'eve@example.com', password: 'password123', role: 'Finance', departmentId: 'DEPT-5', department: 'Finance' },
-        { id: '6', name: 'Apple Inc.', email: 'vendor@apple.com', password: 'password123', role: 'Vendor', vendorId: 'VENDOR-001' },
+        { id: '6', name: 'Apple Inc.', email: 'tade2024bdu@gmail.com', password: 'password123', role: 'Vendor', vendorId: 'VENDOR-001' },
         { id: '7', name: 'Dell Technologies', email: 'vendor@dell.com', password: 'password123', role: 'Vendor', vendorId: 'VENDOR-002' },
         { id: '8', name: 'Office Depot', email: 'vendor@officedepot.com', password: 'password123', role: 'Vendor', vendorId: 'VENDOR-003' },
         { id: '9', name: 'Fiona', email: 'fiona@example.com', password: 'password123', role: 'Committee Member', departmentId: 'DEPT-1', department: 'Design' },
