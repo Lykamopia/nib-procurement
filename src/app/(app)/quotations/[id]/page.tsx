@@ -986,7 +986,7 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
     
     
     const filteredVendors = useMemo(() => {
-        const verifiedVendors = vendors.filter(v => v.kycStatus === 'Verified');
+        const verifiedVendors = Array.isArray(vendors) ? vendors.filter(v => v.kycStatus === 'Verified') : [];
         if (!vendorSearch) {
             return verifiedVendors;
         }
@@ -1745,7 +1745,7 @@ const CumulativeScoringReportDialog = ({ requisition, quotations, isOpen, onClos
                                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                     <div>
                                                         <h4 className="font-semibold text-sm mb-2 text-gray-800">Financial Evaluation ({requisition.evaluationCriteria?.financialWeight}%)</h4>
-                                                        {scoreSet.financialScores?.map(s => (
+                                                        {scoreSet.itemScores?.map(is => is.financialScores.map(s => (
                                                             <div key={s.criterionId} className="text-xs p-2 bg-gray-50 rounded-md mb-2">
                                                                 <div className="flex justify-between items-center font-medium">
                                                                     <p>{getCriterionName(s.criterionId, requisition.evaluationCriteria?.financialCriteria)}</p>
@@ -1753,11 +1753,11 @@ const CumulativeScoringReportDialog = ({ requisition, quotations, isOpen, onClos
                                                                 </div>
                                                                 {s.comment && <p className="italic text-gray-500 mt-1 pl-1 border-l-2 border-gray-300">"{s.comment}"</p>}
                                                             </div>
-                                                        ))}
+                                                        )))}
                                                     </div>
                                                      <div>
                                                         <h4 className="font-semibold text-sm mb-2 text-gray-800">Technical Evaluation ({requisition.evaluationCriteria?.technicalWeight}%)</h4>
-                                                        {scoreSet.technicalScores?.map(s => (
+                                                        {scoreSet.itemScores?.map(is => is.technicalScores.map(s => (
                                                             <div key={s.criterionId} className="text-xs p-2 bg-gray-50 rounded-md mb-2">
                                                                 <div className="flex justify-between items-center font-medium">
                                                                     <p>{getCriterionName(s.criterionId, requisition.evaluationCriteria?.technicalCriteria)}</p>
@@ -1765,7 +1765,7 @@ const CumulativeScoringReportDialog = ({ requisition, quotations, isOpen, onClos
                                                                 </div>
                                                                 {s.comment && <p className="italic text-gray-500 mt-1 pl-1 border-l-2 border-gray-300">"{s.comment}"</p>}
                                                             </div>
-                                                        ))}
+                                                        )))}
                                                     </div>
                                                 </div>
 
@@ -1801,7 +1801,7 @@ const AwardCenterDialog = ({
     onFinalize: (awardStrategy: 'all' | 'item', awards: any, awardResponseDeadline?: Date) => void;
     onClose: () => void;
 }) => {
-    const [awardStrategy, setAwardStrategy] = useState<'item' | 'all'>('item');
+    const [awardStrategy, setAwardStrategy] = useState<'item' | 'all'>('all');
     const [awardResponseDeadline, setAwardResponseDeadline] = useState<Date|undefined>();
     
     // Per-item award logic
@@ -1817,14 +1817,17 @@ const AwardCenterDialog = ({
                 if (!quoteItem || !quote.scores) return;
 
                 let totalItemScore = 0;
+                let scoreCount = 0;
+
                 quote.scores.forEach(scoreSet => {
-                    const itemScore = scoreSet.itemScores.find(i => i.quoteItemId === quoteItem.id);
+                    const itemScore = scoreSet.itemScores?.find(i => i.quoteItemId === quoteItem.id);
                     if (itemScore) {
                         totalItemScore += itemScore.finalScore;
+                        scoreCount++;
                     }
                 });
                 
-                const averageItemScore = totalItemScore / (quote.scores.length || 1);
+                const averageItemScore = scoreCount > 0 ? totalItemScore / scoreCount : 0;
 
                 if (averageItemScore > bestScore) {
                     bestScore = averageItemScore;
@@ -2278,7 +2281,7 @@ export default function QuotationDetailsPage() {
                 toast({ variant: 'destructive', title: 'Error', description: 'Requisition not found.' });
             }
             
-            setVendors(venData);
+            setVendors(venData.vendors || []);
 
         } catch (error) {
             toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch data.' });
