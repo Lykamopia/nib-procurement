@@ -4,20 +4,20 @@
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { users, auditLogs } from '@/lib/data-store';
-import { EvaluationCriterion, QuoteItem } from '@/lib/types';
+import { users } from '@/lib/data-store';
+import { EvaluationCriterion } from '@/lib/types';
 
-function calculateFinalScore(scores: { financialScores: any[], technicalScores: any[] }, criteria: any): number {
+function calculateFinalItemScore(itemScore: any, criteria: any): number {
     let totalFinancialScore = 0;
     let totalTechnicalScore = 0;
 
     criteria.financialCriteria.forEach((c: EvaluationCriterion) => {
-        const score = scores.financialScores.find((s: any) => s.criterionId === c.id)?.score || 0;
+        const score = itemScore.financialScores.find((s: any) => s.criterionId === c.id)?.score || 0;
         totalFinancialScore += score * (c.weight / 100);
     });
 
     criteria.technicalCriteria.forEach((c: EvaluationCriterion) => {
-        const score = scores.technicalScores.find((s: any) => s.criterionId === c.id)?.score || 0;
+        const score = itemScore.technicalScores.find((s: any) => s.criterionId === c.id)?.score || 0;
         totalTechnicalScore += score * (c.weight / 100);
     });
 
@@ -55,65 +55,79 @@ export async function POST(
         return NextResponse.json({ error: 'Associated requisition or its evaluation criteria not found.' }, { status: 404 });
     }
     
-    const existingScore = await prisma.committeeScoreSet.findFirst({
+    // Check if user has already submitted a final score set for this quote.
+    const existingFinalSubmission = await prisma.committeeScoreSet.findFirst({
         where: {
             quotationId: quoteId,
             scorerId: userId
         }
     });
 
-    if (existingScore) {
-        return NextResponse.json({ error: 'You have already scored this quotation.' }, { status: 409 });
+    if (existingFinalSubmission) {
+        return NextResponse.json({ error: 'You have already submitted your final scores for this quotation.' }, { status: 409 });
     }
     
-    // Since we are not doing per-item scoring at DB level, aggregate scores from the form.
-    // Assuming the form now sends a single set of financial/technical scores.
-    // Let's take the first item's scores as the overall scores for simplicity.
-    const overallScores = scores.itemScores[0];
-    if (!overallScores) {
-        return NextResponse.json({ error: 'No scores provided.' }, { status: 400 });
-    }
-
-    const finalAverageScoreForQuote = calculateFinalScore(overallScores, requisition.evaluationCriteria);
-
     const createdScoreSet = await prisma.committeeScoreSet.create({
         data: {
             quotation: { connect: { id: quoteId } },
             scorer: { connect: { id: user.id } },
             scorerName: user.name,
             committeeComment: scores.committeeComment,
-            finalScore: finalAverageScoreForQuote,
-            financialScores: {
-                create: overallScores.financialScores.map((s: any) => ({
-                    criterionId: s.criterionId,
-                    score: s.score,
-                    comment: s.comment
-                }))
-            },
-            technicalScores: {
-                 create: overallScores.technicalScores.map((s: any) => ({
-                    criterionId: s.criterionId,
-                    score: s.score,
-                    comment: s.comment
-                }))
+            finalScore: 0, // This will be calculated later or could be an average
+            itemScores: {
+                create: scores.itemScores.map((itemScore: any) => {
+                    const finalItemScore = calculateFinalItemScore(itemScore, requisition.evaluationCriteria!);
+                    return {
+                        quoteItemId: itemScore.quoteItemId,
+                        finalScore: finalItemScore,
+                        financialScores: {
+                            create: itemScore.financialScores.map((s: any) => ({
+                                criterionId: s.criterionId,
+                                score: s.score,
+                                comment: s.comment,
+                            }))
+                        },
+                        technicalScores: {
+                            create: itemScore.technicalScores.map((s: any) => ({
+                                criterionId: s.criterionId,
+                                score: s.score,
+                                comment: s.comment,
+                            }))
+                        },
+                    }
+                })
             }
         }
     });
+    
+    // Calculate the overall average score for the quotation based on all its item scores
+    const allItemScores = await prisma.itemScore.findMany({
+        where: { scoreSetId: createdScoreSet.id }
+    });
+    const averageScore = allItemScores.reduce((acc, s) => acc + s.finalScore, 0) / (allItemScores.length || 1);
+
+    await prisma.committeeScoreSet.update({
+        where: { id: createdScoreSet.id },
+        data: { finalScore: averageScore }
+    });
+    
+    // Also update the final average score on the quotation itself
+    const allScoreSetsForQuote = await prisma.committeeScoreSet.findMany({ where: { quotationId: quoteId }});
+    const overallAverage = allScoreSetsForQuote.reduce((acc, s) => acc + s.finalScore, 0) / (allScoreSetsForQuote.length || 1);
+    await prisma.quotation.update({
+        where: { id: quoteId },
+        data: { finalAverageScore: overallAverage }
+    });
 
 
-    const allScoresForQuote = await prisma.committeeScoreSet.findMany({ where: { quotationId: quoteId } });
-    const averageScore = allScoresForQuote.reduce((acc, s) => acc + s.finalScore, 0) / allScoresForQuote.length;
-    await prisma.quotation.update({ where: { id: quoteId }, data: { finalAverageScore: averageScore } });
-
-    auditLogs.unshift({
-        id: `log-${Date.now()}`,
-        timestamp: new Date(),
-        user: user.name,
-        role: user.role,
-        action: 'SCORE_QUOTE',
-        entity: 'Quotation',
-        entityId: quoteId,
-        details: `Submitted scores for quote from ${quoteToUpdate.vendorName}. Final Score: ${finalAverageScoreForQuote.toFixed(2)}.`,
+    await prisma.auditLog.create({
+        data: {
+            user: { connect: { id: user.id } },
+            action: 'SCORE_QUOTE',
+            entity: 'Quotation',
+            entityId: quoteId,
+            details: `Submitted scores for quote from ${quoteToUpdate.vendorName}. Overall Score: ${averageScore.toFixed(2)}.`,
+        }
     });
 
     return NextResponse.json(createdScoreSet);
