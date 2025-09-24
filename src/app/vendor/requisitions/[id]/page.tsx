@@ -549,15 +549,13 @@ export default function VendorRequisitionPage() {
     const canEditQuote = submittedQuote?.status === 'Submitted' && !isAwardProcessStarted && !isDeadlinePassed && allowEdits;
 
     const awardedItems: QuoteItem[] = useMemo(() => {
-        if (submittedQuote?.status !== 'Partially_Awarded' || !requisition?.purchaseOrderId) {
+        if (submittedQuote?.status !== 'Partially_Awarded' || !purchaseOrder) {
             return submittedQuote?.items || [];
         }
         
-        const poItems = purchaseOrder?.items.map(item => item.name);
-        if (!poItems) return [];
-        
-        return submittedQuote.items.filter(item => poItems.includes(item.name));
-    }, [submittedQuote, purchaseOrder, requisition]);
+        const poItemNames = new Set(purchaseOrder.items.map(item => item.name));
+        return submittedQuote.items.filter(item => poItemNames.has(item.name));
+    }, [submittedQuote, purchaseOrder]);
 
 
     const fetchRequisitionData = async () => {
@@ -585,12 +583,12 @@ export default function VendorRequisitionPage() {
              
              if (vendorSubmittedQuote) {
                  setSubmittedQuote(vendorSubmittedQuote);
-                 if (foundReq.purchaseOrderId) {
-                     const poResponse = await fetch('/api/purchase-orders');
-                     const allPOs: PurchaseOrder[] = await poResponse.json();
-                     const po = allPOs.find(p => p.id === foundReq.purchaseOrderId);
-                     setPurchaseOrder(po || null);
-                 }
+                 // If the requisition has a purchaseOrderId, it's a single PO award.
+                 // If not, we might be in a partial award scenario, so we fetch all POs and find the right one.
+                 const poResponse = await fetch('/api/purchase-orders');
+                 const allPOs: PurchaseOrder[] = await poResponse.json();
+                 const poForThisVendor = allPOs.find(p => p.requisitionId === foundReq.id && p.vendor.id === user.vendorId);
+                 setPurchaseOrder(poForThisVendor || null);
              } else {
                 setSubmittedQuote(null);
              }
