@@ -69,6 +69,12 @@ export default function AppLayout({
   // Page-level access check
   useEffect(() => {
     if (!loading && role) {
+      // If the user is a vendor, this layout should not apply any redirection logic.
+      // They have their own layout and routing at /vendor/*.
+      if (role === 'Vendor') {
+          return;
+      }
+
       const currentPath = pathname.split('?')[0];
       const allowedPaths = rolePermissions[role] || [];
       // Allow access to sub-pages like /purchase-orders/[id]
@@ -79,8 +85,8 @@ export default function AppLayout({
         const defaultPath = allowedPaths.includes('/dashboard') ? '/dashboard' : allowedPaths[0];
         if(defaultPath) {
           router.push(defaultPath);
-        } else if (role !== 'Vendor') {
-          // If no default path and not a vendor, maybe they have no permissions
+        } else {
+          // If no default path, maybe they have no permissions
            router.push('/login');
         }
       }
