@@ -4,14 +4,17 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { users } from '@/lib/data-store';
+import { sendEmail } from '@/services/email-service';
+import { Vendor } from '@/lib/types';
 
 async function tallyAndAwardScores(requisitionId: string, awardResponseDeadline?: Date) {
     const relevantQuotes = await prisma.quotation.findMany({
         where: { requisitionId },
+        include: { vendor: true }
     });
 
     if (relevantQuotes.length === 0) {
-        return { success: true, message: "No quotes to score.", winner: 'N/A' };
+        return { success: true, message: "No quotes to score.", winner: null };
     }
     
     // Sort quotes by final average score, descending
@@ -48,9 +51,9 @@ async function tallyAndAwardScores(requisitionId: string, awardResponseDeadline?
       }
     });
 
-    const winnerName = relevantQuotes[0]?.vendorName || 'N/A';
+    const winner = relevantQuotes[0] ? relevantQuotes[0].vendor : null;
     
-    return { success: true, message: "Scores tallied and awards processed.", winner: winnerName };
+    return { success: true, message: "Scores tallied and awards processed.", winner };
 }
 
 export async function POST(
@@ -71,10 +74,35 @@ export async function POST(
         return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
     
+    const requisition = await prisma.purchaseRequisition.findUnique({
+        where: { id: requisitionId }
+    });
+    if (!requisition) {
+        return NextResponse.json({ error: 'Requisition not found' }, { status: 404 });
+    }
+
     const result = await tallyAndAwardScores(requisitionId, awardResponseDeadline ? new Date(awardResponseDeadline) : undefined);
 
     if (!result.success) {
         throw new Error(result.message);
+    }
+    
+    if (result.winner) {
+        const winner = result.winner as Vendor;
+        const emailHtml = `
+            <h1>Congratulations, ${winner.name}!</h1>
+            <p>You have been awarded the contract for requisition <strong>${requisition.title}</strong>.</p>
+            <p>Please log in to the vendor portal to accept or decline this award.</p>
+            <a href="http://localhost:9002/vendor/dashboard">Go to Vendor Portal</a>
+            <p>Thank you,</p>
+            <p>Nib InternationalBank Procurement</p>
+        `;
+
+        await sendEmail({
+            to: winner.email,
+            subject: `Contract Awarded: ${requisition.title}`,
+            html: emailHtml
+        });
     }
     
     await prisma.auditLog.create({
@@ -84,7 +112,7 @@ export async function POST(
             action: 'FINALIZE_SCORES',
             entity: 'Requisition',
             entityId: requisitionId,
-            details: `Finalized scores and awarded contract to ${result.winner}.`,
+            details: `Finalized scores and awarded contract to ${result.winner?.name || 'N/A'}.`,
         }
     });
 
