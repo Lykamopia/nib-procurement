@@ -21,7 +21,7 @@ export async function GET(request: Request) {
     }
 
     if (forVendor === 'true') {
-        const authHeader = headers().get('Authorization');
+        const authHeader = request.headers.get('Authorization');
         const token = authHeader?.split(' ')[1];
         if (!token) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -362,5 +362,3 @@ export async function DELETE(
     return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
   }
 }
-
-    
