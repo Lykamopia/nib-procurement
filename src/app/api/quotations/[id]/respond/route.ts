@@ -22,7 +22,7 @@ export async function POST(
     const transactionResult = await prisma.$transaction(async (tx) => {
         const quote = await tx.quotation.findUnique({ 
             where: { id: quoteId },
-            include: { items: true, requisition: true }
+            include: { items: true, requisition: { include: { quotations: { include: { items: true } } } } }
         });
 
         if (!quote || quote.vendorId !== user.vendorId) {
@@ -43,6 +43,18 @@ export async function POST(
                 where: { id: quoteId },
                 data: { status: 'Accepted' }
             });
+            
+            // For partial awards, we must filter to only the items this vendor won.
+            // We determine this by looking at what items are present in *other* vendors' accepted/awarded quotes.
+            const otherAwardedQuotes = requisition.quotations.filter(
+                q => q.vendorId !== quote.vendorId && (q.status === 'Awarded' || q.status === 'Accepted' || q.status === 'Partially_Awarded')
+            );
+            
+            const otherAwardedItemIds = new Set(otherAwardedQuotes.flatMap(q => q.items.map(i => i.requisitionItemId)));
+
+            const itemsForThisPO = quote.items.filter(item => !otherAwardedItemIds.has(item.requisitionItemId));
+            const totalPriceForThisPO = itemsForThisPO.reduce((acc, item) => acc + (item.unitPrice * item.quantity), 0);
+
 
             const newPO = await tx.purchaseOrder.create({
                 data: {
@@ -50,7 +62,7 @@ export async function POST(
                     requisitionTitle: requisition.title,
                     vendor: { connect: { id: quote.vendorId } },
                     items: {
-                        create: quote.items.map(item => ({
+                        create: itemsForThisPO.map(item => ({
                             requisitionItemId: item.requisitionItemId,
                             name: item.name,
                             quantity: item.quantity,
@@ -59,7 +71,7 @@ export async function POST(
                             receivedQuantity: 0,
                         }))
                     },
-                    totalAmount: quote.totalPrice,
+                    totalAmount: totalPriceForThisPO,
                     status: 'Issued',
                 }
             });
@@ -68,7 +80,7 @@ export async function POST(
                 where: { id: requisition.id },
                 data: {
                     status: 'PO_Created',
-                    purchaseOrderId: newPO.id,
+                    purchaseOrderId: newPO.id, // Note: This might need adjustment if multiple POs are created per requisition
                 }
             });
             
