@@ -7,18 +7,17 @@ import { prisma } from '@/lib/prisma';
 import { users, auditLogs } from '@/lib/data-store';
 import { EvaluationCriterion, QuoteItem } from '@/lib/types';
 
-// This function needs to be defined locally or imported
-function calculateFinalScore(scores: any, criteria: any, quoteItem: QuoteItem): number {
+function calculateFinalItemScore(itemScore: any, criteria: any): number {
     let totalFinancialScore = 0;
     let totalTechnicalScore = 0;
 
     criteria.financialCriteria.forEach((c: EvaluationCriterion) => {
-        const score = scores.financialScores.find((s: any) => s.criterionId === c.id)?.score || 0;
+        const score = itemScore.financialScores.find((s: any) => s.criterionId === c.id)?.score || 0;
         totalFinancialScore += score * (c.weight / 100);
     });
 
     criteria.technicalCriteria.forEach((c: EvaluationCriterion) => {
-        const score = scores.technicalScores.find((s: any) => s.criterionId === c.id)?.score || 0;
+        const score = itemScore.technicalScores.find((s: any) => s.criterionId === c.id)?.score || 0;
         totalTechnicalScore += score * (c.weight / 100);
     });
 
@@ -67,40 +66,16 @@ export async function POST(
         return NextResponse.json({ error: 'You have already scored this quotation.' }, { status: 409 });
     }
     
-    // Calculate overall score for the entire quote
+    // Calculate overall score for the entire quote by averaging the final scores of each item
     let totalWeightedScore = 0;
-    let totalItems = 0;
+    let totalItems = scores.itemScores.length;
 
-    const createdItemScores = scores.itemScores.map((itemScore: any) => {
-        const quoteItem = quoteToUpdate.items.find(i => i.id === itemScore.quoteItemId);
-        if (!quoteItem) return null;
-
-        const finalItemScore = calculateFinalScore(itemScore, requisition.evaluationCriteria, quoteItem);
+    scores.itemScores.forEach((itemScore: any) => {
+        const finalItemScore = calculateFinalItemScore(itemScore, requisition.evaluationCriteria);
         totalWeightedScore += finalItemScore;
-        totalItems++;
-        
-        return {
-            quoteItemId: itemScore.quoteItemId,
-            finalScore: finalItemScore,
-            financialScores: {
-                create: itemScore.financialScores.map((s: any) => ({
-                    criterionId: s.criterionId,
-                    score: s.score,
-                    comment: s.comment
-                }))
-            },
-            technicalScores: {
-                 create: itemScore.technicalScores.map((s: any) => ({
-                    criterionId: s.criterionId,
-                    score: s.score,
-                    comment: s.comment
-                }))
-            }
-        };
-    }).filter(Boolean); // Filter out nulls if quoteItem not found
+    });
 
     const finalAverageScoreForQuote = totalItems > 0 ? totalWeightedScore / totalItems : 0;
-
 
     const createdScoreSet = await prisma.committeeScoreSet.create({
         data: {
@@ -110,7 +85,27 @@ export async function POST(
             committeeComment: scores.committeeComment,
             finalScore: finalAverageScoreForQuote, // Use the averaged score
             itemScores: {
-                create: createdItemScores as any[]
+                create: scores.itemScores.map((itemScore: any) => {
+                    const finalItemScore = calculateFinalItemScore(itemScore, requisition.evaluationCriteria);
+                    return {
+                        quoteItemId: itemScore.quoteItemId,
+                        finalScore: finalItemScore,
+                        financialScores: {
+                            create: itemScore.financialScores.map((s: any) => ({
+                                criterionId: s.criterionId,
+                                score: s.score,
+                                comment: s.comment
+                            }))
+                        },
+                        technicalScores: {
+                             create: itemScore.technicalScores.map((s: any) => ({
+                                criterionId: s.criterionId,
+                                score: s.score,
+                                comment: s.comment
+                            }))
+                        }
+                    };
+                })
             }
         }
     });
