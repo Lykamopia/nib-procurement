@@ -61,6 +61,7 @@ import Image from 'next/image';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { Switch } from '@/components/ui/switch';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const quoteFormSchema = z.object({
   notes: z.string().optional(),
@@ -1807,6 +1808,179 @@ const CumulativeScoringReportDialog = ({ requisition, quotations, isOpen, onClos
     );
 };
 
+const AwardCenterDialog = ({
+    requisition,
+    quotations,
+    onFinalize,
+    onClose
+}: {
+    requisition: PurchaseRequisition;
+    quotations: Quotation[];
+    onFinalize: (awardStrategy: 'all' | 'item', awards: any, awardResponseDeadline?: Date) => void;
+    onClose: () => void;
+}) => {
+    const [awardStrategy, setAwardStrategy] = useState<'all' | 'item'>('item');
+    const [awardResponseDeadline, setAwardResponseDeadline] = useState<Date|undefined>();
+    
+    // Per-item award logic
+    const itemWinners = useMemo(() => {
+        const winners: { [itemId: string]: { vendorId: string; vendorName: string, quoteItemId: string; score: number, name: string } } = {};
+        
+        requisition.items.forEach(reqItem => {
+            let bestScore = -1;
+            let winner: any = null;
+
+            quotations.forEach(quote => {
+                const quoteItem = quote.items.find(i => i.requisitionItemId === reqItem.id);
+                if (quoteItem && quote.scores) {
+                    const itemScores = quote.scores.flatMap(s => s.itemScores).filter(s => s.quoteItemId === quoteItem.id);
+                    if (itemScores.length > 0) {
+                        const avgScore = itemScores.reduce((acc, s) => acc + s.finalScore, 0) / itemScores.length;
+                        if (avgScore > bestScore) {
+                            bestScore = avgScore;
+                            winner = { vendorId: quote.vendorId, vendorName: quote.vendorName, quoteItemId: quoteItem.id, score: avgScore, name: reqItem.name };
+                        }
+                    }
+                }
+            });
+            if(winner) winners[reqItem.id] = winner;
+        });
+
+        return winners;
+    }, [requisition, quotations]);
+
+    const itemAwards = Object.values(itemWinners).reduce((acc, winner) => {
+        if (!acc[winner.vendorId]) {
+            acc[winner.vendorId] = { vendorName: winner.vendorName, items: [] };
+        }
+        acc[winner.vendorId].items.push({ requisitionItemId: winner.name, quoteItemId: winner.quoteItemId });
+        return acc;
+    }, {} as { [vendorId: string]: { vendorName: string; items: { requisitionItemId: string, quoteItemId: string }[] } });
+
+    // Single vendor award logic
+    const overallWinner = useMemo(() => {
+        return quotations.sort((a,b) => (b.finalAverageScore || 0) - (a.finalAverageScore || 0))[0];
+    }, [quotations]);
+
+    const handleConfirmAward = () => {
+        let awards;
+        if(awardStrategy === 'item') {
+            awards = itemAwards;
+        } else {
+            awards = { [overallWinner.vendorId]: { vendorName: overallWinner.vendorName, items: overallWinner.items.map(i => ({ requisitionItemId: i.requisitionItemId, quoteItemId: i.id })) } };
+        }
+        onFinalize(awardStrategy, awards, awardResponseDeadline);
+        onClose();
+    }
+
+
+    return (
+        <DialogContent className="max-w-4xl">
+            <DialogHeader>
+                <DialogTitle>Award Center</DialogTitle>
+                <DialogDescription>Review scores and finalize the award for requisition {requisition.id}.</DialogDescription>
+            </DialogHeader>
+            
+            <Tabs value={awardStrategy} onValueChange={(val) => setAwardStrategy(val as any)}>
+                <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="item">Award by Best Offer</TabsTrigger>
+                    <TabsTrigger value="all">Award to Single Vendor</TabsTrigger>
+                </TabsList>
+                <TabsContent value="item">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Best Offer Per Item</CardTitle>
+                            <CardDescription>This strategy awards each item to the vendor with the highest score for that specific item. This may result in multiple purchase orders.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                             <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Item</TableHead>
+                                        <TableHead>Recommended Vendor</TableHead>
+                                        <TableHead className="text-right">Best Score</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {Object.entries(itemWinners).map(([itemId, winner]) => (
+                                        <TableRow key={itemId}>
+                                            <TableCell>{winner.name}</TableCell>
+                                            <TableCell className="font-semibold">{winner.vendorName}</TableCell>
+                                            <TableCell className="text-right font-mono">{winner.score.toFixed(2)}</TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+                <TabsContent value="all">
+                     <Card>
+                        <CardHeader>
+                            <CardTitle>Best Overall Vendor</CardTitle>
+                            <CardDescription>This strategy awards all items to the single vendor with the highest average score across all items.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="text-center p-8">
+                             <TrophyIcon className="h-12 w-12 text-amber-400 mx-auto mb-4"/>
+                             <p className="text-muted-foreground">Recommended Overall Winner:</p>
+                             <p className="text-2xl font-bold">{overallWinner?.vendorName}</p>
+                             <p className="font-mono text-primary">{overallWinner?.finalAverageScore?.toFixed(2)} average score</p>
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+            </Tabs>
+            
+             <div className="pt-4 space-y-2">
+                <Label>Vendor Response Deadline (Optional)</Label>
+                 <Popover>
+                    <PopoverTrigger asChild>
+                        <Button
+                            variant={"outline"}
+                            className={cn(
+                            "w-full justify-start text-left font-normal",
+                            !awardResponseDeadline && "text-muted-foreground"
+                            )}
+                        >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {awardResponseDeadline ? format(awardResponseDeadline, "PPP") : <span>Set a deadline for vendors to respond</span>}
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                        <Calendar
+                            mode="single"
+                            selected={awardResponseDeadline}
+                            onSelect={setAwardResponseDeadline}
+                            disabled={(date) => date < new Date(new Date().setHours(0,0,0,0))}
+                            initialFocus
+                        />
+                    </PopoverContent>
+                </Popover>
+            </div>
+
+            <DialogFooter>
+                <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
+                <AlertDialog>
+                    <AlertDialogTrigger asChild><Button>Finalize &amp; Send Awards</Button></AlertDialogTrigger>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                        <AlertDialogTitle>Confirm Award Decision</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            You are about to finalize the award based on the <strong>{awardStrategy === 'item' ? 'Best Offer Per Item' : 'Best Overall Vendor'}</strong> strategy. 
+                            This will notify the selected vendor(s) and cannot be undone.
+                        </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={handleConfirmAward}>Confirm</AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+            </DialogFooter>
+        </DialogContent>
+    )
+}
+
+
 const ExtendDeadlineDialog = ({ isOpen, onClose, member, requisition, onSuccess }: { isOpen: boolean, onClose: () => void, member: User, requisition: PurchaseRequisition, onSuccess: () => void }) => {
     const { toast } = useToast();
     const { user } = useAuth();
@@ -2487,6 +2661,8 @@ export default function QuotationDetailsPage() {
     </div>
   );
 }
+    
+
     
 
     
