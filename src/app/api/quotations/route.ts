@@ -22,11 +22,15 @@ export async function GET(request: Request) {
         answers: true,
         scores: {
           include: {
-            financialScores: true,
-            technicalScores: true,
-          }
+            itemScores: {
+              include: {
+                financialScores: true,
+                technicalScores: true,
+              },
+            },
+          },
         },
-      }
+      },
     });
     return NextResponse.json(reqQuotations);
   } catch (error) {
