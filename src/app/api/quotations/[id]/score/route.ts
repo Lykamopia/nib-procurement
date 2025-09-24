@@ -86,6 +86,7 @@ export async function POST(
          const createdItemScore = await prisma.itemScore.create({
             data: {
                 scoreSet: { connect: { id: createdScoreSet.id } },
+                quoteItem: { connect: { id: itemScore.quoteItemId } },
                 quoteItemId: itemScore.quoteItemId,
                 finalScore: finalItemScore,
                 financialScores: {
