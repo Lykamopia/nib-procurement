@@ -87,7 +87,6 @@ export async function POST(
             data: {
                 scoreSet: { connect: { id: createdScoreSet.id } },
                 quoteItem: { connect: { id: itemScore.quoteItemId } },
-                quoteItemId: itemScore.quoteItemId,
                 finalScore: finalItemScore,
                 financialScores: {
                     create: itemScore.financialScores.map((s: any) => ({
