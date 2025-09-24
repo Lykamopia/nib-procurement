@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
@@ -1280,7 +1281,6 @@ const ScoringDialog = ({
 }) => {
     const { toast } = useToast();
     const [isSubmitting, setSubmitting] = useState(false);
-    const [activeItemIndex, setActiveItemIndex] = useState(0);
     
     const form = useForm<ScoreFormValues>({
         resolver: zodResolver(scoreFormSchema),
@@ -1386,8 +1386,6 @@ const ScoringDialog = ({
             </div>
         ));
     };
-    
-    const activeQuoteItem = quote.items[activeItemIndex];
 
     if (!existingScore && isScoringDeadlinePassed) {
         return (
@@ -1417,69 +1415,46 @@ const ScoringDialog = ({
                 <DialogDescription>Evaluate each item against the requester's criteria. Your scores will be combined with other committee members' to determine the final ranking.</DialogDescription>
             </DialogHeader>
             <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col flex-1 min-h-0">
-                <div className="grid grid-cols-4 gap-6 flex-1 min-h-0">
-                    <div className="col-span-1">
-                        <h3 className="font-semibold mb-2">Items to Score</h3>
-                        <div className="space-y-2">
-                            {quote.items.map((item, index) => (
-                                <Button
-                                    key={item.id}
-                                    type="button"
-                                    variant={index === activeItemIndex ? 'secondary' : 'ghost'}
-                                    className="w-full justify-start text-left h-auto py-2"
-                                    onClick={() => setActiveItemIndex(index)}
-                                >
-                                    {item.name}
-                                </Button>
-                            ))}
-                        </div>
-                    </div>
-                    <div className="col-span-3 flex flex-col min-h-0">
-                        <ScrollArea className="flex-1 pr-4 -mr-4">
-                            <div className="space-y-6">
-                                <h3 className="font-bold text-lg">Scoring for: <span className="text-primary">{activeQuoteItem.name}</span></h3>
-                                {isFinancialScorer && (
-                                    <Card>
-                                        <CardHeader>
-                                            <CardTitle className="text-xl flex items-center gap-2">
-                                                <Scale /> Financial Evaluation ({requisition.evaluationCriteria.financialWeight}%)
-                                            </CardTitle>
-                                        </CardHeader>
-                                        <CardContent className="space-y-4">
-                                            {renderCriteria('financial', activeItemIndex)}
-                                        </CardContent>
-                                    </Card>
-                                )}
-                                {isTechnicalScorer && (
-                                    <Card>
-                                        <CardHeader>
-                                            <CardTitle className="text-xl flex items-center gap-2">
-                                                <TrendingUp /> Technical Evaluation ({requisition.evaluationCriteria.technicalWeight}%)
-                                            </CardTitle>
-                                        </CardHeader>
-                                        <CardContent className="space-y-4">
-                                            {renderCriteria('technical', activeItemIndex)}
-                                        </CardContent>
-                                    </Card>
-                                )}
-                                <FormField
-                                    control={form.control}
-                                    name="committeeComment"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel className="text-lg font-semibold">Overall Comment</FormLabel>
-                                            <FormControl>
-                                                <Textarea placeholder="Provide an overall summary or justification for your scores for this entire quotation..." {...field} rows={4} disabled={!!existingScore} />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 min-h-0 flex flex-col">
+                <ScrollArea className="flex-1 pr-4 -mr-4">
+                    <div className="space-y-6">
+                        {quote.items.map((item, index) => (
+                             <Card key={item.id} className="overflow-hidden">
+                                <CardHeader className="bg-muted/50">
+                                    <CardTitle className="text-lg">Scoring for: <span className="text-primary">{item.name}</span></CardTitle>
+                                </CardHeader>
+                                <CardContent className="pt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                     {isFinancialScorer && (
+                                        <div className="space-y-4">
+                                            <h4 className="font-semibold text-lg flex items-center gap-2"><Scale /> Financial Evaluation ({requisition.evaluationCriteria?.financialWeight}%)</h4>
+                                            {renderCriteria('financial', index)}
+                                        </div>
                                     )}
-                                />
-                            </div>
-                        </ScrollArea>
+                                    {isTechnicalScorer && (
+                                        <div className="space-y-4">
+                                            <h4 className="font-semibold text-lg flex items-center gap-2"><TrendingUp /> Technical Evaluation ({requisition.evaluationCriteria?.technicalWeight}%)</h4>
+                                            {renderCriteria('technical', index)}
+                                        </div>
+                                    )}
+                                </CardContent>
+                             </Card>
+                        ))}
+                       
+                        <FormField
+                            control={form.control}
+                            name="committeeComment"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-lg font-semibold">Overall Comment</FormLabel>
+                                    <FormControl>
+                                        <Textarea placeholder="Provide an overall summary or justification for your scores for this entire quotation..." {...field} rows={4} disabled={!!existingScore} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
                     </div>
-                </div>
+                </ScrollArea>
 
                 <DialogFooter className="pt-4 mt-4 border-t">
                     {existingScore ? (
@@ -1816,50 +1791,139 @@ const AwardCenterDialog = ({
     const [awardStrategy, setAwardStrategy] = useState<'all' | 'item'>('all');
     const [awardResponseDeadline, setAwardResponseDeadline] = useState<Date|undefined>();
     
-    // Per-item award logic is removed as it's not supported by the current backend logic
-    
+    // Per-item award logic
+    const itemWinners = useMemo(() => {
+        const winners: Record<string, { vendorId: string; vendorName: string; score: number, quoteItemId: string }> = {};
+
+        requisition.items.forEach(reqItem => {
+            let bestOffer = { vendorId: '', vendorName: '', score: -1, quoteItemId: '' };
+
+            quotations.forEach(quote => {
+                const quoteItem = quote.items.find(i => i.requisitionItemId === reqItem.id);
+                if (!quoteItem || !quote.scores || quote.scores.length === 0) return;
+                
+                let totalItemScore = 0;
+                quote.scores.forEach(scoreSet => {
+                    const itemScores = scoreSet.itemScores?.filter(s => s.quoteItemId === quoteItem.id);
+                    if (itemScores) {
+                        itemScores.forEach(iScore => {
+                            totalItemScore += iScore.finalScore;
+                        });
+                    }
+                });
+                
+                const avgItemScore = totalItemScore / quote.scores.length;
+
+                if (avgItemScore > bestOffer.score) {
+                    bestOffer = {
+                        vendorId: quote.vendorId,
+                        vendorName: quote.vendorName,
+                        score: avgItemScore,
+                        quoteItemId: quoteItem.id,
+                    };
+                }
+            });
+
+            if (bestOffer.vendorId) {
+                winners[reqItem.id] = bestOffer;
+            }
+        });
+        return winners;
+    }, [requisition.items, quotations]);
+
     // Single vendor award logic
     const overallWinner = useMemo(() => {
         return quotations.sort((a,b) => (b.finalAverageScore || 0) - (a.finalAverageScore || 0))[0];
     }, [quotations]);
 
     const handleConfirmAward = () => {
-        if (!overallWinner) return;
+        let awards = {};
+        if (awardStrategy === 'all') {
+             if (!overallWinner) return;
+             awards = { 
+                [overallWinner.vendorId]: { 
+                    vendorName: overallWinner.vendorName, 
+                    items: overallWinner.items.map(i => ({ 
+                        requisitionItemId: i.requisitionItemId, 
+                        quoteItemId: i.id 
+                    })) 
+                } 
+            };
+        } else {
+            const awardsByVendor: Record<string, {vendorName: string, items: {requisitionItemId: string, quoteItemId: string}[]}> = {};
+            Object.entries(itemWinners).forEach(([reqItemId, winner]) => {
+                if (!awardsByVendor[winner.vendorId]) {
+                    awardsByVendor[winner.vendorId] = { vendorName: winner.vendorName, items: [] };
+                }
+                awardsByVendor[winner.vendorId].items.push({ requisitionItemId: reqItemId, quoteItemId: winner.quoteItemId });
+            });
+            awards = awardsByVendor;
+        }
 
-        const awards = { 
-            [overallWinner.vendorId]: { 
-                vendorName: overallWinner.vendorName, 
-                items: overallWinner.items.map(i => ({ 
-                    requisitionItemId: i.requisitionItemId, 
-                    quoteItemId: i.id 
-                })) 
-            } 
-        };
-        onFinalize('all', awards, awardResponseDeadline);
+        onFinalize(awardStrategy, awards, awardResponseDeadline);
         onClose();
     }
 
 
     return (
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-4xl">
             <DialogHeader>
                 <DialogTitle>Award Center</DialogTitle>
                 <DialogDescription>Review scores and finalize the award for requisition {requisition.id}.</DialogDescription>
             </DialogHeader>
-            
-            <Card>
-                <CardHeader>
-                    <CardTitle>Best Overall Vendor</CardTitle>
-                    <CardDescription>This strategy awards all items to the single vendor with the highest average score across all items.</CardDescription>
-                </CardHeader>
-                <CardContent className="text-center p-8">
-                     <TrophyIcon className="h-12 w-12 text-amber-400 mx-auto mb-4"/>
-                     <p className="text-muted-foreground">Recommended Overall Winner:</p>
-                     <p className="text-2xl font-bold">{overallWinner?.vendorName}</p>
-                     <p className="font-mono text-primary">{overallWinner?.finalAverageScore?.toFixed(2)} average score</p>
-                </CardContent>
-            </Card>
-            
+
+            <Tabs value={awardStrategy} onValueChange={(val) => setAwardStrategy(val as any)}>
+                 <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="all">Award to Single Vendor</TabsTrigger>
+                    <TabsTrigger value="item">Award by Best Offer</TabsTrigger>
+                </TabsList>
+                <TabsContent value="all" className="mt-4">
+                     <Card>
+                        <CardHeader>
+                            <CardTitle>Best Overall Vendor</CardTitle>
+                            <CardDescription>This strategy awards all items to the single vendor with the highest average score across all items.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="text-center p-8">
+                            <TrophyIcon className="h-12 w-12 text-amber-400 mx-auto mb-4"/>
+                            <p className="text-muted-foreground">Recommended Overall Winner:</p>
+                            <p className="text-2xl font-bold">{overallWinner?.vendorName}</p>
+                            <p className="font-mono text-primary">{overallWinner?.finalAverageScore?.toFixed(2)} average score</p>
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+                 <TabsContent value="item" className="mt-4">
+                    <Card>
+                         <CardHeader>
+                            <CardTitle>Best Offer Per Item</CardTitle>
+                            <CardDescription>This strategy awards each item individually to the vendor with the highest score for that specific item. This may result in multiple Purchase Orders.</CardDescription>
+                        </CardHeader>
+                         <CardContent>
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Item</TableHead>
+                                        <TableHead>Winning Vendor</TableHead>
+                                        <TableHead className="text-right">Item Score</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {Object.entries(itemWinners).map(([reqItemId, winner]) => {
+                                        const reqItem = requisition.items.find(i => i.id === reqItemId);
+                                        return (
+                                            <TableRow key={reqItemId}>
+                                                <TableCell className="font-semibold">{reqItem?.name}</TableCell>
+                                                <TableCell>{winner.vendorName}</TableCell>
+                                                <TableCell className="text-right font-mono text-primary">{winner.score.toFixed(2)}</TableCell>
+                                            </TableRow>
+                                        )
+                                    })}
+                                </TableBody>
+                            </Table>
+                         </CardContent>
+                    </Card>
+                 </TabsContent>
+            </Tabs>
+
              <div className="pt-4 space-y-2">
                 <Label>Vendor Response Deadline (Optional)</Label>
                  <Popover>
@@ -1879,7 +1943,7 @@ const AwardCenterDialog = ({
                         <Calendar
                             mode="single"
                             selected={awardResponseDeadline}
-                            onSelect={setAwardResponseDeadline}
+                            onSelect={awardResponseDeadline}
                             disabled={(date) => date < new Date(new Date().setHours(0,0,0,0))}
                             initialFocus
                         />
@@ -1895,7 +1959,7 @@ const AwardCenterDialog = ({
                         <AlertDialogHeader>
                         <AlertDialogTitle>Confirm Award Decision</AlertDialogTitle>
                         <AlertDialogDescription>
-                            You are about to finalize the award to <strong>{overallWinner?.vendorName}</strong>. 
+                            You are about to finalize the award based on the <strong>{awardStrategy === 'all' ? 'Single Vendor' : 'Best Offer per Item'}</strong> strategy. 
                             This will notify the selected vendor(s) and cannot be undone.
                         </AlertDialogDescription>
                         </AlertDialogHeader>
@@ -2591,6 +2655,8 @@ export default function QuotationDetailsPage() {
     </div>
   );
 }
+    
+
     
 
     
