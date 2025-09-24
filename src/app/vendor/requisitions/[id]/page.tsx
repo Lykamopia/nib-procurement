@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { PurchaseOrder, PurchaseRequisition, Quotation, QuoteItem } from '@/lib/types';
 import { useAuth } from '@/contexts/auth-context';
