@@ -87,7 +87,6 @@ async function main() {
     const createdVendor = await prisma.vendor.create({
       data: {
           ...vendorData,
-          userId: createdUser.id, // Explicitly provide the userId
           kycStatus: vendorData.kycStatus.replace(/ /g, '_') as any,
           user: { connect: { id: createdUser.id } }
       },
@@ -238,6 +237,7 @@ async function main() {
                 status: poData.status.replace(/ /g, '_') as any,
                 createdAt: new Date(poData.createdAt),
                 vendorId: po.vendor.id,
+                requisitionId: po.requisitionId,
             }
         });
 

@@ -194,7 +194,29 @@ const seedData: AppData = {
             notes: 'Can ship monitors immediately. Laptops will have a longer lead time.'
         }
     ],
-    purchaseOrders: [],
+    purchaseOrders: [
+        {
+            id: 'PO-SEED-001',
+            requisitionId: 'REQ-1672704000',
+            requisitionTitle: 'Software License Renewals',
+            vendor: {
+                id: 'VENDOR-002',
+                userId: '7',
+                name: 'Dell Technologies',
+                contactPerson: 'Michael Dell',
+                email: 'tade2024bdulin@gmail.com',
+                phone: '1-877-275-3355',
+                address: '1 Dell Way, Round Rock, TX 78682',
+                kycStatus: 'Verified',
+            },
+            items: [
+                { id: 'PO-ITEM-1', name: 'Project Management Tool (Annual)', quantity: 20, unitPrice: 235, totalPrice: 4700, receivedQuantity: 20 }
+            ],
+            totalAmount: 4700,
+            status: 'Delivered',
+            createdAt: new Date('2023-09-25T16:00:00Z')
+        }
+    ],
     goodsReceipts: [],
     invoices: [],
     users: [
