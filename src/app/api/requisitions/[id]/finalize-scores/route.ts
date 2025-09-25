@@ -51,6 +51,8 @@ async function tallyAndAwardScores(requisitionId: string, awardStrategy: 'all' |
         });
 
     }
+    
+    const awardedQuoteItemIds = Object.values(awards).flatMap((award: any) => award.items.map((item: any) => item.quoteItemId));
 
     // Set all quotes to rejected initially, this will be overridden for winners/standby
     await prisma.quotation.updateMany({
@@ -90,6 +92,7 @@ async function tallyAndAwardScores(requisitionId: string, awardStrategy: 'all' |
       data: {
         status: 'RFQ_In_Progress',
         awardResponseDeadline: awardResponseDeadline,
+        awardedQuoteItemIds: awardedQuoteItemIds,
       }
     });
 
@@ -131,16 +134,17 @@ export async function POST(
     // Send emails to all awarded vendors
     const awardedVendorIds = Object.keys(awards);
     for (const vendorId of awardedVendorIds) {
-         const vendor = await prisma.vendor.findUnique({ where: { id: vendorId }});
+         const vendor = await prisma.vendor.findUnique({ where: { id: vendorId }, include: { quotations: { include: { items: true }}}});
          if (vendor) {
               const awardDetails = awards[vendorId];
-              const awardedItems = requisition.items.filter(reqItem => 
-                awardDetails.items.some((awarded: any) => awarded.requisitionItemId === reqItem.id)
-              );
-              
-              const isPartialAward = awardedVendorIds.length > 1 || awardedItems.length < requisition.items.length;
+              const awardedQuoteItems = vendor.quotations
+                .flatMap(q => q.items)
+                .filter(item => awardDetails.items.some((i: any) => i.quoteItemId === item.id));
 
-              const itemsHtml = `<ul>${awardedItems.map(item => `<li>${item.name} (Qty: ${item.quantity})</li>`).join('')}</ul>`;
+              
+              const isPartialAward = awardedVendorIds.length > 1 || awardedQuoteItems.length < requisition.items.length;
+
+              const itemsHtml = `<ul>${awardedQuoteItems.map(item => `<li>${item.name} (Qty: ${item.quantity})</li>`).join('')}</ul>`;
 
               const emailHtml = `
                 <h1>Congratulations, ${vendor.name}!</h1>

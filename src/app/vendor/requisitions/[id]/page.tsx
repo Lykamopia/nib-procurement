@@ -549,18 +549,18 @@ export default function VendorRequisitionPage() {
     const canEditQuote = submittedQuote?.status === 'Submitted' && !isAwardProcessStarted && !isDeadlinePassed && allowEdits;
 
     const awardedItems = useMemo(() => {
-        if (!submittedQuote || !purchaseOrder) {
+        if (!submittedQuote || !requisition?.awardedQuoteItemIds || requisition.awardedQuoteItemIds.length === 0) {
             return submittedQuote?.items || [];
         }
         
-        // For partial awards, filter the quote items to only those present in the vendor-specific PO
-        if (submittedQuote.status === 'Partially_Awarded' || submittedQuote.status === 'Accepted') {
-            const poItemNames = new Set(purchaseOrder.items.map(item => item.name));
-            return submittedQuote.items.filter(item => poItemNames.has(item.name));
+        // For partial awards, filter the quote items to only those present in the requisition's awarded list
+        if (submittedQuote.status === 'Partially_Awarded' || submittedQuote.status === 'Accepted' || submittedQuote.status === 'Awarded') {
+             const awardedIds = new Set(requisition.awardedQuoteItemIds);
+            return submittedQuote.items.filter(item => awardedIds.has(item.id));
         }
 
         return submittedQuote.items;
-    }, [submittedQuote, purchaseOrder]);
+    }, [submittedQuote, requisition]);
 
 
     const fetchRequisitionData = async () => {

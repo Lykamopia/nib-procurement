@@ -45,15 +45,12 @@ export async function POST(
             });
             
             // Logic to handle both full and partial awards when creating a PO
-            const awardedQuotesForReq = await tx.quotation.findMany({
-                where: {
-                    requisitionId: requisition.id,
-                    status: { in: ['Awarded', 'Accepted', 'Partially_Awarded'] }
-                },
-                include: { items: true }
-            });
+            const awardedQuoteItems = quote.items.filter(item => 
+                requisition.awardedQuoteItemIds.includes(item.id)
+            );
 
-            const thisVendorAwardedItems = quote.items;
+            const thisVendorAwardedItems = awardedQuoteItems.length > 0 ? awardedQuoteItems : quote.items;
+
             const totalPriceForThisPO = thisVendorAwardedItems.reduce((acc, item) => acc + (item.unitPrice * item.quantity), 0);
 
             const newPO = await tx.purchaseOrder.create({
@@ -77,13 +74,14 @@ export async function POST(
             });
 
             // Check if all awards are accepted to update the main requisition status
-            const allAwardedQuotes = requisition.quotations.filter(q => q.status === 'Awarded' || q.status === 'Partially_Awarded');
-            const allAwardsNowAccepted = allAwardedQuotes.every(q => {
-                const updatedQuote = awardedQuotesForReq.find(uq => uq.id === q.id);
-                return updatedQuote?.status === 'Accepted';
+            const allAwardedQuotes = await tx.quotation.findMany({
+                where: {
+                    requisitionId: requisition.id,
+                    status: { in: ['Awarded', 'Partially_Awarded'] }
+                }
             });
             
-            if (allAwardsNowAccepted) {
+            if (allAwardedQuotes.length === 0) {
                  await tx.purchaseRequisition.update({
                     where: { id: requisition.id },
                     data: {
