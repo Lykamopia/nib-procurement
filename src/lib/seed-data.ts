@@ -210,7 +210,7 @@ const seedData: AppData = {
                 kycStatus: 'Verified',
             },
             items: [
-                { id: 'PO-ITEM-1', name: 'Project Management Tool (Annual)', quantity: 20, unitPrice: 235, totalPrice: 4700, receivedQuantity: 20 }
+                { id: 'PO-ITEM-1', name: 'Project Management Tool (Annual)', requisitionItemId: 'ITEM-5', quantity: 20, unitPrice: 235, totalPrice: 4700, receivedQuantity: 20 }
             ],
             totalAmount: 4700,
             status: 'Delivered',

@@ -49,8 +49,7 @@ async function main() {
   console.log('Seeded departments.');
 
   // Seed non-vendor users first
-  const nonVendorUsers = seedData.users.filter(u => u.role !== 'Vendor');
-  for (const user of nonVendorUsers) {
+  for (const user of seedData.users.filter(u => u.role !== 'Vendor')) {
     const { committeeAssignments, departmentId, department, vendorId, ...userData } = user;
     await prisma.user.create({
       data: {
@@ -237,10 +236,18 @@ async function main() {
                 ...poData,
                 status: poData.status.replace(/ /g, '_') as any,
                 createdAt: new Date(poData.createdAt),
-                vendorId: po.vendor.id,
+                vendorId: vendor.id,
                 requisitionId: po.requisitionId,
                 items: {
-                    create: items,
+                    create: items.map(item => ({
+                        id: item.id,
+                        name: item.name,
+                        quantity: item.quantity,
+                        unitPrice: item.unitPrice,
+                        totalPrice: item.totalPrice,
+                        receivedQuantity: item.receivedQuantity,
+                        requisitionItem: { connect: { id: item.requisitionItemId } }
+                    })),
                 },
             }
         });
