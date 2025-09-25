@@ -548,13 +548,18 @@ export default function VendorRequisitionPage() {
 
     const canEditQuote = submittedQuote?.status === 'Submitted' && !isAwardProcessStarted && !isDeadlinePassed && allowEdits;
 
-    const awardedItems: QuoteItem[] = useMemo(() => {
-        if (submittedQuote?.status !== 'Partially_Awarded' || !purchaseOrder) {
+    const awardedItems = useMemo(() => {
+        if (!submittedQuote || !purchaseOrder) {
             return submittedQuote?.items || [];
         }
         
-        const poItemNames = new Set(purchaseOrder.items.map(item => item.name));
-        return submittedQuote.items.filter(item => poItemNames.has(item.name));
+        // For partial awards, filter the quote items to only those present in the vendor-specific PO
+        if (submittedQuote.status === 'Partially_Awarded' || submittedQuote.status === 'Accepted') {
+            const poItemNames = new Set(purchaseOrder.items.map(item => item.name));
+            return submittedQuote.items.filter(item => poItemNames.has(item.name));
+        }
+
+        return submittedQuote.items;
     }, [submittedQuote, purchaseOrder]);
 
 
@@ -583,8 +588,6 @@ export default function VendorRequisitionPage() {
              
              if (vendorSubmittedQuote) {
                  setSubmittedQuote(vendorSubmittedQuote);
-                 // If the requisition has a purchaseOrderId, it's a single PO award.
-                 // If not, we might be in a partial award scenario, so we fetch all POs and find the right one.
                  const poResponse = await fetch('/api/purchase-orders');
                  const allPOs: PurchaseOrder[] = await poResponse.json();
                  const poForThisVendor = allPOs.find(p => p.requisitionId === foundReq.id && p.vendor.id === user.vendorId);

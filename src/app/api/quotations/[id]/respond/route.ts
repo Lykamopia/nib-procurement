@@ -44,17 +44,17 @@ export async function POST(
                 data: { status: 'Accepted' }
             });
             
-            // For partial awards, we must filter to only the items this vendor won.
-            // We determine this by looking at what items are present in *other* vendors' accepted/awarded quotes.
-            const otherAwardedQuotes = requisition.quotations.filter(
-                q => q.vendorId !== quote.vendorId && (q.status === 'Awarded' || q.status === 'Accepted' || q.status === 'Partially_Awarded')
-            );
-            
-            const otherAwardedItemIds = new Set(otherAwardedQuotes.flatMap(q => q.items.map(i => i.requisitionItemId)));
+            // Logic to handle both full and partial awards when creating a PO
+            const awardedQuotesForReq = await tx.quotation.findMany({
+                where: {
+                    requisitionId: requisition.id,
+                    status: { in: ['Awarded', 'Accepted', 'Partially_Awarded'] }
+                },
+                include: { items: true }
+            });
 
-            const itemsForThisPO = quote.items.filter(item => !otherAwardedItemIds.has(item.requisitionItemId));
-            const totalPriceForThisPO = itemsForThisPO.reduce((acc, item) => acc + (item.unitPrice * item.quantity), 0);
-
+            const thisVendorAwardedItems = quote.items;
+            const totalPriceForThisPO = thisVendorAwardedItems.reduce((acc, item) => acc + (item.unitPrice * item.quantity), 0);
 
             const newPO = await tx.purchaseOrder.create({
                 data: {
@@ -62,7 +62,7 @@ export async function POST(
                     requisitionTitle: requisition.title,
                     vendor: { connect: { id: quote.vendorId } },
                     items: {
-                        create: itemsForThisPO.map(item => ({
+                        create: thisVendorAwardedItems.map(item => ({
                             requisitionItemId: item.requisitionItemId,
                             name: item.name,
                             quantity: item.quantity,
@@ -76,13 +76,21 @@ export async function POST(
                 }
             });
 
-            await tx.purchaseRequisition.update({
-                where: { id: requisition.id },
-                data: {
-                    status: 'PO_Created',
-                    purchaseOrderId: newPO.id, // Note: This might need adjustment if multiple POs are created per requisition
-                }
+            // Check if all awards are accepted to update the main requisition status
+            const allAwardedQuotes = requisition.quotations.filter(q => q.status === 'Awarded' || q.status === 'Partially_Awarded');
+            const allAwardsNowAccepted = allAwardedQuotes.every(q => {
+                const updatedQuote = awardedQuotesForReq.find(uq => uq.id === q.id);
+                return updatedQuote?.status === 'Accepted';
             });
+            
+            if (allAwardsNowAccepted) {
+                 await tx.purchaseRequisition.update({
+                    where: { id: requisition.id },
+                    data: {
+                        status: 'PO_Created',
+                    }
+                });
+            }
             
             await tx.auditLog.create({
                 data: {
