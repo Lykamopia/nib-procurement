@@ -239,19 +239,11 @@ async function main() {
                 createdAt: new Date(poData.createdAt),
                 vendorId: po.vendor.id,
                 requisitionId: po.requisitionId,
+                items: {
+                    create: items,
+                },
             }
         });
-
-        if (items) {
-            for (const item of items) {
-                await prisma.pOItem.create({
-                    data: {
-                        ...item,
-                        purchaseOrderId: createdPO.id,
-                    }
-                })
-            }
-        }
     }
     console.log('Seeded purchase orders and related items.');
     
