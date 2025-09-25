@@ -26,6 +26,7 @@ async function main() {
   await prisma.customQuestion.deleteMany({});
   await prisma.requisitionItem.deleteMany({});
   await prisma.committeeAssignment.deleteMany({});
+  await prisma.contract.deleteMany({});
   await prisma.purchaseRequisition.deleteMany({});
   await prisma.kYC_Document.deleteMany({});
   await prisma.vendor.deleteMany({});
@@ -331,5 +332,3 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
-
-    
