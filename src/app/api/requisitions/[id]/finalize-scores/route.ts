@@ -115,7 +115,8 @@ export async function POST(
     }
     
     const requisition = await prisma.purchaseRequisition.findUnique({
-        where: { id: requisitionId }
+        where: { id: requisitionId },
+        include: { items: true },
     });
     if (!requisition) {
         return NextResponse.json({ error: 'Requisition not found' }, { status: 404 });
@@ -132,14 +133,26 @@ export async function POST(
     for (const vendorId of awardedVendorIds) {
          const vendor = await prisma.vendor.findUnique({ where: { id: vendorId }});
          if (vendor) {
+              const awardDetails = awards[vendorId];
+              const awardedItems = requisition.items.filter(reqItem => 
+                awardDetails.items.some((awarded: any) => awarded.requisitionItemId === reqItem.id)
+              );
+              
+              const isPartialAward = awardedVendorIds.length > 1 || awardedItems.length < requisition.items.length;
+
+              const itemsHtml = `<ul>${awardedItems.map(item => `<li>${item.name} (Qty: ${item.quantity})</li>`).join('')}</ul>`;
+
               const emailHtml = `
                 <h1>Congratulations, ${vendor.name}!</h1>
-                <p>You have been awarded one or more items for requisition <strong>${requisition.title}</strong>.</p>
+                <p>You have been ${isPartialAward ? 'partially awarded' : 'awarded'} the contract for requisition <strong>${requisition.title}</strong>.</p>
+                <p>The following item(s) have been awarded to you:</p>
+                ${itemsHtml}
                 <p>Please log in to the vendor portal to review the award and respond.</p>
                 <a href="${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:9002'}/vendor/dashboard">Go to Vendor Portal</a>
                 <p>Thank you,</p>
                 <p>Nib InternationalBank Procurement</p>
             `;
+
             await sendEmail({
                 to: vendor.email,
                 subject: `Contract Awarded: ${requisition.title}`,
