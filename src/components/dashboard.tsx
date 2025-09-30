@@ -17,13 +17,11 @@ import {
   FilePlus,
   FileText,
   GanttChartSquare,
-  RefreshCw,
   Loader2,
   Banknote,
   AlertTriangle,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
-import { useToast } from '@/hooks/use-toast';
 import { Invoice, PurchaseRequisition } from '@/lib/types';
 import { Table, TableBody, TableCell, TableHeader, TableRow, TableHead } from './ui/table';
 import { Badge } from './ui/badge';
@@ -221,37 +219,7 @@ function ProcurementOfficerDashboard({ setActiveView }: { setActiveView: (view: 
 
 export function Dashboard({ setActiveView }: DashboardProps) {
   const { role, user } = useAuth();
-  const [isResetting, setIsResetting] = useState(false);
-  const { toast } = useToast();
   const router = useRouter();
-
-
-  const handleResetData = async () => {
-    setIsResetting(true);
-    try {
-      const response = await fetch('/api/reset-data', {
-        method: 'POST',
-      });
-      if (!response.ok) throw new Error('Failed to reset data');
-      toast({
-        title: 'Demo Data Reset',
-        description: 'The application data has been reset to its initial state.',
-      });
-      // Force a reload to refresh all data and states
-      window.location.reload();
-    } catch (error) {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description:
-          error instanceof Error
-            ? error.message
-            : 'Could not reset demo data.',
-      });
-    } finally {
-      setIsResetting(false);
-    }
-  };
 
 
   const renderDashboard = () => {
@@ -315,14 +283,6 @@ export function Dashboard({ setActiveView }: DashboardProps) {
             <strong>{role}</strong>.
             </p>
         </div>
-        <Button variant="outline" onClick={handleResetData} disabled={isResetting}>
-            {isResetting ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-                <RefreshCw className="mr-2 h-4 w-4" />
-            )}
-            Reset Demo Data
-        </Button>
       </div>
       {renderDashboard()}
     </div>

@@ -9,6 +9,7 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   role: UserRole | null;
+  allUsers: User[];
   login: (token: string, user: User, role: UserRole) => void;
   logout: () => void;
   loading: boolean;
@@ -20,6 +21,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [role, setRole] = useState<UserRole | null>(null);
+  const [allUsers, setAllUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -59,10 +61,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       token,
       role,
+      allUsers,
       login,
       logout,
       loading
-  }), [user, token, role, loading]);
+  }), [user, token, role, loading, allUsers]);
 
 
   return (

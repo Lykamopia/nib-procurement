@@ -3,7 +3,8 @@
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { users } from '@/lib/data-store';
+import { User } from '@/lib/types';
+
 
 export async function POST(
   request: Request,
@@ -27,7 +28,7 @@ export async function POST(
       return NextResponse.json({ error: 'Requisition not found' }, { status: 404 });
     }
 
-    const user = users.find(u => u.id === userId);
+    const user: User | null = await prisma.user.findUnique({where: {id: userId}});
     if (!user || (user.role !== 'Procurement Officer' && user.role !== 'Committee')) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
@@ -90,5 +91,3 @@ export async function POST(
     return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
   }
 }
-
-    
