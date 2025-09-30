@@ -60,36 +60,26 @@ export const rolePermissions: Record<UserRole, string[]> = {
   ],
   'Committee': [
     '/dashboard',
-    '/new-requisition',
-    '/requisitions',
-    '/vendors',
-    '/vendor-verification',
     '/quotations',
-    '/contracts',
-    '/purchase-orders',
-    '/invoices',
     '/records',
-    '/audit-log',
   ],
   Requester: [
     '/dashboard',
     '/new-requisition',
     '/requisitions',
-    '/contracts',
     '/records'
   ],
   Approver: [
     '/dashboard',
     '/requisitions',
     '/approvals',
-    '/contracts',
     '/records'
   ],
   Finance: [
     '/dashboard',
     '/invoices',
     '/records',
-    '/contracts',
+    '/purchase-orders'
   ],
   Receiving: [
     '/dashboard',
@@ -100,7 +90,6 @@ export const rolePermissions: Record<UserRole, string[]> = {
   'Committee Member': [
     '/dashboard',
     '/quotations',
-    '/contracts',
     '/records'
   ],
 };
