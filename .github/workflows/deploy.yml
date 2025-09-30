@@ -24,7 +24,7 @@ jobs:
       with:
         node-version: '20'
 
-    # 3. Install dependencies
+    # 3. Install dependencies (including Prisma)
     - name: Install dependencies
       run: npm install
 
@@ -32,7 +32,18 @@ jobs:
     - name: Build Next.js app
       run: npm run build
 
-    # 5. Deploy to IIS remotely
+    # 5. Run Prisma migrations and seeding
+    - name: Prisma Migrations & Seed
+      run: |
+        echo "Applying Prisma migrations..."
+        npx prisma migrate deploy
+        echo "Generating Prisma client..."
+        npx prisma generate
+        echo "Seeding database..."
+        npm run db:seed
+      shell: pwsh
+
+    # 6. Deploy to IIS remotely via PowerShell Remoting
     - name: Deploy to IIS via PowerShell Remoting
       shell: pwsh
       run: |
@@ -46,20 +57,20 @@ jobs:
         $scriptBlock = {
             param($sourcePath, $destinationPath, $appPool, $siteName)
 
-            # Stop IIS App Pool and Website
+            Write-Host "Stopping IIS App Pool and Website..."
             try { Stop-WebAppPool -Name $appPool -ErrorAction Stop; Write-Host "App Pool stopped." } catch { Write-Host $_ }
             try { Stop-Website -Name $siteName -ErrorAction Stop; Write-Host "Website stopped." } catch { Write-Host $_ }
 
-            # Copy files (robocopy)
+            Write-Host "Copying files to IIS..."
             robocopy $sourcePath "$destinationPath\.next" /E /MIR
-            robocopy "$sourcePath\public" "$destinationPath\public" /E /MIR
-            robocopy "$sourcePath\node_modules" "$destinationPath\node_modules" /E /MIR
+            robocopy $sourcePath\public "$destinationPath\public" /E /MIR
+            robocopy $sourcePath\node_modules "$destinationPath\node_modules" /E /MIR
             Copy-Item "$sourcePath\package.json" "$destinationPath\package.json" -Force
 
             if ($LASTEXITCODE -ge 8) { throw "File copy failed with exit code $LASTEXITCODE" }
             Write-Host "Files copied successfully."
 
-            # Start IIS App Pool and Website
+            Write-Host "Starting IIS App Pool and Website..."
             try { Start-WebAppPool -Name $appPool -ErrorAction Stop; Write-Host "App Pool started." } catch { throw }
             try { Start-Website -Name $siteName -ErrorAction Stop; Write-Host "Website started." } catch { throw }
         }
@@ -73,10 +84,18 @@ jobs:
         # Execute remotely on IIS server
         Invoke-Command -ComputerName $env:SERVER -Credential $cred -ScriptBlock $scriptBlock -ArgumentList $sourcePath, $destinationPath, $appPool, $siteName
 
-    # 6. Post-deployment status
+    # 7. Post-deployment notifications
     - name: Post-deployment status
       if: always()
       shell: pwsh
       run: |
-        if (${{ job.status }} -eq 'success') { Write-Host "Deployment succeeded ✅" } 
-        else { Write-Host "Deployment failed ❌"; exit 1 }
+        if (${{ job.status }} -eq 'success') { 
+          Write-Host "Deployment succeeded ✅"
+          # Example: send email notification
+          Send-MailMessage -To "tade2024bdu@gmail.com" -From "ci-cd@company.com" -Subject "Deployment Success" -Body "Next.js app deployed successfully." -SmtpServer "smtp.yourserver.com"
+        } 
+        else { 
+          Write-Host "Deployment failed ❌"; 
+          Send-MailMessage -To "tade2024bdu@gmail.com" -From "ci-cd@company.com" -Subject "Deployment Failed" -Body "Next.js app deployment failed!" -SmtpServer "smtp.yourserver.com"
+          exit 1 
+        }
