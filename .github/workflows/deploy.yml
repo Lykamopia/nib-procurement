@@ -1,4 +1,4 @@
-name: Deploy Next.js to IIS
+name: Deploy Next.js to IIS Remotely
 
 on:
   push:
@@ -12,77 +12,71 @@ jobs:
       SERVER: ${{ secrets.IIS_SERVER }}
       USER: ${{ secrets.IIS_USER }}
       PASSWORD: ${{ secrets.IIS_PASSWORD }}
-      SMTP_SERVER: ${{ secrets.SMTP_SERVER }}      # e.g., smtp.gmail.com
-      SMTP_PORT: ${{ secrets.SMTP_PORT }}          # e.g., 587
-      SMTP_USER: ${{ secrets.SMTP_USER }}          # e.g., your Gmail username
-      SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}  # App password for Gmail
-      EMAIL_TO: tade2024bdu@gmail.com
 
     steps:
+    # 1. Checkout repository
     - name: Checkout repository
       uses: actions/checkout@v4
 
+    # 2. Setup Node.js
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
         node-version: '20'
 
+    # 3. Install dependencies
     - name: Install dependencies
       run: npm install
 
+    # 4. Build Next.js app
     - name: Build Next.js app
       run: npm run build
 
-    - name: Deploy to IIS
+    # 5. Deploy to IIS remotely
+    - name: Deploy to IIS via PowerShell Remoting
       shell: pwsh
       run: |
         $ErrorActionPreference = "Stop"
 
-        # Configuration
-        $iisAppPool = "YourAppPoolName"
-        $iisSiteName = "YourSiteName"
-        $destinationPath = "C:\inetpub\wwwroot\YourAppName"
-
-        # Convert password to secure string
+        # Convert password to secure string and create credential object
         $secPassword = ConvertTo-SecureString $env:PASSWORD -AsPlainText -Force
         $cred = New-Object System.Management.Automation.PSCredential ($env:USER, $secPassword)
 
-        # Backup current deployment
-        $backupPath = "$destinationPath-backup-$(Get-Date -Format 'yyyyMMddHHmmss')"
-        if (Test-Path $destinationPath) {
-          Copy-Item $destinationPath $backupPath -Recurse
-          Write-Host "Backup created at $backupPath"
+        # Remote script block
+        $scriptBlock = {
+            param($sourcePath, $destinationPath, $appPool, $siteName)
+
+            # Stop IIS App Pool and Website
+            try { Stop-WebAppPool -Name $appPool -ErrorAction Stop; Write-Host "App Pool stopped." } catch { Write-Host $_ }
+            try { Stop-Website -Name $siteName -ErrorAction Stop; Write-Host "Website stopped." } catch { Write-Host $_ }
+
+            # Copy files (robocopy)
+            robocopy $sourcePath "$destinationPath\.next" /E /MIR
+            robocopy "$sourcePath\public" "$destinationPath\public" /E /MIR
+            robocopy "$sourcePath\node_modules" "$destinationPath\node_modules" /E /MIR
+            Copy-Item "$sourcePath\package.json" "$destinationPath\package.json" -Force
+
+            if ($LASTEXITCODE -ge 8) { throw "File copy failed with exit code $LASTEXITCODE" }
+            Write-Host "Files copied successfully."
+
+            # Start IIS App Pool and Website
+            try { Start-WebAppPool -Name $appPool -ErrorAction Stop; Write-Host "App Pool started." } catch { throw }
+            try { Start-Website -Name $siteName -ErrorAction Stop; Write-Host "Website started." } catch { throw }
         }
 
-        # Stop IIS
-        try { Stop-WebAppPool -Name $iisAppPool -ErrorAction Stop; Write-Host "App Pool stopped." } catch { Write-Host $_ }
-        try { Stop-Website -Name $iisSiteName -ErrorAction Stop; Write-Host "Website stopped." } catch { Write-Host $_ }
+        # Define parameters for remote execution
+        $sourcePath = "${{ github.workspace }}"  # workspace of GitHub runner
+        $destinationPath = "C:\inetpub\wwwroot\YourAppName"
+        $appPool = "YourAppPoolName"
+        $siteName = "YourSiteName"
 
-        # Copy build files
-        robocopy ".\.next" "$destinationPath\.next" /E /MIR
-        robocopy ".\public" "$destinationPath\public" /E /MIR
-        robocopy ".\node_modules" "$destinationPath\node_modules" /E /MIR
-        Copy-Item ".\package.json" "$destinationPath\package.json" -Force
+        # Execute remotely on IIS server
+        Invoke-Command -ComputerName $env:SERVER -Credential $cred -ScriptBlock $scriptBlock -ArgumentList $sourcePath, $destinationPath, $appPool, $siteName
 
-        if ($LASTEXITCODE -ge 8) { throw "File copy failed with exit code $LASTEXITCODE" }
-        Write-Host "Files copied successfully."
-
-        # Start IIS
-        try { Start-WebAppPool -Name $iisAppPool -ErrorAction Stop; Write-Host "App Pool started." } catch { throw }
-        try { Start-Website -Name $iisSiteName -ErrorAction Stop; Write-Host "Website started." } catch { throw }
-
-    - name: Send Email Notification
+    # 6. Post-deployment status
+    - name: Post-deployment status
       if: always()
       shell: pwsh
       run: |
-        $status = if (${{ job.status }} -eq 'success') { "Deployment succeeded ✅" } else { "Deployment FAILED ❌" }
-
-        Send-MailMessage `
-          -SmtpServer $env:SMTP_SERVER `
-          -Port $env:SMTP_PORT `
-          -UseSsl `
-          -Credential (New-Object System.Management.Automation.PSCredential($env:SMTP_USER,(ConvertTo-SecureString $env:SMTP_PASSWORD -AsPlainText -Force))) `
-          -From $env:SMTP_USER `
-          -To $env:EMAIL_TO `
-          -Subject "Next.js IIS Deployment Status" `
-          -Body "$status on branch main at $(Get-Date)"
+        if (${{ job.status }} -eq 'success') { Write-Host "Deployment succeeded ✅" } 
+        else { Write-Host "Deployment failed ❌"; exit 1 }
