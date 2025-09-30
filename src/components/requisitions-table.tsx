@@ -44,6 +44,7 @@ import {
   ListX,
   Loader2,
   Trash2,
+  MoreHorizontal,
 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Calendar } from './ui/calendar';
@@ -53,6 +54,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/t
 import { useRouter } from 'next/navigation';
 import { RequisitionDetailsDialog } from './requisition-details-dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from './ui/alert-dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from './ui/dropdown-menu';
 
 
 const PAGE_SIZE = 10;
@@ -272,7 +274,7 @@ export function RequisitionsTable() {
                 <TableHead>Status</TableHead>
                 <TableHead>Created At</TableHead>
                 <TableHead>Deadline</TableHead>
-                <TableHead>Actions</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -305,45 +307,59 @@ export function RequisitionsTable() {
                     <TableCell>
                         {req.deadline ? format(new Date(req.deadline), 'PP') : 'N/A'}
                     </TableCell>
-                    <TableCell>
-                        <div className="flex gap-2">
-                            <Button variant="outline" size="sm" onClick={() => handleViewDetails(req)}>
-                                <Eye className="mr-2 h-4 w-4" /> View
+                    <TableCell className="text-right">
+                       <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="h-8 w-8 p-0">
+                              <span className="sr-only">Open menu</span>
+                              <MoreHorizontal className="h-4 w-4" />
                             </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            <DropdownMenuItem onClick={() => handleViewDetails(req)}>
+                              <Eye className="mr-2 h-4 w-4" />
+                              View Details
+                            </DropdownMenuItem>
                             {req.requesterId === user?.id && (req.status === 'Draft' || req.status === 'Rejected') && (
-                                <Button variant="outline" size="sm" onClick={() => router.push(`/requisitions/${req.id}/edit`)}>
-                                    <FileEdit className="mr-2 h-4 w-4" />
-                                    Edit
-                                </Button>
+                              <DropdownMenuItem onClick={() => router.push(`/requisitions/${req.id}/edit`)}>
+                                <FileEdit className="mr-2 h-4 w-4" />
+                                Edit
+                              </DropdownMenuItem>
                             )}
                             {req.status === 'Draft' && req.requesterId === user?.id && (
-                                <Button variant="outline" size="sm" onClick={() => handleSubmitForApproval(req.id)}>
-                                    <Send className="mr-2 h-4 w-4" />
-                                    Submit
-                                </Button>
+                              <DropdownMenuItem onClick={() => handleSubmitForApproval(req.id)}>
+                                <Send className="mr-2 h-4 w-4" />
+                                Submit for Approval
+                              </DropdownMenuItem>
                             )}
-                             {(req.status === 'Draft' || req.status === 'Pending_Approval') && req.requesterId === user?.id && (
-                                <AlertDialog>
-                                    <AlertDialogTrigger asChild>
-                                        <Button variant="destructive" size="sm">
-                                            <Trash2 className="mr-2 h-4 w-4" />
-                                        </Button>
-                                    </AlertDialogTrigger>
-                                    <AlertDialogContent>
-                                        <AlertDialogHeader>
-                                        <AlertDialogTitle>Are you sure you want to delete this requisition?</AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                            This action cannot be undone. This will permanently delete the requisition for "{req.title}".
-                                        </AlertDialogDescription>
-                                        </AlertDialogHeader>
-                                        <AlertDialogFooter>
-                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                        <AlertDialogAction onClick={() => handleDeleteRequisition(req.id)} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">Delete</AlertDialogAction>
-                                        </AlertDialogFooter>
-                                    </AlertDialogContent>
+                            {(req.status === 'Draft' || req.status === 'Pending_Approval') && req.requesterId === user?.id && (
+                              <>
+                                <DropdownMenuSeparator />
+                                 <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:bg-destructive/10 focus:text-destructive">
+                                      <Trash2 className="mr-2 h-4 w-4" />
+                                      Delete
+                                    </DropdownMenuItem>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                      <AlertDialogHeader>
+                                      <AlertDialogTitle>Are you sure you want to delete this requisition?</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                          This action cannot be undone. This will permanently delete the requisition for "{req.title}".
+                                      </AlertDialogDescription>
+                                      </AlertDialogHeader>
+                                      <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                      <AlertDialogAction onClick={() => handleDeleteRequisition(req.id)} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">Delete</AlertDialogAction>
+                                      </AlertDialogFooter>
+                                  </AlertDialogContent>
                                 </AlertDialog>
+                              </>
                             )}
-                        </div>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                     </TableCell>
                   </TableRow>
                 ))
