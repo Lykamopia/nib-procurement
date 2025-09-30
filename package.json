@@ -61,6 +61,9 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@genkit-ai/googleai": "^1.14.1",
+    "genkit": "^1.14.1",
+    "genkit-cli": "^1.14.1",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20.14.9",
     "@types/nodemailer": "^6.4.15",
@@ -76,3 +79,4 @@
     "seed": "tsx prisma/seed.ts"
   }
 }
+
