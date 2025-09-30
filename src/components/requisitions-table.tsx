@@ -69,7 +69,6 @@ export function RequisitionsTable() {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string | 'all'>('all');
-  const [requesterFilter, setRequesterFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState<Date | undefined>(undefined);
   const [currentPage, setCurrentPage] = useState(1);
   
@@ -149,11 +148,6 @@ export function RequisitionsTable() {
       setIsDetailsOpen(true);
   }
 
-  const uniqueRequesters = useMemo(() => {
-    const requesters = new Set(requisitions.map(r => r.requesterName).filter(Boolean));
-    return ['all', ...Array.from(requesters as string[])];
-  }, [requisitions]);
-
   const filteredRequisitions = useMemo(() => {
     let filtered = requisitions;
 
@@ -173,9 +167,8 @@ export function RequisitionsTable() {
         );
       })
       .filter(req => statusFilter === 'all' || req.status.replace(/ /g, '_') === statusFilter)
-      .filter(req => requesterFilter === 'all' || req.requesterName === requesterFilter)
       .filter(req => !dateFilter || new Date(req.createdAt).toDateString() === dateFilter.toDateString());
-  }, [requisitions, searchTerm, statusFilter, requesterFilter, dateFilter, role, user]);
+  }, [requisitions, searchTerm, statusFilter, dateFilter, role, user]);
 
   const totalPages = Math.ceil(filteredRequisitions.length / PAGE_SIZE);
   const paginatedRequisitions = useMemo(() => {
@@ -235,14 +228,6 @@ export function RequisitionsTable() {
               <SelectItem value="PO_Created">PO Created</SelectItem>
             </SelectContent>
           </Select>
-          <Select value={requesterFilter} onValueChange={setRequesterFilter}>
-            <SelectTrigger className="w-full sm:w-[180px]">
-              <SelectValue placeholder="Filter by requester" />
-            </SelectTrigger>
-            <SelectContent>
-              {uniqueRequesters.map(r => <SelectItem key={r} value={r}>{r === 'all' ? 'All Requesters' : r}</SelectItem>)}
-            </SelectContent>
-          </Select>
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="outline" className="w-full sm:w-auto justify-start text-left font-normal">
@@ -258,7 +243,7 @@ export function RequisitionsTable() {
               />
             </PopoverContent>
           </Popover>
-          <Button variant="outline" onClick={() => { setSearchTerm(''); setStatusFilter('all'); setRequesterFilter('all'); setDateFilter(undefined); setCurrentPage(1); }}>
+          <Button variant="outline" onClick={() => { setSearchTerm(''); setStatusFilter('all'); setDateFilter(undefined); setCurrentPage(1); }}>
             Clear
           </Button>
         </div>
