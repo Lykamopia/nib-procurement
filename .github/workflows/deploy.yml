@@ -1,0 +1,87 @@
+
+name: Deploy to IIS on Windows Server
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Install dependencies
+      run: npm install
+
+    - name: Build Next.js application
+      run: npm run build
+
+    - name: Deploy to IIS
+      shell: pwsh
+      run: |
+        # --- IMPORTANT: CONFIGURE YOUR VARIABLES HERE ---
+        $iisAppPool = "YourAppPoolName"
+        $iisSiteName = "YourSiteName"
+        $destinationPath = "C:\inetpub\wwwroot\YourAppName"
+
+        # Stop IIS Application Pool and Website to release file locks
+        try {
+          Stop-WebAppPool -Name $iisAppPool -ErrorAction Stop
+          Write-Host "Application pool '$iisAppPool' stopped successfully."
+        } catch {
+          Write-Host "Could not stop application pool '$iisAppPool'. It might already be stopped. Error: $_"
+        }
+
+        try {
+          Stop-Website -Name $iisSiteName -ErrorAction Stop
+          Write-Host "Website '$iisSiteName' stopped successfully."
+        } catch {
+          Write-Host "Could not stop website '$iisSiteName'. It might already be stopped. Error: $_"
+        }
+
+        # Copy build files to the destination directory
+        # Using robocopy for a more robust file transfer
+        robocopy . $destinationPath /E /MIR /XD .git .github
+        if ($LASTEXITCODE -ge 8) {
+          throw "Robocopy failed with exit code $LASTEXITCODE"
+        }
+        Write-Host "Files copied to '$destinationPath'."
+
+        # Start IIS Application Pool and Website
+        try {
+          Start-WebAppPool -Name $iisAppPool -ErrorAction Stop
+          Write-Host "Application pool '$iisAppPool' started successfully."
+        } catch {
+          Write-Host "Failed to start application pool '$iisAppPool'. Please check IIS configuration. Error: $_"
+          throw
+        }
+
+        try {
+          Start-Website -Name $iisSiteName -ErrorAction Stop
+          Write-Host "Website '$iisSiteName' started successfully."
+        } catch {
+          Write-Host "Failed to start website '$iisSiteName'. Please check IIS configuration. Error: $_"
+          throw
+        }
+    - name: Post-build cleanup
+      run: |
+        # This step runs whether the deployment succeeded or failed.
+        # It's a good place to send notifications.
+        # Example: Send a notification on failure
+        if (${{ job.status }} == 'failure') {
+          # Add your notification command here
+          Write-Host "Deployment failed. Sending notification..."
+        }
+        if (${{ job.status }} == 'success') {
+          Write-Host "Deployment succeeded."
+        }
+      if: always()
