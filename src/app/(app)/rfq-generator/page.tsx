@@ -42,7 +42,6 @@ import { useRouter, usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
-import { RoleSwitcher } from '@/components/role-switcher';
 import { ThemeSwitcher } from '@/components/theme-switcher';
 
 export default function AppLayout({
@@ -90,7 +89,7 @@ export default function AppLayout({
         return 'Audit Log';
       default:
         if (pathname?.startsWith('/purchase-orders/')) return 'Purchase Order';
-        return 'Nib Procurement';
+        return 'Nib InternationalBank';
     }
   }, [pathname]);
 
@@ -108,7 +107,7 @@ export default function AppLayout({
         <SidebarHeader>
           <div className="flex items-center gap-2">
             <Icons.logo className="size-7 text-primary" />
-            <span className="text-lg font-semibold">Nib Procurement</span>
+            <span className="text-lg font-semibold">Nib InternationalBank</span>
           </div>
         </SidebarHeader>
         <SidebarContent>
@@ -274,7 +273,6 @@ export default function AppLayout({
           </SidebarMenu>
         </SidebarContent>
         <SidebarFooter>
-         <RoleSwitcher />
           <Separator className="my-2" />
           <div className="p-2">
             <Button variant="ghost" className="w-full justify-start" onClick={logout}>

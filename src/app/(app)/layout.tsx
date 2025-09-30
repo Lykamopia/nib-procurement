@@ -26,7 +26,6 @@ import { useAuth } from '@/contexts/auth-context';
 import { useRouter, usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { RoleSwitcher } from '@/components/role-switcher';
 import { ThemeSwitcher } from '@/components/theme-switcher';
 import { navItems, rolePermissions } from '@/lib/roles';
 import { Breadcrumbs } from '@/components/breadcrumbs';
@@ -140,8 +139,6 @@ export default function AppLayout({
           </SidebarMenu>
         </SidebarContent>
         <SidebarFooter>
-         <RoleSwitcher />
-          <Separator className="my-2" />
           <div className="p-2">
             <Button variant="ghost" className="w-full justify-start" onClick={logout}>
                 <LogOut className="mr-2 h-4 w-4" />

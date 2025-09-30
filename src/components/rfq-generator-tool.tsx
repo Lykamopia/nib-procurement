@@ -43,7 +43,6 @@ import { useRouter, usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
-import { RoleSwitcher } from '@/components/role-switcher';
 import { ThemeSwitcher } from '@/components/theme-switcher';
 
 export default function AppLayout({
@@ -275,7 +274,6 @@ export default function AppLayout({
           </SidebarMenu>
         </SidebarContent>
         <SidebarFooter>
-         <RoleSwitcher />
           <Separator className="my-2" />
           <div className="p-2">
             <Button variant="ghost" className="w-full justify-start" onClick={logout}>
