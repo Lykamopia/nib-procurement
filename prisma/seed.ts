@@ -1,6 +1,7 @@
 
 import { PrismaClient } from '@prisma/client';
 import { getInitialData } from '../src/lib/seed-data';
+import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
@@ -50,10 +51,13 @@ async function main() {
 
   // Seed non-vendor users first
   for (const user of seedData.users.filter(u => u.role !== 'Vendor')) {
-    const { committeeAssignments, departmentId, department, vendorId, ...userData } = user;
+    const { committeeAssignments, departmentId, department, vendorId, password, ...userData } = user;
+    const hashedPassword = await bcrypt.hash(password || 'password123', 10);
+
     await prisma.user.create({
       data: {
           ...userData,
+          password: hashedPassword,
           role: userData.role.replace(/ /g, '_') as any,
           department: user.departmentId ? { connect: { id: user.departmentId } } : undefined,
       },
@@ -64,13 +68,15 @@ async function main() {
 
   // Seed Vendors and their associated users
   for (const vendor of seedData.vendors) {
-      const { kycDocuments, userId, ...vendorData } = vendor;
-      const vendorUser = seedData.users.find(u => u.id === userId);
+      const { kycDocuments, ...vendorData } = vendor;
+      const vendorUser = seedData.users.find(u => u.id === vendor.userId);
 
       if (!vendorUser) {
           console.warn(`Skipping vendor ${vendor.name} because its user was not found.`);
           continue;
       }
+      
+      const hashedPassword = await bcrypt.hash(vendorUser.password || 'password123', 10);
       
       // Create user for the vendor first
       const createdUser = await prisma.user.create({
@@ -78,7 +84,7 @@ async function main() {
               id: vendorUser.id,
               name: vendorUser.name,
               email: vendorUser.email,
-              password: vendorUser.password,
+              password: hashedPassword,
               role: vendorUser.role.replace(/ /g, '_') as any,
           }
       });

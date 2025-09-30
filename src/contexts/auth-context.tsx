@@ -1,9 +1,10 @@
 
 'use client';
 
-import React, { createContext, useContext, useState, ReactNode, useEffect, useMemo } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect, useMemo, useCallback } from 'react';
 import { User, UserRole } from '@/lib/types';
 import { getUserByToken } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
 
 interface AuthContextType {
   user: User | null;
@@ -24,23 +25,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const storedToken = localStorage.getItem('authToken');
-    if (storedToken) {
-      getUserByToken(storedToken).then(userData => {
-        if(userData) {
-          setToken(storedToken);
-          setUser(userData.user);
-          setRole(userData.role);
-        } else {
-          localStorage.removeItem('authToken');
+  const fetchAllUsers = useCallback(async () => {
+    try {
+        const response = await fetch('/api/users');
+        if (response.ok) {
+            const usersData = await response.json();
+            setAllUsers(usersData);
         }
-        setLoading(false);
-      });
-    } else {
-      setLoading(false);
+    } catch (error) {
+        console.error("Failed to fetch all users", error);
     }
   }, []);
+
+  useEffect(() => {
+    const storedToken = localStorage.getItem('authToken');
+    const initializeAuth = async () => {
+        if (storedToken) {
+            const userData = await getUserByToken(storedToken);
+            if(userData) {
+                setToken(storedToken);
+                setUser(userData.user);
+                setRole(userData.role);
+            } else {
+                localStorage.removeItem('authToken');
+            }
+        }
+        await fetchAllUsers();
+        setLoading(false);
+    }
+    initializeAuth();
+  }, [fetchAllUsers]);
 
   const login = (newToken: string, loggedInUser: User, loggedInRole: UserRole) => {
     localStorage.setItem('authToken', newToken);

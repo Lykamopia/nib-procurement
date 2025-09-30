@@ -3,7 +3,7 @@
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { users as inMemoryUsers } from '@/lib/data-store'; // For actor lookup
+import bcrypt from 'bcryptjs';
 
 export async function GET() {
   try {
@@ -27,8 +27,8 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const { name, email, password, role, departmentId, actorUserId } = body;
-
-    const actor = inMemoryUsers.find(u => u.id === actorUserId);
+    
+    const actor = await prisma.user.findUnique({where: { id: actorUserId }});
     if (!actor) {
         return NextResponse.json({ error: 'Action performing user not found' }, { status: 404 });
     }
@@ -41,12 +41,14 @@ export async function POST(request: Request) {
     if (existingUser) {
         return NextResponse.json({ error: 'A user with this email already exists' }, { status: 409 });
     }
+    
+    const hashedPassword = await bcrypt.hash(password, 10);
 
     const newUser = await prisma.user.create({
         data: {
             name,
             email,
-            password, // In a real app, this should be hashed
+            password: hashedPassword,
             role: role.replace(/ /g, '_'),
             department: { connect: { id: departmentId } }
         }
@@ -77,7 +79,7 @@ export async function PATCH(request: Request) {
     const body = await request.json();
     const { id, name, email, role, departmentId, password, actorUserId } = body;
 
-    const actor = inMemoryUsers.find(u => u.id === actorUserId);
+    const actor = await prisma.user.findUnique({where: { id: actorUserId }});
     if (!actor) {
         return NextResponse.json({ error: 'Action performing user not found' }, { status: 404 });
     }
@@ -99,7 +101,7 @@ export async function PATCH(request: Request) {
     };
 
     if (password) {
-        updateData.password = password; // In a real app, this should be hashed
+        updateData.password = await bcrypt.hash(password, 10);
     }
 
     const updatedUser = await prisma.user.update({
@@ -132,7 +134,7 @@ export async function DELETE(request: Request) {
     const body = await request.json();
     const { id, actorUserId } = body;
 
-    const actor = inMemoryUsers.find(u => u.id === actorUserId);
+    const actor = await prisma.user.findUnique({where: { id: actorUserId }});
     if (!actor) {
         return NextResponse.json({ error: 'Action performing user not found' }, { status: 404 });
     }

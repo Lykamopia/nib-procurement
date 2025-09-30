@@ -2,6 +2,7 @@
 
 import type { User, UserRole, Vendor } from './types';
 import { prisma } from './prisma';
+import bcrypt from 'bcryptjs';
 
 type VendorDetails = {
     contactPerson: string;
@@ -26,11 +27,13 @@ export async function register(
         return null;
     }
 
+    const hashedPassword = await bcrypt.hash(password, 10);
+
     const newUser = await prisma.user.create({
         data: {
             name,
             email,
-            password, // IMPORTANT: Hash in real app
+            password: hashedPassword,
             role: 'Vendor',
         }
     });
@@ -80,7 +83,7 @@ export async function login(email: string, password: string): Promise<{ user: Us
       }
   });
 
-  if (user && user.password === password) { // IMPORTANT: Compare hashed passwords in real app
+  if (user && user.password && await bcrypt.compare(password, user.password)) {
     console.log("Login successful, user found:", user);
     const mockToken = `mock-token-for-${user.id}__ROLE__${user.role}__TS__${Date.now()}`;
     const { password: _, ...userWithoutPassword } = user;
