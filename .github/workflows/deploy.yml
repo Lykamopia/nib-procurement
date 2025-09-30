@@ -1,5 +1,4 @@
-
-name: Deploy to IIS on Windows Server
+name: Deploy Next.js to IIS
 
 on:
   push:
@@ -9,12 +8,21 @@ on:
 jobs:
   build-and-deploy:
     runs-on: windows-latest
+    env:
+      SERVER: ${{ secrets.IIS_SERVER }}
+      USER: ${{ secrets.IIS_USER }}
+      PASSWORD: ${{ secrets.IIS_PASSWORD }}
+      SMTP_SERVER: ${{ secrets.SMTP_SERVER }}      # e.g., smtp.gmail.com
+      SMTP_PORT: ${{ secrets.SMTP_PORT }}          # e.g., 587
+      SMTP_USER: ${{ secrets.SMTP_USER }}          # e.g., your Gmail username
+      SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}  # App password for Gmail
+      EMAIL_TO: tade2024bdu@gmail.com
 
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Set up Node.js
+    - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
         node-version: '20'
@@ -22,66 +30,59 @@ jobs:
     - name: Install dependencies
       run: npm install
 
-    - name: Build Next.js application
+    - name: Build Next.js app
       run: npm run build
 
     - name: Deploy to IIS
       shell: pwsh
       run: |
-        # --- IMPORTANT: CONFIGURE YOUR VARIABLES HERE ---
+        $ErrorActionPreference = "Stop"
+
+        # Configuration
         $iisAppPool = "YourAppPoolName"
         $iisSiteName = "YourSiteName"
         $destinationPath = "C:\inetpub\wwwroot\YourAppName"
 
-        # Stop IIS Application Pool and Website to release file locks
-        try {
-          Stop-WebAppPool -Name $iisAppPool -ErrorAction Stop
-          Write-Host "Application pool '$iisAppPool' stopped successfully."
-        } catch {
-          Write-Host "Could not stop application pool '$iisAppPool'. It might already be stopped. Error: $_"
+        # Convert password to secure string
+        $secPassword = ConvertTo-SecureString $env:PASSWORD -AsPlainText -Force
+        $cred = New-Object System.Management.Automation.PSCredential ($env:USER, $secPassword)
+
+        # Backup current deployment
+        $backupPath = "$destinationPath-backup-$(Get-Date -Format 'yyyyMMddHHmmss')"
+        if (Test-Path $destinationPath) {
+          Copy-Item $destinationPath $backupPath -Recurse
+          Write-Host "Backup created at $backupPath"
         }
 
-        try {
-          Stop-Website -Name $iisSiteName -ErrorAction Stop
-          Write-Host "Website '$iisSiteName' stopped successfully."
-        } catch {
-          Write-Host "Could not stop website '$iisSiteName'. It might already be stopped. Error: $_"
-        }
+        # Stop IIS
+        try { Stop-WebAppPool -Name $iisAppPool -ErrorAction Stop; Write-Host "App Pool stopped." } catch { Write-Host $_ }
+        try { Stop-Website -Name $iisSiteName -ErrorAction Stop; Write-Host "Website stopped." } catch { Write-Host $_ }
 
-        # Copy build files to the destination directory
-        # Using robocopy for a more robust file transfer
-        robocopy . $destinationPath /E /MIR /XD .git .github
-        if ($LASTEXITCODE -ge 8) {
-          throw "Robocopy failed with exit code $LASTEXITCODE"
-        }
-        Write-Host "Files copied to '$destinationPath'."
+        # Copy build files
+        robocopy ".\.next" "$destinationPath\.next" /E /MIR
+        robocopy ".\public" "$destinationPath\public" /E /MIR
+        robocopy ".\node_modules" "$destinationPath\node_modules" /E /MIR
+        Copy-Item ".\package.json" "$destinationPath\package.json" -Force
 
-        # Start IIS Application Pool and Website
-        try {
-          Start-WebAppPool -Name $iisAppPool -ErrorAction Stop
-          Write-Host "Application pool '$iisAppPool' started successfully."
-        } catch {
-          Write-Host "Failed to start application pool '$iisAppPool'. Please check IIS configuration. Error: $_"
-          throw
-        }
+        if ($LASTEXITCODE -ge 8) { throw "File copy failed with exit code $LASTEXITCODE" }
+        Write-Host "Files copied successfully."
 
-        try {
-          Start-Website -Name $iisSiteName -ErrorAction Stop
-          Write-Host "Website '$iisSiteName' started successfully."
-        } catch {
-          Write-Host "Failed to start website '$iisSiteName'. Please check IIS configuration. Error: $_"
-          throw
-        }
-    - name: Post-build cleanup
-      run: |
-        # This step runs whether the deployment succeeded or failed.
-        # It's a good place to send notifications.
-        # Example: Send a notification on failure
-        if (${{ job.status }} == 'failure') {
-          # Add your notification command here
-          Write-Host "Deployment failed. Sending notification..."
-        }
-        if (${{ job.status }} == 'success') {
-          Write-Host "Deployment succeeded."
-        }
+        # Start IIS
+        try { Start-WebAppPool -Name $iisAppPool -ErrorAction Stop; Write-Host "App Pool started." } catch { throw }
+        try { Start-Website -Name $iisSiteName -ErrorAction Stop; Write-Host "Website started." } catch { throw }
+
+    - name: Send Email Notification
       if: always()
+      shell: pwsh
+      run: |
+        $status = if (${{ job.status }} -eq 'success') { "Deployment succeeded ✅" } else { "Deployment FAILED ❌" }
+
+        Send-MailMessage `
+          -SmtpServer $env:SMTP_SERVER `
+          -Port $env:SMTP_PORT `
+          -UseSsl `
+          -Credential (New-Object System.Management.Automation.PSCredential($env:SMTP_USER,(ConvertTo-SecureString $env:SMTP_PASSWORD -AsPlainText -Force))) `
+          -From $env:SMTP_USER `
+          -To $env:EMAIL_TO `
+          -Subject "Next.js IIS Deployment Status" `
+          -Body "$status on branch main at $(Get-Date)"
