@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -15,7 +14,6 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import Link from 'next/link';
-import { register } from '@/lib/auth';
 import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
@@ -79,21 +77,23 @@ export default function RegisterPage() {
             taxIdPath
         };
 
-        const result = await register(name, email, password, role, vendorDetails);
-        if (result) {
-        authLogin(result.token, result.user, result.role);
-        toast({
-            title: 'Registration Successful',
-            description: `Welcome, ${result.user.name}! Your vendor application is pending verification.`,
+        const response = await fetch('/api/auth/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, email, password, role, vendorDetails }),
         });
-        router.push('/');
+
+        const result = await response.json();
+
+        if (response.ok) {
+            authLogin(result.token, result.user, result.role);
+            toast({
+                title: 'Registration Successful',
+                description: `Welcome, ${result.user.name}! Your vendor application is pending verification.`,
+            });
+            router.push('/');
         } else {
-        toast({
-            variant: 'destructive',
-            title: 'Registration Failed',
-            description: 'A user with this email already exists.',
-        });
-        setLoading(false);
+            throw new Error(result.error || 'Registration failed.');
         }
     } catch (error) {
         toast({

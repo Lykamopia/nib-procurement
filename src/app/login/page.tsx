@@ -14,7 +14,6 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import Link from 'next/link';
-import { login } from '@/lib/auth';
 import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
@@ -30,19 +29,32 @@ export default function LoginPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const result = await login(email, password);
-    if (result) {
-      authLogin(result.token, result.user, result.role);
-      toast({
-        title: 'Login Successful',
-        description: `Welcome back, ${result.user.name}!`,
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
       });
-      router.push('/');
-    } else {
-      toast({
+
+      const result = await response.json();
+
+      if (response.ok) {
+        authLogin(result.token, result.user, result.role);
+        toast({
+          title: 'Login Successful',
+          description: `Welcome back, ${result.user.name}!`,
+        });
+        router.push('/');
+      } else {
+        throw new Error(result.error || 'Invalid email or password.');
+      }
+    } catch (error) {
+       toast({
         variant: 'destructive',
         title: 'Login Failed',
-        description: 'Invalid email or password.',
+        description: error instanceof Error ? error.message : 'An unknown error occurred.',
       });
       setLoading(false);
     }
