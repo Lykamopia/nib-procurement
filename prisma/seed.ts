@@ -68,8 +68,8 @@ async function main() {
 
   // Seed Vendors and their associated users
   for (const vendor of seedData.vendors) {
-      const { kycDocuments, ...vendorData } = vendor;
-      const vendorUser = seedData.users.find(u => u.id === vendor.userId);
+      const { kycDocuments, userId, ...vendorData } = vendor; // Destructure userId out
+      const vendorUser = seedData.users.find(u => u.id === userId);
 
       if (!vendorUser) {
           console.warn(`Skipping vendor ${vendor.name} because its user was not found.`);
