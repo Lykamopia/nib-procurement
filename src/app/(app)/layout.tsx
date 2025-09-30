@@ -2,7 +2,7 @@
 
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import {
   SidebarProvider,
@@ -29,6 +29,9 @@ import Link from 'next/link';
 import { ThemeSwitcher } from '@/components/theme-switcher';
 import { navItems, rolePermissions } from '@/lib/roles';
 import { Breadcrumbs } from '@/components/breadcrumbs';
+import { useToast } from '@/hooks/use-toast';
+
+const SESSION_TIMEOUT = 15 * 60 * 1000; // 15 minutes
 
 export default function AppLayout({
   children,
@@ -38,6 +41,7 @@ export default function AppLayout({
   const { user, logout, loading, role } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+  const { toast } = useToast();
 
   const accessibleNavItems = useMemo(() => {
     if (!role) return [];
@@ -58,6 +62,39 @@ export default function AppLayout({
         return allowedPaths.includes(item.path);
     });
   }, [role]);
+
+  const handleLogout = useCallback(() => {
+    toast({
+      title: 'Session Expired',
+      description: 'You have been logged out due to inactivity.',
+    });
+    logout();
+  }, [logout, toast]);
+
+  useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+
+    const resetTimeout = () => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(handleLogout, SESSION_TIMEOUT);
+    };
+
+    const events = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'];
+
+    const resetTimerOnActivity = () => {
+      resetTimeout();
+    };
+
+    if (user) {
+      resetTimeout(); // Initialize timeout on login
+      events.forEach(event => window.addEventListener(event, resetTimerOnActivity));
+    }
+
+    return () => {
+      clearTimeout(timeoutId);
+      events.forEach(event => window.removeEventListener(event, resetTimerOnActivity));
+    };
+  }, [user, handleLogout]);
 
   useEffect(() => {
     if (!loading && !user) {
