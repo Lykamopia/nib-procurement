@@ -3,7 +3,8 @@
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { users } from '@/lib/data-store'; // Using in-memory users
+import { User } from '@/lib/types';
+
 
 export async function GET(
   request: Request,
@@ -24,6 +25,7 @@ export async function GET(
         },
         financialCommitteeMembers: { select: { id: true, name: true, email: true } },
         technicalCommitteeMembers: { select: { id: true, name: true, email: true } },
+        requester: true,
       }
     });
 
@@ -35,7 +37,7 @@ export async function GET(
     const formatted = {
         ...requisition,
         status: requisition.status.replace(/_/g, ' '),
-        requesterName: users.find(u => u.id === requisition.requesterId)?.name || 'Unknown',
+        requesterName: requisition.requester.name || 'Unknown',
         financialCommitteeMemberIds: requisition.financialCommitteeMembers.map(m => m.id),
         technicalCommitteeMemberIds: requisition.technicalCommitteeMembers.map(m => m.id),
     };
@@ -59,7 +61,7 @@ export async function DELETE(
     const body = await request.json();
     const { userId } = body;
 
-    const user = users.find(u => u.id === userId);
+    const user: User | null = await prisma.user.findUnique({where: {id: userId}});
     if (!user) {
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
@@ -86,7 +88,16 @@ export async function DELETE(
 
     await prisma.purchaseRequisition.delete({ where: { id } });
 
-    // auditLogs.unshift({ ... });
+    await prisma.auditLog.create({
+        data: {
+            user: { connect: { id: user.id } },
+            timestamp: new Date(),
+            action: 'DELETE_REQUISITION',
+            entity: 'Requisition',
+            entityId: id,
+            details: `Deleted requisition: ${requisition.title}`
+        }
+    });
 
     return NextResponse.json({ message: 'Requisition deleted successfully.' });
   } catch (error) {

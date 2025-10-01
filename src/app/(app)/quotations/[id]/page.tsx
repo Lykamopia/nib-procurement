@@ -660,6 +660,7 @@ const CommitteeManagement = ({ requisition, onCommitteeUpdated, open, onOpenChan
                          <form onSubmit={form.handleSubmit(handleSaveCommittee)} className="flex flex-col flex-1 min-h-0">
                         <DialogHeader>
                             <DialogTitle>Evaluation Committee</DialogTitle>
+                            <DialogDescription>Assign members to evaluate the quotations for this requisition.</DialogDescription>
                         </DialogHeader>
                         <div className="flex-1 overflow-y-auto space-y-4 p-1 -mx-1">
                                 <div className="grid md:grid-cols-2 gap-4">
@@ -2100,6 +2101,9 @@ const OverdueReportDialog = ({ isOpen, onClose, member }: { isOpen: boolean, onC
             <DialogContent>
                 <DialogHeader>
                     <DialogTitle>Overdue Member Report</DialogTitle>
+                    <DialogDescription>
+                        This is a placeholder for a detailed report about the overdue committee member for internal follow-up.
+                    </DialogDescription>
                 </DialogHeader>
                 <div className="py-4 space-y-4">
                      <p>This is a placeholder for a detailed report about the overdue committee member for internal follow-up.</p>

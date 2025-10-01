@@ -31,6 +31,7 @@ import {
   DialogTitle,
   DialogFooter,
   DialogClose,
+  DialogDescription,
 } from './ui/dialog';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
@@ -187,6 +188,7 @@ export function VendorVerificationPage() {
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Verify Vendor: {selectedVendor?.name}</DialogTitle>
+            <DialogDescription>Review the vendor's details and submitted documents before making a decision.</DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-4">
             <div className="grid grid-cols-2 gap-4">

@@ -1,10 +1,12 @@
 
+
 'use server';
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { users } from '@/lib/data-store';
 import { addDays } from 'date-fns';
+import { User } from '@/lib/types';
+
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
