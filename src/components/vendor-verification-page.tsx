@@ -126,6 +126,9 @@ export function VendorVerificationPage() {
     return <div className="flex h-64 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
 
+  const licenseDoc = selectedVendor?.kycDocuments?.find(doc => doc.name === 'Business License');
+  const taxDoc = selectedVendor?.kycDocuments?.find(doc => doc.name === 'Tax ID Document');
+
   return (
     <>
       <Card>
@@ -199,12 +202,16 @@ export function VendorVerificationPage() {
             </div>
             <h4 className="font-semibold pt-4">Submitted Documents</h4>
             <div className="flex gap-4">
-                <a href="#" target="_blank" rel="noopener noreferrer" className="flex-1">
-                    <Button variant="outline" className="w-full"><FileText className="mr-2"/> Business License.pdf</Button>
-                </a>
-                 <a href="#" target="_blank" rel="noopener noreferrer" className="flex-1">
-                    <Button variant="outline" className="w-full"><FileText className="mr-2"/> Tax ID.pdf</Button>
-                </a>
+                <Button asChild variant="outline" className="flex-1" disabled={!licenseDoc?.url}>
+                  <a href={licenseDoc?.url} target="_blank" rel="noopener noreferrer">
+                    <FileText className="mr-2"/> Business License
+                  </a>
+                </Button>
+                <Button asChild variant="outline" className="flex-1" disabled={!taxDoc?.url}>
+                  <a href={taxDoc?.url} target="_blank" rel="noopener noreferrer">
+                    <FileText className="mr-2"/> Tax ID Document
+                  </a>
+                </Button>
             </div>
             {action === 'reject' && (
               <div className="pt-4">
