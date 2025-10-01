@@ -3,6 +3,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import {
   Card,
   CardContent,
@@ -186,7 +187,7 @@ export function VendorVerificationPage() {
           </div>
         </CardContent>
       </Card>
-      
+
       <Dialog open={!!selectedVendor} onOpenChange={open => !open && handleCloseDialog()}>
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
@@ -202,16 +203,16 @@ export function VendorVerificationPage() {
             </div>
             <h4 className="font-semibold pt-4">Submitted Documents</h4>
             <div className="flex gap-4">
-                <Button asChild variant="outline" className="flex-1" disabled={!licenseDoc?.url}>
-                  <a href={licenseDoc?.url} target="_blank" rel="noopener noreferrer">
-                    <FileText className="mr-2"/> Business License
-                  </a>
+              <Link href={licenseDoc?.url || '#'} passHref legacyBehavior>
+                <Button as="a" variant="outline" className="flex-1" disabled={!licenseDoc?.url} target="_blank" rel="noopener noreferrer">
+                  <FileText className="mr-2"/> Business License
                 </Button>
-                <Button asChild variant="outline" className="flex-1" disabled={!taxDoc?.url}>
-                  <a href={taxDoc?.url} target="_blank" rel="noopener noreferrer">
-                    <FileText className="mr-2"/> Tax ID Document
-                  </a>
+              </Link>
+              <Link href={taxDoc?.url || '#'} passHref legacyBehavior>
+                <Button as="a" variant="outline" className="flex-1" disabled={!taxDoc?.url} target="_blank" rel="noopener noreferrer">
+                  <FileText className="mr-2"/> Tax ID Document
                 </Button>
+              </Link>
             </div>
             {action === 'reject' && (
               <div className="pt-4">
