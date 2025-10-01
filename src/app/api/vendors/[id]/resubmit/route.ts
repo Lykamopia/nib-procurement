@@ -13,10 +13,8 @@ export async function POST(
     const body = await request.json();
     const { name, contactPerson, phone, address, licensePath, taxIdPath } = body;
 
-    // Find the vendor and its existing KYC documents
     const vendor = await prisma.vendor.findUnique({
       where: { id: vendorId },
-      include: { kycDocuments: true },
     });
 
     if (!vendor) {
@@ -30,35 +28,42 @@ export async function POST(
         contactPerson,
         phone,
         address,
-        kycStatus: 'Pending', // Reset status to Pending for re-verification
+        kycStatus: 'Pending',
         rejectionReason: null,
       },
     });
 
-    // Update or Create KYC Documents
+    // Correctly handle document updates with a find-then-update-or-create approach
+    const updateOrCreateDocument = async (docName: string, docPath: string) => {
+        const existingDoc = await prisma.kYC_Document.findFirst({
+            where: {
+                vendorId: vendorId,
+                name: docName,
+            }
+        });
+
+        if (existingDoc) {
+            await prisma.kYC_Document.update({
+                where: { id: existingDoc.id },
+                data: { url: docPath, submittedAt: new Date() },
+            });
+        } else {
+            await prisma.kYC_Document.create({
+                data: {
+                    vendorId,
+                    name: docName,
+                    url: docPath,
+                    submittedAt: new Date(),
+                },
+            });
+        }
+    };
+
     if (licensePath) {
-        await prisma.kYC_Document.upsert({
-            where: { 
-                vendorId_name: {
-                    vendorId: vendorId,
-                    name: 'Business License'
-                }
-            },
-            update: { url: licensePath, submittedAt: new Date() },
-            create: { vendorId, name: 'Business License', url: licensePath, submittedAt: new Date() },
-        });
+        await updateOrCreateDocument('Business License', licensePath);
     }
-     if (taxIdPath) {
-        await prisma.kYC_Document.upsert({
-            where: { 
-                vendorId_name: {
-                    vendorId: vendorId,
-                    name: 'Tax ID Document'
-                }
-            },
-            update: { url: taxIdPath, submittedAt: new Date() },
-            create: { vendorId, name: 'Tax ID Document', url: taxIdPath, submittedAt: new Date() },
-        });
+    if (taxIdPath) {
+        await updateOrCreateDocument('Tax ID Document', taxIdPath);
     }
 
     await prisma.auditLog.create({
