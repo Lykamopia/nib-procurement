@@ -4,7 +4,6 @@
 import { NextResponse } from 'next/server';
 import type { PurchaseRequisition } from '@/lib/types';
 import { prisma } from '@/lib/prisma';
-import { users } from '@/lib/data-store'; // Still using in-memory users for now
 import { getUserByToken } from '@/lib/auth';
 import { headers } from 'next/headers';
 
@@ -45,6 +44,7 @@ export async function GET(request: Request) {
         items: true,
         customQuestions: true,
         department: true,
+        requester: true,
         evaluationCriteria: {
             include: {
                 financialCriteria: true,
@@ -68,7 +68,7 @@ export async function GET(request: Request) {
         ...req,
         status: req.status.replace(/_/g, ' '),
         department: req.department?.name || 'N/A',
-        requesterName: users.find(u => u.id === req.requesterId)?.name || 'Unknown',
+        requesterName: req.requester.name,
         financialCommitteeMemberIds: req.financialCommitteeMembers.map(m => m.id),
         technicalCommitteeMemberIds: req.technicalCommitteeMembers.map(m => m.id),
     }));
@@ -89,8 +89,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     console.log('Request body:', body);
     
-    // Using in-memory user data for now
-    const user = users.find(u => u.name === body.requesterName);
+    const user = await prisma.user.findUnique({where: {name: body.requesterName}});
     if (!user) {
         return NextResponse.json({ error: 'Requester user not found' }, { status: 404 });
     }
@@ -181,7 +180,7 @@ export async function PATCH(
     const body = await request.json();
     const { id, status, userId, comment, ...updateData } = body;
 
-    const user = users.find(u => u.id === userId);
+    const user = await prisma.user.findUnique({where: {id: userId}});
     if (!user) {
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
@@ -309,7 +308,7 @@ export async function DELETE(
     const body = await request.json();
     const { id, userId } = body;
 
-    const user = users.find(u => u.id === userId);
+    const user = await prisma.user.findUnique({where: {id: userId}});
     if (!user) {
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
@@ -362,3 +361,5 @@ export async function DELETE(
     return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
   }
 }
+
+    

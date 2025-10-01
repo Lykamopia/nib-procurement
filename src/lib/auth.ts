@@ -13,37 +13,18 @@ type VendorDetails = {
 }
 
 export async function getUserByToken(token: string): Promise<{ user: User, role: UserRole } | null> {
-    console.log("Attempting to get user by token.");
     if (!token.startsWith('mock-token-for-')) {
-        console.error("Invalid token format.");
         return null;
     }
-
+    
     try {
-        const tokenContent = token.substring('mock-token-for-'.length);
-        const [userId, rolePart] = tokenContent.split('__ROLE__');
-        
-        if (!userId || !rolePart) {
-             console.error("Invalid token structure.");
-             return null;
-        }
-
-        const [userRole] = rolePart.split('__TS__');
-        
-        console.log(`Parsed token -> userId: ${userId}, role: ${userRole}`);
-        
-        // This is a simplified mock. In a real app, you'd validate the token against a session store.
-        const userFromLocalStorage = JSON.parse(localStorage.getItem('user') || '{}');
-        
-        if (userFromLocalStorage && userFromLocalStorage.id === userId) {
-            console.log("Token valid. Found user in localStorage:", userFromLocalStorage.email);
-            return { user: userFromLocalStorage, role: userFromLocalStorage.role };
-        }
-        
-        console.error("User from token not found in localStorage.");
+        const userStr = Buffer.from(token.split('__TS__')[0].replace('mock-token-for-', ''), 'base64').toString('utf-8');
+        const user = JSON.parse(userStr);
+        return { user, role: user.role };
     } catch(e) {
         console.error("Failed to parse token:", e);
         return null;
     }
-    return null;
 }
+
+    
