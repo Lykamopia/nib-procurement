@@ -30,8 +30,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const response = await fetch('/api/users');
         if (response.ok) {
             const usersData = await response.json();
-            setAllUsers(usersData);
-            return usersData;
+            // This is the key change: ensure committee assignments are included for all users
+            const usersWithAssignments = usersData.map((u: any) => ({
+                ...u,
+                committeeAssignments: u.committeeAssignments || [],
+            }));
+            setAllUsers(usersWithAssignments);
+            return usersWithAssignments;
         }
         return [];
     } catch (error) {
@@ -42,21 +47,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const initializeAuth = useCallback(async () => {
     setLoading(true);
-    await fetchAllUsers();
+    const users = await fetchAllUsers();
     try {
-        const storedUser = localStorage.getItem('user');
+        const storedUserJSON = localStorage.getItem('user');
         const storedToken = localStorage.getItem('authToken');
-        const storedRole = localStorage.getItem('role');
-
-        if (storedUser && storedToken && storedRole) {
-            const parsedUser = JSON.parse(storedUser);
-            setUser(parsedUser);
+        
+        if (storedUserJSON && storedToken) {
+            const storedUser = JSON.parse(storedUserJSON);
+            const fullUser = users.find((u: User) => u.id === storedUser.id) || storedUser;
+            
+            setUser(fullUser);
             setToken(storedToken);
-            setRole(storedRole as UserRole);
+            setRole(fullUser.role);
         }
     } catch (error) {
         console.error("Failed to initialize auth from localStorage", error);
-        // If there's an error, clear out potentially corrupted storage
         localStorage.clear();
     }
     setLoading(false);

@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { NextResponse } from 'next/server';
@@ -9,7 +10,10 @@ export async function GET() {
   try {
     const users = await prisma.user.findMany({
         where: { role: { not: 'Vendor' } },
-        include: { department: true }
+        include: { 
+            department: true,
+            committeeAssignments: true, // Ensure assignments are fetched
+        }
     });
     const formattedUsers = users.map(u => ({
         ...u,
