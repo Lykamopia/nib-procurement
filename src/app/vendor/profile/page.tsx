@@ -13,7 +13,7 @@ import { Loader2, Save, Upload } from 'lucide-react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 
 
 const profileFormSchema = z.object({
@@ -203,4 +203,3 @@ export default function VendorProfilePage() {
         </Card>
     );
 }
-
