@@ -49,12 +49,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const storedRole = localStorage.getItem('role');
 
         if (storedUser && storedToken && storedRole) {
-            setUser(JSON.parse(storedUser));
+            const parsedUser = JSON.parse(storedUser);
+            setUser(parsedUser);
             setToken(storedToken);
             setRole(storedRole as UserRole);
         }
     } catch (error) {
         console.error("Failed to initialize auth from localStorage", error);
+        // If there's an error, clear out potentially corrupted storage
         localStorage.clear();
     }
     setLoading(false);

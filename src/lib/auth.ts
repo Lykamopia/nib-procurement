@@ -31,21 +31,16 @@ export async function getUserByToken(token: string): Promise<{ user: User, role:
         const [userRole] = rolePart.split('__TS__');
         
         console.log(`Parsed token -> userId: ${userId}, role: ${userRole}`);
-        const user = await prisma.user.findUnique({
-            where: { id: userId },
-            include: {
-                vendor: true,
-                department: true,
-                committeeAssignments: true,
-            }
-        });
-
-        if (user && user.role === userRole) {
-          console.log("Token valid. Found user:", user.email);
-          const { password, ...userWithoutPassword } = user;
-          return { user: userWithoutPassword as User, role: user.role as UserRole };
+        
+        // This is a simplified mock. In a real app, you'd validate the token against a session store.
+        const userFromLocalStorage = JSON.parse(localStorage.getItem('user') || '{}');
+        
+        if (userFromLocalStorage && userFromLocalStorage.id === userId) {
+            console.log("Token valid. Found user in localStorage:", userFromLocalStorage.email);
+            return { user: userFromLocalStorage, role: userFromLocalStorage.role };
         }
-        console.error("User from token not found or role mismatch.");
+        
+        console.error("User from token not found in localStorage.");
     } catch(e) {
         console.error("Failed to parse token:", e);
         return null;

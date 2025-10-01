@@ -18,21 +18,31 @@ export async function POST(request: Request) {
             }
         });
 
+        if (!user) {
+            return NextResponse.json({ error: 'User not found' }, { status: 404 });
+        }
+
         if (user && user.password && await bcrypt.compare(password, user.password)) {
             const mockToken = `mock-token-for-${user.id}__ROLE__${user.role}__TS__${Date.now()}`;
             const { password: _, ...userWithoutPassword } = user;
 
+            const finalUser = {
+                ...userWithoutPassword,
+                role: user.role.replace(/_/g, ' ') as UserRole,
+                department: user.department?.name
+            };
+
             return NextResponse.json({ 
-                user: userWithoutPassword, 
+                user: finalUser, 
                 token: mockToken, 
-                role: user.role 
+                role: user.role.replace(/_/g, ' ') as UserRole 
             });
         }
         
-        return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
+        return NextResponse.json({ error: 'Invalid password' }, { status: 401 });
 
     } catch (error) {
         console.error('Login error:', error);
-        return NextResponse.json({ error: 'An internal error occurred' }, { status: 500 });
+        return NextResponse.json({ error: 'An internal server error occurred' }, { status: 500 });
     }
 }
