@@ -3,7 +3,8 @@
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { users } from '@/lib/auth-store';
+import { User } from '@/lib/types';
+
 
 export async function POST(
   request: Request,
@@ -14,7 +15,7 @@ export async function POST(
     const body = await request.json();
     const { userId, action } = body as { userId: string; action: 'accept' | 'reject' };
 
-    const user = users.find(u => u.id === userId);
+    const user: User | null = await prisma.user.findUnique({where: {id: userId}});
     if (!user || user.role !== 'Vendor') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
