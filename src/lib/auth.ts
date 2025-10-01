@@ -22,6 +22,12 @@ export async function getUserByToken(token: string): Promise<{ user: User, role:
     try {
         const tokenContent = token.substring('mock-token-for-'.length);
         const [userId, rolePart] = tokenContent.split('__ROLE__');
+        
+        if (!userId || !rolePart) {
+             console.error("Invalid token structure.");
+             return null;
+        }
+
         const [userRole] = rolePart.split('__TS__');
         
         console.log(`Parsed token -> userId: ${userId}, role: ${userRole}`);
@@ -35,7 +41,7 @@ export async function getUserByToken(token: string): Promise<{ user: User, role:
         });
 
         if (user && user.role === userRole) {
-          console.log("Token valid. Found user:", user);
+          console.log("Token valid. Found user:", user.email);
           const { password, ...userWithoutPassword } = user;
           return { user: userWithoutPassword as User, role: user.role as UserRole };
         }

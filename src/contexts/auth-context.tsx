@@ -4,7 +4,6 @@
 
 import React, { createContext, useContext, useState, ReactNode, useEffect, useMemo, useCallback } from 'react';
 import { User, UserRole } from '@/lib/types';
-import { getUserByToken } from '@/lib/auth';
 
 interface AuthContextType {
   user: User | null;
@@ -28,8 +27,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const fetchAllUsers = useCallback(async () => {
     try {
-        // This fetches non-vendor users for the user management dropdown.
-        // The main login fetches the specific user's full data.
         const response = await fetch('/api/users');
         if (response.ok) {
             const usersData = await response.json();
@@ -46,17 +43,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const initializeAuth = useCallback(async () => {
     setLoading(true);
     await fetchAllUsers();
-    const storedToken = localStorage.getItem('authToken');
+    try {
+        const storedUser = localStorage.getItem('user');
+        const storedToken = localStorage.getItem('authToken');
+        const storedRole = localStorage.getItem('role');
 
-    if (storedToken) {
-        const userData = await getUserByToken(storedToken);
-        if(userData) {
+        if (storedUser && storedToken && storedRole) {
+            setUser(JSON.parse(storedUser));
             setToken(storedToken);
-            setUser(userData.user);
-            setRole(userData.role);
-        } else {
-            localStorage.removeItem('authToken');
+            setRole(storedRole as UserRole);
         }
+    } catch (error) {
+        console.error("Failed to initialize auth from localStorage", error);
+        localStorage.clear();
     }
     setLoading(false);
   }, [fetchAllUsers]);
@@ -67,6 +66,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = (newToken: string, loggedInUser: User, loggedInRole: UserRole) => {
     localStorage.setItem('authToken', newToken);
+    localStorage.setItem('user', JSON.stringify(loggedInUser));
+    localStorage.setItem('role', loggedInRole);
     setToken(newToken);
     setUser(loggedInUser);
     setRole(loggedInRole);
@@ -74,6 +75,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = () => {
     localStorage.removeItem('authToken');
+    localStorage.removeItem('user');
+    localStorage.removeItem('role');
     setToken(null);
     setUser(null);
     setRole(null);
