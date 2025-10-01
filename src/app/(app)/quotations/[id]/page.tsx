@@ -1545,12 +1545,20 @@ const ScoringProgressTracker = ({
             const hasSubmittedFinalScores = !!assignment?.scoresSubmitted;
             
             let submissionDate: Date | null = null;
-            if(hasSubmittedFinalScores) {
+            if (hasSubmittedFinalScores) {
+                // To get the submission date, we can look at the latest score's submission time from that user for this requisition's quotes.
                 const latestScore = quotations
                     .flatMap(q => q.scores || [])
                     .filter(s => s.scorerId === member.id)
                     .sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime())[0];
-                submissionDate = latestScore ? new Date(latestScore.submittedAt) : null;
+                
+                if (latestScore) {
+                    submissionDate = new Date(latestScore.submittedAt);
+                } else {
+                    // Fallback if scores are not loaded but submission flag is true (edge case)
+                    // We could perhaps look at the audit log here in a real-world complex system.
+                    // For now, let's assume if the flag is true, a score exists.
+                }
             }
 
             const isOverdue = isScoringDeadlinePassed && !hasSubmittedFinalScores;
