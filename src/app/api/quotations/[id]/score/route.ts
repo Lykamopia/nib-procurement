@@ -4,7 +4,6 @@
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { users } from '@/lib/data-store';
 import { EvaluationCriterion, ItemScore } from '@/lib/types';
 
 function calculateFinalItemScore(itemScore: any, criteria: any): number {
@@ -37,7 +36,7 @@ export async function POST(
     const body = await request.json();
     const { scores, userId } = body;
 
-    const user = users.find(u => u.id === userId);
+    const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
@@ -83,7 +82,7 @@ export async function POST(
          const finalItemScore = calculateFinalItemScore(itemScore, requisition.evaluationCriteria);
          totalWeightedScore += finalItemScore;
 
-         const createdItemScore = await prisma.itemScore.create({
+         await prisma.itemScore.create({
             data: {
                 scoreSet: { connect: { id: createdScoreSet.id } },
                 quoteItem: { connect: { id: itemScore.quoteItemId } },
