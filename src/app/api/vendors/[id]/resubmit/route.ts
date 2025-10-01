@@ -38,14 +38,24 @@ export async function POST(
     // Update or Create KYC Documents
     if (licensePath) {
         await prisma.kYC_Document.upsert({
-            where: { vendorId_name: { vendorId, name: 'Business License' } },
+            where: { 
+                vendorId_name: {
+                    vendorId: vendorId,
+                    name: 'Business License'
+                }
+            },
             update: { url: licensePath, submittedAt: new Date() },
             create: { vendorId, name: 'Business License', url: licensePath, submittedAt: new Date() },
         });
     }
      if (taxIdPath) {
         await prisma.kYC_Document.upsert({
-            where: { vendorId_name: { vendorId, name: 'Tax ID Document' } },
+            where: { 
+                vendorId_name: {
+                    vendorId: vendorId,
+                    name: 'Tax ID Document'
+                }
+            },
             update: { url: taxIdPath, submittedAt: new Date() },
             create: { vendorId, name: 'Tax ID Document', url: taxIdPath, submittedAt: new Date() },
         });
