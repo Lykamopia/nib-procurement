@@ -1541,18 +1541,19 @@ const ScoringProgressTracker = ({
 
     const scoringStatus = useMemo(() => {
         return assignedCommitteeMembers.map(member => {
-            const hasScoredAll = quotations.every(quote => quote.scores?.some(score => score.scorerId === member.id));
+            const assignment = member.committeeAssignments?.find(a => a.requisitionId === requisition.id);
+            const hasSubmittedFinalScores = !!assignment?.scoresSubmitted;
             const firstScore = quotations
                 .flatMap(q => q.scores || [])
                 .filter(s => s.scorerId === member.id)
-                .sort((a,b) => new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime())[0];
-            const isOverdue = isScoringDeadlinePassed && !hasScoredAll;
+                .sort((a, b) => new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime())[0];
+            const isOverdue = isScoringDeadlinePassed && !hasSubmittedFinalScores;
 
             return {
                 ...member,
-                hasScoredAll,
+                hasSubmittedFinalScores,
                 isOverdue,
-                submittedAt: hasScoredAll ? firstScore?.submittedAt : null,
+                submittedAt: hasSubmittedFinalScores ? firstScore?.submittedAt : null,
             };
         }).sort((a, b) => {
              if (a.submittedAt && b.submittedAt) return new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime();
@@ -1560,10 +1561,10 @@ const ScoringProgressTracker = ({
              if (b.submittedAt) return 1;
              return 0;
         });
-    }, [assignedCommitteeMembers, quotations, isScoringDeadlinePassed]);
+    }, [assignedCommitteeMembers, quotations, isScoringDeadlinePassed, requisition.id]);
     
     const overdueMembers = scoringStatus.filter(s => s.isOverdue);
-    const allHaveScored = scoringStatus.every(s => s.hasScoredAll);
+    const allHaveScored = scoringStatus.every(s => s.hasSubmittedFinalScores);
 
 
     return (
@@ -1587,7 +1588,7 @@ const ScoringProgressTracker = ({
                                 </div>
                            </div>
                             <div className="flex items-center gap-2 mt-2 sm:mt-0 w-full sm:w-auto">
-                                {member.hasScoredAll && member.submittedAt ? (
+                                {member.hasSubmittedFinalScores && member.submittedAt ? (
                                     <div className="text-right flex-1">
                                         <Badge variant="default" className="bg-green-600"><Check className="mr-1 h-3 w-3" /> Submitted</Badge>
                                         <p className="text-xs text-muted-foreground mt-1">
