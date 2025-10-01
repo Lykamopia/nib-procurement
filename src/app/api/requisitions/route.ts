@@ -89,7 +89,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     console.log('Request body:', body);
     
-    const user = await prisma.user.findUnique({where: {name: body.requesterName}});
+    const user = await prisma.user.findFirst({where: {name: body.requesterName}});
     if (!user) {
         return NextResponse.json({ error: 'Requester user not found' }, { status: 404 });
     }
