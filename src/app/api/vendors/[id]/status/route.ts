@@ -3,7 +3,7 @@
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { users } from '@/lib/auth-store';
+import { sendEmail } from '@/services/email-service';
 
 export async function PATCH(
   request: Request,
@@ -21,7 +21,7 @@ export async function PATCH(
       return NextResponse.json({ error: 'Invalid status provided.' }, { status: 400 });
     }
     
-    const user = users.find(u => u.id === userId);
+    const user = await prisma.user.findUnique({ where: { id: userId }});
     if (!user) {
         console.error('User not found for ID:', userId);
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
@@ -43,6 +43,29 @@ export async function PATCH(
         }
     });
     
+    // --- NOTIFICATION LOGIC ---
+    if (status === 'Verified') {
+        await sendEmail({
+            to: vendorToUpdate.email,
+            subject: 'Your Vendor Application has been Approved!',
+            html: `<h1>Congratulations, ${vendorToUpdate.name}!</h1>
+                   <p>Your account with Nib InternationalBank Procurement has been successfully verified.</p>
+                   <p>You can now log in to the vendor portal to view open requisitions and submit quotations.</p>
+                   <a href="${process.env.NEXT_PUBLIC_BASE_URL}/login">Login to Vendor Portal</a>`
+        });
+    } else if (status === 'Rejected') {
+        await sendEmail({
+            to: vendorToUpdate.email,
+            subject: 'Action Required: Your Vendor Application',
+            html: `<h1>Action Required for Your Vendor Application</h1>
+                   <p>Hello ${vendorToUpdate.name},</p>
+                   <p>After reviewing your application, we require some corrections. Please see the reason below:</p>
+                   <p><strong>Reason:</strong> ${rejectionReason}</p>
+                   <p>Please log in to the vendor portal to update your information and resubmit your documents.</p>
+                   <a href="${process.env.NEXT_PUBLIC_BASE_URL}/vendor/profile">Update Your Profile</a>`
+        });
+    }
+    
     await prisma.auditLog.create({
         data: {
             user: { connect: { id: user.id } },
@@ -60,7 +83,7 @@ export async function PATCH(
   } catch (error) {
     console.error('Failed to update vendor status:', error);
     if (error instanceof Error) {
-        return NextResponse.json({ error: 'Failed to process request', details: error.message }, { status: 400 });
+        return NextResponse.json({ error: 'Failed to process request', details: error.message }, { status: 500 });
     }
     return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
   }
