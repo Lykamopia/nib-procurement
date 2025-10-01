@@ -5,7 +5,11 @@ import { prisma } from '@/lib/prisma';
 export async function GET() {
   console.log('GET /api/vendors - Fetching all vendors.');
   try {
-    const vendors = await prisma.vendor.findMany({});
+    const vendors = await prisma.vendor.findMany({
+        include: {
+            kycDocuments: true
+        }
+    });
     return NextResponse.json(vendors);
   } catch (error) {
     console.error("Failed to fetch vendors", error);
