@@ -3,7 +3,6 @@
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { users } from '@/lib/data-store';
 
 export async function POST(
   request: Request,
@@ -14,12 +13,12 @@ export async function POST(
     const body = await request.json();
     const { userId } = body;
 
-    const user = users.find(u => u.id === userId);
+    const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    if (user.role !== 'Committee Member') {
+    if (user.role !== 'Committee_Member') {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
     
@@ -53,7 +52,7 @@ export async function POST(
   } catch (error) {
     console.error('Failed to submit final scores:', error);
     if (error instanceof Error) {
-        return NextResponse.json({ error: 'Failed to process request', details: error.message }, { status: 400 });
+        return NextResponse.json({ error: 'Failed to process request', details: error.message }, { status: 500 });
     }
     return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
   }
