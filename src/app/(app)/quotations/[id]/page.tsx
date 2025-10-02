@@ -2184,7 +2184,7 @@ const CommitteeActions = ({
         }
     };
 
-    if (user.role !== 'Committee Member' || scoresAlreadyFinalized) {
+    if (user.role !== 'Committee Member') {
         return null;
     }
 
@@ -2198,26 +2198,33 @@ const CommitteeActions = ({
                 <p className="text-sm text-muted-foreground">You have scored {userScoredQuotesCount} of {quotations.length} quotes.</p>
             </CardContent>
             <CardFooter>
-                <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                        <Button disabled={!allQuotesScored || isSubmitting}>
-                            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            Submit Final Scores
-                        </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle>Are you sure you want to submit?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                                This will finalize your scores for this requisition. You will not be able to make further changes.
-                            </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={handleSubmitScores}>Confirm and Submit</AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
+                 {scoresAlreadyFinalized ? (
+                    <Button variant="outline" disabled>
+                        <CheckCircle className="mr-2 h-4 w-4" />
+                        Scores Submitted
+                    </Button>
+                ) : (
+                    <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                            <Button disabled={!allQuotesScored || isSubmitting}>
+                                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                Submit Final Scores
+                            </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>Are you sure you want to submit?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    This will finalize your scores for this requisition. You will not be able to make further changes.
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={handleSubmitScores}>Confirm and Submit</AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
+                )}
             </CardFooter>
         </Card>
     );
