@@ -71,30 +71,14 @@ export async function POST(request: Request) {
       const quoteItemsData = [];
 
       for (const item of items) {
-        let currentRequisitionItemId = item.requisitionItemId;
-
-        // If it's a new/alternative item, create a corresponding RequisitionItem first
-        if (item.isAlternative) {
-          const newReqItem = await tx.requisitionItem.create({
-            data: {
-              requisitionId: requisitionId,
-              name: item.name,
-              quantity: item.quantity,
-              unitPrice: item.unitPrice,
-              description: item.brandDetails || 'Alternative item offered by vendor.',
-            }
-          });
-          currentRequisitionItemId = newReqItem.id;
-        }
-
         totalPrice += (item.unitPrice || 0) * (item.quantity || 0);
         if (item.leadTimeDays > maxLeadTime) {
             maxLeadTime = item.leadTimeDays;
         }
 
         quoteItemsData.push({
-          requisitionItemId: currentRequisitionItemId,
-          name: item.name,
+          requisitionItemId: item.requisitionItemId, // This now correctly links to the original item
+          name: item.name, // The vendor can override the name for alternatives
           quantity: item.quantity,
           unitPrice: Number(item.unitPrice),
           leadTimeDays: Number(item.leadTimeDays),

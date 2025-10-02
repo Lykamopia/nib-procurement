@@ -32,12 +32,11 @@ const quoteFormSchema = z.object({
   notes: z.string().optional(),
   items: z.array(z.object({
     requisitionItemId: z.string(),
-    name: z.string(),
+    name: z.string().min(1, "Item name cannot be empty. If offering an alternative, please specify the name."),
     quantity: z.number(),
     unitPrice: z.coerce.number().min(0.01, "Price is required."),
     leadTimeDays: z.coerce.number().min(0, "Lead time is required."),
     brandDetails: z.string().optional(),
-    isAlternative: z.boolean().optional(),
   })),
   answers: z.array(z.object({
       questionId: z.string(),
@@ -184,7 +183,6 @@ function QuoteSubmissionForm({ requisition, quote, onQuoteSubmitted }: { requisi
                 ...item,
                 requisitionItemId: item.requisitionItemId,
                 brandDetails: item.brandDetails || '',
-                isAlternative: !requisition.items.some(reqItem => reqItem.id === item.requisitionItemId),
             })),
             answers: quote.answers || requisition.customQuestions?.map(q => ({ questionId: q.id, answer: '' })),
             cpoDocumentUrl: quote.cpoDocumentUrl || ''
@@ -197,14 +195,13 @@ function QuoteSubmissionForm({ requisition, quote, onQuoteSubmitted }: { requisi
                 unitPrice: 0,
                 leadTimeDays: 0,
                 brandDetails: '',
-                isAlternative: false,
             })),
             answers: requisition.customQuestions?.map(q => ({ questionId: q.id, answer: '' })),
             cpoDocumentUrl: ''
         },
     });
 
-     const { fields, append, remove, update } = useFieldArray({
+     const { fields } = useFieldArray({
         control: form.control,
         name: "items",
     });
@@ -213,18 +210,6 @@ function QuoteSubmissionForm({ requisition, quote, onQuoteSubmitted }: { requisi
         control: form.control,
         name: "answers",
     });
-
-    const addItem = () => {
-        append({
-            requisitionItemId: `ALT-${Date.now()}`,
-            name: '', // Empty name for new/alternative items
-            quantity: 1,
-            unitPrice: 0,
-            leadTimeDays: 0,
-            brandDetails: '',
-            isAlternative: true,
-        });
-    };
 
     const handleFileUpload = async (file: File) => {
         const formData = new FormData();
@@ -324,7 +309,7 @@ function QuoteSubmissionForm({ requisition, quote, onQuoteSubmitted }: { requisi
             <CardHeader>
                 <CardTitle>{quote ? 'Edit Your Quotation' : 'Submit Your Quotation'}</CardTitle>
                 <CardDescription>
-                    Please provide your pricing and estimated lead times for the items requested.
+                    Provide your pricing for the requested items. You may offer alternatives by changing the item name and brand details.
                 </CardDescription>
             </CardHeader>
             <CardContent>
@@ -371,11 +356,6 @@ function QuoteSubmissionForm({ requisition, quote, onQuoteSubmitted }: { requisi
                                                 </FormItem>
                                             )}
                                         />
-                                       {fields.length > 1 && (
-                                            <Button type="button" variant="ghost" size="icon" className="h-6 w-6 ml-2 mt-7" onClick={() => remove(index)}>
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
-                                        )}
                                     </div>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
                                         <FormField
@@ -416,13 +396,6 @@ function QuoteSubmissionForm({ requisition, quote, onQuoteSubmitted }: { requisi
                                     </div>
                                 </Card>
                             ))}
-                        </div>
-
-                         <div className="mt-4 flex justify-start">
-                            <Button type="button" variant="outline" size="sm" onClick={addItem}>
-                                <PlusCircle className="mr-2 h-4 w-4" />
-                                Add Item to Quote
-                            </Button>
                         </div>
 
                          {requisition.customQuestions && requisition.customQuestions.length > 0 && (
