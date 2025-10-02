@@ -2349,8 +2349,7 @@ export default function QuotationDetailsPage() {
                         description: `Vendor ${awardedQuote.vendorName} missed the response deadline. Promoting next vendor.`,
                         variant: 'destructive',
                     });
-                    const promoteAction = awardedQuote.rank === 1 && secondStandby ? 'promote_second' : 'promote_third';
-                    await handleAwardChange(promoteAction);
+                    await handleAwardChange(secondStandby ? 'promote_second' : 'restart_rfq');
                     // Refetch after the change
                     const [refetchedReqRes, refetchedQuoRes] = await Promise.all([
                         fetch(`/api/requisitions/${id}`),
@@ -2431,16 +2430,12 @@ export default function QuotationDetailsPage() {
   const handleAwardChange = async (action: 'promote_second' | 'promote_third' | 'restart_rfq') => {
     if (!user || !id || !requisition) return;
     
-    const newDeadline = requisition.awardResponseDurationMinutes 
-        ? new Date(Date.now() + requisition.awardResponseDurationMinutes * 60 * 1000) 
-        : undefined;
-
     setIsChangingAward(true);
     try {
         const response = await fetch(`/api/requisitions/${id}/handle-award-change`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId: user.id, action, newDeadline }),
+            body: JSON.stringify({ userId: user.id, action }),
         });
 
         if (!response.ok) {
@@ -2775,6 +2770,7 @@ export default function QuotationDetailsPage() {
     
 
     
+
 
 
 

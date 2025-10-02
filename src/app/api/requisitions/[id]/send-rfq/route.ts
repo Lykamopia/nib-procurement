@@ -19,7 +19,7 @@ export async function POST(
       return NextResponse.json({ error: 'Requisition not found' }, { status: 404 });
     }
 
-    const user = users.find(u => u.id === userId);
+    const user = await prisma.user.findUnique({where: {id: userId}});
     if (!user) {
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
@@ -51,7 +51,16 @@ export async function POST(
         }
     });
 
-    // auditLogs.unshift({ ... });
+    await prisma.auditLog.create({
+        data: {
+            user: { connect: { id: user.id } },
+            timestamp: new Date(),
+            action: 'SEND_RFQ',
+            entity: 'Requisition',
+            entityId: id,
+            details: `Sent RFQ to ${finalVendorIds.length === 0 ? 'all verified vendors' : `${finalVendorIds.length} selected vendors`}.`,
+        }
+    });
 
     return NextResponse.json(updatedRequisition);
 

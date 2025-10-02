@@ -6,6 +6,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { sendEmail } from '@/services/email-service';
 import { Vendor, Quotation, QuoteItem, User } from '@/lib/types';
+import { differenceInMinutes } from 'date-fns';
 
 
 async function tallyAndAwardScores(requisitionId: string, awardStrategy: 'all' | 'item', awards: any, awardResponseDeadline?: Date) {
@@ -106,11 +107,16 @@ async function tallyAndAwardScores(requisitionId: string, awardStrategy: 'all' |
         });
     }
 
+    const awardResponseDurationMinutes = awardResponseDeadline
+        ? differenceInMinutes(awardResponseDeadline, new Date())
+        : undefined;
+
     await prisma.purchaseRequisition.update({
       where: { id: requisitionId },
       data: {
         status: 'RFQ_In_Progress',
         awardResponseDeadline: awardResponseDeadline,
+        awardResponseDurationMinutes,
         awardedQuoteItemIds: awardedQuoteItemIds,
       }
     });

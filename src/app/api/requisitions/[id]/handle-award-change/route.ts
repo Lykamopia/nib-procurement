@@ -3,7 +3,6 @@
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { users } from '@/lib/auth-store';
 
 type AwardAction = 'promote_second' | 'promote_third' | 'restart_rfq';
 
@@ -14,7 +13,7 @@ export async function POST(
   const requisitionId = params.id;
   try {
     const body = await request.json();
-    const { userId, action, newDeadline } = body as { userId: string; action: AwardAction, newDeadline?: string };
+    const { userId, action } = body as { userId: string; action: AwardAction };
 
     const user = await prisma.user.findUnique({where: {id: userId}});
     if (!user) {
@@ -31,6 +30,11 @@ export async function POST(
         const currentAwarded = reqQuotes.find(q => q.status === 'Awarded');
         const secondStandby = reqQuotes.find(q => q.rank === 2);
         const thirdStandby = reqQuotes.find(q => q.rank === 3);
+        
+        let newDeadline: Date | null = null;
+        if (requisition.awardResponseDurationMinutes) {
+            newDeadline = new Date(Date.now() + requisition.awardResponseDurationMinutes * 60 * 1000);
+        }
 
         switch (action) {
         case 'promote_second':
@@ -65,7 +69,7 @@ export async function POST(
 
         return await tx.purchaseRequisition.update({
             where: { id: requisitionId },
-            data: { awardResponseDeadline: newDeadline ? new Date(newDeadline) : null }
+            data: { awardResponseDeadline: newDeadline }
         });
     });
 
