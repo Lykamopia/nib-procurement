@@ -1684,6 +1684,7 @@ const CumulativeScoringReportDialog = ({ requisition, quotations, isOpen, onClos
             const canvas = await html2canvas(input, {
                 scale: 2, // Increase resolution
                 useCORS: true,
+                backgroundColor: null // Important for dark mode
             });
             const imgData = canvas.toDataURL('image/png');
             const pdf = new jsPDF('p', 'mm', 'a4');
@@ -1702,6 +1703,10 @@ const CumulativeScoringReportDialog = ({ requisition, quotations, isOpen, onClos
             
             const x = (pdfWidth - width) / 2;
             const y = 10;
+
+            // Add a white background to the PDF before adding the image
+            pdf.setFillColor(255, 255, 255);
+            pdf.rect(0, 0, pdfWidth, pdfHeight, 'F');
             
             pdf.addImage(imgData, 'PNG', x, y, width, height);
             
@@ -1722,92 +1727,99 @@ const CumulativeScoringReportDialog = ({ requisition, quotations, isOpen, onClos
                 <DialogHeader>
                     <DialogTitle>Cumulative Scoring Report</DialogTitle>
                     <DialogDescription>
-                        A detailed breakdown of committee scores for requisition {requisition.id}.
+                        A detailed breakdown of committee scores for requisition {requisition.id}, explaining the award decision.
                     </DialogDescription>
                 </DialogHeader>
-                <div className="flex-grow overflow-y-auto" id="print-content-wrapper">
-                    <div ref={printRef} className="p-1 space-y-6 bg-white text-black">
-                        <div className="text-center mb-8 pt-4">
-                            <h1 className="text-3xl font-bold">Cumulative Scoring Report</h1>
-                            <p className="text-gray-600">{requisition.title}</p>
-                            <p className="text-sm text-gray-500">{requisition.id}</p>
-                        </div>
-                        {quotations.sort((a, b) => (a.rank || 99) - (b.rank || 99)).map(quote => (
-                            <Card key={quote.id} className="break-inside-avoid border-gray-300 shadow-none rounded-lg">
-                                <CardHeader className="bg-gray-100 rounded-t-lg">
-                                    <div className="flex justify-between items-start">
-                                        <div>
-                                            <CardTitle className="text-xl">{quote.vendorName}</CardTitle>
-                                            <CardDescription className="text-gray-700 pt-1">Final Score: <span className="font-bold text-primary">{quote.finalAverageScore?.toFixed(2)}</span> | Rank: {quote.rank || 'N/A'}</CardDescription>
-                                        </div>
-                                        <Badge variant={quote.status === 'Awarded' ? 'default' : 'secondary'}>{quote.status}</Badge>
-                                    </div>
-                                </CardHeader>
-                                <CardContent className="p-4 space-y-4">
-                                     {quote.scores && quote.scores.length > 0 ? (
-                                        quote.scores.map(scoreSet => (
-                                            <div key={scoreSet.scorerId} className="p-3 border border-gray-200 rounded-md break-inside-avoid">
-                                                <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-200">
-                                                    <div className="flex items-center gap-3">
-                                                        <Avatar className="h-8 w-8">
-                                                            <AvatarImage src={`https://picsum.photos/seed/${scoreSet.scorerId}/32/32`} />
-                                                            <AvatarFallback>{scoreSet.scorerName.charAt(0)}</AvatarFallback>
-                                                        </Avatar>
-                                                        <span className="font-semibold">{scoreSet.scorerName}</span>
-                                                    </div>
-                                                    <div className="text-right">
-                                                      <span className="font-bold text-lg text-primary">{scoreSet.finalScore.toFixed(2)}</span>
-                                                      <p className="text-xs text-gray-500">Submitted {format(new Date(scoreSet.submittedAt), 'PPp')}</p>
-                                                    </div>
-                                                </div>
-                                                
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                    <div>
-                                                        <h4 className="font-semibold text-sm mb-2 text-gray-800">Financial Evaluation ({requisition.evaluationCriteria?.financialWeight}%)</h4>
-                                                        {scoreSet.itemScores?.map(is => is.financialScores.map(s => (
-                                                            <div key={s.criterionId} className="text-xs p-2 bg-gray-50 rounded-md mb-2">
-                                                                <div className="flex justify-between items-center font-medium">
-                                                                    <p>{getCriterionName(s.criterionId, requisition.evaluationCriteria?.financialCriteria)}</p>
-                                                                    <p className="font-bold">{s.score}/100</p>
-                                                                </div>
-                                                                {s.comment && <p className="italic text-gray-500 mt-1 pl-1 border-l-2 border-gray-300">"{s.comment}"</p>}
-                                                            </div>
-                                                        )))}
-                                                    </div>
-                                                     <div>
-                                                        <h4 className="font-semibold text-sm mb-2 text-gray-800">Technical Evaluation ({requisition.evaluationCriteria?.technicalWeight}%)</h4>
-                                                        {scoreSet.itemScores?.map(is => is.technicalScores.map(s => (
-                                                            <div key={s.criterionId} className="text-xs p-2 bg-gray-50 rounded-md mb-2">
-                                                                <div className="flex justify-between items-center font-medium">
-                                                                    <p>{getCriterionName(s.criterionId, requisition.evaluationCriteria?.technicalCriteria)}</p>
-                                                                    <p className="font-bold">{s.score}/100</p>
-                                                                </div>
-                                                                {s.comment && <p className="italic text-gray-500 mt-1 pl-1 border-l-2 border-gray-300">"{s.comment}"</p>}
-                                                            </div>
-                                                        )))}
-                                                    </div>
-                                                </div>
+                <div className="flex-grow overflow-hidden">
+                    <ScrollArea className="h-full">
+                        <div ref={printRef} className="p-1 space-y-6 bg-background text-foreground print:bg-white print:text-black">
+                            {/* Header for PDF */}
+                            <div className="hidden print:block text-center mb-8 pt-4">
+                                <Image src="/logo.png" alt="Logo" width={40} height={40} className="mx-auto mb-2" />
+                                <h1 className="text-2xl font-bold text-black">Scoring & Award Justification Report</h1>
+                                <p className="text-gray-600">{requisition.title}</p>
+                                <p className="text-sm text-gray-500">{requisition.id}</p>
+                                <p className="text-sm text-gray-500">Report Generated: {format(new Date(), 'PPpp')}</p>
+                            </div>
 
-                                                {scoreSet.committeeComment && <p className="text-sm italic text-gray-600 mt-3 p-3 bg-gray-100 rounded-md"><strong>Overall Comment:</strong> "{scoreSet.committeeComment}"</p>}
+                            {quotations.sort((a, b) => (a.rank || 99) - (b.rank || 99)).map(quote => (
+                                <Card key={quote.id} className="break-inside-avoid print:border-gray-300 print:shadow-none print:rounded-lg">
+                                    <CardHeader className="print:bg-gray-100 print:rounded-t-lg">
+                                        <div className="flex justify-between items-start">
+                                            <div>
+                                                <CardTitle className="text-xl">{quote.vendorName}</CardTitle>
+                                                <CardDescription className="print:text-gray-700 pt-1">Final Score: <span className="font-bold text-primary">{quote.finalAverageScore?.toFixed(2)}</span> | Rank: <span className="font-bold">{quote.rank || 'N/A'}</span></CardDescription>
                                             </div>
-                                        ))
-                                     ) : <p className="text-sm text-gray-500 text-center py-8">No scores submitted for this quote.</p>}
-                                </CardContent>
-                            </Card>
-                        ))}
-                    </div>
+                                            <Badge variant={quote.status === 'Awarded' || quote.status === 'Partially_Awarded' || quote.status === 'Accepted' ? 'default' : quote.status === 'Standby' ? 'secondary' : 'destructive'}>{quote.status.replace(/_/g, ' ')}</Badge>
+                                        </div>
+                                    </CardHeader>
+                                    <CardContent className="p-4 space-y-4">
+                                        {quote.scores && quote.scores.length > 0 ? (
+                                            quote.scores.map(scoreSet => (
+                                                <div key={scoreSet.scorerId} className="p-3 border rounded-md break-inside-avoid print:border-gray-200">
+                                                    <div className="flex items-center justify-between mb-3 pb-2 border-b print:border-gray-200">
+                                                        <div className="flex items-center gap-3">
+                                                            <Avatar className="h-8 w-8">
+                                                                <AvatarImage src={`https://picsum.photos/seed/${scoreSet.scorerId}/32/32`} />
+                                                                <AvatarFallback>{scoreSet.scorerName.charAt(0)}</AvatarFallback>
+                                                            </Avatar>
+                                                            <span className="font-semibold print:text-black">{scoreSet.scorerName}</span>
+                                                        </div>
+                                                        <div className="text-right">
+                                                        <span className="font-bold text-lg text-primary">{scoreSet.finalScore.toFixed(2)}</span>
+                                                        <p className="text-xs text-muted-foreground print:text-gray-500">Submitted {format(new Date(scoreSet.submittedAt), 'PPp')}</p>
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 print:grid-cols-2">
+                                                        <div>
+                                                            <h4 className="font-semibold text-sm mb-2 print:text-gray-800">Financial Evaluation ({requisition.evaluationCriteria?.financialWeight}%)</h4>
+                                                            {scoreSet.itemScores?.flatMap(is => is.financialScores.map(s => (
+                                                                <div key={s.criterionId} className="text-xs p-2 bg-muted/50 print:bg-gray-50 rounded-md mb-2">
+                                                                    <div className="flex justify-between items-center font-medium">
+                                                                        <p>{getCriterionName(s.criterionId, requisition.evaluationCriteria?.financialCriteria)}</p>
+                                                                        <p className="font-bold">{s.score}/100</p>
+                                                                    </div>
+                                                                    {s.comment && <p className="italic text-muted-foreground print:text-gray-500 mt-1 pl-1 border-l-2 print:border-gray-300">"{s.comment}"</p>}
+                                                                </div>
+                                                            )))}
+                                                        </div>
+                                                        <div>
+                                                            <h4 className="font-semibold text-sm mb-2 print:text-gray-800">Technical Evaluation ({requisition.evaluationCriteria?.technicalWeight}%)</h4>
+                                                            {scoreSet.itemScores?.flatMap(is => is.technicalScores.map(s => (
+                                                                <div key={s.criterionId} className="text-xs p-2 bg-muted/50 print:bg-gray-50 rounded-md mb-2">
+                                                                    <div className="flex justify-between items-center font-medium">
+                                                                        <p>{getCriterionName(s.criterionId, requisition.evaluationCriteria?.technicalCriteria)}</p>
+                                                                        <p className="font-bold">{s.score}/100</p>
+                                                                    </div>
+                                                                    {s.comment && <p className="italic text-muted-foreground print:text-gray-500 mt-1 pl-1 border-l-2 print:border-gray-300">"{s.comment}"</p>}
+                                                                </div>
+                                                            )))}
+                                                        </div>
+                                                    </div>
+
+                                                    {scoreSet.committeeComment && <p className="text-sm italic text-muted-foreground print:text-gray-600 mt-3 p-3 bg-muted/50 print:bg-gray-100 rounded-md"><strong>Overall Comment:</strong> "{scoreSet.committeeComment}"</p>}
+                                                </div>
+                                            ))
+                                        ) : <p className="text-sm text-muted-foreground text-center py-8 print:text-gray-500">No scores submitted for this quote.</p>}
+                                    </CardContent>
+                                </Card>
+                            ))}
+                        </div>
+                    </ScrollArea>
                 </div>
                 <DialogFooter>
                     <Button variant="outline" onClick={onClose}>Close</Button>
                     <Button onClick={handleGeneratePdf} disabled={isGeneratingPdf}>
                         {isGeneratingPdf ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Printer className="mr-2 h-4 w-4"/>}
-                        Generate PDF
+                        Print / Export PDF
                     </Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
     );
 };
+
 
 const AwardCenterDialog = ({
     requisition,
@@ -2721,7 +2733,7 @@ export default function QuotationDetailsPage() {
                 onClose={() => setIsDetailsOpen(false)} 
             />
         )}
-         {requisition && quotations && (
+        {requisition && quotations && (
             <CumulativeScoringReportDialog
                 requisition={requisition}
                 quotations={quotations}
@@ -2741,3 +2753,4 @@ export default function QuotationDetailsPage() {
     
 
     
+
