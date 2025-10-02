@@ -1193,7 +1193,7 @@ const WorkflowStepper = ({ step }: { step: 'rfq' | 'committee' | 'award' | 'fina
         const currentIndex = stepOrder.indexOf(currentStep);
         const targetIndex = stepOrder.indexOf(targetStep);
         if (currentIndex > targetIndex) return 'completed';
-        if (currentIndex === targetStep) return 'active';
+        if (currentIndex === targetIndex) return 'active';
         return 'inactive';
     };
 
@@ -1434,10 +1434,11 @@ const ScoringDialog = ({
                                 <Card key={itemField.id}>
                                     <CardHeader>
                                         <CardTitle>{quoteItem.name}</CardTitle>
-                                        <CardDescription>
-                                            Quantity: {quoteItem.quantity}
-                                            {!hidePrices && ` | Unit Price: ${quoteItem.unitPrice.toFixed(2)} ETB`}
-                                        </CardDescription>
+                                        {!hidePrices && 
+                                            <CardDescription>
+                                                Quantity: {quoteItem.quantity} | Unit Price: {quoteItem.unitPrice.toFixed(2)} ETB
+                                            </CardDescription>
+                                        }
                                     </CardHeader>
                                     <CardContent className="space-y-4">
                                         {isFinancialScorer && !hidePrices && (
@@ -1819,7 +1820,7 @@ const AwardCenterDialog = ({
     onFinalize: (awardStrategy: 'all' | 'item', awards: any, awardResponseDeadline?: Date) => void;
     onClose: () => void;
 }) => {
-    const [awardStrategy, setAwardStrategy] = useState<'item' | 'all'>('all');
+    const [awardStrategy, setAwardStrategy] = useState<'item' | 'all'>('item');
     const [awardResponseDeadlineDate, setAwardResponseDeadlineDate] = useState<Date|undefined>();
     const [awardResponseDeadlineTime, setAwardResponseDeadlineTime] = useState('17:00');
 
@@ -1838,30 +1839,32 @@ const AwardCenterDialog = ({
             let winner: { vendorId: string; vendorName: string; quoteItemId: string; } | null = null;
 
             quotations.forEach(quote => {
-                const quoteItem = quote.items.find(i => i.requisitionItemId === reqItem.id);
-                if (!quoteItem || !quote.scores) return;
+                const proposalsForItem = quote.items.filter(i => i.requisitionItemId === reqItem.id);
 
-                let totalItemScore = 0;
-                let scoreCount = 0;
+                proposalsForItem.forEach(proposal => {
+                    if (!quote.scores) return;
 
-                quote.scores.forEach(scoreSet => {
-                    const itemScore = scoreSet.itemScores?.find(i => i.quoteItemId === quoteItem.id);
-                    if (itemScore) {
-                        totalItemScore += itemScore.finalScore;
-                        scoreCount++;
+                    let totalItemScore = 0;
+                    let scoreCount = 0;
+                    
+                    quote.scores.forEach(scoreSet => {
+                        const itemScore = scoreSet.itemScores?.find(i => i.quoteItemId === proposal.id);
+                        if (itemScore) {
+                            totalItemScore += itemScore.finalScore;
+                            scoreCount++;
+                        }
+                    });
+                    
+                    const averageItemScore = scoreCount > 0 ? totalItemScore / scoreCount : 0;
+                    if (averageItemScore > bestScore) {
+                        bestScore = averageItemScore;
+                        winner = {
+                            vendorId: quote.vendorId,
+                            vendorName: quote.vendorName,
+                            quoteItemId: proposal.id
+                        };
                     }
                 });
-                
-                const averageItemScore = scoreCount > 0 ? totalItemScore / scoreCount : 0;
-
-                if (averageItemScore > bestScore) {
-                    bestScore = averageItemScore;
-                    winner = {
-                        vendorId: quote.vendorId,
-                        vendorName: quote.vendorName,
-                        quoteItemId: quoteItem.id
-                    };
-                }
             });
             return {
                 requisitionItemId: reqItem.id,
@@ -1883,12 +1886,16 @@ const AwardCenterDialog = ({
                 overallWinner = {
                     vendorId: quote.vendorId,
                     vendorName: quote.vendorName,
-                    items: quote.items.map(i => ({ requisitionItemId: i.requisitionItemId, quoteItemId: i.id }))
+                    // Award all original items, assuming vendor quoted them
+                    items: requisition.items.map(reqItem => {
+                        const vendorItem = quote.items.find(i => i.requisitionItemId === reqItem.id);
+                        return { requisitionItemId: reqItem.id, quoteItemId: vendorItem!.id }
+                    }).filter(i => i.quoteItemId)
                 }
             }
         });
         return { ...overallWinner, score: bestOverallScore };
-    }, [quotations]);
+    }, [quotations, requisition]);
 
 
     const handleConfirmAward = () => {
