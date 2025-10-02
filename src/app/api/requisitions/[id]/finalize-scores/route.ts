@@ -4,9 +4,8 @@
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { users } from '@/lib/data-store';
 import { sendEmail } from '@/services/email-service';
-import { Vendor, Quotation, QuoteItem } from '@/lib/types';
+import { User, Vendor, Quotation, QuoteItem } from '@/lib/types';
 
 
 async function tallyAndAwardScores(requisitionId: string, awardStrategy: 'all' | 'item', awards: any, awardResponseDeadline?: Date) {
@@ -108,12 +107,12 @@ export async function POST(
     const body = await request.json();
     const { userId, awardResponseDeadline, awardStrategy, awards } = body;
 
-    const user = users.find(u => u.id === userId);
+    const user = await prisma.user.findUnique({where: {id: userId}});
     if (!user) {
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    if (user.role !== 'Procurement Officer') {
+    if (user.role !== 'Procurement_Officer') {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
     
