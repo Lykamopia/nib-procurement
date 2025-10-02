@@ -4,9 +4,8 @@
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { users } from '@/lib/data-store';
 import { sendEmail } from '@/services/email-service';
-import { Vendor, Quotation, QuoteItem } from '@/lib/types';
+import { Vendor, Quotation, QuoteItem, User } from '@/lib/types';
 
 
 async function tallyAndAwardScores(requisitionId: string, awardStrategy: 'all' | 'item', awards: any, awardResponseDeadline?: Date) {
@@ -16,7 +15,12 @@ async function tallyAndAwardScores(requisitionId: string, awardStrategy: 'all' |
         include: { 
             scores: { 
                 include: { 
-                    itemScores: true 
+                    itemScores: {
+                         include: {
+                            financialScores: true,
+                            technicalScores: true
+                        }
+                    }
                 } 
             },
             items: true,
@@ -26,29 +30,36 @@ async function tallyAndAwardScores(requisitionId: string, awardStrategy: 'all' |
     if (awardStrategy === 'all') {
         allQuotesForReq.forEach(quote => {
             let totalScore = 0;
-            let scoredItemsCount = 0;
+            let scoreCount = 0; // Use a counter for average calculation
+            
             quote.scores.forEach(scoreSet => {
                 scoreSet.itemScores.forEach(itemScore => {
-                    totalScore += itemScore.finalScore;
-                    scoredItemsCount++;
+                    // Check if finalScore is a valid number
+                    if (typeof itemScore.finalScore === 'number' && !isNaN(itemScore.finalScore)) {
+                        totalScore += itemScore.finalScore;
+                        scoreCount++;
+                    }
                 })
             })
-             quote.finalAverageScore = scoredItemsCount > 0 ? totalScore / scoredItemsCount : 0;
+             // Avoid division by zero
+            quote.finalAverageScore = scoreCount > 0 ? totalScore / scoreCount : 0;
         });
 
         allQuotesForReq.sort((a, b) => (b.finalAverageScore || 0) - (a.finalAverageScore || 0));
         
-        allQuotesForReq.forEach((quote, index) => {
-            if (index === 0) {
-                awards[quote.vendorId] = {
-                    vendorName: quote.vendorName,
-                    items: quote.items.map(i => ({
-                        requisitionItemId: i.requisitionItemId,
-                        quoteItemId: i.id
-                    }))
-                };
-            }
-        });
+        // Clear previous awards before assigning new one
+        awards = {};
+
+        if (allQuotesForReq.length > 0) {
+            const winner = allQuotesForReq[0];
+            awards[winner.vendorId] = {
+                vendorName: winner.vendorName,
+                items: winner.items.map(i => ({
+                    requisitionItemId: i.requisitionItemId,
+                    quoteItemId: i.id
+                }))
+            };
+        }
 
     }
     
@@ -65,10 +76,18 @@ async function tallyAndAwardScores(requisitionId: string, awardStrategy: 'all' |
     for (const vendorId of awardedVendorIds) {
         const quote = allQuotesForReq.find(q => q.vendorId === vendorId);
         if (quote) {
+             const awardedItemsForThisVendor = quote.items.filter(i => 
+                (awards[vendorId] as any).items.some((awarded: any) => awarded.quoteItemId === i.id)
+             );
+             // If a vendor wins some but not all items they quoted on, it's a partial award.
+             // If there's only one winning vendor but they didn't win all items in the original requisition, it's also partial.
+             const requisition = await prisma.purchaseRequisition.findUnique({where: {id: requisitionId}, include: {items: true}});
+             const isPartial = awardedVendorIds.size > 1 || awardedItemsForThisVendor.length < (requisition?.items.length ?? 0);
+
              await prisma.quotation.update({
                 where: { id: quote.id },
                 data: { 
-                    status: Object.keys(awards).length > 1 ? 'Partially_Awarded' : 'Awarded',
+                    status: isPartial ? 'Partially_Awarded' : 'Awarded',
                     rank: 1 // All awarded get rank 1
                 }
             });
@@ -108,12 +127,12 @@ export async function POST(
     const body = await request.json();
     const { userId, awardResponseDeadline, awardStrategy, awards } = body;
 
-    const user = users.find(u => u.id === userId);
+    const user: User | null = await prisma.user.findUnique({where: {id: userId}});
     if (!user) {
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    if (user.role !== 'Procurement Officer') {
+    if (user.role !== 'Procurement_Officer') {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
     
@@ -144,7 +163,28 @@ export async function POST(
               
               const isPartialAward = awardedVendorIds.length > 1 || awardedQuoteItems.length < requisition.items.length;
 
-              const itemsHtml = `<ul>${awardedQuoteItems.map(item => `<li>${item.name} (Qty: ${item.quantity})</li>`).join('')}</ul>`;
+              const itemsHtml = `
+                <table style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr style="background-color: #f2f2f2;">
+                            <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">Item Name</th>
+                            <th style="padding: 8px; border: 1px solid #ddd; text-align: right;">Quantity</th>
+                            <th style="padding: 8px; border: 1px solid #ddd; text-align: right;">Unit Price</th>
+                            <th style="padding: 8px; border: 1px solid #ddd; text-align: right;">Total Price</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${awardedQuoteItems.map(item => `
+                            <tr>
+                                <td style="padding: 8px; border: 1px solid #ddd;">${item.name}</td>
+                                <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">${item.quantity}</td>
+                                <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">${item.unitPrice.toFixed(2)} ETB</td>
+                                <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">${(item.quantity * item.unitPrice).toFixed(2)} ETB</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+              `;
 
               const emailHtml = `
                 <h1>Congratulations, ${vendor.name}!</h1>

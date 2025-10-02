@@ -1289,7 +1289,7 @@ const ScoringDialog = ({
         resolver: zodResolver(scoreFormSchema),
     });
 
-    const { fields: itemScoreFields } = useFieldArray({
+    const { fields: itemScoreFields, replace: replaceItemScores } = useFieldArray({
         control: form.control,
         name: "itemScores",
     });
@@ -1396,6 +1396,11 @@ const ScoringDialog = ({
             </div>
         ));
     };
+    
+    const originalItems = useMemo(() => {
+        const itemIds = new Set(quote.items.map(i => i.requisitionItemId));
+        return requisition.items.filter(i => itemIds.has(i.id));
+    }, [requisition.items, quote.items]);
 
     if (!existingScore && isScoringDeadlinePassed) {
         return (
@@ -1428,33 +1433,46 @@ const ScoringDialog = ({
             <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 min-h-0 flex flex-col">
                 <ScrollArea className="flex-1 pr-4 -mr-4">
                      <div className="space-y-6">
-                        {itemScoreFields.map((itemField, itemIndex) => {
-                            const quoteItem = quote.items[itemIndex];
-                            return (
-                                <Card key={itemField.id}>
-                                    <CardHeader>
-                                        <CardTitle>{quoteItem.name}</CardTitle>
-                                        {!hidePrices && 
-                                            <CardDescription>
-                                                Quantity: {quoteItem.quantity} | Unit Price: {quoteItem.unitPrice.toFixed(2)} ETB
-                                            </CardDescription>
-                                        }
-                                    </CardHeader>
-                                    <CardContent className="space-y-4">
-                                        {isFinancialScorer && !hidePrices && (
-                                            <div className="space-y-4">
-                                                <h4 className="font-semibold text-lg flex items-center gap-2"><Scale /> Financial Evaluation ({requisition.evaluationCriteria?.financialWeight}%)</h4>
-                                                {renderCriteria(itemIndex, 'financial')}
-                                            </div>
-                                        )}
-                                         {isTechnicalScorer && (
-                                            <div className="space-y-4">
-                                                <h4 className="font-semibold text-lg flex items-center gap-2"><TrendingUp /> Technical Evaluation ({requisition.evaluationCriteria?.technicalWeight}%)</h4>
-                                                {renderCriteria(itemIndex, 'technical')}
-                                            </div>
-                                        )}
-                                    </CardContent>
-                                </Card>
+                        {originalItems.map(originalItem => {
+                             const proposalsForItem = quote.items.filter(i => i.requisitionItemId === originalItem.id);
+                             return (
+                                 <Card key={originalItem.id} className="bg-muted/30">
+                                     <CardHeader>
+                                         <CardTitle>Requested Item: {originalItem.name} (Qty: {originalItem.quantity})</CardTitle>
+                                         <CardDescription>Evaluate the following proposal(s) for this item.</CardDescription>
+                                     </CardHeader>
+                                     <CardContent className="space-y-4">
+                                         {proposalsForItem.map(proposal => {
+                                             const itemIndex = quote.items.findIndex(i => i.id === proposal.id);
+                                             return (
+                                                <Card key={proposal.id} className="bg-background">
+                                                    <CardHeader>
+                                                        <CardTitle className="text-lg">{proposal.name}</CardTitle>
+                                                        {!hidePrices && 
+                                                            <CardDescription>
+                                                                Quantity: {proposal.quantity} | Unit Price: {proposal.unitPrice.toFixed(2)} ETB
+                                                            </CardDescription>
+                                                        }
+                                                    </CardHeader>
+                                                    <CardContent className="space-y-4">
+                                                        {isFinancialScorer && !hidePrices && (
+                                                            <div className="space-y-4">
+                                                                <h4 className="font-semibold text-lg flex items-center gap-2"><Scale /> Financial Evaluation ({requisition.evaluationCriteria?.financialWeight}%)</h4>
+                                                                {renderCriteria(itemIndex, 'financial')}
+                                                            </div>
+                                                        )}
+                                                        {isTechnicalScorer && (
+                                                            <div className="space-y-4">
+                                                                <h4 className="font-semibold text-lg flex items-center gap-2"><TrendingUp /> Technical Evaluation ({requisition.evaluationCriteria?.technicalWeight}%)</h4>
+                                                                {renderCriteria(itemIndex, 'technical')}
+                                                            </div>
+                                                        )}
+                                                    </CardContent>
+                                                </Card>
+                                             );
+                                         })}
+                                     </CardContent>
+                                 </Card>
                             )
                         })}
                         
@@ -1725,7 +1743,7 @@ const CumulativeScoringReportDialog = ({ requisition, quotations, isOpen, onClos
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="max-w-5xl h-[90vh] flex flex-col">
                 <DialogHeader>
-                    <DialogTitle>Cumulative Scoring Report</DialogTitle>
+                    <DialogTitle>Cumulative Scoring Report: How The Award Was Won</DialogTitle>
                     <DialogDescription>
                         A detailed breakdown of committee scores for requisition {requisition.id}, explaining the award decision.
                     </DialogDescription>
@@ -1748,7 +1766,11 @@ const CumulativeScoringReportDialog = ({ requisition, quotations, isOpen, onClos
                                         <div className="flex justify-between items-start">
                                             <div>
                                                 <CardTitle className="text-xl">{quote.vendorName}</CardTitle>
-                                                <CardDescription className="print:text-gray-700 pt-1">Final Score: <span className="font-bold text-primary">{quote.finalAverageScore?.toFixed(2)}</span> | Rank: <span className="font-bold">{quote.rank || 'N/A'}</span></CardDescription>
+                                                <CardDescription className="print:text-gray-700 pt-1">
+                                                    Final Score: <span className="font-bold text-primary">{quote.finalAverageScore?.toFixed(2)}</span> | 
+                                                    Rank: <span className="font-bold">{quote.rank || 'N/A'}</span> |
+                                                    Total Price: <span className="font-bold">{quote.totalPrice.toLocaleString()} ETB</span>
+                                                </CardDescription>
                                             </div>
                                             <Badge variant={quote.status === 'Awarded' || quote.status === 'Partially_Awarded' || quote.status === 'Accepted' ? 'default' : quote.status === 'Standby' ? 'secondary' : 'destructive'}>{quote.status.replace(/_/g, ' ')}</Badge>
                                         </div>
@@ -2203,7 +2225,7 @@ const CommitteeActions = ({
         }
     };
 
-    if (user.role !== 'Committee Member' || scoresAlreadyFinalized) {
+    if (user.role !== 'Committee Member') {
         return null;
     }
 
@@ -2753,4 +2775,5 @@ export default function QuotationDetailsPage() {
     
 
     
+
 
