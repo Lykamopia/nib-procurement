@@ -204,7 +204,7 @@ function AddQuoteForm({ requisition, vendors, onQuoteAdded }: { requisition: Pur
     );
 }
 
-const QuoteComparison = ({ quotes, requisition, onScore, user, isDeadlinePassed, isScoringDeadlinePassed, isAwarded }: { quotes: Quotation[], requisition: PurchaseRequisition, onScore: (quote: Quotation) => void, user: User, isDeadlinePassed: boolean, isScoringDeadlinePassed: boolean, isAwarded: boolean }) => {
+const QuoteComparison = ({ quotes, requisition, onScore, user, isDeadlinePassed, isScoringDeadlinePassed, isAwarded }: { quotes: Quotation[], requisition: PurchaseRequisition, onScore: (quote: Quotation, hidePrices: boolean) => void, user: User, isDeadlinePassed: boolean, isScoringDeadlinePassed: boolean, isAwarded: boolean }) => {
 
     if (quotes.length === 0) {
         return (
@@ -320,7 +320,7 @@ const QuoteComparison = ({ quotes, requisition, onScore, user, isDeadlinePassed,
                         </CardContent>
                         <CardFooter className="flex flex-col gap-2">
                             {user.role === 'Committee Member' && (
-                                <Button className="w-full" variant={hasUserScored ? "secondary" : "outline"} onClick={() => onScore(quote)} disabled={isScoringDeadlinePassed && !hasUserScored}>
+                                <Button className="w-full" variant={hasUserScored ? "secondary" : "outline"} onClick={() => onScore(quote, hidePrices)} disabled={isScoringDeadlinePassed && !hasUserScored}>
                                     {hasUserScored ? <Check className="mr-2 h-4 w-4"/> : <Edit2 className="mr-2 h-4 w-4" />}
                                     {hasUserScored ? 'View Your Score' : 'Score this Quote'}
                                 </Button>
@@ -1273,12 +1273,14 @@ const ScoringDialog = ({
     user, 
     onScoreSubmitted,
     isScoringDeadlinePassed,
+    hidePrices,
 }: { 
     quote: Quotation; 
     requisition: PurchaseRequisition; 
     user: User; 
     onScoreSubmitted: () => void;
     isScoringDeadlinePassed: boolean;
+    hidePrices: boolean;
 }) => {
     const { toast } = useToast();
     const [isSubmitting, setSubmitting] = useState(false);
@@ -1433,7 +1435,8 @@ const ScoringDialog = ({
                                     <CardHeader>
                                         <CardTitle>{quoteItem.name}</CardTitle>
                                         <CardDescription>
-                                            Quantity: {quoteItem.quantity} | Unit Price: {quoteItem.unitPrice.toFixed(2)} ETB
+                                            Quantity: {quoteItem.quantity}
+                                            {!hidePrices && ` | Unit Price: ${quoteItem.unitPrice.toFixed(2)} ETB`}
                                         </CardDescription>
                                     </CardHeader>
                                     <CardContent className="space-y-4">
@@ -2237,6 +2240,7 @@ export default function QuotationDetailsPage() {
   const [isScoringFormOpen, setScoringFormOpen] = useState(false);
   const [isFinalizing, setIsFinalizing] = useState(false);
   const [selectedQuoteForScoring, setSelectedQuoteForScoring] = useState<Quotation | null>(null);
+  const [hidePricesForScoring, setHidePricesForScoring] = useState(false);
   const [lastPOCreated, setLastPOCreated] = useState<PurchaseOrder | null>(null);
   const [isChangingAward, setIsChangingAward] = useState(false);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
@@ -2412,8 +2416,9 @@ export default function QuotationDetailsPage() {
     }
   }
 
-  const handleScoreButtonClick = (quote: Quotation) => {
+  const handleScoreButtonClick = (quote: Quotation, hidePrices: boolean) => {
     setSelectedQuoteForScoring(quote);
+    setHidePricesForScoring(hidePrices);
     setScoringFormOpen(true);
   }
   
@@ -2652,6 +2657,7 @@ export default function QuotationDetailsPage() {
                                 user={user} 
                                 onScoreSubmitted={handleScoreSubmitted}
                                 isScoringDeadlinePassed={isScoringDeadlinePassed}
+                                hidePrices={hidePricesForScoring}
                             />
                         )}
                     </Dialog>
