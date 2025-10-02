@@ -66,43 +66,15 @@ export async function POST(request: Request) {
 
     let totalPrice = 0;
     let maxLeadTime = 0;
-    
-    const newQuotation = await prisma.$transaction(async (tx) => {
-      const quoteItemsData = [];
 
-      for (const item of items) {
-        let currentRequisitionItemId = item.requisitionItemId;
-
-        // If it's a new/alternative item, create a corresponding RequisitionItem first
-        if (item.isAlternative) {
-          const newReqItem = await tx.requisitionItem.create({
-            data: {
-              requisitionId: requisitionId,
-              name: item.name,
-              quantity: item.quantity,
-              unitPrice: item.unitPrice,
-              description: item.brandDetails || 'Alternative item offered by vendor.',
-            }
-          });
-          currentRequisitionItemId = newReqItem.id;
-        }
-
+    items.forEach((item: any) => {
         totalPrice += (item.unitPrice || 0) * (item.quantity || 0);
         if (item.leadTimeDays > maxLeadTime) {
             maxLeadTime = item.leadTimeDays;
         }
+    });
 
-        quoteItemsData.push({
-          requisitionItemId: currentRequisitionItemId,
-          name: item.name,
-          quantity: item.quantity,
-          unitPrice: Number(item.unitPrice),
-          leadTimeDays: Number(item.leadTimeDays),
-          brandDetails: item.brandDetails,
-        });
-      }
-
-      return tx.quotation.create({
+    const newQuotation = await prisma.quotation.create({
         data: {
             transactionId: requisition.transactionId,
             requisition: { connect: { id: requisitionId } },
@@ -114,7 +86,14 @@ export async function POST(request: Request) {
             notes,
             cpoDocumentUrl,
             items: {
-                create: quoteItemsData,
+                create: items.map((item: any) => ({
+                    requisitionItemId: item.requisitionItemId,
+                    name: item.name,
+                    quantity: item.quantity,
+                    unitPrice: Number(item.unitPrice),
+                    leadTimeDays: Number(item.leadTimeDays),
+                    brandDetails: item.brandDetails,
+                }))
             },
             answers: {
                 create: answers?.map((ans: any) => ({
@@ -123,7 +102,6 @@ export async function POST(request: Request) {
                 }))
             }
         }
-      });
     });
 
 

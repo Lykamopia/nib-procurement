@@ -32,12 +32,11 @@ const quoteFormSchema = z.object({
   notes: z.string().optional(),
   items: z.array(z.object({
     requisitionItemId: z.string(),
-    name: z.string(),
+    name: z.string().min(1, "Item name cannot be empty."),
     quantity: z.number(),
     unitPrice: z.coerce.number().min(0.01, "Price is required."),
     leadTimeDays: z.coerce.number().min(0, "Lead time is required."),
     brandDetails: z.string().optional(),
-    isAlternative: z.boolean().optional(),
   })),
   answers: z.array(z.object({
       questionId: z.string(),
@@ -184,7 +183,6 @@ function QuoteSubmissionForm({ requisition, quote, onQuoteSubmitted }: { requisi
                 ...item,
                 requisitionItemId: item.requisitionItemId,
                 brandDetails: item.brandDetails || '',
-                isAlternative: !requisition.items.some(reqItem => reqItem.id === item.requisitionItemId),
             })),
             answers: quote.answers || requisition.customQuestions?.map(q => ({ questionId: q.id, answer: '' })),
             cpoDocumentUrl: quote.cpoDocumentUrl || ''
@@ -197,14 +195,13 @@ function QuoteSubmissionForm({ requisition, quote, onQuoteSubmitted }: { requisi
                 unitPrice: 0,
                 leadTimeDays: 0,
                 brandDetails: '',
-                isAlternative: false,
             })),
             answers: requisition.customQuestions?.map(q => ({ questionId: q.id, answer: '' })),
             cpoDocumentUrl: ''
         },
     });
 
-     const { fields, append, remove, update } = useFieldArray({
+     const { fields, append, remove } = useFieldArray({
         control: form.control,
         name: "items",
     });
@@ -214,15 +211,14 @@ function QuoteSubmissionForm({ requisition, quote, onQuoteSubmitted }: { requisi
         name: "answers",
     });
 
-    const addItem = () => {
+    const addAlternativeItem = (originalItem: { id: string, name: string, quantity: number }) => {
         append({
-            requisitionItemId: `ALT-${Date.now()}`,
-            name: '', // Empty name for new/alternative items
-            quantity: 1,
+            requisitionItemId: originalItem.id, // Link to original item
+            name: `Alternative for ${originalItem.name}`,
+            quantity: originalItem.quantity,
             unitPrice: 0,
             leadTimeDays: 0,
             brandDetails: '',
-            isAlternative: true,
         });
     };
 
@@ -319,6 +315,8 @@ function QuoteSubmissionForm({ requisition, quote, onQuoteSubmitted }: { requisi
     const isCpoRequired = !!(requisition.cpoAmount && requisition.cpoAmount > 0);
     const canSubmit = !isCpoRequired || (isCpoRequired && !!cpoDocumentValue);
 
+    const originalItems = requisition.items;
+
     return (
         <Card>
             <CardHeader>
@@ -355,75 +353,90 @@ function QuoteSubmissionForm({ requisition, quote, onQuoteSubmitted }: { requisi
                         )}
 
                         <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
-                            {fields.map((field, index) => (
-                                <Card key={field.id} className="p-4 relative">
-                                    <div className="flex justify-between items-start">
-                                        <FormField
-                                            control={form.control}
-                                            name={`items.${index}.name`}
-                                            render={({ field }) => (
-                                                <FormItem className="flex-1">
-                                                    <FormLabel>Item Name (Qty: {form.getValues(`items.${index}.quantity`)})</FormLabel>
-                                                    <FormControl>
-                                                        <Input placeholder="e.g., MacBook Pro 16-inch or alternative" {...field} />
-                                                    </FormControl>
-                                                    <FormMessage />
-                                                </FormItem>
-                                            )}
-                                        />
-                                       {fields.length > 1 && (
-                                            <Button type="button" variant="ghost" size="icon" className="h-6 w-6 ml-2 mt-7" onClick={() => remove(index)}>
-                                                <Trash2 className="h-4 w-4" />
+                             {originalItems.map(originalItem => {
+                                 const itemsForThisReqItem = fields.filter(f => f.requisitionItemId === originalItem.id);
+                                 return (
+                                     <div key={originalItem.id} className="p-4 border rounded-lg bg-muted/20">
+                                        <div className="flex justify-between items-center mb-4">
+                                            <h4 className="font-semibold">Requested Item: {originalItem.name} (Qty: {originalItem.quantity})</h4>
+                                            <Button type="button" variant="outline" size="sm" onClick={() => addAlternativeItem(originalItem)}>
+                                                <PlusCircle className="mr-2 h-4 w-4" /> Propose Alternative
                                             </Button>
-                                        )}
-                                    </div>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-                                        <FormField
-                                            control={form.control}
-                                            name={`items.${index}.brandDetails`}
-                                            render={({ field }) => (
-                                                <FormItem className="md:col-span-2">
-                                                    <FormLabel>Brand / Model Details</FormLabel>
-                                                    <FormControl>
-                                                        <Textarea placeholder="e.g., Dell XPS 15, HP Spectre x360..." {...field} />
-                                                    </FormControl>
-                                                    <FormMessage />
-                                                </FormItem>
-                                            )}
-                                        />
-                                        <FormField
-                                            control={form.control}
-                                            name={`items.${index}.unitPrice`}
-                                            render={({ field }) => (
-                                                <FormItem>
-                                                    <FormLabel>Unit Price (ETB)</FormLabel>
-                                                    <FormControl><Input type="number" step="0.01" {...field} value={field.value ?? ''} /></FormControl>
-                                                    <FormMessage />
-                                                </FormItem>
-                                            )}
-                                        />
-                                        <FormField
-                                            control={form.control}
-                                            name={`items.${index}.leadTimeDays`}
-                                            render={({ field }) => (
-                                                <FormItem>
-                                                    <FormLabel>Lead Time (Days)</FormLabel>
-                                                    <FormControl><Input type="number" {...field} /></FormControl>
-                                                    <FormMessage />
-                                                </FormItem>
-                                            )}
-                                        />
-                                    </div>
-                                </Card>
-                            ))}
+                                        </div>
+                                         <div className="space-y-4 pl-4 border-l-2">
+                                         {itemsForThisReqItem.map((field, index) => {
+                                             const overallIndex = fields.findIndex(f => f.id === field.id);
+                                             const isAlternative = field.name !== originalItem.name;
+                                             return (
+                                                 <Card key={field.id} className="p-4 relative bg-background">
+                                                    <div className="flex justify-between items-start">
+                                                        <FormField
+                                                            control={form.control}
+                                                            name={`items.${overallIndex}.name`}
+                                                            render={({ field }) => (
+                                                                <FormItem className="flex-1">
+                                                                    <FormLabel>
+                                                                        {isAlternative ? "Alternative Item Name" : "Item Name"} (Qty: {form.getValues(`items.${overallIndex}.quantity`)})
+                                                                    </FormLabel>
+                                                                    <FormControl>
+                                                                        <Input placeholder="e.g., MacBook Pro 16-inch or alternative" {...field} />
+                                                                    </FormControl>
+                                                                    <FormMessage />
+                                                                </FormItem>
+                                                            )}
+                                                        />
+                                                        {isAlternative && (
+                                                            <Button type="button" variant="ghost" size="icon" className="h-6 w-6 ml-2 mt-7" onClick={() => remove(overallIndex)}>
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </Button>
+                                                        )}
+                                                    </div>
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+                                                        <FormField
+                                                            control={form.control}
+                                                            name={`items.${overallIndex}.brandDetails`}
+                                                            render={({ field }) => (
+                                                                <FormItem className="md:col-span-2">
+                                                                    <FormLabel>Brand / Model Details</FormLabel>
+                                                                    <FormControl>
+                                                                        <Textarea placeholder="e.g., Dell XPS 15, HP Spectre x360..." {...field} />
+                                                                    </FormControl>
+                                                                    <FormMessage />
+                                                                </FormItem>
+                                                            )}
+                                                        />
+                                                        <FormField
+                                                            control={form.control}
+                                                            name={`items.${overallIndex}.unitPrice`}
+                                                            render={({ field }) => (
+                                                                <FormItem>
+                                                                    <FormLabel>Unit Price (ETB)</FormLabel>
+                                                                    <FormControl><Input type="number" step="0.01" {...field} value={field.value ?? ''} /></FormControl>
+                                                                    <FormMessage />
+                                                                </FormItem>
+                                                            )}
+                                                        />
+                                                        <FormField
+                                                            control={form.control}
+                                                            name={`items.${overallIndex}.leadTimeDays`}
+                                                            render={({ field }) => (
+                                                                <FormItem>
+                                                                    <FormLabel>Lead Time (Days)</FormLabel>
+                                                                    <FormControl><Input type="number" {...field} /></FormControl>
+                                                                    <FormMessage />
+                                                                </FormItem>
+                                                            )}
+                                                        />
+                                                    </div>
+                                                </Card>
+                                             )
+                                         })}
+                                         </div>
+                                     </div>
+                                 )
+                             })}
                         </div>
 
-                         <div className="mt-4 flex justify-start">
-                            <Button type="button" variant="outline" size="sm" onClick={addItem}>
-                                <PlusCircle className="mr-2 h-4 w-4" />
-                                Add Item to Quote
-                            </Button>
-                        </div>
 
                          {requisition.customQuestions && requisition.customQuestions.length > 0 && (
                             <>
