@@ -16,7 +16,7 @@ export async function POST(
     const body = await request.json();
     const { userId, action, newDeadline } = body as { userId: string; action: AwardAction, newDeadline?: string };
 
-    const user = users.find(u => u.id === userId);
+    const user = await prisma.user.findUnique({where: {id: userId}});
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
