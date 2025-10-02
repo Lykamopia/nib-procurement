@@ -1440,7 +1440,7 @@ const ScoringDialog = ({
                                         </CardDescription>
                                     </CardHeader>
                                     <CardContent className="space-y-4">
-                                        {isFinancialScorer && (
+                                        {isFinancialScorer && !hidePrices && (
                                             <div className="space-y-4">
                                                 <h4 className="font-semibold text-lg flex items-center gap-2"><Scale /> Financial Evaluation ({requisition.evaluationCriteria?.financialWeight}%)</h4>
                                                 {renderCriteria(itemIndex, 'financial')}
@@ -2184,7 +2184,7 @@ const CommitteeActions = ({
         }
     };
 
-    if (user.role !== 'Committee Member') {
+    if (user.role !== 'Committee Member' || scoresAlreadyFinalized) {
         return null;
     }
 
