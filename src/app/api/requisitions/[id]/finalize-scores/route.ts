@@ -168,6 +168,7 @@ export async function POST(
                     <thead>
                         <tr style="background-color: #f2f2f2;">
                             <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">Item Name</th>
+                            <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">Brand/Model</th>
                             <th style="padding: 8px; border: 1px solid #ddd; text-align: right;">Quantity</th>
                             <th style="padding: 8px; border: 1px solid #ddd; text-align: right;">Unit Price</th>
                             <th style="padding: 8px; border: 1px solid #ddd; text-align: right;">Total Price</th>
@@ -177,6 +178,7 @@ export async function POST(
                         ${awardedQuoteItems.map(item => `
                             <tr>
                                 <td style="padding: 8px; border: 1px solid #ddd;">${item.name}</td>
+                                <td style="padding: 8px; border: 1px solid #ddd;">${item.brandDetails || 'N/A'}</td>
                                 <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">${item.quantity}</td>
                                 <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">${item.unitPrice.toFixed(2)} ETB</td>
                                 <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">${(item.quantity * item.unitPrice).toFixed(2)} ETB</td>
