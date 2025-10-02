@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -36,6 +37,7 @@ const quoteFormSchema = z.object({
     unitPrice: z.coerce.number().min(0.01, "Price is required."),
     leadTimeDays: z.coerce.number().min(0, "Lead time is required."),
     brandDetails: z.string().optional(),
+    isAlternative: z.boolean().optional(),
   })),
   answers: z.array(z.object({
       questionId: z.string(),
@@ -182,6 +184,7 @@ function QuoteSubmissionForm({ requisition, quote, onQuoteSubmitted }: { requisi
                 ...item,
                 requisitionItemId: item.requisitionItemId,
                 brandDetails: item.brandDetails || '',
+                isAlternative: !requisition.items.some(reqItem => reqItem.id === item.requisitionItemId),
             })),
             answers: quote.answers || requisition.customQuestions?.map(q => ({ questionId: q.id, answer: '' })),
             cpoDocumentUrl: quote.cpoDocumentUrl || ''
@@ -194,6 +197,7 @@ function QuoteSubmissionForm({ requisition, quote, onQuoteSubmitted }: { requisi
                 unitPrice: 0,
                 leadTimeDays: 0,
                 brandDetails: '',
+                isAlternative: false,
             })),
             answers: requisition.customQuestions?.map(q => ({ questionId: q.id, answer: '' })),
             cpoDocumentUrl: ''
@@ -218,6 +222,7 @@ function QuoteSubmissionForm({ requisition, quote, onQuoteSubmitted }: { requisi
             unitPrice: 0,
             leadTimeDays: 0,
             brandDetails: '',
+            isAlternative: true,
         });
     };
 

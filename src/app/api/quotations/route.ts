@@ -66,14 +66,43 @@ export async function POST(request: Request) {
 
     let totalPrice = 0;
     let maxLeadTime = 0;
-    items.forEach((item: any) => {
+    
+    const newQuotation = await prisma.$transaction(async (tx) => {
+      const quoteItemsData = [];
+
+      for (const item of items) {
+        let currentRequisitionItemId = item.requisitionItemId;
+
+        // If it's a new/alternative item, create a corresponding RequisitionItem first
+        if (item.isAlternative) {
+          const newReqItem = await tx.requisitionItem.create({
+            data: {
+              requisitionId: requisitionId,
+              name: item.name,
+              quantity: item.quantity,
+              unitPrice: item.unitPrice,
+              description: item.brandDetails || 'Alternative item offered by vendor.',
+            }
+          });
+          currentRequisitionItemId = newReqItem.id;
+        }
+
         totalPrice += (item.unitPrice || 0) * (item.quantity || 0);
         if (item.leadTimeDays > maxLeadTime) {
             maxLeadTime = item.leadTimeDays;
         }
-    });
 
-    const newQuotation = await prisma.quotation.create({
+        quoteItemsData.push({
+          requisitionItemId: currentRequisitionItemId,
+          name: item.name,
+          quantity: item.quantity,
+          unitPrice: Number(item.unitPrice),
+          leadTimeDays: Number(item.leadTimeDays),
+          brandDetails: item.brandDetails,
+        });
+      }
+
+      return tx.quotation.create({
         data: {
             transactionId: requisition.transactionId,
             requisition: { connect: { id: requisitionId } },
@@ -85,14 +114,7 @@ export async function POST(request: Request) {
             notes,
             cpoDocumentUrl,
             items: {
-                create: items.map((item: any) => ({
-                    requisitionItemId: item.requisitionItemId,
-                    name: item.name,
-                    quantity: item.quantity,
-                    unitPrice: Number(item.unitPrice),
-                    leadTimeDays: Number(item.leadTimeDays),
-                    brandDetails: item.brandDetails,
-                }))
+                create: quoteItemsData,
             },
             answers: {
                 create: answers?.map((ans: any) => ({
@@ -101,7 +123,9 @@ export async function POST(request: Request) {
                 }))
             }
         }
+      });
     });
+
 
     if (vendor.user) {
         await prisma.auditLog.create({
@@ -120,6 +144,9 @@ export async function POST(request: Request) {
     return NextResponse.json(newQuotation, { status: 201 });
   } catch (error) {
     console.error('Failed to create quotation:', error);
+    if (error instanceof Error && (error as any).code === 'P2003') {
+       return NextResponse.json({ error: 'Foreign key constraint failed. One of the item IDs does not exist.' }, { status: 400 });
+    }
     if (error instanceof Error) {
         return NextResponse.json({ error: 'Failed to process quotation', details: error.message }, { status: 400 });
     }
