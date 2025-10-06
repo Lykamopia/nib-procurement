@@ -5,6 +5,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 9002",
+    "tunnel": "lt --port 9002",
     "genkit:dev": "genkit start -- tsx src/ai/dev.ts",
     "genkit:watch": "genkit start -- tsx --watch src/ai/dev.ts",
     "build": "next build",
@@ -47,6 +48,7 @@
     "firebase": "^11.9.1",
     "html2canvas": "^1.4.1",
     "jspdf": "^2.5.1",
+    "localtunnel": "^2.0.2",
     "lucide-react": "^0.475.0",
     "next": "14.2.5",
     "nodemailer": "^6.9.14",
@@ -79,4 +81,3 @@
     "seed": "tsx prisma/seed.ts"
   }
 }
-
