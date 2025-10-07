@@ -63,7 +63,7 @@ async function main() {
 
   // Seed non-vendor users first
   for (const user of seedData.users.filter(u => u.role !== 'Vendor')) {
-    const { committeeAssignments, departmentId, department, vendorId, password, ...userData } = user;
+    const { committeeAssignments, departmentId, department, vendorId, password, managerId, ...userData } = user;
     const hashedPassword = await bcrypt.hash(password || 'password123', 10);
 
     await prisma.user.create({
@@ -72,6 +72,7 @@ async function main() {
           password: hashedPassword,
           role: roleStringToEnum[userData.role],
           department: user.departmentId ? { connect: { id: user.departmentId } } : undefined,
+          manager: managerId ? { connect: { id: managerId } } : undefined,
       },
     });
   }
