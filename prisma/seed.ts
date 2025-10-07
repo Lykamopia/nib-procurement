@@ -85,6 +85,7 @@ async function main() {
               name: vendorUser.name,
               email: vendorUser.email,
               password: hashedPassword,
+              approvalLimit: vendorUser.approvalLimit,
               role: vendorUser.role.replace(/ /g, '_') as any,
           }
       });
@@ -126,6 +127,7 @@ async function main() {
           quotations, 
           requesterId,
           approverId,
+          currentApproverId,
           financialCommitteeMemberIds,
           technicalCommitteeMemberIds,
           department,
@@ -142,6 +144,7 @@ async function main() {
               status: reqData.status.replace(/ /g, '_') as any,
               requester: { connect: { id: requesterId } },
               approver: approverId ? { connect: { id: approverId } } : undefined,
+              currentApproverId: currentApproverId || approverId,
               department: departmentId ? { connect: { id: departmentId } } : undefined,
               financialCommitteeMembers: financialCommitteeMemberIds ? { connect: financialCommitteeMemberIds.map(id => ({ id })) } : undefined,
               technicalCommitteeMembers: technicalCommitteeMemberIds ? { connect: technicalCommitteeMemberIds.map(id => ({ id })) } : undefined,
