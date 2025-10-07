@@ -92,13 +92,19 @@ export function UserManagementEditor() {
   const availableRoles = Object.keys(rolePermissions).filter(role => role !== 'Vendor') as UserRole[];
   
   const selectedRole = form.watch('role');
-  const showApprovalFields = ['Procurement Officer', 'Approver', 'Admin', 'Committee', 'Finance'].includes(selectedRole);
-
+  const currentApprovalLimit = form.watch('approvalLimit');
+  
   const managerRoles: UserRole[] = ['Approver', 'Procurement Officer', 'Admin', 'Finance'];
+  const approvalRoles: UserRole[] = ['Approver', 'Procurement Officer', 'Admin', 'Finance', 'Committee Member'];
+  const showApprovalFields = approvalRoles.includes(selectedRole as UserRole);
 
   const potentialManagers = users.filter(
-    (u) => u.id !== userToEdit?.id && managerRoles.includes(u.role)
+    (u) => 
+      u.id !== userToEdit?.id && 
+      managerRoles.includes(u.role) &&
+      (u.approvalLimit || 0) > (currentApprovalLimit || 0)
   );
+
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -204,11 +210,11 @@ export function UserManagementEditor() {
         departmentId: user.departmentId || '',
         password: '',
         approvalLimit: user.approvalLimit || 0,
-        managerId: user.managerId || '',
+        managerId: user.managerId || 'null',
       });
     } else {
       setUserToEdit(null);
-      form.reset({ name: '', email: '', role: '', departmentId: '', password: '', approvalLimit: 0, managerId: '' });
+      form.reset({ name: '', email: '', role: '', departmentId: '', password: '', approvalLimit: 0, managerId: 'null' });
     }
     setDialogOpen(true);
   };
@@ -335,7 +341,7 @@ export function UserManagementEditor() {
                                     <SelectItem value="null">None</SelectItem>
                                     {potentialManagers.map((u) => (
                                     <SelectItem key={u.id} value={u.id}>
-                                        {u.name}
+                                        {u.name} ({u.approvalLimit?.toLocaleString()} ETB)
                                     </SelectItem>
                                     ))}
                                 </SelectContent>
