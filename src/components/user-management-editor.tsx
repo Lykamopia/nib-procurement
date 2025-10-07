@@ -56,7 +56,7 @@ const userFormSchema = z.object({
   email: z.string().email("Invalid email address."),
   role: z.string().min(1, "Role is required."),
   departmentId: z.string().min(1, "Department is required."),
-  password: z.string().min(8, "Password must be at least 8 characters."),
+  password: z.string().optional(),
   approvalLimit: z.coerce.number().min(0, "Approval limit must be a positive number.").optional(),
   managerId: z.string().optional(),
 });
@@ -92,7 +92,13 @@ export function UserManagementEditor() {
   const availableRoles = Object.keys(rolePermissions).filter(role => role !== 'Vendor') as UserRole[];
   
   const selectedRole = form.watch('role');
-  const showApprovalFields = ['Procurement Officer', 'Approver', 'Admin', 'Committee'].includes(selectedRole);
+  const showApprovalFields = ['Procurement Officer', 'Approver', 'Admin', 'Committee', 'Finance'].includes(selectedRole);
+
+  const managerRoles: UserRole[] = ['Approver', 'Procurement Officer', 'Admin', 'Finance'];
+
+  const potentialManagers = users.filter(
+    (u) => u.id !== userToEdit?.id && managerRoles.includes(u.role)
+  );
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -123,12 +129,15 @@ export function UserManagementEditor() {
     try {
       const isEditing = !!userToEdit;
       
-      const apiValues = {
+       const apiValues = {
         ...values,
         managerId: values.managerId === 'null' ? null : values.managerId,
-        // Ensure approvalLimit is a number, defaulting to 0 if not applicable/provided
         approvalLimit: showApprovalFields ? values.approvalLimit || 0 : 0
       };
+
+      if (isEditing && !values.password) {
+        delete (apiValues as any).password;
+      }
 
       const body = isEditing 
         ? { ...apiValues, id: userToEdit.id, actorUserId: actor.id }
@@ -323,10 +332,8 @@ export function UserManagementEditor() {
                                 </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
-                                <SelectItem value="null">None</SelectItem>
-                                {users
-                                    .filter((u) => u.id !== userToEdit?.id)
-                                    .map((u) => (
+                                    <SelectItem value="null">None</SelectItem>
+                                    {potentialManagers.map((u) => (
                                     <SelectItem key={u.id} value={u.id}>
                                         {u.name}
                                     </SelectItem>
