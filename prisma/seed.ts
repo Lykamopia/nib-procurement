@@ -72,11 +72,21 @@ async function main() {
           password: hashedPassword,
           role: roleStringToEnum[userData.role],
           department: user.departmentId ? { connect: { id: user.departmentId } } : undefined,
-          manager: managerId ? { connect: { id: managerId } } : undefined,
       },
     });
   }
   console.log('Seeded non-vendor users.');
+  
+  // Second pass to link managers
+  for (const user of seedData.users.filter(u => u.role !== 'Vendor' && u.managerId)) {
+      await prisma.user.update({
+          where: { id: user.id },
+          data: {
+              manager: { connect: { id: user.managerId } }
+          }
+      });
+  }
+  console.log('Linked managers to users.');
 
 
   // Seed Vendors and their associated users
