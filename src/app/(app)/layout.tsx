@@ -30,6 +30,7 @@ import { ThemeSwitcher } from '@/components/theme-switcher';
 import { navItems, rolePermissions } from '@/lib/roles';
 import { Breadcrumbs } from '@/components/breadcrumbs';
 import { useToast } from '@/hooks/use-toast';
+import { RoleSwitcher } from '@/components/role-switcher';
 
 const SESSION_TIMEOUT = 15 * 60 * 1000; // 15 minutes
 
@@ -176,6 +177,7 @@ export default function AppLayout({
           </SidebarMenu>
         </SidebarContent>
         <SidebarFooter>
+            {process.env.NODE_ENV === 'development' && <RoleSwitcher />}
           <div className="p-2">
             <Button variant="ghost" className="w-full justify-start" onClick={logout}>
                 <LogOut className="mr-2 h-4 w-4" />
