@@ -45,7 +45,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { requisitionId, vendorId, items, notes, answers, cpoDocumentUrl } = body;
+    const { requisitionId, vendorId, items, notes, answers, cpoDocumentUrl, experienceDocumentUrl } = body;
 
     const vendor = await prisma.vendor.findUnique({ where: { id: vendorId }, include: { user: true } });
     if (!vendor) {
@@ -85,6 +85,7 @@ export async function POST(request: Request) {
             status: 'Submitted',
             notes,
             cpoDocumentUrl,
+            experienceDocumentUrl,
             items: {
                 create: items.map((item: any) => ({
                     requisitionItemId: item.requisitionItemId,

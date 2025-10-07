@@ -43,6 +43,7 @@ const quoteFormSchema = z.object({
       answer: z.string().min(1, "This question requires an answer."),
   })).optional(),
   cpoDocumentUrl: z.string().optional(),
+  experienceDocumentUrl: z.string().optional(),
 }).refine(
     (data, ctx) => {
         // This is a placeholder for the actual requisition data
@@ -185,7 +186,8 @@ function QuoteSubmissionForm({ requisition, quote, onQuoteSubmitted }: { requisi
                 brandDetails: item.brandDetails || '',
             })),
             answers: quote.answers || requisition.customQuestions?.map(q => ({ questionId: q.id, answer: '' })),
-            cpoDocumentUrl: quote.cpoDocumentUrl || ''
+            cpoDocumentUrl: quote.cpoDocumentUrl || '',
+            experienceDocumentUrl: quote.experienceDocumentUrl || '',
         } : {
             notes: "",
             items: requisition.items.map(item => ({
@@ -197,7 +199,8 @@ function QuoteSubmissionForm({ requisition, quote, onQuoteSubmitted }: { requisi
                 brandDetails: '',
             })),
             answers: requisition.customQuestions?.map(q => ({ questionId: q.id, answer: '' })),
-            cpoDocumentUrl: ''
+            cpoDocumentUrl: '',
+            experienceDocumentUrl: '',
         },
     });
 
@@ -271,6 +274,12 @@ function QuoteSubmissionForm({ requisition, quote, onQuoteSubmitted }: { requisi
             form.setError("cpoDocumentUrl", { type: "manual", message: "CPO Document is required." });
             return;
         }
+        
+        if (requisition.rfqSettings?.experienceDocumentRequired && !values.experienceDocumentUrl) {
+            form.setError("experienceDocumentUrl", { type: "manual", message: "Experience Document is required." });
+            return;
+        }
+
 
         setSubmitting(true);
         try {
@@ -313,7 +322,10 @@ function QuoteSubmissionForm({ requisition, quote, onQuoteSubmitted }: { requisi
     const totalQuotePrice = form.watch('items').reduce((acc, item) => acc + (item.quantity * (item.unitPrice || 0)), 0);
     const cpoDocumentValue = form.watch('cpoDocumentUrl');
     const isCpoRequired = !!(requisition.cpoAmount && requisition.cpoAmount > 0);
-    const canSubmit = !isCpoRequired || (isCpoRequired && !!cpoDocumentValue);
+    const experienceDocumentValue = form.watch('experienceDocumentUrl');
+    const isExperienceRequired = requisition.rfqSettings?.experienceDocumentRequired;
+
+    const canSubmit = (!isCpoRequired || (isCpoRequired && !!cpoDocumentValue)) && (!isExperienceRequired || (isExperienceRequired && !!experienceDocumentValue));
 
     const originalItems = requisition.items;
 
@@ -351,6 +363,31 @@ function QuoteSubmissionForm({ requisition, quote, onQuoteSubmitted }: { requisi
                                 )}
                              />
                         )}
+                        
+                        {isExperienceRequired && (
+                             <FormField
+                                control={form.control}
+                                name="experienceDocumentUrl"
+                                render={({ field }) => (
+                                    <FormItem>
+                                    <FormLabel>Experience Document (Required)</FormLabel>
+                                    <FormControl>
+                                        <Input type="file" accept=".pdf" onChange={async (e) => {
+                                            if (e.target.files?.[0]) {
+                                                const path = await handleFileUpload(e.target.files[0]);
+                                                if (path) field.onChange(path);
+                                            }
+                                        }} />
+                                    </FormControl>
+                                    <FormDescription>
+                                        Please upload a document detailing your relevant experience for this bid.
+                                    </FormDescription>
+                                    <FormMessage />
+                                    </FormItem>
+                                )}
+                             />
+                        )}
+
 
                         <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
                              {originalItems.map(originalItem => {
@@ -692,6 +729,15 @@ export default function VendorRequisitionPage() {
                         <div className="flex items-center gap-2 p-2 mt-1 border rounded-md bg-muted/50 text-muted-foreground">
                             <FileText className="h-4 w-4 text-primary"/>
                             <span>{quote.cpoDocumentUrl}</span>
+                        </div>
+                    </div>
+                )}
+                 {quote.experienceDocumentUrl && (
+                     <div className="text-sm">
+                        <h3 className="font-semibold">Experience Document</h3>
+                        <div className="flex items-center gap-2 p-2 mt-1 border rounded-md bg-muted/50 text-muted-foreground">
+                            <FileText className="h-4 w-4 text-primary"/>
+                            <span>{quote.experienceDocumentUrl}</span>
                         </div>
                     </div>
                 )}

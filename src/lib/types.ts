@@ -134,6 +134,7 @@ export type PurchaseRequisition = {
   rfqSettings?: {
       allowQuoteEdits?: boolean;
       technicalEvaluatorSeesPrices?: boolean;
+      experienceDocumentRequired?: boolean;
       [key: string]: any;
   };
 };
@@ -229,6 +230,7 @@ export type Quotation = {
     scores?: CommitteeScoreSet[];
     finalAverageScore?: number;
     cpoDocumentUrl?: string;
+    experienceDocumentUrl?: string;
 };
 
 export type POItem = {
