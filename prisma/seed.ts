@@ -5,6 +5,18 @@ import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
+const roleStringToEnum: { [key: string]: UserRole } = {
+  'Requester': UserRole.Requester,
+  'Approver': UserRole.Approver,
+  'Procurement Officer': UserRole.Procurement_Officer,
+  'Finance': UserRole.Finance,
+  'Admin': UserRole.Admin,
+  'Receiving': UserRole.Receiving,
+  'Vendor': UserRole.Vendor,
+  'Committee Member': UserRole.Committee_Member,
+  'Committee': UserRole.Committee,
+};
+
 async function main() {
   console.log(`Clearing existing data...`);
   await prisma.auditLog.deleteMany({});
@@ -58,7 +70,7 @@ async function main() {
       data: {
           ...userData,
           password: hashedPassword,
-          role: userData.role.replace(/ /g, '_') as UserRole,
+          role: roleStringToEnum[userData.role],
           department: user.departmentId ? { connect: { id: user.departmentId } } : undefined,
       },
     });
@@ -86,7 +98,7 @@ async function main() {
               email: vendorUser.email,
               password: hashedPassword,
               approvalLimit: vendorUser.approvalLimit,
-              role: vendorUser.role.replace(/ /g, '_') as UserRole,
+              role: roleStringToEnum[vendorUser.role],
           }
       });
       
