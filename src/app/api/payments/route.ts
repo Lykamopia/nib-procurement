@@ -14,13 +14,16 @@ export async function POST(
     console.log('Request body:', body);
     const { invoiceId, userId } = body;
 
-    const user = users.find(u => u.id === userId);
+    const user = await prisma.user.findUnique({where: {id: userId}});
     if (!user) {
         console.error('User not found for ID:', userId);
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
     
-    const invoiceToUpdate = await prisma.invoice.findUnique({ where: { id: invoiceId } });
+    const invoiceToUpdate = await prisma.invoice.findUnique({ 
+        where: { id: invoiceId },
+        include: { po: true }
+    });
     if (!invoiceToUpdate) {
         console.error('Invoice not found for ID:', invoiceId);
         return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
@@ -31,35 +34,49 @@ export async function POST(
         console.error(`Invoice ${invoiceId} is not approved for payment. Current status: ${invoiceToUpdate.status}`);
         return NextResponse.json({ error: 'Invoice must be approved before payment.' }, { status: 400 });
     }
-
-    const paymentReference = `PAY-${Date.now()}`;
-    const updatedInvoice = await prisma.invoice.update({
-        where: { id: invoiceId },
-        data: {
-            status: 'Paid',
-            paymentDate: new Date(),
-            paymentReference: paymentReference,
-        }
-    });
-    console.log('Invoice updated to Paid status.');
     
-    await prisma.auditLog.create({
-        data: {
-            user: { connect: { id: user.id } },
-            timestamp: new Date(),
-            action: 'PROCESS_PAYMENT',
-            entity: 'Invoice',
-            entityId: invoiceId,
-            details: `Processed payment for invoice ${invoiceId}. Ref: ${paymentReference}.`,
-        }
-    });
-    console.log('Added audit log:');
+    const transactionResult = await prisma.$transaction(async (tx) => {
 
-    return NextResponse.json(updatedInvoice);
+        const paymentReference = `PAY-${Date.now()}`;
+        const updatedInvoice = await tx.invoice.update({
+            where: { id: invoiceId },
+            data: {
+                status: 'Paid',
+                paymentDate: new Date(),
+                paymentReference: paymentReference,
+            }
+        });
+        console.log('Invoice updated to Paid status.');
+
+        // Now, update the requisition status to 'Closed'
+        if (invoiceToUpdate.po) {
+             await tx.purchaseRequisition.update({
+                where: { id: invoiceToUpdate.po.requisitionId },
+                data: { status: 'Closed' }
+            });
+            console.log(`Requisition ${invoiceToUpdate.po.requisitionId} status updated to Closed.`);
+        }
+        
+        await tx.auditLog.create({
+            data: {
+                user: { connect: { id: user.id } },
+                timestamp: new Date(),
+                action: 'PROCESS_PAYMENT',
+                entity: 'Invoice',
+                entityId: invoiceId,
+                details: `Processed payment for invoice ${invoiceId}. Ref: ${paymentReference}. Requisition closed.`,
+            }
+        });
+        console.log('Added audit log:');
+
+        return updatedInvoice;
+    });
+
+    return NextResponse.json(transactionResult);
   } catch (error) {
     console.error('Failed to process payment:', error);
     if (error instanceof Error) {
-        return NextResponse.json({ error: 'Failed to process request', details: error.message }, { status: 400 });
+        return NextResponse.json({ error: 'Failed to process request', details: error.message }, { status: 500 });
     }
     return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
   }
