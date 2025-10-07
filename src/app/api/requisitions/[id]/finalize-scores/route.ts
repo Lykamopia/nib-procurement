@@ -9,7 +9,13 @@ import { Vendor, Quotation, QuoteItem, User } from '@/lib/types';
 import { differenceInMinutes } from 'date-fns';
 
 
-async function tallyAndAwardScores(requisitionId: string, awardStrategy: 'all' | 'item', awards: any, awardResponseDeadline?: Date) {
+async function tallyAndAwardScores(
+    requisitionId: string, 
+    awardStrategy: 'all' | 'item', 
+    awards: any, 
+    awardResponseDeadline?: Date,
+    actor?: User | null
+) {
     
     const allQuotesForReq = await prisma.quotation.findMany({
         where: { requisitionId },
@@ -28,31 +34,28 @@ async function tallyAndAwardScores(requisitionId: string, awardStrategy: 'all' |
         }
     });
 
+    if (allQuotesForReq.length === 0) {
+        throw new Error("No quotes found for this requisition to score or award.");
+    }
+    
+    // Calculate final average score for each quote
+    allQuotesForReq.forEach(quote => {
+        if (!quote.scores || quote.scores.length === 0) {
+            quote.finalAverageScore = 0;
+            return;
+        }
+        const totalScorers = quote.scores.length;
+        const aggregateScore = quote.scores.reduce((sum, scoreSet) => sum + scoreSet.finalScore, 0);
+        quote.finalAverageScore = aggregateScore / totalScorers;
+    });
+
+
+    // If strategy is 'all', determine the single winner based on overall scores
     if (awardStrategy === 'all') {
-        allQuotesForReq.forEach(quote => {
-            let totalScore = 0;
-            let scoreCount = 0; // Use a counter for average calculation
-            
-            quote.scores.forEach(scoreSet => {
-                scoreSet.itemScores.forEach(itemScore => {
-                    // Check if finalScore is a valid number
-                    if (typeof itemScore.finalScore === 'number' && !isNaN(itemScore.finalScore)) {
-                        totalScore += itemScore.finalScore;
-                        scoreCount++;
-                    }
-                })
-            })
-             // Avoid division by zero
-            quote.finalAverageScore = scoreCount > 0 ? totalScore / scoreCount : 0;
-        });
-
-        allQuotesForReq.sort((a, b) => (b.finalAverageScore || 0) - (a.finalAverageScore || 0));
-        
-        // Clear previous awards before assigning new one
-        awards = {};
-
-        if (allQuotesForReq.length > 0) {
-            const winner = allQuotesForReq[0];
+        const sortedByScore = allQuotesForReq.sort((a, b) => (b.finalAverageScore || 0) - (a.finalAverageScore || 0));
+        awards = {}; // Clear previous awards to ensure a single winner
+        if (sortedByScore.length > 0) {
+            const winner = sortedByScore[0];
             awards[winner.vendorId] = {
                 vendorName: winner.vendorName,
                 items: winner.items.map(i => ({
@@ -61,9 +64,60 @@ async function tallyAndAwardScores(requisitionId: string, awardStrategy: 'all' |
                 }))
             };
         }
-
     }
     
+    const awardedVendorIds = Object.keys(awards);
+    if (awardedVendorIds.length === 0) {
+        throw new Error("No vendor was awarded. Cannot proceed.");
+    }
+    
+    let totalAwardValue = 0;
+    awardedVendorIds.forEach(vendorId => {
+        const quote = allQuotesForReq.find(q => q.vendorId === vendorId);
+        const awardedItems = (awards[vendorId] as any).items.map((i: any) => i.quoteItemId);
+        if (quote) {
+            quote.items.forEach(item => {
+                if (awardedItems.includes(item.id)) {
+                    totalAwardValue += item.quantity * item.unitPrice;
+                }
+            });
+        }
+    });
+    
+    // --- HIERARCHICAL APPROVAL LOGIC ---
+    if (actor && actor.approvalLimit !== null && totalAwardValue > (actor.approvalLimit || 0)) {
+        if (!actor.managerId) {
+            // This is the highest level, but their limit is still exceeded.
+            throw new Error(`Award value of ${totalAwardValue.toLocaleString()} ETB exceeds the final approver's limit of ${(actor.approvalLimit || 0).toLocaleString()} ETB.`);
+        }
+        
+        // Escalate to the manager
+        await prisma.purchaseRequisition.update({
+            where: { id: requisitionId },
+            data: {
+                status: 'Pending_Managerial_Approval',
+                currentApproverId: actor.managerId,
+            }
+        });
+
+        // Log the escalation
+        await prisma.auditLog.create({
+            data: {
+                timestamp: new Date(),
+                user: { connect: { id: actor.id } },
+                action: 'ESCALATE_AWARD',
+                entity: 'Requisition',
+                entityId: requisitionId,
+                details: `Award value of ${totalAwardValue.toLocaleString()} ETB exceeds approval limit. Escalated to manager.`,
+            }
+        });
+
+        // Stop the award process here; it's now waiting for the manager.
+        return { success: true, message: "Award requires managerial approval and has been escalated.", escalated: true };
+    }
+    
+    // --- PROCEED WITH AWARD ---
+
     const awardedQuoteItemIds = Object.values(awards).flatMap((award: any) => award.items.map((item: any) => item.quoteItemId));
 
     // Set all quotes to rejected initially, this will be overridden for winners/standby
@@ -72,7 +126,6 @@ async function tallyAndAwardScores(requisitionId: string, awardStrategy: 'all' |
         data: { status: 'Rejected', rank: null }
     });
     
-    const awardedVendorIds = new Set<string>(Object.keys(awards));
 
     for (const vendorId of awardedVendorIds) {
         const quote = allQuotesForReq.find(q => q.vendorId === vendorId);
@@ -80,10 +133,8 @@ async function tallyAndAwardScores(requisitionId: string, awardStrategy: 'all' |
              const awardedItemsForThisVendor = quote.items.filter(i => 
                 (awards[vendorId] as any).items.some((awarded: any) => awarded.quoteItemId === i.id)
              );
-             // If a vendor wins some but not all items they quoted on, it's a partial award.
-             // If there's only one winning vendor but they didn't win all items in the original requisition, it's also partial.
              const requisition = await prisma.purchaseRequisition.findUnique({where: {id: requisitionId}, include: {items: true}});
-             const isPartial = awardedVendorIds.size > 1 || awardedItemsForThisVendor.length < (requisition?.items.length ?? 0);
+             const isPartial = awardedVendorIds.length > 1 || awardedItemsForThisVendor.length < (requisition?.items.length ?? 0);
 
              await prisma.quotation.update({
                 where: { id: quote.id },
@@ -96,7 +147,7 @@ async function tallyAndAwardScores(requisitionId: string, awardStrategy: 'all' |
     }
     
     const standbyCandidates = allQuotesForReq
-        .filter(q => !awardedVendorIds.has(q.vendorId))
+        .filter(q => !awardedVendorIds.includes(q.vendorId))
         .sort((a,b) => (b.finalAverageScore || 0) - (a.finalAverageScore || 0));
 
 
@@ -114,14 +165,15 @@ async function tallyAndAwardScores(requisitionId: string, awardStrategy: 'all' |
     await prisma.purchaseRequisition.update({
       where: { id: requisitionId },
       data: {
-        status: 'RFQ_In_Progress',
+        status: 'RFQ_In_Progress', // This implies vendors are being notified
         awardResponseDeadline: awardResponseDeadline,
         awardResponseDurationMinutes,
         awardedQuoteItemIds: awardedQuoteItemIds,
+        currentApproverId: null, // Clear the approver once awarded
       }
     });
 
-    return { success: true, message: "Scores tallied and awards processed." };
+    return { success: true, message: "Scores tallied and awards processed.", escalated: false };
 }
 
 export async function POST(
@@ -138,8 +190,8 @@ export async function POST(
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    if (user.role !== 'Procurement_Officer') {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    if (user.role !== 'Procurement_Officer' && user.role !== 'Admin') {
+        return NextResponse.json({ error: 'Unauthorized to finalize awards.' }, { status: 403 });
     }
     
     const requisition = await prisma.purchaseRequisition.findUnique({
@@ -150,13 +202,24 @@ export async function POST(
         return NextResponse.json({ error: 'Requisition not found' }, { status: 404 });
     }
 
-    const result = await tallyAndAwardScores(requisitionId, awardStrategy, awards, awardResponseDeadline ? new Date(awardResponseDeadline) : undefined);
+    const result = await tallyAndAwardScores(
+        requisitionId, 
+        awardStrategy, 
+        awards, 
+        awardResponseDeadline ? new Date(awardResponseDeadline) : undefined,
+        user
+    );
 
     if (!result.success) {
         throw new Error(result.message);
     }
     
-    // Send emails to all awarded vendors
+    // If the award was escalated, we just return the message and don't send emails.
+    if (result.escalated) {
+        return NextResponse.json({ message: result.message });
+    }
+    
+    // If not escalated, send emails to all awarded vendors
     const awardedVendorIds = Object.keys(awards);
     for (const vendorId of awardedVendorIds) {
          const vendor = await prisma.vendor.findUnique({ where: { id: vendorId }, include: { quotations: { include: { items: true }}}});
@@ -233,3 +296,4 @@ export async function POST(
     return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
   }
 }
+

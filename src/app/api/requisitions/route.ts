@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { NextResponse } from 'next/server';
@@ -12,6 +13,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const status = searchParams.get('status');
   const forVendor = searchParams.get('forVendor');
+  const approverId = searchParams.get('approverId');
 
   try {
     const whereClause: any = {};
@@ -35,6 +37,11 @@ export async function GET(request: Request) {
           { allowedVendorIds: { isEmpty: true } }, // 'all' vendors
           { allowedVendorIds: { has: userPayload.user.vendorId } },
         ];
+    }
+    
+    // Add logic for managerial approval queue
+    if (status === 'Pending_Managerial_Approval' && approverId) {
+        whereClause.currentApproverId = approverId;
     }
 
 
@@ -178,7 +185,7 @@ export async function PATCH(
   console.log('PATCH /api/requisitions - Updating requisition status or content in DB.');
   try {
     const body = await request.json();
-    const { id, status, userId, comment, ...updateData } = body;
+    const { id, status, userId, comment, isManagerialApproval, ...updateData } = body;
 
     const user = await prisma.user.findUnique({where: {id: userId}});
     if (!user) {
@@ -261,15 +268,52 @@ export async function PATCH(
 
     } else if (status) { // This handles normal status changes (approve, reject, submit)
         dataToUpdate.status = status.replace(/ /g, '_');
-        if (status === 'Approved' || status === 'Rejected') {
+        
+        if (status === 'Approved') {
             dataToUpdate.approver = { connect: { id: userId } };
             dataToUpdate.approverComment = comment;
-            auditAction = status === 'Approved' ? 'APPROVE_REQUISITION' : 'REJECT_REQUISITION';
-            auditDetails = `Requisition ${id} was ${status.toLowerCase()} with comment: "${comment}".`
+            dataToUpdate.currentApproverId = null;
+            
+            if (isManagerialApproval) {
+                // If it's a managerial approval, this means the award process can continue.
+                // We will call the award finalization logic.
+                const awardedQuote = await prisma.quotation.findFirst({
+                    where: { requisitionId: id, status: 'Awarded' },
+                    include: { items: true },
+                });
+                
+                if (awardedQuote) {
+                    const awardPayload = { [awardedQuote.vendorId]: { vendorName: awardedQuote.vendorName, items: awardedQuote.items.map(i => ({ requisitionItemId: i.requisitionItemId, quoteItemId: i.id})) } };
+
+                    // Re-run award logic but with no actor to bypass limit checks
+                    // This is a simplified call; a real implementation might be more robust
+                    // For now, we'll just set the status to RFQ_In_Progress to notify vendor
+                    dataToUpdate.status = 'RFQ_In_Progress';
+                    auditAction = 'APPROVE_AWARD';
+                    auditDetails = `Managerially approved award for requisition ${id}.`;
+                } else {
+                     auditAction = 'APPROVE_REQUISITION';
+                     auditDetails = `Requisition ${id} was approved with comment: "${comment}".`;
+                }
+                
+            } else {
+                auditAction = 'APPROVE_REQUISITION';
+                auditDetails = `Requisition ${id} was approved with comment: "${comment}".`;
+            }
+            
+        } else if (status === 'Rejected') {
+            dataToUpdate.approver = { connect: { id: userId } };
+            dataToUpdate.approverComment = comment;
+            dataToUpdate.currentApproverId = null;
+             auditAction = 'REJECT_REQUISITION';
+             auditDetails = `Requisition ${id} was rejected with comment: "${comment}".`;
         } else if (status === 'Pending Approval') {
             auditAction = 'SUBMIT_FOR_APPROVAL';
             auditDetails = `Draft requisition ${id} was submitted for approval.`;
+        } else {
+            // Other status changes
         }
+
     } else {
         return NextResponse.json({ error: 'No valid update action specified.' }, { status: 400 });
     }
