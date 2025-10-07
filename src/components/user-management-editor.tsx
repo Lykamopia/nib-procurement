@@ -57,6 +57,8 @@ const userFormSchema = z.object({
   role: z.string().min(1, "Role is required."),
   departmentId: z.string().min(1, "Department is required."),
   password: z.string().min(8, "Password must be at least 8 characters."),
+  approvalLimit: z.coerce.number().min(0, "Approval limit must be a positive number."),
+  managerId: z.string().optional(),
 });
 
 const userEditFormSchema = userFormSchema.extend({
@@ -81,7 +83,9 @@ export function UserManagementEditor() {
       email: '',
       role: '',
       departmentId: '',
-      password: ''
+      password: '',
+      approvalLimit: 0,
+      managerId: '',
     },
   });
   
@@ -137,7 +141,7 @@ export function UserManagementEditor() {
       });
       setDialogOpen(false);
       setUserToEdit(null);
-      form.reset({ name: '', email: '', role: '', departmentId: '', password: '' });
+      form.reset({ name: '', email: '', role: '', departmentId: '', password: '', approvalLimit: 0, managerId: '' });
       fetchData();
     } catch (error) {
       toast({ variant: 'destructive', title: 'Error', description: error instanceof Error ? error.message : 'An unknown error occurred.' });
@@ -180,10 +184,12 @@ export function UserManagementEditor() {
         role: user.role,
         departmentId: user.departmentId || '',
         password: '',
+        approvalLimit: user.approvalLimit || 0,
+        managerId: user.managerId || '',
       });
     } else {
       setUserToEdit(null);
-      form.reset({ name: '', email: '', role: '', departmentId: '', password: '' });
+      form.reset({ name: '', email: '', role: '', departmentId: '', password: '', approvalLimit: 0, managerId: '' });
     }
     setDialogOpen(true);
   };
@@ -280,16 +286,18 @@ export function UserManagementEditor() {
        <Dialog open={isDialogOpen} onOpenChange={(isOpen) => { if (!isOpen) { setUserToEdit(null); form.reset(); } setDialogOpen(isOpen); }}>
         <DialogContent>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleFormSubmit)}>
+            <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4">
               <DialogHeader>
                   <DialogTitle>{userToEdit ? 'Edit User' : 'Add New User'}</DialogTitle>
               </DialogHeader>
-              <div className="py-4 grid gap-4">
-                <FormField control={form.control} name="name" render={({ field }) => ( <FormItem><FormLabel>Full Name</FormLabel><FormControl><Input placeholder="e.g. John Doe" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                <FormField control={form.control} name="email" render={({ field }) => ( <FormItem><FormLabel>Email</FormLabel><FormControl><Input type="email" placeholder="e.g. john.doe@example.com" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                <FormField control={form.control} name="password" render={({ field }) => ( <FormItem><FormLabel>Password</FormLabel><FormControl><Input type="password" placeholder={userToEdit ? "Leave blank to keep current password" : ""} {...field} /></FormControl><FormMessage /></FormItem> )} />
+              <div className="py-4 grid grid-cols-2 gap-x-4 gap-y-6">
+                <FormField control={form.control} name="name" render={({ field }) => ( <FormItem className="col-span-2"><FormLabel>Full Name</FormLabel><FormControl><Input placeholder="e.g. John Doe" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                <FormField control={form.control} name="email" render={({ field }) => ( <FormItem className="col-span-2"><FormLabel>Email</FormLabel><FormControl><Input type="email" placeholder="e.g. john.doe@example.com" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                <FormField control={form.control} name="password" render={({ field }) => ( <FormItem className="col-span-2"><FormLabel>Password</FormLabel><FormControl><Input type="password" placeholder={userToEdit ? "Leave blank to keep current password" : ""} {...field} /></FormControl><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name="role" render={({ field }) => ( <FormItem><FormLabel>Role</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select a role" /></SelectTrigger></FormControl><SelectContent>{availableRoles.map(role => <SelectItem key={role} value={role}>{role}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)} />
                 <FormField control={form.control} name="departmentId" render={({ field }) => ( <FormItem><FormLabel>Department</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select a department" /></SelectTrigger></FormControl><SelectContent>{departments.map(dept => <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)} />
+                <FormField control={form.control} name="approvalLimit" render={({ field }) => ( <FormItem><FormLabel>Approval Limit (ETB)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                <FormField control={form.control} name="managerId" render={({ field }) => ( <FormItem><FormLabel>Reports To / Manager</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select a manager" /></SelectTrigger></FormControl><SelectContent><SelectItem value="">None</SelectItem>{users.filter(u => u.id !== userToEdit?.id).map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)} />
               </div>
               <DialogFooter>
                   <DialogClose asChild><Button type="button" variant="ghost">Cancel</Button></DialogClose>

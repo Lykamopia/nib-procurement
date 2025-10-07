@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { NextResponse } from 'next/server';
@@ -30,7 +29,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { name, email, password, role, departmentId, actorUserId } = body;
+    const { name, email, password, role, departmentId, actorUserId, approvalLimit, managerId } = body;
     
     const actor = await prisma.user.findUnique({where: { id: actorUserId }});
     if (!actor) {
@@ -54,7 +53,9 @@ export async function POST(request: Request) {
             email,
             password: hashedPassword,
             role: role.replace(/ /g, '_'),
-            department: { connect: { id: departmentId } }
+            department: { connect: { id: departmentId } },
+            approvalLimit,
+            managerId: managerId || null,
         }
     });
     
@@ -81,7 +82,7 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
    try {
     const body = await request.json();
-    const { id, name, email, role, departmentId, password, actorUserId } = body;
+    const { id, name, email, role, departmentId, password, actorUserId, approvalLimit, managerId } = body;
 
     const actor = await prisma.user.findUnique({where: { id: actorUserId }});
     if (!actor) {
@@ -101,8 +102,16 @@ export async function PATCH(request: Request) {
         name,
         email,
         role: role.replace(/ /g, '_'),
-        department: { connect: { id: departmentId } }
+        department: { connect: { id: departmentId } },
+        approvalLimit: approvalLimit,
+        managerId: managerId || null,
     };
+    
+    if (managerId) {
+        updateData.manager = { connect: { id: managerId }};
+    } else {
+        updateData.manager = { disconnect: true };
+    }
 
     if (password) {
         updateData.password = await bcrypt.hash(password, 10);
