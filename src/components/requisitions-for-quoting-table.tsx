@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -56,7 +57,7 @@ export function RequisitionsForQuotingTable() {
             
             // For POs, show requisitions that are approved or in the quotation/award lifecycle
             if (role === 'Procurement Officer' || role === 'Committee') {
-                 const relevantStatuses = ['Approved', 'RFQ In Progress', 'PO Created', 'Fulfilled', 'Closed'];
+                 const relevantStatuses = ['Approved', 'RFQ In Progress', 'PO Created', 'Fulfilled', 'Closed', 'Pending Managerial Approval'];
                  data = data.filter(r => {
                     const normalizedStatus = r.status.replace(/_/g, ' ');
                     return relevantStatuses.includes(normalizedStatus);
@@ -92,6 +93,9 @@ export function RequisitionsForQuotingTable() {
     const isAwarded = req.quotations?.some(q => q.status === 'Awarded');
     const isAccepted = req.quotations?.some(q => q.status === 'Accepted');
 
+    if (req.status === 'Pending Managerial Approval') {
+        return <Badge variant="destructive">Pending Managerial Approval</Badge>;
+    }
     if (req.status === 'PO Created' || isAccepted) {
         return <Badge variant="default">PO Created</Badge>;
     }

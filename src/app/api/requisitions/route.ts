@@ -276,26 +276,14 @@ export async function PATCH(
             
             if (isManagerialApproval) {
                 // If it's a managerial approval, this means the award process can continue.
-                // We will call the award finalization logic.
-                const awardedQuote = await prisma.quotation.findFirst({
-                    where: { requisitionId: id, status: 'Awarded' },
-                    include: { items: true },
-                });
-                
-                if (awardedQuote) {
-                    const awardPayload = { [awardedQuote.vendorId]: { vendorName: awardedQuote.vendorName, items: awardedQuote.items.map(i => ({ requisitionItemId: i.requisitionItemId, quoteItemId: i.id})) } };
+                // The finalize-scores endpoint already handles this. Here we just confirm the approval.
+                auditAction = 'APPROVE_AWARD';
+                auditDetails = `Managerially approved award for requisition ${id}. Notifying vendors.`;
+                 // We will re-run the finalize logic to send emails and update statuses
+                 // This is a simplification; a more robust system might use a state machine or queue
+                 const { tallyAndAwardScores } = await import('./[id]/finalize-scores/route');
+                 await tallyAndAwardScores(id, requisition.awardResponseDeadline || undefined, user);
 
-                    // Re-run award logic but with no actor to bypass limit checks
-                    // This is a simplified call; a real implementation might be more robust
-                    // For now, we'll just set the status to RFQ_In_Progress to notify vendor
-                    dataToUpdate.status = 'RFQ_In_Progress';
-                    auditAction = 'APPROVE_AWARD';
-                    auditDetails = `Managerially approved award for requisition ${id}.`;
-                } else {
-                     auditAction = 'APPROVE_REQUISITION';
-                     auditDetails = `Requisition ${id} was approved with comment: "${comment}".`;
-                }
-                
             } else {
                 auditAction = 'APPROVE_REQUISITION';
                 auditDetails = `Requisition ${id} was approved with comment: "${comment}".`;
@@ -405,5 +393,3 @@ export async function DELETE(
     return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
   }
 }
-
-    

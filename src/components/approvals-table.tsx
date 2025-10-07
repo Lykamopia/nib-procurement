@@ -112,9 +112,6 @@ export function ApprovalsTable() {
     
     // Determine the correct new status based on context
     let newStatus = actionType === 'approve' ? 'Approved' : 'Rejected';
-    if (selectedRequisition.status === 'Pending Managerial Approval' && actionType === 'approve') {
-        // This logic will be handled on the backend, for now we just approve
-    }
 
 
     try {
