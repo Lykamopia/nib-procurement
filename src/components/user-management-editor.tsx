@@ -120,9 +120,14 @@ export function UserManagementEditor() {
     try {
       const isEditing = !!userToEdit;
       
+      const apiValues = {
+        ...values,
+        managerId: values.managerId === 'null' ? null : values.managerId,
+      };
+
       const body = isEditing 
-        ? { ...values, id: userToEdit.id, actorUserId: actor.id }
-        : { ...values, actorUserId: actor.id };
+        ? { ...apiValues, id: userToEdit.id, actorUserId: actor.id }
+        : { ...apiValues, actorUserId: actor.id };
         
       const response = await fetch('/api/users', {
         method: isEditing ? 'PATCH' : 'POST',
@@ -297,7 +302,33 @@ export function UserManagementEditor() {
                 <FormField control={form.control} name="role" render={({ field }) => ( <FormItem><FormLabel>Role</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select a role" /></SelectTrigger></FormControl><SelectContent>{availableRoles.map(role => <SelectItem key={role} value={role}>{role}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)} />
                 <FormField control={form.control} name="departmentId" render={({ field }) => ( <FormItem><FormLabel>Department</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select a department" /></SelectTrigger></FormControl><SelectContent>{departments.map(dept => <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)} />
                 <FormField control={form.control} name="approvalLimit" render={({ field }) => ( <FormItem><FormLabel>Approval Limit (ETB)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                <FormField control={form.control} name="managerId" render={({ field }) => ( <FormItem><FormLabel>Reports To / Manager</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select a manager" /></SelectTrigger></FormControl><SelectContent><SelectItem value="">None</SelectItem>{users.filter(u => u.id !== userToEdit?.id).map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)} />
+                <FormField
+                  control={form.control}
+                  name="managerId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Reports To / Manager</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value || 'null'}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a manager" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="null">None</SelectItem>
+                          {users
+                            .filter((u) => u.id !== userToEdit?.id)
+                            .map((u) => (
+                              <SelectItem key={u.id} value={u.id}>
+                                {u.name}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </div>
               <DialogFooter>
                   <DialogClose asChild><Button type="button" variant="ghost">Cancel</Button></DialogClose>
