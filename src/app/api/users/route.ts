@@ -106,12 +106,6 @@ export async function PATCH(request: Request) {
         approvalLimit: approvalLimit,
         managerId: managerId || null,
     };
-    
-    if (managerId) {
-        updateData.manager = { connect: { id: managerId }};
-    } else {
-        updateData.manager = { disconnect: true };
-    }
 
     if (password) {
         updateData.password = await bcrypt.hash(password, 10);
@@ -135,6 +129,7 @@ export async function PATCH(request: Request) {
 
     return NextResponse.json(updatedUser);
   } catch (error) {
+     console.error('Failed to update user:', error);
      if (error instanceof Error) {
         return NextResponse.json({ error: 'Failed to process request', details: error.message }, { status: 400 });
     }
@@ -165,6 +160,15 @@ export async function DELETE(request: Request) {
         return NextResponse.json({ error: 'Cannot delete an Admin user.' }, { status: 403 });
     }
     
+    // Check if user is a manager to other users and reassign them
+    const subordinates = await prisma.user.findMany({ where: { managerId: id } });
+    for (const subordinate of subordinates) {
+        await prisma.user.update({
+            where: { id: subordinate.id },
+            data: { managerId: userToDelete.managerId }, // Reassign to the deleted user's manager
+        });
+    }
+
     await prisma.user.delete({ where: { id } });
     
     await prisma.auditLog.create({
