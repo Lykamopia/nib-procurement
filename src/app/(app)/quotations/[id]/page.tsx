@@ -284,6 +284,14 @@ const QuoteComparison = ({ quotes, requisition, onScore, user, isDeadlinePassed,
                                             </Button>
                                         </div>
                                     )}
+                                     {quote.experienceDocumentUrl && (
+                                        <div className="text-sm space-y-1 pt-2 border-t">
+                                            <h4 className="font-semibold">Experience Document</h4>
+                                            <Button asChild variant="link" className="p-0 h-auto">
+                                                <a href={quote.experienceDocumentUrl} target="_blank" rel="noopener noreferrer">{quote.experienceDocumentUrl.split('/').pop()}</a>
+                                            </Button>
+                                        </div>
+                                    )}
 
                                     {isDeadlinePassed && (
                                         <div className="text-sm space-y-2">
@@ -901,6 +909,7 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
     const [cpoAmount, setCpoAmount] = useState<number | undefined>(requisition.cpoAmount);
     const [actionDialog, setActionDialog] = useState<{isOpen: boolean, type: 'update' | 'cancel'}>({isOpen: false, type: 'update'});
     const [allowQuoteEdits, setAllowQuoteEdits] = useState(requisition.rfqSettings?.allowQuoteEdits ?? true);
+    const [experienceDocumentRequired, setExperienceDocumentRequired] = useState(requisition.rfqSettings?.experienceDocumentRequired ?? false);
     const { user } = useAuth();
     const { toast } = useToast();
     
@@ -916,6 +925,7 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
         }
         setCpoAmount(requisition.cpoAmount);
         setAllowQuoteEdits(requisition.rfqSettings?.allowQuoteEdits ?? true);
+        setExperienceDocumentRequired(requisition.rfqSettings?.experienceDocumentRequired ?? false);
     }, [requisition]);
 
     const deadline = useMemo(() => {
@@ -962,7 +972,8 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
                     deadline,
                     cpoAmount,
                     rfqSettings: {
-                        allowQuoteEdits
+                        allowQuoteEdits,
+                        experienceDocumentRequired
                     }
                 }),
             });
@@ -1085,17 +1096,31 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
                      </div>
                     <p className="text-xs text-muted-foreground">Optional. If set, vendors must submit a CPO of this amount to qualify.</p>
                 </div>
-                 <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                        <Label htmlFor="allow-edits">Allow Quote Edits</Label>
-                         <Switch
-                            id="allow-edits"
-                            checked={allowQuoteEdits}
-                            onCheckedChange={setAllowQuoteEdits}
-                            disabled={isSent}
-                        />
+                <div className="grid md:grid-cols-2 gap-4">
+                     <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                            <Label htmlFor="allow-edits">Allow Quote Edits</Label>
+                             <Switch
+                                id="allow-edits"
+                                checked={allowQuoteEdits}
+                                onCheckedChange={setAllowQuoteEdits}
+                                disabled={isSent}
+                            />
+                        </div>
+                        <p className="text-xs text-muted-foreground">If enabled, vendors can edit their submitted quotes until the deadline passes.</p>
                     </div>
-                    <p className="text-xs text-muted-foreground">If enabled, vendors can edit their submitted quotes until the deadline passes.</p>
+                     <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                            <Label htmlFor="experience-doc">Require Experience Document</Label>
+                             <Switch
+                                id="experience-doc"
+                                checked={experienceDocumentRequired}
+                                onCheckedChange={setExperienceDocumentRequired}
+                                disabled={isSent}
+                            />
+                        </div>
+                        <p className="text-xs text-muted-foreground">If enabled, vendors must upload a document detailing their relevant experience.</p>
+                    </div>
                 </div>
 
                 {distributionType === 'select' && (
@@ -2770,7 +2795,3 @@ export default function QuotationDetailsPage() {
     
 
     
-
-
-
-

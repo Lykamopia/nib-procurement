@@ -103,6 +103,7 @@ export type PurchaseRequisition = {
   requesterName: string;
   title: string;
   department: string;
+  departmentId: string;
   items: RequisitionItem[];
   totalPrice: number;
   justification: string;
@@ -119,7 +120,8 @@ export type PurchaseRequisition = {
   };
   negotiationNotes?: string;
   purchaseOrderId?: string;
-  allowedVendorIds?: 'all' | string[];
+  allowedVendorIds: string[];
+  awardedQuoteItemIds: string[];
   customQuestions?: CustomQuestion[];
   deadline?: Date;
   scoringDeadline?: Date;
@@ -240,6 +242,7 @@ export type POItem = {
     unitPrice: number;
     totalPrice: number;
     receivedQuantity: number;
+    requisitionItemId: string;
 };
 
 export type PurchaseOrderStatus = 'Issued' | 'Acknowledged' | 'Shipped' | 'Partially Delivered' | 'Delivered' | 'Cancelled' | 'Matched' | 'Mismatched' | 'On Hold';
@@ -277,8 +280,8 @@ export type GoodsReceiptNote = {
     id: string;
     transactionId: string;
     purchaseOrderId: string;
-    receivedBy: string; // User's name
-    receivedById: string; // User's ID
+    receivedBy: User; 
+    receivedById: string; 
     receivedDate: Date;
     items: ReceiptItem[];
     photos?: { name: string; url: string }[];
@@ -292,7 +295,7 @@ export type InvoiceItem = {
   totalPrice: number;
 };
 
-export type InvoiceStatus = 'Pending' | 'Approved for Payment' | 'Paid' | 'Disputed';
+export type InvoiceStatus = 'Pending' | 'Approved_for_Payment' | 'Paid' | 'Disputed';
 
 export type Invoice = {
   id: string;
@@ -306,6 +309,7 @@ export type Invoice = {
   documentUrl?: string;
   paymentDate?: Date;
   paymentReference?: string;
+  po?: PurchaseOrder;
 };
 
 
