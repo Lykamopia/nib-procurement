@@ -1,5 +1,5 @@
 
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, UserRole } from '@prisma/client';
 import { getInitialData } from '../src/lib/seed-data';
 import bcrypt from 'bcryptjs';
 
@@ -58,7 +58,7 @@ async function main() {
       data: {
           ...userData,
           password: hashedPassword,
-          role: userData.role.replace(/ /g, '_') as any,
+          role: userData.role.replace(/ /g, '_') as UserRole,
           department: user.departmentId ? { connect: { id: user.departmentId } } : undefined,
       },
     });
@@ -86,7 +86,7 @@ async function main() {
               email: vendorUser.email,
               password: hashedPassword,
               approvalLimit: vendorUser.approvalLimit,
-              role: vendorUser.role.replace(/ /g, '_') as any,
+              role: vendorUser.role.replace(/ /g, '_') as UserRole,
           }
       });
       
