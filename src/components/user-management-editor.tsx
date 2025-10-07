@@ -57,7 +57,7 @@ const userFormSchema = z.object({
   role: z.string().min(1, "Role is required."),
   departmentId: z.string().min(1, "Department is required."),
   password: z.string().min(8, "Password must be at least 8 characters."),
-  approvalLimit: z.coerce.number().min(0, "Approval limit must be a positive number."),
+  approvalLimit: z.coerce.number().min(0, "Approval limit must be a positive number.").optional(),
   managerId: z.string().optional(),
 });
 
@@ -90,6 +90,9 @@ export function UserManagementEditor() {
   });
   
   const availableRoles = Object.keys(rolePermissions).filter(role => role !== 'Vendor') as UserRole[];
+  
+  const selectedRole = form.watch('role');
+  const showApprovalFields = ['Procurement Officer', 'Approver', 'Admin', 'Committee'].includes(selectedRole);
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -123,6 +126,8 @@ export function UserManagementEditor() {
       const apiValues = {
         ...values,
         managerId: values.managerId === 'null' ? null : values.managerId,
+        // Ensure approvalLimit is a number, defaulting to 0 if not applicable/provided
+        approvalLimit: showApprovalFields ? values.approvalLimit || 0 : 0
       };
 
       const body = isEditing 
@@ -301,34 +306,39 @@ export function UserManagementEditor() {
                 <FormField control={form.control} name="password" render={({ field }) => ( <FormItem className="col-span-2"><FormLabel>Password</FormLabel><FormControl><Input type="password" placeholder={userToEdit ? "Leave blank to keep current password" : ""} {...field} /></FormControl><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name="role" render={({ field }) => ( <FormItem><FormLabel>Role</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select a role" /></SelectTrigger></FormControl><SelectContent>{availableRoles.map(role => <SelectItem key={role} value={role}>{role}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)} />
                 <FormField control={form.control} name="departmentId" render={({ field }) => ( <FormItem><FormLabel>Department</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select a department" /></SelectTrigger></FormControl><SelectContent>{departments.map(dept => <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)} />
-                <FormField control={form.control} name="approvalLimit" render={({ field }) => ( <FormItem><FormLabel>Approval Limit (ETB)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                <FormField
-                  control={form.control}
-                  name="managerId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Reports To / Manager</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value || 'null'}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select a manager" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="null">None</SelectItem>
-                          {users
-                            .filter((u) => u.id !== userToEdit?.id)
-                            .map((u) => (
-                              <SelectItem key={u.id} value={u.id}>
-                                {u.name}
-                              </SelectItem>
-                            ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                
+                {showApprovalFields && (
+                    <>
+                        <FormField control={form.control} name="approvalLimit" render={({ field }) => ( <FormItem><FormLabel>Approval Limit (ETB)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                        <FormField
+                        control={form.control}
+                        name="managerId"
+                        render={({ field }) => (
+                            <FormItem>
+                            <FormLabel>Reports To / Manager</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value || 'null'}>
+                                <FormControl>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select a manager" />
+                                </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                <SelectItem value="null">None</SelectItem>
+                                {users
+                                    .filter((u) => u.id !== userToEdit?.id)
+                                    .map((u) => (
+                                    <SelectItem key={u.id} value={u.id}>
+                                        {u.name}
+                                    </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                        />
+                    </>
+                )}
               </div>
               <DialogFooter>
                   <DialogClose asChild><Button type="button" variant="ghost">Cancel</Button></DialogClose>
