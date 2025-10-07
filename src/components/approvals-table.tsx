@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -44,6 +45,7 @@ import {
 import { Textarea } from './ui/textarea';
 import { Label } from './ui/label';
 import { RequisitionDetailsDialog } from './requisition-details-dialog';
+import { Badge } from './ui/badge';
 
 
 const PAGE_SIZE = 10;
@@ -63,14 +65,22 @@ export function ApprovalsTable() {
   const [actionType, setActionType] = useState<'approve' | 'reject' | null>(null);
 
   const fetchRequisitions = async () => {
+    if (!user) return;
     try {
       setLoading(true);
-      const response = await fetch('/api/requisitions?status=Pending_Approval');
-      if (!response.ok) {
+      const [pendingResponse, managerialResponse] = await Promise.all([
+          fetch('/api/requisitions?status=Pending_Approval'),
+          fetch(`/api/requisitions?status=Pending_Managerial_Approval&approverId=${user.id}`)
+      ]);
+      if (!pendingResponse.ok || !managerialResponse.ok) {
         throw new Error('Failed to fetch requisitions');
       }
-      const data: PurchaseRequisition[] = await response.json();
-      setRequisitions(data);
+      const pendingData: PurchaseRequisition[] = await pendingResponse.json();
+      const managerialData: PurchaseRequisition[] = await managerialResponse.json();
+      
+      const combinedData = [...pendingData, ...managerialData];
+
+      setRequisitions(combinedData);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'An unknown error occurred');
     } finally {
@@ -79,7 +89,7 @@ export function ApprovalsTable() {
   };
 
   useEffect(() => {
-    if (user && user.role === 'Approver') {
+    if (user?.role === 'Approver' || user?.approvalLimit) {
         fetchRequisitions();
     } else {
         setLoading(false);
@@ -100,13 +110,24 @@ export function ApprovalsTable() {
   const submitAction = async () => {
     if (!selectedRequisition || !actionType || !user) return;
     
-    const newStatus = actionType === 'approve' ? 'Approved' : 'Rejected';
+    // Determine the correct new status based on context
+    let newStatus = actionType === 'approve' ? 'Approved' : 'Rejected';
+    if (selectedRequisition.status === 'Pending Managerial Approval' && actionType === 'approve') {
+        // This logic will be handled on the backend, for now we just approve
+    }
+
 
     try {
       const response = await fetch(`/api/requisitions`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: selectedRequisition.id, status: newStatus, userId: user.id, comment }),
+        body: JSON.stringify({ 
+            id: selectedRequisition.id, 
+            status: newStatus, 
+            userId: user.id, 
+            comment,
+            isManagerialApproval: selectedRequisition.status === 'Pending Managerial Approval'
+        }),
       });
       if (!response.ok) throw new Error(`Failed to ${actionType} requisition`);
       toast({
@@ -144,7 +165,7 @@ export function ApprovalsTable() {
       <CardHeader>
         <CardTitle>Pending Approvals</CardTitle>
         <CardDescription>
-          Review and act on requisitions waiting for your approval.
+          Review and act on items waiting for your approval.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -156,6 +177,7 @@ export function ApprovalsTable() {
                 <TableHead>Req. ID</TableHead>
                 <TableHead>Title</TableHead>
                 <TableHead>Requester</TableHead>
+                <TableHead>Type</TableHead>
                 <TableHead>Created At</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
@@ -168,6 +190,13 @@ export function ApprovalsTable() {
                       <TableCell className="font-medium text-primary">{req.id}</TableCell>
                       <TableCell>{req.title}</TableCell>
                       <TableCell>{req.requesterName}</TableCell>
+                      <TableCell>
+                          {req.status === 'Pending Managerial Approval' ? (
+                              <Badge variant="destructive">Award Approval</Badge>
+                          ) : (
+                              <Badge variant="secondary">Requisition Approval</Badge>
+                          )}
+                      </TableCell>
                       <TableCell>{format(new Date(req.createdAt), 'PP')}</TableCell>
                       <TableCell>
                       <div className="flex gap-2">
@@ -186,12 +215,12 @@ export function ApprovalsTable() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={6} className="h-48 text-center">
+                  <TableCell colSpan={7} className="h-48 text-center">
                     <div className="flex flex-col items-center gap-4">
                       <Inbox className="h-16 w-16 text-muted-foreground/50" />
                       <div className="space-y-1">
                         <p className="font-semibold">All caught up!</p>
-                        <p className="text-muted-foreground">No requisitions are currently pending your approval.</p>
+                        <p className="text-muted-foreground">No items are currently pending your approval.</p>
                       </div>
                     </div>
                   </TableCell>
@@ -249,10 +278,10 @@ export function ApprovalsTable() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {actionType === 'approve' ? 'Approve' : 'Reject'} Requisition: {selectedRequisition?.id}
+              {actionType === 'approve' ? 'Approve' : 'Reject'} Item: {selectedRequisition?.id}
             </DialogTitle>
             <DialogDescription>
-                You are about to {actionType} this requisition. Please provide a comment for this action.
+                You are about to {actionType} this item. Please provide a comment for this action.
             </DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-4">

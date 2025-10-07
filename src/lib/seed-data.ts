@@ -1,4 +1,5 @@
 
+
 import type { PurchaseRequisition, AuditLog, Vendor, Quotation, PurchaseOrder, GoodsReceiptNote, Invoice, User, Department } from './types';
 
 export interface AppData {
@@ -220,17 +221,18 @@ const seedData: AppData = {
     goodsReceipts: [],
     invoices: [],
     users: [
-        { id: '1', name: 'Alice', email: 'alice@example.com', password: 'password123', role: 'Requester', departmentId: 'DEPT-1', department: 'Design' },
-        { id: '2', name: 'Bob', email: 'bob@example.com', password: 'password123', role: 'Approver', departmentId: 'DEPT-2', department: 'Operations' },
-        { id: '3', name: 'Charlie', email: 'charlie@example.com', password: 'password123', role: 'Procurement Officer', departmentId: 'DEPT-2', department: 'Operations' },
-        { id: '4', name: 'David', email: 'david@example.com', password: 'password123', role: 'Receiving', departmentId: 'DEPT-2', department: 'Operations' },
-        { id: '5', name: 'Eve', email: 'eve@example.com', password: 'password123', role: 'Finance', departmentId: 'DEPT-5', department: 'Finance' },
-        { id: '6', name: 'Apple Inc.', email: 'tade2024bdugit@gmail.com', password: 'password123', role: 'Vendor', vendorId: 'VENDOR-001' },
-        { id: '7', name: 'Dell Technologies', email: 'tade2024bdulin@gmail.com', password: 'password123', role: 'Vendor', vendorId: 'VENDOR-002' },
-        { id: '8', name: 'Office Depot', email: 'vendor@officedepot.com', password: 'password123', role: 'Vendor', vendorId: 'VENDOR-003' },
-        { id: '9', name: 'Fiona', email: 'fiona@example.com', password: 'password123', role: 'Committee Member', departmentId: 'DEPT-1', department: 'Design' },
-        { id: '10', name: 'George', email: 'george@example.com', password: 'password123', role: 'Committee Member', departmentId: 'DEPT-3', department: 'IT' },
-        { id: '11', name: 'Hannah', email: 'hannah@example.com', password: 'password123', role: 'Committee', departmentId: 'DEPT-2', department: 'Operations' },
+        { id: '1', name: 'Alice', email: 'alice@example.com', password: 'password123', role: 'Requester', departmentId: 'DEPT-1', department: 'Design', approvalLimit: 0 },
+        { id: '2', name: 'Bob', email: 'bob@example.com', password: 'password123', role: 'Approver', departmentId: 'DEPT-2', department: 'Operations', approvalLimit: 10000, managerId: '12' },
+        { id: '3', name: 'Charlie', email: 'charlie@example.com', password: 'password123', role: 'Procurement Officer', departmentId: 'DEPT-2', department: 'Operations', approvalLimit: 50000, managerId: '12' },
+        { id: '4', name: 'David', email: 'david@example.com', password: 'password123', role: 'Receiving', departmentId: 'DEPT-2', department: 'Operations', approvalLimit: 0 },
+        { id: '5', name: 'Eve', email: 'eve@example.com', password: 'password123', role: 'Finance', departmentId: 'DEPT-5', department: 'Finance', approvalLimit: 0 },
+        { id: '6', name: 'Apple Inc.', email: 'tade2024bdugit@gmail.com', password: 'password123', role: 'Vendor', vendorId: 'VENDOR-001', approvalLimit: 0 },
+        { id: '7', name: 'Dell Technologies', email: 'tade2024bdulin@gmail.com', password: 'password123', role: 'Vendor', vendorId: 'VENDOR-002', approvalLimit: 0 },
+        { id: '8', name: 'Office Depot', email: 'vendor@officedepot.com', password: 'password123', role: 'Vendor', vendorId: 'VENDOR-003', approvalLimit: 0 },
+        { id: '9', name: 'Fiona', email: 'fiona@example.com', password: 'password123', role: 'Committee Member', departmentId: 'DEPT-1', department: 'Design', approvalLimit: 0 },
+        { id: '10', name: 'George', email: 'george@example.com', password: 'password123', role: 'Committee Member', departmentId: 'DEPT-3', department: 'IT', approvalLimit: 0 },
+        { id: '11', name: 'Hannah', email: 'hannah@example.com', password: 'password123', role: 'Committee', departmentId: 'DEPT-2', department: 'Operations', approvalLimit: 0 },
+        { id: '12', name: 'Diana', email: 'diana@example.com', password: 'password123', role: 'Admin', departmentId: 'DEPT-2', department: 'Operations', approvalLimit: 1000000 },
     ],
     departments: [
         { id: 'DEPT-1', name: 'Design' },

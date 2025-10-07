@@ -26,6 +26,8 @@ export type User = {
   department?: string;
   departmentId?: string;
   committeeAssignments?: CommitteeAssignment[];
+  approvalLimit?: number;
+  managerId?: string;
 };
 
 export type Department = {
@@ -41,7 +43,8 @@ export type RequisitionStatus =
   | 'RFQ In Progress'
   | 'PO Created'
   | 'Fulfilled'
-  | 'Closed';
+  | 'Closed'
+  | 'Pending Managerial Approval';
 
 export type RequisitionItem = {
   id: string; // Will be UUID
@@ -108,6 +111,7 @@ export type PurchaseRequisition = {
   updatedAt: Date;
   approverId?: string;
   approverComment?: string;
+  currentApproverId?: string;
   quotations?: Quotation[];
   contract?: {
       fileName: string;

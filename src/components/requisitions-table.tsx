@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -183,6 +184,8 @@ export function RequisitionsTable() {
         return 'default';
       case 'Pending Approval':
         return 'secondary';
+      case 'Pending Managerial Approval':
+        return 'secondary';
       case 'Rejected':
         return 'destructive';
       case 'Draft':
@@ -223,6 +226,7 @@ export function RequisitionsTable() {
               <SelectItem value="all">All Statuses</SelectItem>
               <SelectItem value="Draft">Draft</SelectItem>
               <SelectItem value="Pending_Approval">Pending Approval</SelectItem>
+              <SelectItem value="Pending_Managerial_Approval">Pending Managerial Approval</SelectItem>
               <SelectItem value="Approved">Approved</SelectItem>
               <SelectItem value="Rejected">Rejected</SelectItem>
               <SelectItem value="PO_Created">PO Created</SelectItem>
