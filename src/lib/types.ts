@@ -1,5 +1,4 @@
 
-
 export type RoleName =
   | 'Requester'
   | 'Approver'
@@ -16,7 +15,7 @@ export type CommitteeAssignment = {
   scoresSubmitted: boolean;
 }
 
-export type PermissionAction = 'VIEW' | 'CREATE' | 'EDIT' | 'DELETE' | 'APPROVE' | 'REJECT' | 'SUBMIT' | 'VERIFY' | 'SEND' | 'MANAGE' | 'FINALIZE_SCORES' | 'SCORE' | 'SUBMIT_SCORES' | 'PROCESS';
+export type PermissionAction = 'VIEW' | 'CREATE' | 'EDIT' | 'DELETE' | 'APPROVE' | 'REJECT' | 'SUBMIT' | 'VERIFY' | 'SEND' | 'MANAGE' | 'PROCESS' | 'FINALIZE_SCORES' | 'SCORE' | 'SUBMIT_SCORES';
 export type PermissionSubject = 'DASHBOARD' | 'REQUISITIONS' | 'APPROVALS' | 'VENDORS' | 'QUOTATIONS' | 'CONTRACTS' | 'PURCHASE_ORDERS' | 'INVOICES' | 'GOODS_RECEIPT' | 'RECORDS' | 'AUDIT_LOG' | 'SETTINGS' | 'REQUISITION' | 'VENDOR' | 'RFQ' | 'COMMITTEE' | 'PAYMENT' | 'PERMISSIONS' | 'QUOTATION';
 
 export type Permission = {
