@@ -106,40 +106,28 @@ export default function AppLayout({
   // Page-level access check
   useEffect(() => {
     if (!loading && role) {
-      if (role === 'Vendor') {
-          return;
-      }
-
       const currentPath = pathname.split('?')[0];
       const allowedPaths = rolePermissions[role] || [];
       
-      const isAllowed = allowedPaths.includes(currentPath) || 
-                        allowedPaths.some(path => path.includes('[') && currentPath.startsWith(path.split('[')[0]));
+      const isAllowed = 
+        allowedPaths.includes(currentPath) || 
+        allowedPaths.some(p => p.includes('[') && currentPath.startsWith(p.split('[')[0]));
 
       if (!isAllowed) {
-        const defaultPath = allowedPaths.includes('/dashboard') ? '/dashboard' : allowedPaths[0];
-        if(defaultPath) {
-          console.log(`Redirecting to default path: ${defaultPath}`);
+        // Find the default path for the role, which is usually the first one or dashboard
+        const defaultPath = allowedPaths.includes('/dashboard') 
+          ? '/dashboard' 
+          : allowedPaths.length > 0 ? allowedPaths[0] : null;
+
+        if (defaultPath) {
           router.push(defaultPath);
         } else {
-           console.log(`No default path, redirecting to login.`);
-           router.push('/login');
+          // If no default path, logout or redirect to an error page
+          logout();
         }
       }
     }
-  }, [pathname, loading, role, router]);
-
-  const pageTitle = useMemo(() => {
-     const currentNavItem = navItems.find(item => {
-      // Handle dynamic routes like /purchase-orders/[id]
-      if (item.path.includes('[')) {
-        const basePath = item.path.split('/[')[0];
-        return pathname.startsWith(basePath);
-      }
-      return pathname === item.path;
-    });
-    return currentNavItem?.label || 'Nib InternationalBank';
-  }, [pathname]);
+  }, [pathname, loading, role, router, logout]);
 
   if (loading || !user || !role) {
     return (
