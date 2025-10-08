@@ -7,6 +7,7 @@ const prisma = new PrismaClient();
 
 async function main() {
   console.log(`Clearing existing data...`);
+  // Manually define the order of deletion to respect foreign key constraints
   await prisma.auditLog.deleteMany({});
   await prisma.receiptItem.deleteMany({});
   await prisma.goodsReceiptNote.deleteMany({});
@@ -30,9 +31,11 @@ async function main() {
   await prisma.contract.deleteMany({});
   await prisma.purchaseRequisition.deleteMany({});
   await prisma.kYC_Document.deleteMany({});
+  await prisma.user.deleteMany({}); // Users before vendors if vendors have user relations
   await prisma.vendor.deleteMany({});
-  await prisma.user.deleteMany({});
   await prisma.department.deleteMany({});
+  await prisma.permission.deleteMany({});
+  await prisma.role.deleteMany({});
   console.log('Existing data cleared.');
 
   console.log(`Start seeding ...`);
@@ -40,6 +43,14 @@ async function main() {
   const seedData = getInitialData();
   const allDepartments = seedData.departments;
 
+  // --- Seed Roles and Permissions ---
+  const allRoleNames = [...new Set(seedData.users.map(u => u.role))];
+  for (const roleName of allRoleNames) {
+    await prisma.role.create({
+      data: { name: roleName }
+    });
+  }
+  console.log('Seeded roles.');
 
   // Seed Departments
   for (const department of seedData.departments) {
@@ -51,14 +62,14 @@ async function main() {
 
   // Seed non-vendor users first
   for (const user of seedData.users.filter(u => u.role !== 'Vendor')) {
-    const { committeeAssignments, departmentId, department, vendorId, password, managerId, ...userData } = user;
+    const { committeeAssignments, departmentId, department, vendorId, password, managerId, role, ...userData } = user;
     const hashedPassword = await bcrypt.hash(password || 'password123', 10);
 
     await prisma.user.create({
       data: {
           ...userData,
           password: hashedPassword,
-          role: userData.role.replace(/ /g, '_') as any,
+          role: { connect: { name: role } },
           department: user.departmentId ? { connect: { id: user.departmentId } } : undefined,
       },
     });
@@ -97,7 +108,7 @@ async function main() {
               email: vendorUser.email,
               password: hashedPassword,
               approvalLimit: vendorUser.approvalLimit,
-              role: vendorUser.role.replace(/ /g, '_') as any,
+              role: { connect: { name: vendorUser.role } },
           }
       });
       
@@ -105,7 +116,7 @@ async function main() {
     const createdVendor = await prisma.vendor.create({
       data: {
           ...vendorData,
-          userId: createdUser.id, // Explicitly set the foreign key
+          userId: createdUser.id,
           kycStatus: vendorData.kycStatus.replace(/ /g, '_') as any,
           user: { connect: { id: createdUser.id } }
       },
@@ -147,8 +158,6 @@ async function main() {
           committeeMemberIds, // old field, remove it
           ...reqData 
       } = requisition;
-
-      const departmentRecord = allDepartments.find(d => d.name === department);
 
       const createdRequisition = await prisma.purchaseRequisition.create({
           data: {
@@ -328,7 +337,6 @@ async function main() {
   // Seed Audit Logs
   for (const log of seedData.auditLogs) {
     const userForLog = seedData.users.find(u => u.name === log.user);
-    // Exclude user and role from logData as they are not direct fields on the model
     const { user, role, ...logData } = log;
     await prisma.auditLog.create({
       data: {
