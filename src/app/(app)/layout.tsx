@@ -91,8 +91,11 @@ export default function AppLayout({
   useEffect(() => {
     if (!loading && !user) {
       router.push('/login');
+    } else if (!loading && user && roleName === 'Vendor') {
+      // If a vendor somehow gets to this layout, redirect them.
+      router.push('/vendor/dashboard');
     }
-  }, [user, loading, router]);
+  }, [user, loading, roleName, router]);
   
   // Page-level access check
   useEffect(() => {
@@ -128,7 +131,7 @@ export default function AppLayout({
     return currentNavItem?.label || 'Nib InternationalBank';
   }, [pathname]);
 
-  if (loading || !user || !roleName) {
+  if (loading || !user || !roleName || roleName === 'Vendor') {
     return (
       <div className="flex h-screen w-full items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
