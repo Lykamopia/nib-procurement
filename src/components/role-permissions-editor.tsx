@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Card,
   CardContent,
@@ -19,6 +19,7 @@ import { Permission, Role, PermissionAction, PermissionSubject } from '@/lib/typ
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './ui/accordion';
 import { useAuth } from '@/contexts/auth-context';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
+import { useMemo } from 'react';
 
 type PermissionsState = Record<string, { [key: string]: { [key: string]: boolean } }>;
 
