@@ -11,8 +11,9 @@ export default function HomePage() {
   const router = useRouter();
 
   useEffect(() => {
+    // Only redirect when loading is completely finished and we have a definitive user state.
     if (!loading) {
-      if (user) {
+      if (user && role) {
         if (role === 'Vendor') {
           router.push('/vendor/dashboard');
         } else {
