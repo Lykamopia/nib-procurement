@@ -1,21 +1,21 @@
 
 import { PrismaClient, UserRole } from '@prisma/client';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import { getInitialData } from '../src/lib/seed-data';
 
 const prisma = new PrismaClient();
 
 async function main() {
   const roleStringToEnum: { [key: string]: UserRole } = {
-    'Requester': UserRole.Requester,
-    'Approver': UserRole.Approver,
-    'Procurement Officer': UserRole.Procurement_Officer,
-    'Finance': UserRole.Finance,
-    'Admin': UserRole.Admin,
-    'Receiving': UserRole.Receiving,
-    'Vendor': UserRole.Vendor,
-    'Committee Member': UserRole.Committee_Member,
-    'Committee': UserRole.Committee,
+    'Requester': 'Requester',
+    'Approver': 'Approver',
+    'Procurement Officer': 'Procurement_Officer',
+    'Finance': 'Finance',
+    'Admin': 'Admin',
+    'Receiving': 'Receiving',
+    'Vendor': 'Vendor',
+    'Committee Member': 'Committee_Member',
+    'Committee': 'Committee',
   };
   
   console.log(`Clearing existing data...`);
