@@ -5,18 +5,6 @@ import { getInitialData } from '../src/lib/seed-data';
 
 const prisma = new PrismaClient();
 
-const roleStringToEnum: { [key: string]: UserRole } = {
-  'Requester': UserRole.Requester,
-  'Approver': UserRole.Approver,
-  'Procurement Officer': UserRole.Procurement_Officer,
-  'Finance': UserRole.Finance,
-  'Admin': UserRole.Admin,
-  'Receiving': UserRole.Receiving,
-  'Vendor': UserRole.Vendor,
-  'Committee Member': UserRole.Committee_Member,
-  'Committee': UserRole.Committee,
-};
-
 async function main() {
   console.log(`Clearing existing data...`);
   await prisma.auditLog.deleteMany({});
@@ -48,6 +36,18 @@ async function main() {
   console.log('Existing data cleared.');
 
   console.log(`Start seeding ...`);
+  
+  const roleStringToEnum: { [key: string]: UserRole } = {
+    'Requester': UserRole.Requester,
+    'Approver': UserRole.Approver,
+    'Procurement Officer': UserRole.Procurement_Officer,
+    'Finance': UserRole.Finance,
+    'Admin': UserRole.Admin,
+    'Receiving': UserRole.Receiving,
+    'Vendor': UserRole.Vendor,
+    'Committee Member': UserRole.Committee_Member,
+    'Committee': UserRole.Committee,
+  };
 
   const seedData = getInitialData();
   const allDepartments = seedData.departments;
