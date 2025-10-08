@@ -105,9 +105,13 @@ async function main() {
   const createdPermissions = await prisma.permission.findMany();
   const permissionMap = new Map(createdPermissions.map(p => [`${p.action}_${p.subject}`, p.id]));
   
-  const getPermissionId = (action: PermissionAction, subject: PermissionSubject) => {
-      const id = permissionMap.get(`${action}_${subject}`);
-      if (!id) throw new Error(`Permission not found: ${action} on ${subject}`);
+  const getPermissionId = (action: PermissionAction, subject: PermissionSubject): string | null => {
+      const key = `${action}_${subject}`;
+      const id = permissionMap.get(key);
+      if (!id) {
+          console.warn(`Warning: Permission not found for ${action} on ${subject}. Skipping.`);
+          return null;
+      }
       return id;
   }
 
@@ -183,10 +187,19 @@ async function main() {
       await prisma.role.create({ data: { name: roleName } });
       const perms = rolePermissionsMap[roleName];
       if (perms && perms.length > 0) {
-        const permissionsToLink = perms.map(p => ({
-            roleName: roleName,
-            permissionId: getPermissionId(p.action, p.subject),
-        }));
+        const permissionsToLink = perms
+            .map(p => {
+                const permissionId = getPermissionId(p.action, p.subject);
+                if (permissionId) {
+                    return {
+                        roleName: roleName,
+                        permissionId: permissionId,
+                    };
+                }
+                return null;
+            })
+            .filter((p): p is { roleName: UserRole; permissionId: string } => p !== null);
+
         await prisma.permissionsOnRoles.createMany({
             data: permissionsToLink,
             skipDuplicates: true
