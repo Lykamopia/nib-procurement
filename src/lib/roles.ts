@@ -58,11 +58,6 @@ export const rolePermissions: Record<UserRole, string[]> = {
     '/audit-log',
     '/settings',
   ],
-  Committee: [
-    '/dashboard',
-    '/quotations',
-    '/records',
-  ],
   Requester: [
     '/dashboard',
     '/new-requisition',
@@ -92,4 +87,10 @@ export const rolePermissions: Record<UserRole, string[]> = {
     '/quotations',
     '/records'
   ],
+  'Committee': [
+    '/dashboard',
+    '/quotations',
+    '/records',
+    '/requisitions'
+  ]
 };

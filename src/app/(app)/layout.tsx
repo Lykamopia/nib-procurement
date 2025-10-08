@@ -54,11 +54,11 @@ export default function AppLayout({
         }
         // Hide audit log unless Procurement Officer
         if (item.path === '/audit-log') {
-            return role === 'Procurement Officer';
+            return role === 'Procurement Officer' || role === 'Admin';
         }
         // Hide contracts unless Procurement Officer
         if (item.path === '/contracts') {
-            return role === 'Procurement Officer';
+            return role === 'Procurement Officer' || role === 'Admin';
         }
         return allowedPaths.includes(item.path);
     });
@@ -111,7 +111,7 @@ export default function AppLayout({
       
       const isAllowed = 
         allowedPaths.includes(currentPath) || 
-        allowedPaths.some(p => p.includes('[') && currentPath.startsWith(p.split('[')[0]));
+        allowedPaths.some(p => p.includes('[id]') && currentPath.startsWith(p.split('[id]')[0]));
 
       if (!isAllowed) {
         // Find the default path for the role, which is usually the first one or dashboard
