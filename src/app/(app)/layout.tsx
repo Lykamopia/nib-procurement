@@ -87,49 +87,57 @@ export default function AppLayout({
     };
   }, [user, handleLogout]);
 
+  // This is the primary authorization and routing effect for this layout.
   useEffect(() => {
-    if (!loading && !user) {
+    if (loading) {
+      return; // Do nothing while auth state is loading
+    }
+
+    if (!user) {
+      // If no user, redirect to login
       router.push('/login');
-    } else if (!loading && user && roleName === 'Vendor') {
-      // If a vendor somehow gets to this layout, redirect them.
+      return;
+    }
+
+    if (roleName === 'Vendor') {
+      // If a vendor lands here, redirect them to their correct dashboard
       router.push('/vendor/dashboard');
+      return;
     }
-  }, [user, loading, roleName, router]);
-  
-  // Page-level access check
-  useEffect(() => {
-    if (!loading && roleName) {
-      if (roleName === 'Vendor') {
-          return;
-      }
+    
+    // Page-level access check
+    const currentPath = pathname.split('?')[0];
+    const subject = (currentPath === '/' || currentPath === '/dashboard')
+      ? 'DASHBOARD'
+      : currentPath.split('/')[1]?.toUpperCase();
+    
+    if (!subject) return;
 
-      const currentPath = pathname.split('?')[0];
-      // Normalize to handle root path
-      const subject = currentPath === '/' || currentPath === '/dashboard' 
-          ? 'DASHBOARD' 
-          : currentPath.split('/')[1]?.toUpperCase();
+    if (!can('VIEW', subject as any)) {
+      // User is on a page they don't have access to.
+      // Find the first accessible page to redirect to.
+      const defaultPath = accessibleNavItems.find(item => item.path === '/dashboard') 
+          ? '/dashboard' 
+          : accessibleNavItems[0]?.path;
       
-      if (!subject) return;
-
-      const isAllowed = can('VIEW', subject as any);
-
-      if (!isAllowed) {
-        // Find the first accessible page to redirect to
-        const defaultPath = accessibleNavItems.find(item => item.path === '/dashboard') 
-            ? '/dashboard' 
-            : accessibleNavItems[0]?.path;
-        
-        if (defaultPath) {
-          router.push(defaultPath);
-        } else {
-           // If no pages are accessible, logout
-           toast({ title: 'No Permissions', description: 'You do not have access to any pages. Logging out.', variant: 'destructive'});
-           logout();
-        }
+      if (defaultPath && defaultPath !== currentPath) {
+        toast({
+            title: 'Access Denied',
+            description: "You do not have permission to view this page. Redirecting...",
+            variant: 'destructive'
+        });
+        router.push(defaultPath);
+      } else if (!defaultPath) {
+         // If no pages are accessible at all, logout
+         toast({ title: 'No Permissions', description: 'You do not have access to any pages. Logging out.', variant: 'destructive'});
+         logout();
       }
     }
-  }, [pathname, loading, roleName, router, can, accessibleNavItems, logout, toast]);
+  }, [pathname, loading, user, roleName, router, can, accessibleNavItems, logout, toast]);
 
+
+  // Show a loading spinner while the auth state is being determined.
+  // Also covers the case where a vendor is being redirected away.
   if (loading || !user || !roleName || roleName === 'Vendor') {
     return (
       <div className="flex h-screen w-full items-center justify-center">

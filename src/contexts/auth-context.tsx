@@ -49,6 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (storedToken) {
             const userPayload = await getUserByToken(storedToken);
             if (userPayload) {
+                // Fetch the full user object from the API to ensure all relations (like role with permissions) are loaded.
                 const response = await fetch(`/api/users/${userPayload.user.id}`);
                 if (response.ok) {
                     const fullUser = await response.json();
@@ -56,7 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     setToken(storedToken);
                     setRole(fullUser.role);
                 } else {
-                     throw new Error('Failed to fetch full user details');
+                     throw new Error('Failed to fetch full user details during initialization');
                 }
             } else {
                 throw new Error('Invalid token found in storage');
@@ -64,7 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
     } catch (error) {
         console.error("Auth initialization failed:", error);
-        localStorage.clear();
+        localStorage.clear(); // Clear bad auth data
         setUser(null);
         setToken(null);
         setRole(null);
@@ -78,19 +79,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = (newToken: string, loggedInUser: User) => {
     localStorage.setItem('authToken', newToken);
-    localStorage.setItem('user', JSON.stringify(loggedInUser));
+    // Don't store the full user in localStorage, it can become stale. The token is the source of truth.
     setToken(newToken);
     setUser(loggedInUser);
-    setRole(loggedInUser.role); // Directly set the role object from the loggedInUser
+    setRole(loggedInUser.role);
   };
 
   const logout = () => {
     localStorage.removeItem('authToken');
-    localStorage.removeItem('user');
     setToken(null);
     setUser(null);
     setRole(null);
-    window.location.href = '/login';
+    window.location.href = '/login'; // Force a full redirect to clear all state
   };
   
   const switchUser = async (userId: string) => {
@@ -106,7 +106,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             if(response.ok) {
                 const result = await response.json();
                 login(result.token, result.user);
-                window.location.href = '/';
+                window.location.href = '/'; // Redirect to home to trigger new layout logic
             } else {
                 console.error("Failed to switch user via login API.");
             }

@@ -266,9 +266,11 @@ export function Dashboard({ setActiveView }: DashboardProps) {
           </div>
         );
       case 'Procurement_Officer':
+      case 'Admin':
+      case 'Committee':
         return <ProcurementOfficerDashboard setActiveView={setActiveView} />;
       default:
-        return <p>No dashboard available for this role.</p>;
+        return <p>No dashboard available for your role: {roleName}</p>;
     }
   };
 
