@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -56,6 +55,7 @@ import { useRouter } from 'next/navigation';
 import { RequisitionDetailsDialog } from './requisition-details-dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from './ui/alert-dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from './ui/dropdown-menu';
+import { usePermissions } from '@/hooks/use-permissions';
 
 
 const PAGE_SIZE = 10;
@@ -67,6 +67,7 @@ export function RequisitionsTable() {
   const { user, role } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
+  const { can } = usePermissions();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string | 'all'>('all');
@@ -108,7 +109,7 @@ export function RequisitionsTable() {
         title: "Success",
         description: `Requisition ${id} submitted for approval.`,
       });
-      fetchRequisitions(); // Re-fetch data to update the table
+      fetchRequisitions(); 
     } catch (error) {
       toast({
         variant: 'destructive',
@@ -123,7 +124,7 @@ export function RequisitionsTable() {
     try {
         const response = await fetch(`/api/requisitions/${id}`, {
             method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
             body: JSON.stringify({ userId: user.id }),
         });
         if (!response.ok) {
@@ -152,12 +153,10 @@ export function RequisitionsTable() {
   const filteredRequisitions = useMemo(() => {
     let filtered = requisitions;
 
-    // Apply role-based filtering first
-    if (role === 'Requester' && user) {
+    if (role?.name === 'Requester' && user) {
         filtered = filtered.filter(req => req.requesterId === user.id);
     }
 
-    // Apply other filters
     return filtered
       .filter(req => {
         const lowerCaseSearch = searchTerm.toLowerCase();
@@ -310,19 +309,19 @@ export function RequisitionsTable() {
                               <Eye className="mr-2 h-4 w-4" />
                               View Details
                             </DropdownMenuItem>
-                            {req.requesterId === user?.id && (req.status === 'Draft' || req.status === 'Rejected') && (
+                            {can('EDIT', 'REQUISITION') && req.requesterId === user?.id && (req.status === 'Draft' || req.status === 'Rejected') && (
                               <DropdownMenuItem onClick={() => router.push(`/requisitions/${req.id}/edit`)}>
                                 <FileEdit className="mr-2 h-4 w-4" />
                                 Edit
                               </DropdownMenuItem>
                             )}
-                            {req.status === 'Draft' && req.requesterId === user?.id && (
+                            {can('SUBMIT', 'REQUISITION') && req.status === 'Draft' && req.requesterId === user?.id && (
                               <DropdownMenuItem onClick={() => handleSubmitForApproval(req.id)}>
                                 <Send className="mr-2 h-4 w-4" />
                                 Submit for Approval
                               </DropdownMenuItem>
                             )}
-                            {(req.status === 'Draft' || req.status === 'Pending_Approval') && req.requesterId === user?.id && (
+                            {can('DELETE', 'REQUISITION') && (req.status === 'Draft' || req.status === 'Pending_Approval') && req.requesterId === user?.id && (
                               <>
                                 <DropdownMenuSeparator />
                                  <AlertDialog>

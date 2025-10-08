@@ -1,5 +1,5 @@
 
-import { UserRole } from './types';
+import { RoleName } from './types';
 import {
   LayoutDashboard,
   FilePlus,
@@ -15,7 +15,6 @@ import {
   Archive,
   History,
   Settings,
-  Wallet,
 } from 'lucide-react';
 import { ComponentType } from 'react';
 
@@ -42,8 +41,10 @@ export const navItems: NavItem[] = [
   { path: '/settings', label: 'Settings', icon: Settings },
 ];
 
-export const rolePermissions: Record<UserRole, string[]> = {
-  Admin: navItems.map(item => item.path), // Admin has access to all pages
+// This is now DEPRECATED and will be removed.
+// Permissions are now seeded and managed in the database.
+export const rolePermissions: Record<RoleName, string[]> = {
+  Admin: navItems.map(item => item.path),
   'Procurement Officer': [
     '/dashboard',
     '/new-requisition',
@@ -86,7 +87,7 @@ export const rolePermissions: Record<UserRole, string[]> = {
     '/receive-goods',
     '/records',
   ],
-  Vendor: [], // Vendor has a separate layout, no access to the main app layout
+  Vendor: [],
   'Committee Member': [
     '/dashboard',
     '/quotations',

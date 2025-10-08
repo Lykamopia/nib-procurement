@@ -1,6 +1,6 @@
 
 
-export type UserRole =
+export type RoleName =
   | 'Requester'
   | 'Approver'
   | 'Procurement Officer'
@@ -16,16 +16,19 @@ export type CommitteeAssignment = {
   scoresSubmitted: boolean;
 }
 
+export type PermissionAction = 'VIEW' | 'CREATE' | 'EDIT' | 'DELETE' | 'APPROVE' | 'REJECT' | 'SUBMIT' | 'VERIFY' | 'SEND' | 'MANAGE' | 'FINALIZE_SCORES' | 'SCORE' | 'SUBMIT_SCORES' | 'PROCESS';
+export type PermissionSubject = 'DASHBOARD' | 'REQUISITIONS' | 'APPROVALS' | 'VENDORS' | 'QUOTATIONS' | 'CONTRACTS' | 'PURCHASE_ORDERS' | 'INVOICES' | 'GOODS_RECEIPT' | 'RECORDS' | 'AUDIT_LOG' | 'SETTINGS' | 'REQUISITION' | 'VENDOR' | 'RFQ' | 'COMMITTEE' | 'PAYMENT' | 'PERMISSIONS';
+
 export type Permission = {
-    id: string;
-    action: string;
-    subject: string;
-    conditions?: any;
+  id: string;
+  action: PermissionAction;
+  subject: PermissionSubject;
+  description?: string;
 };
   
 export type Role = {
     id: string;
-    name: string;
+    name: RoleName;
     permissions: Permission[];
 }
 
@@ -33,8 +36,8 @@ export type User = {
   id: string;
   name: string;
   email: string;
-  password?: string; // Should not be sent to client
-  role: Role; 
+  password?: string;
+  role: Role;
   vendorId?: string;
   department?: string;
   departmentId?: string;
@@ -60,7 +63,7 @@ export type RequisitionStatus =
   | 'Pending Managerial Approval';
 
 export type RequisitionItem = {
-  id: string; // Will be UUID
+  id: string; 
   name: string;
   description: string;
   quantity: number;
@@ -94,7 +97,6 @@ export type Contract = {
   createdAt: Date;
 }
 
-
 export type EvaluationCriterion = {
   id: string;
   name: string;
@@ -108,11 +110,10 @@ export type EvaluationCriteria = {
   technicalCriteria: EvaluationCriterion[];
 };
 
-
 export type PurchaseRequisition = {
-  id:string; // Will be UUID
+  id:string; 
   transactionId: string;
-  requesterId: string; // User ID
+  requesterId: string; 
   requesterName: string;
   title: string;
   department: string;
@@ -155,13 +156,13 @@ export type PurchaseRequisition = {
 };
 
 export type AuditLog = {
-  id: string; // Will be UUID
+  id: string; 
   transactionId: string;
   timestamp: Date;
   user: string;
   role: string;
   action: string;
-  entity: string; // e.g., 'Requisition', 'PurchaseOrder'
+  entity: string; 
   entityId: string;
   details: string;
 };
@@ -279,7 +280,6 @@ export type PurchaseOrder = {
     invoices?: Invoice[];
 };
 
-
 export type ReceiptItem = {
     poItemId: string;
     name: string;
@@ -324,7 +324,6 @@ export type Invoice = {
   paymentReference?: string;
   po?: PurchaseOrder;
 };
-
 
 export type MatchingStatus = 'Matched' | 'Mismatched' | 'Pending';
 

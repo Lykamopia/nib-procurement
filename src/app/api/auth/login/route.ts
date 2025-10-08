@@ -4,7 +4,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
-import type { User, UserRole } from '@/lib/types';
+import type { User, RoleName } from '@/lib/types';
 
 export async function POST(request: Request) {
     try {
@@ -13,7 +13,11 @@ export async function POST(request: Request) {
         const user = await prisma.user.findUnique({
             where: { email },
             include: {
-                vendor: true,
+                role: {
+                    include: {
+                        permissions: true,
+                    },
+                },
                 department: true,
                 committeeAssignments: true,
             }
@@ -28,19 +32,15 @@ export async function POST(request: Request) {
             
             const finalUser = {
                 ...userWithoutPassword,
-                role: user.role.replace(/_/g, ' ') as UserRole,
                 department: user.department?.name
             };
 
-            // Create a more robust mock token
-            const userString = JSON.stringify(finalUser);
-            const base64User = Buffer.from(userString).toString('base64');
+            const base64User = Buffer.from(JSON.stringify({ id: finalUser.id, roleName: finalUser.role.name })).toString('base64');
             const mockToken = `mock-token-for-${base64User}__TS__${Date.now()}`;
 
             return NextResponse.json({ 
                 user: finalUser, 
-                token: mockToken, 
-                role: user.role.replace(/_/g, ' ') as UserRole 
+                token: mockToken,
             });
         }
         
@@ -51,5 +51,3 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'An internal server error occurred' }, { status: 500 });
     }
 }
-
-    

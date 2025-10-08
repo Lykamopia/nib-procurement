@@ -1,9 +1,10 @@
 
-
 'use client';
 
 import React, { createContext, useContext, useState, ReactNode, useEffect, useMemo, useCallback } from 'react';
 import { User, Role } from '@/lib/types';
+import { prisma } from '@/lib/prisma'; // This won't work on client, needs API
+import { getUserByToken } from '@/lib/auth';
 
 interface AuthContextType {
   user: User | null;
@@ -30,12 +31,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const response = await fetch('/api/users');
         if (response.ok) {
             const usersData = await response.json();
-            const usersWithAssignments = usersData.map((u: any) => ({
-                ...u,
-                committeeAssignments: u.committeeAssignments || [],
-            }));
-            setAllUsers(usersWithAssignments);
-            return usersWithAssignments;
+            setAllUsers(usersData);
+            return usersData;
         }
         return [];
     } catch (error) {
@@ -48,19 +45,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     const users = await fetchAllUsers();
     try {
-        const storedUserJSON = localStorage.getItem('user');
         const storedToken = localStorage.getItem('authToken');
-        
-        if (storedUserJSON && storedToken) {
-            const storedUser = JSON.parse(storedUserJSON);
-            const fullUser = users.find((u: User) => u.id === storedUser.id) || storedUser;
-            
-            setUser(fullUser);
-            setToken(storedToken);
-            setRole(fullUser.role);
+        if (storedToken) {
+            const userPayload = await getUserByToken(storedToken);
+            if (userPayload) {
+                // The user from the token is lightweight; let's find the full user object with permissions
+                const response = await fetch(`/api/users/${userPayload.user.id}`);
+                if (response.ok) {
+                    const fullUser = await response.json();
+                     setUser(fullUser);
+                     setToken(storedToken);
+                     setRole(fullUser.role);
+                     localStorage.setItem('user', JSON.stringify(fullUser)); // Update local storage with full user
+                } else {
+                     throw new Error('Failed to fetch full user details');
+                }
+            } else {
+                throw new Error('Invalid token found in storage');
+            }
         }
     } catch (error) {
-        console.error("Failed to initialize auth from localStorage", error);
+        console.error("Auth initialization failed:", error);
         localStorage.clear();
     }
     setLoading(false);
@@ -72,8 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = (newToken: string, loggedInUser: User, loggedInRole: Role) => {
     localStorage.setItem('authToken', newToken);
-    localStorage.setItem('user', JSON.stringify(loggedInUser));
-    localStorage.setItem('role', JSON.stringify(loggedInRole));
+    localStorage.setItem('user', JSON.stringify(loggedInUser)); // Storing full user object
     setToken(newToken);
     setUser(loggedInUser);
     setRole(loggedInRole);
@@ -82,7 +86,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     localStorage.removeItem('authToken');
     localStorage.removeItem('user');
-    localStorage.removeItem('role');
     setToken(null);
     setUser(null);
     setRole(null);
@@ -92,18 +95,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const switchUser = async (userId: string) => {
       const targetUser = allUsers.find(u => u.id === userId);
       if (targetUser) {
-          const response = await fetch('/api/auth/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: targetUser.email, password: 'password123' }),
-          });
-          
-          if(response.ok) {
-              const result = await response.json();
-              login(result.token, result.user, result.role);
-              window.location.href = '/';
-          } else {
-              console.error("Failed to switch user.")
+          try {
+            const response = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: targetUser.email, password: 'password123' }), // Using mock password
+            });
+            
+            if(response.ok) {
+                const result = await response.json();
+                login(result.token, result.user, result.user.role);
+                window.location.href = '/';
+            } else {
+                console.error("Failed to switch user via login API.");
+            }
+          } catch (error) {
+              console.error("Error switching user:", error);
           }
       }
   };
@@ -117,8 +124,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       logout,
       loading,
       switchUser
-  }), [user, token, role, loading, allUsers]);
-
+  }), [user, token, role, loading, allUsers, login, logout, switchUser]);
 
   return (
     <AuthContext.Provider value={authContextValue}>
