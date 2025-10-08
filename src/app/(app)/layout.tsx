@@ -111,7 +111,7 @@ export default function AppLayout({
       
       const isAllowed = 
         allowedPaths.includes(currentPath) || 
-        allowedPaths.some(p => p.includes('[id]') && currentPath.startsWith(p.split('[id]')[0]));
+        allowedPaths.some(p => currentPath.startsWith(p + '/') && p !== '/');
 
       if (!isAllowed) {
         // Find the default path for the role, which is usually the first one or dashboard
