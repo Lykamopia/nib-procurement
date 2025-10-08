@@ -219,7 +219,7 @@ async function main() {
       data: {
           ...userData,
           password: hashedPassword,
-          roleName: user.role as UserRole,
+          roleName: (user.role as string).replace(/ /g, '_') as UserRole,
           departmentId: user.departmentId || undefined,
       },
     });
@@ -256,7 +256,7 @@ async function main() {
               email: vendorUser.email,
               password: hashedPassword,
               approvalLimit: vendorUser.approvalLimit,
-              roleName: vendorUser.role as UserRole,
+              roleName: (vendorUser.role as string).replace(/ /g, '_') as UserRole,
           }
       });
       
@@ -416,5 +416,3 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
-
-    
