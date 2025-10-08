@@ -13,6 +13,8 @@ export default function HomePage() {
   useEffect(() => {
     if (!loading) {
       if (user) {
+        // The redirection logic is now handled by the layouts themselves.
+        // This page just determines the initial entry point.
         if (roleName === 'Vendor') {
           router.push('/vendor/dashboard');
         } else {

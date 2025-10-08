@@ -3,16 +3,15 @@
 
 import React, { createContext, useContext, useState, ReactNode, useEffect, useMemo, useCallback } from 'react';
 import { User, Role } from '@/lib/types';
-import { prisma } from '@/lib/prisma'; // This won't work on client, needs API
 import { getUserByToken } from '@/lib/auth';
 
 interface AuthContextType {
   user: User | null;
   token: string | null;
-  role: Role | null; // The full role object for permissions
-  roleName: string | null; // The simple string name for UI
+  role: Role | null;
+  roleName: string | null;
   allUsers: User[];
-  login: (token: string, user: User, role: Role) => void;
+  login: (token: string, user: User) => void;
   logout: () => void;
   loading: boolean;
   switchUser: (userId: string) => void;
@@ -50,14 +49,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (storedToken) {
             const userPayload = await getUserByToken(storedToken);
             if (userPayload) {
-                // The user from the token is lightweight; let's find the full user object with permissions
                 const response = await fetch(`/api/users/${userPayload.user.id}`);
                 if (response.ok) {
                     const fullUser = await response.json();
-                     setUser(fullUser);
-                     setToken(storedToken);
-                     setRole(fullUser.role);
-                     localStorage.setItem('user', JSON.stringify(fullUser)); // Update local storage with full user
+                    setUser(fullUser);
+                    setToken(storedToken);
+                    setRole(fullUser.role);
                 } else {
                      throw new Error('Failed to fetch full user details');
                 }
@@ -68,6 +65,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error) {
         console.error("Auth initialization failed:", error);
         localStorage.clear();
+        setUser(null);
+        setToken(null);
+        setRole(null);
     }
     setLoading(false);
   }, [fetchAllUsers]);
@@ -76,19 +76,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     initializeAuth();
   }, [initializeAuth]);
 
-  const login = (newToken: string, loggedInUser: User, loggedInRole: Role) => {
+  const login = (newToken: string, loggedInUser: User) => {
     localStorage.setItem('authToken', newToken);
     localStorage.setItem('user', JSON.stringify(loggedInUser));
-    localStorage.setItem('role', JSON.stringify(loggedInRole)); // Storing full role object
     setToken(newToken);
     setUser(loggedInUser);
-    setRole(loggedInRole);
+    setRole(loggedInUser.role); // Directly set the role object from the loggedInUser
   };
 
   const logout = () => {
     localStorage.removeItem('authToken');
     localStorage.removeItem('user');
-    localStorage.removeItem('role');
     setToken(null);
     setUser(null);
     setRole(null);
@@ -107,7 +105,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             
             if(response.ok) {
                 const result = await response.json();
-                login(result.token, result.user, result.user.role);
+                login(result.token, result.user);
                 window.location.href = '/';
             } else {
                 console.error("Failed to switch user via login API.");

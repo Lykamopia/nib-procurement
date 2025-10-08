@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -98,7 +97,7 @@ function ProcurementOfficerDashboard({ setActiveView }: { setActiveView: (view: 
     const stats = useMemo(() => {
         const openRequisitions = requisitions.filter(r => r.status !== 'Closed' && r.status !== 'Fulfilled').length;
         const pendingApprovals = requisitions.filter(r => r.status === 'Pending Approval').length;
-        const pendingPayments = invoices.filter(i => i.status === 'Approved for Payment').length;
+        const pendingPayments = invoices.filter(i => i.status === 'Approved_for_Payment').length;
 
         return { openRequisitions, pendingApprovals, pendingPayments };
     }, [requisitions, invoices]);
@@ -175,7 +174,7 @@ function ProcurementOfficerDashboard({ setActiveView }: { setActiveView: (view: 
                                         <TableCell className="font-medium">{req.id}</TableCell>
                                         <TableCell>{req.title}</TableCell>
                                         <TableCell>{req.requesterName}</TableCell>
-                                        <TableCell><Badge>{req.status}</Badge></TableCell>
+                                        <TableCell><Badge>{req.status.replace(/_/g, ' ')}</Badge></TableCell>
                                         <TableCell>{format(new Date(req.createdAt), 'PP')}</TableCell>
                                     </TableRow>
                                 ))}

@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -105,31 +104,31 @@ export default function AppLayout({
       }
 
       const currentPath = pathname.split('?')[0];
-      const subject = currentPath.split('/')[1]?.toUpperCase() || 'DASHBOARD';
+      // Normalize to handle root path
+      const subject = currentPath === '/' || currentPath === '/dashboard' 
+          ? 'DASHBOARD' 
+          : currentPath.split('/')[1]?.toUpperCase();
       
+      if (!subject) return;
+
       const isAllowed = can('VIEW', subject as any);
 
       if (!isAllowed) {
-        const defaultPath = accessibleNavItems.find(item => item.path === '/dashboard') ? '/dashboard' : accessibleNavItems[0]?.path;
-        if(defaultPath) {
+        // Find the first accessible page to redirect to
+        const defaultPath = accessibleNavItems.find(item => item.path === '/dashboard') 
+            ? '/dashboard' 
+            : accessibleNavItems[0]?.path;
+        
+        if (defaultPath) {
           router.push(defaultPath);
         } else {
-           router.push('/login');
+           // If no pages are accessible, logout
+           toast({ title: 'No Permissions', description: 'You do not have access to any pages. Logging out.', variant: 'destructive'});
+           logout();
         }
       }
     }
-  }, [pathname, loading, roleName, router, can, accessibleNavItems]);
-
-  const pageTitle = useMemo(() => {
-     const currentNavItem = navItems.find(item => {
-      if (item.path.includes('[')) {
-        const basePath = item.path.split('/[')[0];
-        return pathname.startsWith(basePath);
-      }
-      return pathname === item.path;
-    });
-    return currentNavItem?.label || 'Nib InternationalBank';
-  }, [pathname]);
+  }, [pathname, loading, roleName, router, can, accessibleNavItems, logout, toast]);
 
   if (loading || !user || !roleName || roleName === 'Vendor') {
     return (
