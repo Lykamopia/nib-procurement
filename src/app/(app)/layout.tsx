@@ -27,10 +27,11 @@ import { useRouter, usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { ThemeSwitcher } from '@/components/theme-switcher';
-import { navItems, rolePermissions } from '@/lib/roles';
+import { navItems } from '@/lib/roles';
 import { Breadcrumbs } from '@/components/breadcrumbs';
 import { useToast } from '@/hooks/use-toast';
 import { RoleSwitcher } from '@/components/role-switcher';
+import { usePermissions } from '@/hooks/use-permissions';
 
 const SESSION_TIMEOUT = 15 * 60 * 1000; // 15 minutes
 
@@ -40,29 +41,19 @@ export default function AppLayout({
   children: React.ReactNode;
 }) {
   const { user, logout, loading, role } = useAuth();
+  const { can } = usePermissions();
   const router = useRouter();
   const pathname = usePathname();
   const { toast } = useToast();
 
   const accessibleNavItems = useMemo(() => {
     if (!role) return [];
-    const allowedPaths = rolePermissions[role] || [];
+    
     return navItems.filter(item => {
-        // Hide settings unless Procurement Officer or Admin
-        if (item.path === '/settings') {
-            return role === 'Procurement Officer' || role === 'Admin';
-        }
-        // Hide audit log unless Procurement Officer
-        if (item.path === '/audit-log') {
-            return role === 'Procurement Officer';
-        }
-        // Hide contracts unless Procurement Officer
-        if (item.path === '/contracts') {
-            return role === 'Procurement Officer';
-        }
-        return allowedPaths.includes(item.path);
+        const subject = item.path.split('/')[1]?.toUpperCase() || 'DASHBOARD';
+        return can('VIEW', subject as any);
     });
-  }, [role]);
+  }, [role, can]);
 
   const handleLogout = useCallback(() => {
     toast({
@@ -106,33 +97,28 @@ export default function AppLayout({
   // Page-level access check
   useEffect(() => {
     if (!loading && role) {
-      // If the user is a vendor, this layout should not apply any redirection logic.
-      // They have their own layout and routing at /vendor/*.
-      if (role === 'Vendor') {
+      if (role.name === 'Vendor') {
           return;
       }
 
       const currentPath = pathname.split('?')[0];
-      const allowedPaths = rolePermissions[role] || [];
-      // Allow access to sub-pages like /purchase-orders/[id]
-      const isAllowed = allowedPaths.some(path => currentPath.startsWith(path));
+      const subject = currentPath.split('/')[1]?.toUpperCase() || 'DASHBOARD';
+      
+      const isAllowed = can('VIEW', subject as any);
 
       if (!isAllowed) {
-        // Redirect to the first accessible page or dashboard if available
-        const defaultPath = allowedPaths.includes('/dashboard') ? '/dashboard' : allowedPaths[0];
+        const defaultPath = accessibleNavItems.find(item => item.path === '/dashboard') ? '/dashboard' : accessibleNavItems[0]?.path;
         if(defaultPath) {
           router.push(defaultPath);
         } else {
-          // If no default path, maybe they have no permissions
            router.push('/login');
         }
       }
     }
-  }, [pathname, loading, role, router]);
+  }, [pathname, loading, role, router, can, accessibleNavItems]);
 
   const pageTitle = useMemo(() => {
      const currentNavItem = navItems.find(item => {
-      // Handle dynamic routes like /purchase-orders/[id]
       if (item.path.includes('[')) {
         const basePath = item.path.split('/[')[0];
         return pathname.startsWith(basePath);

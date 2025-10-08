@@ -78,6 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = (newToken: string, loggedInUser: User, loggedInRole: Role) => {
     localStorage.setItem('authToken', newToken);
     localStorage.setItem('user', JSON.stringify(loggedInUser)); // Storing full user object
+    localStorage.setItem('role', JSON.stringify(loggedInRole));
     setToken(newToken);
     setUser(loggedInUser);
     setRole(loggedInRole);
@@ -86,6 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     localStorage.removeItem('authToken');
     localStorage.removeItem('user');
+    localStorage.removeItem('role');
     setToken(null);
     setUser(null);
     setRole(null);
@@ -124,7 +126,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       logout,
       loading,
       switchUser
-  }), [user, token, role, loading, allUsers, login, logout, switchUser]);
+  }), [user, token, role, loading, allUsers]);
 
   return (
     <AuthContext.Provider value={authContextValue}>
