@@ -1,6 +1,6 @@
 
 import { PrismaClient } from '@prisma/client';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import { getInitialData } from '../src/lib/seed-data';
 
 const prisma = new PrismaClient();
