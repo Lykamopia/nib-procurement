@@ -48,7 +48,6 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from './ui/form';
-import { rolePermissions } from '@/lib/roles';
 import { useAuth } from '@/contexts/auth-context';
 
 const userFormSchema = z.object({
@@ -69,6 +68,7 @@ type UserFormValues = z.infer<typeof userFormSchema>;
 
 export function UserManagementEditor() {
   const [users, setUsers] = useState<User[]>([]);
+  const [roles, setRoles] = useState<any[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isDialogOpen, setDialogOpen] = useState(false);
@@ -89,8 +89,6 @@ export function UserManagementEditor() {
     },
   });
   
-  const availableRoles = Object.keys(rolePermissions).filter(role => role !== 'Vendor') as UserRole[];
-  
   const selectedRole = form.watch('role');
   const currentApprovalLimit = form.watch('approvalLimit');
   
@@ -110,15 +108,18 @@ export function UserManagementEditor() {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const [usersResponse, deptsResponse] = await Promise.all([
+      const [usersResponse, deptsResponse, rolesResponse] = await Promise.all([
         fetch('/api/users'),
         fetch('/api/departments'),
+        fetch('/api/roles'),
       ]);
-      if (!usersResponse.ok || !deptsResponse.ok) throw new Error('Failed to fetch data');
+      if (!usersResponse.ok || !deptsResponse.ok || !rolesResponse.ok) throw new Error('Failed to fetch data');
       const usersData = await usersResponse.json();
       const deptsData = await deptsResponse.json();
+      const rolesData = await rolesResponse.json();
       setUsers(usersData);
       setDepartments(deptsData);
+      setRoles(rolesData.filter((r: any) => r.name !== 'Vendor'));
     } catch (error) {
       toast({ variant: 'destructive', title: 'Error', description: 'Could not load user data.' });
     } finally {
@@ -317,7 +318,7 @@ export function UserManagementEditor() {
                 <FormField control={form.control} name="name" render={({ field }) => ( <FormItem className="col-span-2"><FormLabel>Full Name</FormLabel><FormControl><Input placeholder="e.g. John Doe" {...field} /></FormControl><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name="email" render={({ field }) => ( <FormItem className="col-span-2"><FormLabel>Email</FormLabel><FormControl><Input type="email" placeholder="e.g. john.doe@example.com" {...field} /></FormControl><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name="password" render={({ field }) => ( <FormItem className="col-span-2"><FormLabel>Password</FormLabel><FormControl><Input type="password" placeholder={userToEdit ? "Leave blank to keep current password" : ""} {...field} /></FormControl><FormMessage /></FormItem> )} />
-                <FormField control={form.control} name="role" render={({ field }) => ( <FormItem><FormLabel>Role</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select a role" /></SelectTrigger></FormControl><SelectContent>{availableRoles.map(role => <SelectItem key={role} value={role}>{role.replace(/_/g, ' ')}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)} />
+                <FormField control={form.control} name="role" render={({ field }) => ( <FormItem><FormLabel>Role</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select a role" /></SelectTrigger></FormControl><SelectContent>{roles.map(role => <SelectItem key={role.name} value={role.name}>{role.name.replace(/_/g, ' ')}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)} />
                 <FormField control={form.control} name="departmentId" render={({ field }) => ( <FormItem><FormLabel>Department</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select a department" /></SelectTrigger></FormControl><SelectContent>{departments.map(dept => <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)} />
                 
                 {showApprovalFields && (
@@ -365,5 +366,3 @@ export function UserManagementEditor() {
     </Card>
   );
 }
-
-    
