@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Card,
   CardContent,
@@ -19,7 +19,6 @@ import { Permission, Role, PermissionAction, PermissionSubject } from '@/lib/typ
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './ui/accordion';
 import { useAuth } from '@/contexts/auth-context';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
-import { useMemo } from 'react';
 
 type PermissionsState = Record<string, { [key: string]: { [key: string]: boolean } }>;
 
@@ -148,91 +147,89 @@ export function RolePermissionsEditor() {
       <CardContent>
         <Accordion type="multiple" className="w-full space-y-4">
             {roles.map(role => (
-                <Card key={role.id}>
-                    <AccordionItem value={role.id} className="border-b-0">
-                        <AccordionTrigger className="p-6 hover:no-underline">
-                             <div className='flex flex-col text-left'>
-                                <h3 className="text-lg font-semibold">{role.name.replace(/_/g, ' ')}</h3>
-                                <div className="flex items-center text-sm text-muted-foreground mt-1">
-                                    <User className="mr-2 h-4 w-4"/>
-                                    <span>{role.users.length} User(s)</span>
+                <AccordionItem value={role.id} key={role.id} className="border rounded-md">
+                    <AccordionTrigger className="p-6 hover:no-underline">
+                         <div className='flex flex-col text-left'>
+                            <h3 className="text-lg font-semibold">{role.name.replace(/_/g, ' ')}</h3>
+                            <div className="flex items-center text-sm text-muted-foreground mt-1">
+                                <User className="mr-2 h-4 w-4"/>
+                                <span>{role.users.length} User(s)</span>
+                            </div>
+                         </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="px-6 pb-6 space-y-6">
+                        <div>
+                            <h4 className="font-semibold text-base mb-3">Users in this Role</h4>
+                            {role.users && role.users.length > 0 ? (
+                                <div className="flex flex-wrap gap-4">
+                                    {role.users.map(user => (
+                                        <div key={user.id} className="flex items-center gap-2 p-2 border rounded-md bg-muted/50">
+                                             <Avatar className="h-6 w-6">
+                                                <AvatarImage src={`https://picsum.photos/seed/${user.id}/24/24`} data-ai-hint="profile picture" />
+                                                <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+                                            </Avatar>
+                                            <span className="text-sm font-medium">{user.name}</span>
+                                        </div>
+                                    ))}
                                 </div>
-                             </div>
-                        </AccordionTrigger>
-                        <AccordionContent className="px-6 pb-6 space-y-6">
-                            <div>
-                                <h4 className="font-semibold text-base mb-3">Users in this Role</h4>
-                                {role.users && role.users.length > 0 ? (
-                                    <div className="flex flex-wrap gap-4">
-                                        {role.users.map(user => (
-                                            <div key={user.id} className="flex items-center gap-2 p-2 border rounded-md bg-muted/50">
-                                                 <Avatar className="h-6 w-6">
-                                                    <AvatarImage src={`https://picsum.photos/seed/${user.id}/24/24`} data-ai-hint="profile picture" />
-                                                    <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
-                                                </Avatar>
-                                                <span className="text-sm font-medium">{user.name}</span>
+                            ) : (
+                                <p className="text-sm text-muted-foreground">No users are currently assigned to this role.</p>
+                            )}
+                        </div>
+                        <div>
+                            <h4 className="font-semibold text-base mb-3">Page Access Permissions</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                                {Object.entries(groupedPermissions.page).map(([subject, perms]) => (
+                                    <div key={subject} className="space-y-3 rounded-lg border p-4">
+                                        <h5 className="font-medium">{subject.charAt(0) + subject.slice(1).toLowerCase()}</h5>
+                                        <div className="space-y-2">
+                                        {perms.map(perm => (
+                                            <div key={perm.id} className="flex items-center space-x-2">
+                                                <Checkbox
+                                                    id={`${role.id}-${perm.id}`}
+                                                    checked={permissions[role.name]?.[perm.subject as PermissionSubject]?.[perm.action as PermissionAction] || false}
+                                                    onCheckedChange={(checked) =>
+                                                        handlePermissionChange(role.name, perm.subject, perm.action, !!checked)
+                                                    }
+                                                />
+                                                <Label htmlFor={`${role.id}-${perm.id}`} className="text-sm font-normal">
+                                                    {perm.action.charAt(0) + perm.action.slice(1).toLowerCase()}
+                                                </Label>
                                             </div>
                                         ))}
+                                        </div>
                                     </div>
-                                ) : (
-                                    <p className="text-sm text-muted-foreground">No users are currently assigned to this role.</p>
-                                )}
+                                ))}
                             </div>
-                            <div>
-                                <h4 className="font-semibold text-base mb-3">Page Access Permissions</h4>
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                                    {Object.entries(groupedPermissions.page).map(([subject, perms]) => (
-                                        <div key={subject} className="space-y-3 rounded-lg border p-4">
-                                            <h5 className="font-medium">{subject.charAt(0) + subject.slice(1).toLowerCase()}</h5>
-                                            <div className="space-y-2">
-                                            {perms.map(perm => (
-                                                <div key={perm.id} className="flex items-center space-x-2">
-                                                    <Checkbox
-                                                        id={`${role.id}-${perm.id}`}
-                                                        checked={permissions[role.name]?.[perm.subject as PermissionSubject]?.[perm.action as PermissionAction] || false}
-                                                        onCheckedChange={(checked) =>
-                                                            handlePermissionChange(role.name, perm.subject, perm.action, !!checked)
-                                                        }
-                                                    />
-                                                    <Label htmlFor={`${role.id}-${perm.id}`} className="text-sm font-normal">
-                                                        {perm.action.charAt(0) + perm.action.slice(1).toLowerCase()}
-                                                    </Label>
-                                                </div>
-                                            ))}
+                        </div>
+                         <div>
+                            <h4 className="font-semibold text-base mb-3">Action-Level Permissions</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                                {Object.entries(groupedPermissions.action).map(([subject, perms]) => (
+                                    <div key={subject} className="space-y-3 rounded-lg border p-4">
+                                        <h5 className="font-medium">{subject.replace(/_/g, ' ').charAt(0).toUpperCase() + subject.slice(1).toLowerCase().replace(/_/g, ' ')}</h5>
+                                        <div className="space-y-2">
+                                        {perms.map(perm => (
+                                            <div key={perm.id} className="flex items-center space-x-2">
+                                                <Checkbox
+                                                    id={`${role.id}-${perm.id}`}
+                                                    checked={permissions[role.name]?.[perm.subject as PermissionSubject]?.[perm.action as PermissionAction] || false}
+                                                    onCheckedChange={(checked) =>
+                                                        handlePermissionChange(role.name, perm.subject, perm.action, !!checked)
+                                                    }
+                                                />
+                                                <Label htmlFor={`${role.id}-${perm.id}`} className="text-sm font-normal">
+                                                    {perm.action.charAt(0) + perm.action.slice(1).toLowerCase()}
+                                                </Label>
                                             </div>
+                                        ))}
                                         </div>
-                                    ))}
-                                </div>
+                                    </div>
+                                ))}
                             </div>
-                             <div>
-                                <h4 className="font-semibold text-base mb-3">Action-Level Permissions</h4>
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                                    {Object.entries(groupedPermissions.action).map(([subject, perms]) => (
-                                        <div key={subject} className="space-y-3 rounded-lg border p-4">
-                                            <h5 className="font-medium">{subject.replace(/_/g, ' ').charAt(0).toUpperCase() + subject.slice(1).toLowerCase().replace(/_/g, ' ')}</h5>
-                                            <div className="space-y-2">
-                                            {perms.map(perm => (
-                                                <div key={perm.id} className="flex items-center space-x-2">
-                                                    <Checkbox
-                                                        id={`${role.id}-${perm.id}`}
-                                                        checked={permissions[role.name]?.[perm.subject as PermissionSubject]?.[perm.action as PermissionAction] || false}
-                                                        onCheckedChange={(checked) =>
-                                                            handlePermissionChange(role.name, perm.subject, perm.action, !!checked)
-                                                        }
-                                                    />
-                                                    <Label htmlFor={`${role.id}-${perm.id}`} className="text-sm font-normal">
-                                                        {perm.action.charAt(0) + perm.action.slice(1).toLowerCase()}
-                                                    </Label>
-                                                </div>
-                                            ))}
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </AccordionContent>
-                    </AccordionItem>
-                </Card>
+                        </div>
+                    </AccordionContent>
+                </AccordionItem>
             ))}
         </Accordion>
       </CardContent>
