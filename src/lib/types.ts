@@ -16,12 +16,25 @@ export type CommitteeAssignment = {
   scoresSubmitted: boolean;
 }
 
+export type Permission = {
+    id: string;
+    action: string;
+    subject: string;
+    conditions?: any;
+};
+  
+export type Role = {
+    id: string;
+    name: string;
+    permissions: Permission[];
+}
+
 export type User = {
   id: string;
   name: string;
   email: string;
   password?: string; // Should not be sent to client
-  role: UserRole;
+  role: Role; 
   vendorId?: string;
   department?: string;
   departmentId?: string;
@@ -146,7 +159,7 @@ export type AuditLog = {
   transactionId: string;
   timestamp: Date;
   user: string;
-  role: UserRole;
+  role: string;
   action: string;
   entity: string; // e.g., 'Requisition', 'PurchaseOrder'
   entityId: string;

@@ -3,14 +3,14 @@
 'use client';
 
 import React, { createContext, useContext, useState, ReactNode, useEffect, useMemo, useCallback } from 'react';
-import { User, UserRole } from '@/lib/types';
+import { User, Role } from '@/lib/types';
 
 interface AuthContextType {
   user: User | null;
   token: string | null;
-  role: UserRole | null;
+  role: Role | null;
   allUsers: User[];
-  login: (token: string, user: User, role: UserRole) => void;
+  login: (token: string, user: User, role: Role) => void;
   logout: () => void;
   loading: boolean;
   switchUser: (userId: string) => void;
@@ -21,7 +21,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
-  const [role, setRole] = useState<UserRole | null>(null);
+  const [role, setRole] = useState<Role | null>(null);
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -30,7 +30,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const response = await fetch('/api/users');
         if (response.ok) {
             const usersData = await response.json();
-            // This is the key change: ensure committee assignments are included for all users
             const usersWithAssignments = usersData.map((u: any) => ({
                 ...u,
                 committeeAssignments: u.committeeAssignments || [],
@@ -71,10 +70,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     initializeAuth();
   }, [initializeAuth]);
 
-  const login = (newToken: string, loggedInUser: User, loggedInRole: UserRole) => {
+  const login = (newToken: string, loggedInUser: User, loggedInRole: Role) => {
     localStorage.setItem('authToken', newToken);
     localStorage.setItem('user', JSON.stringify(loggedInUser));
-    localStorage.setItem('role', loggedInRole);
+    localStorage.setItem('role', JSON.stringify(loggedInRole));
     setToken(newToken);
     setUser(loggedInUser);
     setRole(loggedInRole);
