@@ -19,21 +19,20 @@ export function Breadcrumbs() {
       currentPath += `/${segment}`;
       
       const navItem = navItems.find(item => {
-        if (item.path.includes('[') && currentPath.startsWith(item.path.split('[')[0])) {
-          return true;
-        }
         return item.path === currentPath;
       });
       
       let label = navItem?.label || segment.charAt(0).toUpperCase() + segment.slice(1).replace(/-/g, ' ');
 
-      // A simple check for what looks like an ID
-      if (segment.length > 8 || !isNaN(Number(segment))) {
+      // A simple check for what looks like an ID or dynamic segment
+      if (!navItem) {
           const parentPath = currentPath.substring(0, currentPath.lastIndexOf('/'));
           const parentNavItem = navItems.find(item => item.path === parentPath);
           if (parentNavItem) {
-              label = parentNavItem.label.endsWith('s') ? parentNavItem.label.slice(0, -1) : parentNavItem.label;
-              label += ` Details`;
+              const singularLabel = parentNavItem.label.endsWith('s') 
+                ? parentNavItem.label.slice(0, -1) 
+                : parentNavItem.label;
+              label = `${singularLabel} Details`;
           } else {
               label = "Details";
           }
@@ -46,7 +45,7 @@ export function Breadcrumbs() {
   }, [pathname]);
 
   return (
-    <nav aria-label="Breadcrumb" className="flex items-center space-x-1.5 text-sm">
+    <nav aria-label="Breadcrumb" className="hidden items-center space-x-1.5 text-sm md:flex">
       {breadcrumbs.map((crumb, index) => (
         <React.Fragment key={crumb.href}>
           {index > 0 && <ChevronRight className="h-4 w-4 text-muted-foreground" />}

@@ -105,26 +105,32 @@ export default function AppLayout({
   
   // Page-level access check
   useEffect(() => {
-    if (!loading && role) {
-      const currentPath = pathname.split('?')[0];
-      const allowedPaths = rolePermissions[role] || [];
-      
-      const isAllowed = 
-        allowedPaths.includes(currentPath) || 
-        allowedPaths.some(p => currentPath.startsWith(p + '/') && p !== '/');
+    if (loading || !role) {
+      return; // Do not run access checks while loading or if role is not determined
+    }
 
-      if (!isAllowed) {
-        // Find the default path for the role, which is usually the first one or dashboard
-        const defaultPath = allowedPaths.includes('/dashboard') 
-          ? '/dashboard' 
-          : allowedPaths.length > 0 ? allowedPaths[0] : null;
+    const currentPath = pathname.split('?')[0];
+    const allowedPaths = rolePermissions[role] || [];
 
-        if (defaultPath) {
-          router.push(defaultPath);
-        } else {
-          // If no default path, logout or redirect to an error page
-          logout();
-        }
+    // Corrected permission check:
+    // 1. Check for an exact match (for routes like /dashboard)
+    // 2. Check if the path starts with an allowed path followed by a '/' (for nested routes like /requisitions/[id])
+    const isAllowed =
+      allowedPaths.includes(currentPath) ||
+      allowedPaths.some(p => p !== '/' && currentPath.startsWith(p + '/'));
+
+    if (!isAllowed) {
+      console.warn(`Redirecting user with role "${role}" from unauthorized path "${currentPath}".`);
+      // Find the default path for the role, which is usually the first one or dashboard
+      const defaultPath = allowedPaths.includes('/dashboard')
+        ? '/dashboard'
+        : allowedPaths.length > 0 ? allowedPaths[0] : null;
+
+      if (defaultPath) {
+        router.push(defaultPath);
+      } else {
+        // If no default path, logout or redirect to an error page
+        logout();
       }
     }
   }, [pathname, loading, role, router, logout]);
