@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/card';
 import { Button } from './ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, PlusCircle, Trash2, Edit, Users } from 'lucide-react';
+import { Loader2, PlusCircle, Trash2, Edit, Users, UserPlus } from 'lucide-react';
 import { Department, User, UserRole } from '@/lib/types';
 import {
   AlertDialog,
@@ -58,7 +58,7 @@ const userFormSchema = z.object({
   departmentId: z.string().min(1, "Department is required."),
   password: z.string().optional(),
   approvalLimit: z.coerce.number().min(0, "Approval limit must be a positive number.").optional(),
-  managerId: z.string().optional(),
+  managerId: z.string().nullable().optional(),
 });
 
 const userEditFormSchema = userFormSchema.extend({
@@ -85,7 +85,7 @@ export function UserManagementEditor() {
       departmentId: '',
       password: '',
       approvalLimit: 0,
-      managerId: '',
+      managerId: null,
     },
   });
   
@@ -167,7 +167,7 @@ export function UserManagementEditor() {
       });
       setDialogOpen(false);
       setUserToEdit(null);
-      form.reset({ name: '', email: '', role: '', departmentId: '', password: '', approvalLimit: 0, managerId: '' });
+      form.reset({ name: '', email: '', role: '', departmentId: '', password: '', approvalLimit: 0, managerId: 'null' });
       fetchData();
     } catch (error) {
       toast({ variant: 'destructive', title: 'Error', description: error instanceof Error ? error.message : 'An unknown error occurred.' });
@@ -207,15 +207,15 @@ export function UserManagementEditor() {
       form.reset({
         name: user.name,
         email: user.email,
-        role: user.role.name,
+        role: user.role?.name || '',
         departmentId: user.departmentId || '',
         password: '',
         approvalLimit: user.approvalLimit || 0,
-        managerId: user.managerId || 'null',
+        managerId: user.managerId || null,
       });
     } else {
       setUserToEdit(null);
-      form.reset({ name: '', email: '', role: '', departmentId: '', password: '', approvalLimit: 0, managerId: 'null' });
+      form.reset({ name: '', email: '', role: '', departmentId: '', password: '', approvalLimit: 0, managerId: null });
     }
     setDialogOpen(true);
   };
@@ -227,10 +227,10 @@ export function UserManagementEditor() {
             <div>
                 <CardTitle>User Management</CardTitle>
                 <CardDescription>
-                Add, edit, and manage application users and their roles.
+                Add, edit, and manage application users and their roles, which determine their permissions.
                 </CardDescription>
             </div>
-            <Button onClick={() => openDialog()}><PlusCircle className="mr-2"/> Add New User</Button>
+            <Button onClick={() => openDialog()}><UserPlus className="mr-2"/> Add New User</Button>
         </div>
       </CardHeader>
       <CardContent>
@@ -238,7 +238,6 @@ export function UserManagementEditor() {
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead className="w-16">#</TableHead>
                         <TableHead>Name</TableHead>
                         <TableHead>Email</TableHead>
                         <TableHead>Role</TableHead>
@@ -249,14 +248,13 @@ export function UserManagementEditor() {
                 <TableBody>
                     {isLoading && users.length === 0 ? (
                          <TableRow>
-                            <TableCell colSpan={6} className="h-24 text-center">
+                            <TableCell colSpan={5} className="h-24 text-center">
                                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground mx-auto" />
                             </TableCell>
                         </TableRow>
                     ) : users.length > 0 ? (
-                        users.map((user, index) => (
+                        users.map((user) => (
                             <TableRow key={user.id}>
-                                <TableCell className="text-muted-foreground">{index + 1}</TableCell>
                                 <TableCell className="font-semibold">{user.name}</TableCell>
                                 <TableCell>{user.email}</TableCell>
                                 <TableCell>{user.role?.name.replace(/_/g, ' ') || 'N/A'}</TableCell>
@@ -269,9 +267,8 @@ export function UserManagementEditor() {
                                         </Button>
                                         <AlertDialog>
                                             <AlertDialogTrigger asChild>
-                                                <Button variant="destructive" size="sm" disabled={user.role.name === 'Admin'}>
+                                                <Button variant="destructive" size="sm" disabled={user.role?.name === 'Admin'}>
                                                     <Trash2 className="mr-2 h-4 w-4" />
-                                                    Delete
                                                 </Button>
                                             </AlertDialogTrigger>
                                             <AlertDialogContent>
@@ -296,7 +293,7 @@ export function UserManagementEditor() {
                         ))
                     ) : (
                          <TableRow>
-                            <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
+                            <TableCell colSpan={5} className="h-48 text-center text-muted-foreground">
                                 <div className="flex flex-col items-center gap-4">
                                     <Users className="h-16 w-16 text-muted-foreground/50" />
                                     <p className="font-semibold">No users found.</p>
@@ -368,3 +365,5 @@ export function UserManagementEditor() {
     </Card>
   );
 }
+
+    
