@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { createContext, useContext, useState, ReactNode, useEffect, useMemo, useCallback } from 'react';
@@ -30,13 +29,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const response = await fetch('/api/users');
         if (response.ok) {
             const usersData = await response.json();
-            // This is the key change: ensure committee assignments are included for all users
-            const usersWithAssignments = usersData.map((u: any) => ({
-                ...u,
-                committeeAssignments: u.committeeAssignments || [],
-            }));
-            setAllUsers(usersWithAssignments);
-            return usersWithAssignments;
+            setAllUsers(usersData);
+            return usersData;
         }
         return [];
     } catch (error) {
@@ -119,7 +113,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loading,
       switchUser
   }), [user, token, role, loading, allUsers]);
-
 
   return (
     <AuthContext.Provider value={authContextValue}>
