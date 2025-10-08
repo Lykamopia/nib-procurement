@@ -12,13 +12,13 @@ export async function GET() {
             roleName: { not: 'Vendor' } 
         },
         include: { 
+            role: true,
             department: true,
             committeeAssignments: true,
         }
     });
     const formattedUsers = users.map(u => ({
         ...u,
-        role: u.roleName.replace(/_/g, ' '),
         department: u.department?.name || 'N/A'
     }));
     return NextResponse.json(formattedUsers);
