@@ -30,29 +30,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (response.ok) {
             const usersData = await response.json();
             setAllUsers(usersData);
-            return usersData;
         }
-        return [];
     } catch (error) {
         console.error("Failed to fetch all users", error);
-        return [];
     }
   }, []);
 
   const initializeAuth = useCallback(async () => {
     setLoading(true);
-    const users = await fetchAllUsers();
+    await fetchAllUsers();
     try {
         const storedUserJSON = localStorage.getItem('user');
         const storedToken = localStorage.getItem('authToken');
         
         if (storedUserJSON && storedToken) {
             const storedUser = JSON.parse(storedUserJSON);
-            const fullUser = users.find((u: User) => u.id === storedUser.id) || storedUser;
-            
-            setUser(fullUser);
+            setUser(storedUser);
             setToken(storedToken);
-            setRole(fullUser.role);
+            setRole(storedUser.role);
         }
     } catch (error) {
         console.error("Failed to initialize auth from localStorage", error);

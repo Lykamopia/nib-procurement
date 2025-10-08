@@ -30,8 +30,9 @@ export async function POST(request: Request) {
             
             const finalUser = {
                 ...userWithoutPassword,
-                role: roleObject.name,
-                department: user.department?.name
+                role: roleObject.name as UserRole, // Correctly access the role name
+                department: user.department?.name,
+                committeeAssignments: user.committeeAssignments,
             };
 
             // Create a more robust mock token
