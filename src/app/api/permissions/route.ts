@@ -4,10 +4,17 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { PermissionAction, PermissionSubject } from '@/lib/types';
+import { User } from '@/lib/types';
+import { getUserByToken } from '@/lib/auth';
 
 export async function GET() {
   try {
-    const permissions = await prisma.permission.findMany();
+    const permissions = await prisma.permission.findMany({
+        orderBy: [
+            { subject: 'asc' },
+            { action: 'asc' },
+        ]
+    });
     return NextResponse.json(permissions);
   } catch (error) {
     console.error("Failed to fetch permissions:", error);
@@ -20,16 +27,27 @@ export async function GET() {
 
 export async function POST(request: Request) {
     try {
+        const authHeader = request.headers.get('Authorization');
+        const token = authHeader?.split(' ')[1];
+
+        if (!token) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+        const userPayload = await getUserByToken(token);
+        if (!userPayload || userPayload.user.role.name !== 'Admin') {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
+
         const body = await request.json();
         const { permissions: newPermissionsState } = body;
 
         const allPermissions = await prisma.permission.findMany();
         const permissionMap = new Map(allPermissions.map(p => [`${p.subject}_${p.action}`, p.id]));
 
-        const permissionsToLink: { roleId: string; permissionId: string }[] = [];
+        const permissionsToLink: { roleName: string; permissionId: string }[] = [];
 
-        for (const roleId in newPermissionsState) {
-            const subjects = newPermissionsState[roleId];
+        for (const roleName in newPermissionsState) {
+            const subjects = newPermissionsState[roleName];
             for (const subject in subjects) {
                 const actions = subjects[subject];
                 for (const action in actions) {
@@ -38,7 +56,7 @@ export async function POST(request: Request) {
                         const permissionId = permissionMap.get(key);
                         if (permissionId) {
                             permissionsToLink.push({
-                                roleId: roleId,
+                                roleName: roleName,
                                 permissionId: permissionId,
                             });
                         }
@@ -56,11 +74,11 @@ export async function POST(request: Request) {
                     }
                 }
             });
-            const roleIdsToUpdate = rolesToUpdate.map(r => r.id);
+            const roleNamesToUpdate = rolesToUpdate.map(r => r.name);
 
             await tx.permissionsOnRoles.deleteMany({
                 where: {
-                    roleId: { in: roleIdsToUpdate }
+                    roleName: { in: roleNamesToUpdate }
                 }
             });
 
@@ -70,6 +88,17 @@ export async function POST(request: Request) {
                     data: permissionsToLink,
                     skipDuplicates: true
                 });
+            }
+        });
+        
+        await prisma.auditLog.create({
+            data: {
+                timestamp: new Date(),
+                user: { connect: { id: userPayload.user.id } },
+                action: 'MANAGE_PERMISSIONS',
+                entity: 'System',
+                entityId: 'Permissions',
+                details: `User permissions were updated.`,
             }
         });
 

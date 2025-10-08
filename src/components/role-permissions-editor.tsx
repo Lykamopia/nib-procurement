@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Card,
   CardContent,
@@ -13,11 +13,13 @@ import {
 import { Button } from './ui/button';
 import { Checkbox } from './ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, ShieldCheck, ShieldOff } from 'lucide-react';
+import { Loader2, ShieldCheck, User } from 'lucide-react';
 import { Label } from './ui/label';
-import { Permission, Role, PermissionAction, PermissionSubject } from '@/lib/types';
-import { ScrollArea } from './ui/scroll-area';
+import { Permission, Role, PermissionAction, PermissionSubject, User as UserType } from '@/lib/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './ui/accordion';
+import { useAuth } from '@/contexts/auth-context';
+import { Avatar, AvatarFallback } from './ui/avatar';
+import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from './ui/tooltip';
 
 type PermissionsState = Record<string, { [key: string]: { [key: string]: boolean } }>;
 
@@ -26,59 +28,59 @@ export function RolePermissionsEditor() {
   const [allPermissions, setAllPermissions] = useState<Permission[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-
   const { toast } = useToast();
+  const { token } = useAuth();
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setIsLoading(true);
-      try {
-        const [rolesRes, permsRes] = await Promise.all([
-          fetch('/api/roles'),
-          fetch('/api/permissions'),
-        ]);
-        if (!rolesRes.ok || !permsRes.ok) throw new Error('Failed to fetch initial data.');
+  const fetchData = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const [rolesRes, permsRes] = await Promise.all([
+        fetch('/api/roles'),
+        fetch('/api/permissions'),
+      ]);
+      if (!rolesRes.ok || !permsRes.ok) throw new Error('Failed to fetch initial data.');
 
-        const rolesData: Role[] = await rolesRes.json();
-        const permsData: Permission[] = await permsRes.json();
+      const rolesData: Role[] = await rolesRes.json();
+      const permsData: Permission[] = await permsRes.json();
 
-        setRoles(rolesData.filter(r => r.name !== 'Admin' && r.name !== 'Vendor'));
-        setAllPermissions(permsData);
+      setRoles(rolesData.filter(r => r.name !== 'Admin' && r.name !== 'Vendor'));
+      setAllPermissions(permsData);
 
-        const initialState: PermissionsState = {};
-        rolesData.forEach(role => {
-          initialState[role.id] = {};
-          permsData.forEach(perm => {
-            if (!initialState[role.id][perm.subject]) {
-              initialState[role.id][perm.subject] = {};
-            }
-            const hasPermission = role.permissions.some(p => p.id === perm.id);
-            initialState[role.id][perm.subject][perm.action] = hasPermission;
-          });
+      const initialState: PermissionsState = {};
+      rolesData.forEach(role => {
+        initialState[role.name] = {};
+        permsData.forEach(perm => {
+          if (!initialState[role.name][perm.subject]) {
+            initialState[role.name][perm.subject] = {};
+          }
+          const hasPermission = role.permissions.some(p => p.id === perm.id);
+          initialState[role.name][perm.subject][perm.action] = hasPermission;
         });
-        setPermissions(initialState);
-      } catch (error) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Could not load permissions data.' });
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchData();
+      });
+      setPermissions(initialState);
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Could not load permissions data.' });
+    } finally {
+      setIsLoading(false);
+    }
   }, [toast]);
 
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
   const handlePermissionChange = (
-    roleId: string,
+    roleName: string,
     subject: PermissionSubject,
     action: PermissionAction,
     checked: boolean
   ) => {
     setPermissions(prev => ({
       ...prev,
-      [roleId]: {
-        ...prev[roleId],
+      [roleName]: {
+        ...prev[roleName],
         [subject]: {
-          ...prev[roleId]?.[subject],
+          ...prev[roleName]?.[subject],
           [action]: checked,
         },
       },
@@ -90,7 +92,7 @@ export function RolePermissionsEditor() {
     try {
         const response = await fetch('/api/permissions', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
             body: JSON.stringify({ permissions }),
         });
         if (!response.ok) {
@@ -106,13 +108,23 @@ export function RolePermissionsEditor() {
   };
   
   const groupedPermissions = useMemo(() => {
-    return allPermissions.reduce((acc, perm) => {
+    const pageSubjects: PermissionSubject[] = ['DASHBOARD', 'REQUISITIONS', 'APPROVALS', 'VENDORS', 'QUOTATIONS', 'CONTRACTS', 'PURCHASE_ORDERS', 'INVOICES', 'GOODS_RECEIPT', 'RECORDS', 'AUDIT_LOG', 'SETTINGS'];
+    const pageLevel = allPermissions.filter(p => pageSubjects.includes(p.subject));
+    const actionLevel = allPermissions.filter(p => !pageSubjects.includes(p.subject));
+
+    const group = (perms: Permission[]) => perms.reduce((acc, perm) => {
         if (!acc[perm.subject]) {
             acc[perm.subject] = [];
         }
         acc[perm.subject].push(perm);
         return acc;
     }, {} as Record<PermissionSubject, Permission[]>);
+
+    return {
+        page: group(pageLevel),
+        action: group(actionLevel),
+    }
+
   }, [allPermissions]);
 
 
@@ -138,32 +150,67 @@ export function RolePermissionsEditor() {
             {roles.map(role => (
                 <Card key={role.id}>
                     <AccordionItem value={role.id} className="border-b-0">
-                        <AccordionTrigger className="p-6">
-                             <h3 className="text-lg font-semibold">{role.name.replace(/_/g, ' ')}</h3>
+                        <AccordionTrigger className="p-6 hover:no-underline">
+                             <div className='flex flex-col text-left'>
+                                <h3 className="text-lg font-semibold">{role.name.replace(/_/g, ' ')}</h3>
+                                <div className="flex items-center text-sm text-muted-foreground mt-1">
+                                    <User className="mr-2 h-4 w-4"/>
+                                    <span>{role.users.length} User(s)</span>
+                                </div>
+                             </div>
                         </AccordionTrigger>
-                        <AccordionContent className="px-6 pb-6">
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                {Object.entries(groupedPermissions).map(([subject, perms]) => (
-                                    <div key={subject} className="space-y-3 rounded-lg border p-4">
-                                        <h4 className="font-medium">{subject.replace(/_/g, ' ').charAt(0).toUpperCase() + subject.slice(1).toLowerCase().replace(/_/g, ' ')}</h4>
-                                        <div className="space-y-2">
-                                        {perms.map(perm => (
-                                            <div key={perm.id} className="flex items-center space-x-2">
-                                                <Checkbox
-                                                    id={`${role.id}-${perm.id}`}
-                                                    checked={permissions[role.id]?.[perm.subject as PermissionSubject]?.[perm.action as PermissionAction] || false}
-                                                    onCheckedChange={(checked) =>
-                                                        handlePermissionChange(role.id, perm.subject, perm.action, !!checked)
-                                                    }
-                                                />
-                                                <Label htmlFor={`${role.id}-${perm.id}`} className="text-sm font-normal">
-                                                    {perm.action.charAt(0) + perm.action.slice(1).toLowerCase()}
-                                                </Label>
+                        <AccordionContent className="px-6 pb-6 space-y-6">
+                            <div>
+                                <h4 className="font-semibold text-base mb-3">Page Access Permissions</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                                    {Object.entries(groupedPermissions.page).map(([subject, perms]) => (
+                                        <div key={subject} className="space-y-3 rounded-lg border p-4">
+                                            <h5 className="font-medium">{subject.charAt(0) + subject.slice(1).toLowerCase()}</h5>
+                                            <div className="space-y-2">
+                                            {perms.map(perm => (
+                                                <div key={perm.id} className="flex items-center space-x-2">
+                                                    <Checkbox
+                                                        id={`${role.id}-${perm.id}`}
+                                                        checked={permissions[role.name]?.[perm.subject as PermissionSubject]?.[perm.action as PermissionAction] || false}
+                                                        onCheckedChange={(checked) =>
+                                                            handlePermissionChange(role.name, perm.subject, perm.action, !!checked)
+                                                        }
+                                                    />
+                                                    <Label htmlFor={`${role.id}-${perm.id}`} className="text-sm font-normal">
+                                                        {perm.action.charAt(0) + perm.action.slice(1).toLowerCase()}
+                                                    </Label>
+                                                </div>
+                                            ))}
                                             </div>
-                                        ))}
                                         </div>
-                                    </div>
-                                ))}
+                                    ))}
+                                </div>
+                            </div>
+                             <div>
+                                <h4 className="font-semibold text-base mb-3">Action-Level Permissions</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                                    {Object.entries(groupedPermissions.action).map(([subject, perms]) => (
+                                        <div key={subject} className="space-y-3 rounded-lg border p-4">
+                                            <h5 className="font-medium">{subject.replace(/_/g, ' ').charAt(0).toUpperCase() + subject.slice(1).toLowerCase().replace(/_/g, ' ')}</h5>
+                                            <div className="space-y-2">
+                                            {perms.map(perm => (
+                                                <div key={perm.id} className="flex items-center space-x-2">
+                                                    <Checkbox
+                                                        id={`${role.id}-${perm.id}`}
+                                                        checked={permissions[role.name]?.[perm.subject as PermissionSubject]?.[perm.action as PermissionAction] || false}
+                                                        onCheckedChange={(checked) =>
+                                                            handlePermissionChange(role.name, perm.subject, perm.action, !!checked)
+                                                        }
+                                                    />
+                                                    <Label htmlFor={`${role.id}-${perm.id}`} className="text-sm font-normal">
+                                                        {perm.action.charAt(0) + perm.action.slice(1).toLowerCase()}
+                                                    </Label>
+                                                </div>
+                                            ))}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         </AccordionContent>
                     </AccordionItem>
