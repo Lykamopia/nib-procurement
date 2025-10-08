@@ -70,7 +70,7 @@ async function main() {
     // Action Permissions
     { action: PermissionAction.CREATE, subject: PermissionSubject.REQUISITION },
     { action: PermissionAction.EDIT, subject: PermissionSubject.REQUISITION },
-    { action: PermissionAction.DELETE, subject: PermissionSubject.REQUISITION },
+    { action: PermissionAction.DELETE, subject: Permission.DELETE, subject: PermissionSubject.REQUISITION },
     { action: PermissionAction.SUBMIT, subject: PermissionSubject.REQUISITION },
     { action: PermissionAction.APPROVE, subject: PermissionSubject.REQUISITION },
     { action: PermissionAction.REJECT, subject: PermissionSubject.REQUISITION },
@@ -394,5 +394,7 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
+
+    
 
     
