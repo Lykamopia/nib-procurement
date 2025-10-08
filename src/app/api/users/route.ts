@@ -8,20 +8,25 @@ import bcrypt from 'bcryptjs';
 export async function GET() {
   try {
     const users = await prisma.user.findMany({
-        where: { role: { not: 'Vendor' } },
+        where: { 
+            roleName: { not: 'Vendor' } 
+        },
         include: { 
             department: true,
-            committeeAssignments: true, // Ensure assignments are fetched
+            committeeAssignments: true,
         }
     });
     const formattedUsers = users.map(u => ({
         ...u,
-        role: u.role.replace(/_/g, ' '),
+        role: u.roleName.replace(/_/g, ' '),
         department: u.department?.name || 'N/A'
     }));
     return NextResponse.json(formattedUsers);
   } catch (error) {
     console.error("Failed to fetch users:", error);
+    if (error instanceof Error) {
+        return NextResponse.json({ error: 'Failed to fetch users', details: error.message }, { status: 500 });
+    }
     return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 });
   }
 }
@@ -52,7 +57,7 @@ export async function POST(request: Request) {
             name,
             email,
             password: hashedPassword,
-            role: role.replace(/ /g, '_'),
+            roleName: role.replace(/ /g, '_'),
             department: { connect: { id: departmentId } },
             approvalLimit,
             manager: managerId && managerId !== 'null' ? { connect: { id: managerId } } : undefined,
@@ -102,7 +107,7 @@ export async function PATCH(request: Request) {
     const updateData: any = {
         name,
         email,
-        role: role.replace(/ /g, '_'),
+        roleName: role.replace(/ /g, '_'),
         department: { connect: { id: departmentId } },
         approvalLimit: approvalLimit,
     };
@@ -129,7 +134,7 @@ export async function PATCH(request: Request) {
             action: 'UPDATE_USER',
             entity: 'User',
             entityId: id,
-            details: `Updated user "${oldUser.name}". Name: ${oldUser.name} -> ${name}. Role: ${oldUser.role.replace(/_/g, ' ')} -> ${role}.`,
+            details: `Updated user "${oldUser.name}". Name: ${oldUser.name} -> ${name}. Role: ${oldUser.roleName.replace(/_/g, ' ')} -> ${role}.`,
         }
     });
 
@@ -162,7 +167,7 @@ export async function DELETE(request: Request) {
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    if (userToDelete.role === 'Admin') {
+    if (userToDelete.roleName === 'Admin') {
         return NextResponse.json({ error: 'Cannot delete an Admin user.' }, { status: 403 });
     }
     
@@ -196,3 +201,5 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
   }
 }
+
+    
