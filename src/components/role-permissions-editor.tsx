@@ -18,7 +18,7 @@ import { Label } from './ui/label';
 import { Permission, Role, PermissionAction, PermissionSubject, User as UserType } from '@/lib/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './ui/accordion';
 import { useAuth } from '@/contexts/auth-context';
-import { Avatar, AvatarFallback } from './ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from './ui/tooltip';
 
 type PermissionsState = Record<string, { [key: string]: { [key: string]: boolean } }>;
@@ -160,6 +160,24 @@ export function RolePermissionsEditor() {
                              </div>
                         </AccordionTrigger>
                         <AccordionContent className="px-6 pb-6 space-y-6">
+                            <div>
+                                <h4 className="font-semibold text-base mb-3">Users in this Role</h4>
+                                {role.users && role.users.length > 0 ? (
+                                    <div className="flex flex-wrap gap-4">
+                                        {role.users.map(user => (
+                                            <div key={user.id} className="flex items-center gap-2 p-2 border rounded-md bg-muted/50">
+                                                 <Avatar className="h-6 w-6">
+                                                    <AvatarImage src={`https://picsum.photos/seed/${user.id}/24/24`} />
+                                                    <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+                                                </Avatar>
+                                                <span className="text-sm font-medium">{user.name}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="text-sm text-muted-foreground">No users are currently assigned to this role.</p>
+                                )}
+                            </div>
                             <div>
                                 <h4 className="font-semibold text-base mb-3">Page Access Permissions</h4>
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
