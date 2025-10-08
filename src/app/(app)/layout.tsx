@@ -46,7 +46,7 @@ export default function AppLayout({
   const { toast } = useToast();
 
   const accessibleNavItems = useMemo(() => {
-    if (!roleName) return [];
+    if (!roleName || !can) return [];
     
     return navItems.filter(item => {
         const subject = item.path.split('/')[1]?.toUpperCase() || 'DASHBOARD';
