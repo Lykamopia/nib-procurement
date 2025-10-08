@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Card,
   CardContent,
@@ -151,7 +151,7 @@ export function RolePermissionsEditor() {
                                             <div key={perm.id} className="flex items-center space-x-2">
                                                 <Checkbox
                                                     id={`${role.id}-${perm.id}`}
-                                                    checked={permissions[role.id]?.[perm.subject]?.[perm.action] || false}
+                                                    checked={permissions[role.id]?.[perm.subject as PermissionSubject]?.[perm.action as PermissionAction] || false}
                                                     onCheckedChange={(checked) =>
                                                         handlePermissionChange(role.id, perm.subject, perm.action, !!checked)
                                                     }
