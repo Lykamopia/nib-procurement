@@ -50,6 +50,10 @@ export default function AppLayout({
     
     return navItems.filter(item => {
         const subject = item.path.split('/')[1]?.toUpperCase() || 'DASHBOARD';
+        // A special check for the root path
+        if (item.path === '/dashboard') {
+            return can('VIEW', 'DASHBOARD');
+        }
         return can('VIEW', subject as any);
     });
   }, [roleName, can]);
@@ -106,7 +110,7 @@ export default function AppLayout({
     }
     
     // Page-level access check
-    const currentPath = pathname.split('?')[0];
+    const currentPath = pathname.split('?')[0] || '/dashboard';
     const subject = (currentPath === '/' || currentPath === '/dashboard')
       ? 'DASHBOARD'
       : currentPath.split('/')[1]?.toUpperCase();
@@ -116,9 +120,7 @@ export default function AppLayout({
     if (!can('VIEW', subject as any)) {
       // User is on a page they don't have access to.
       // Find the first accessible page to redirect to.
-      const defaultPath = accessibleNavItems.find(item => item.path === '/dashboard') 
-          ? '/dashboard' 
-          : accessibleNavItems[0]?.path;
+      const defaultPath = accessibleNavItems.length > 0 ? accessibleNavItems[0].path : undefined;
       
       if (defaultPath && defaultPath !== currentPath) {
         toast({
