@@ -3,7 +3,7 @@
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import bcrypt from 'bcryptjs';
+import bcryptjs from 'bcryptjs';
 import type { User, UserRole } from '@/lib/types';
 
 export async function POST(request: Request) {
@@ -16,6 +16,7 @@ export async function POST(request: Request) {
                 vendor: true,
                 department: true,
                 committeeAssignments: true,
+                role: true,
             }
         });
 
@@ -23,12 +24,12 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'User not found' }, { status: 404 });
         }
 
-        if (user && user.password && await bcrypt.compare(password, user.password)) {
-            const { password: _, ...userWithoutPassword } = user;
+        if (user && user.password && await bcryptjs.compare(password, user.password)) {
+            const { password: _, role: roleObject, ...userWithoutPassword } = user;
             
             const finalUser = {
                 ...userWithoutPassword,
-                role: user.role.replace(/_/g, ' ') as UserRole,
+                role: roleObject.name,
                 department: user.department?.name
             };
 
@@ -40,7 +41,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ 
                 user: finalUser, 
                 token: mockToken, 
-                role: user.role.replace(/_/g, ' ') as UserRole 
+                role: roleObject.name as UserRole 
             });
         }
         

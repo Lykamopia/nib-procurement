@@ -3,7 +3,7 @@
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import bcrypt from 'bcryptjs';
+import bcryptjs from 'bcryptjs';
 
 export async function GET() {
   try {
@@ -46,7 +46,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'A user with this email already exists' }, { status: 409 });
     }
     
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcryptjs.hash(password, 10);
 
     const newUser = await prisma.user.create({
         data: {
@@ -115,7 +115,7 @@ export async function PATCH(request: Request) {
     }
 
     if (password) {
-        updateData.password = await bcrypt.hash(password, 10);
+        updateData.password = await bcryptjs.hash(password, 10);
     }
 
     const updatedUser = await prisma.user.update({
