@@ -147,8 +147,8 @@ export function RolePermissionsEditor() {
       <CardContent>
         <Accordion type="multiple" className="w-full space-y-4">
             {roles.map(role => (
-                <AccordionItem value={role.id} key={role.id} className="border rounded-md">
-                    <AccordionTrigger className="p-6 hover:no-underline">
+                <AccordionItem value={role.id} key={role.id} className="border rounded-md px-6">
+                    <AccordionTrigger className="py-6 hover:no-underline">
                          <div className='flex flex-col text-left'>
                             <h3 className="text-lg font-semibold">{role.name.replace(/_/g, ' ')}</h3>
                             <div className="flex items-center text-sm text-muted-foreground mt-1">
@@ -157,7 +157,7 @@ export function RolePermissionsEditor() {
                             </div>
                          </div>
                     </AccordionTrigger>
-                    <AccordionContent className="px-6 pb-6 space-y-6">
+                    <AccordionContent className="pb-6 space-y-6">
                         <div>
                             <h4 className="font-semibold text-base mb-3">Users in this Role</h4>
                             {role.users && role.users.length > 0 ? (

@@ -8,7 +8,11 @@ export async function GET() {
   try {
     const roles = await prisma.role.findMany({
         include: {
-            permissions: true,
+            permissions: {
+              include: {
+                permission: true
+              }
+            },
             users: {
                 select: {
                     id: true,
@@ -18,7 +22,13 @@ export async function GET() {
             }
         }
     });
-    return NextResponse.json(roles);
+
+    const formattedRoles = roles.map(role => ({
+      ...role,
+      permissions: role.permissions.map(p => p.permission)
+    }));
+
+    return NextResponse.json(formattedRoles);
   } catch (error) {
     console.error("Failed to fetch roles:", error);
     if (error instanceof Error) {
