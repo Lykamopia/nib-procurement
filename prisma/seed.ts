@@ -1,7 +1,7 @@
 
 import { PrismaClient, UserRole } from '@prisma/client';
-import { getInitialData } from '../src/lib/seed-data';
 import bcrypt from 'bcryptjs';
+import { getInitialData } from '../src/lib/seed-data';
 
 const prisma = new PrismaClient();
 
