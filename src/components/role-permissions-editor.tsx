@@ -15,11 +15,10 @@ import { Checkbox } from './ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, ShieldCheck, User } from 'lucide-react';
 import { Label } from './ui/label';
-import { Permission, Role, PermissionAction, PermissionSubject, User as UserType } from '@/lib/types';
+import { Permission, Role, PermissionAction, PermissionSubject } from '@/lib/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './ui/accordion';
 import { useAuth } from '@/contexts/auth-context';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
-import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from './ui/tooltip';
 
 type PermissionsState = Record<string, { [key: string]: { [key: string]: boolean } }>;
 
@@ -167,7 +166,7 @@ export function RolePermissionsEditor() {
                                         {role.users.map(user => (
                                             <div key={user.id} className="flex items-center gap-2 p-2 border rounded-md bg-muted/50">
                                                  <Avatar className="h-6 w-6">
-                                                    <AvatarImage src={`https://picsum.photos/seed/${user.id}/24/24`} />
+                                                    <AvatarImage src={`https://picsum.photos/seed/${user.id}/24/24`} data-ai-hint="profile picture" />
                                                     <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
                                                 </Avatar>
                                                 <span className="text-sm font-medium">{user.name}</span>
