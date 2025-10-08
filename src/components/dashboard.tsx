@@ -218,12 +218,12 @@ function ProcurementOfficerDashboard({ setActiveView }: { setActiveView: (view: 
 }
 
 export function Dashboard({ setActiveView }: DashboardProps) {
-  const { role, user } = useAuth();
+  const { roleName, user } = useAuth();
   const router = useRouter();
 
 
   const renderDashboard = () => {
-    switch (role) {
+    switch (roleName) {
       case 'Requester':
         return (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -266,7 +266,7 @@ export function Dashboard({ setActiveView }: DashboardProps) {
             />
           </div>
         );
-      case 'Procurement Officer':
+      case 'Procurement_Officer':
         return <ProcurementOfficerDashboard setActiveView={setActiveView} />;
       default:
         return <p>No dashboard available for this role.</p>;
@@ -280,7 +280,7 @@ export function Dashboard({ setActiveView }: DashboardProps) {
             <h1 className="text-3xl font-bold">Welcome back, {user?.name}!</h1>
             <p className="text-muted-foreground">
             Here's a summary of procurement activities for your role as a{' '}
-            <strong>{role}</strong>.
+            <strong>{roleName?.replace(/_/g, ' ')}</strong>.
             </p>
         </div>
       </div>

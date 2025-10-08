@@ -40,20 +40,20 @@ export default function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { user, logout, loading, role } = useAuth();
+  const { user, logout, loading, roleName } = useAuth();
   const { can } = usePermissions();
   const router = useRouter();
   const pathname = usePathname();
   const { toast } = useToast();
 
   const accessibleNavItems = useMemo(() => {
-    if (!role) return [];
+    if (!roleName) return [];
     
     return navItems.filter(item => {
         const subject = item.path.split('/')[1]?.toUpperCase() || 'DASHBOARD';
         return can('VIEW', subject as any);
     });
-  }, [role, can]);
+  }, [roleName, can]);
 
   const handleLogout = useCallback(() => {
     toast({
@@ -96,8 +96,8 @@ export default function AppLayout({
   
   // Page-level access check
   useEffect(() => {
-    if (!loading && role) {
-      if (role.name === 'Vendor') {
+    if (!loading && roleName) {
+      if (roleName === 'Vendor') {
           return;
       }
 
@@ -115,7 +115,7 @@ export default function AppLayout({
         }
       }
     }
-  }, [pathname, loading, role, router, can, accessibleNavItems]);
+  }, [pathname, loading, roleName, router, can, accessibleNavItems]);
 
   const pageTitle = useMemo(() => {
      const currentNavItem = navItems.find(item => {
@@ -128,7 +128,7 @@ export default function AppLayout({
     return currentNavItem?.label || 'Nib InternationalBank';
   }, [pathname]);
 
-  if (loading || !user || !role) {
+  if (loading || !user || !roleName) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />

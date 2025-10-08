@@ -33,7 +33,7 @@ export function RoleSwitcher() {
                  <SelectItem key={u.id} value={u.id}>
                     <div className="flex flex-col text-left">
                         <span className="font-medium">{u.name}</span>
-                        <span className="text-xs text-muted-foreground">{u.role.name}</span>
+                        <span className="text-xs text-muted-foreground">{u.role.name.replace(/_/g, ' ')}</span>
                     </div>
                 </SelectItem>
             ))}

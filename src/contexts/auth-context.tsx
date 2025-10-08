@@ -9,7 +9,8 @@ import { getUserByToken } from '@/lib/auth';
 interface AuthContextType {
   user: User | null;
   token: string | null;
-  role: Role | null;
+  role: Role | null; // The full role object for permissions
+  roleName: string | null; // The simple string name for UI
   allUsers: User[];
   login: (token: string, user: User, role: Role) => void;
   logout: () => void;
@@ -43,7 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const initializeAuth = useCallback(async () => {
     setLoading(true);
-    const users = await fetchAllUsers();
+    await fetchAllUsers();
     try {
         const storedToken = localStorage.getItem('authToken');
         if (storedToken) {
@@ -77,8 +78,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = (newToken: string, loggedInUser: User, loggedInRole: Role) => {
     localStorage.setItem('authToken', newToken);
-    localStorage.setItem('user', JSON.stringify(loggedInUser)); // Storing full user object
-    localStorage.setItem('role', JSON.stringify(loggedInRole));
+    localStorage.setItem('user', JSON.stringify(loggedInUser));
+    localStorage.setItem('role', JSON.stringify(loggedInRole)); // Storing full role object
     setToken(newToken);
     setUser(loggedInUser);
     setRole(loggedInRole);
@@ -121,6 +122,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       token,
       role,
+      roleName: role?.name || null,
       allUsers,
       login,
       logout,
