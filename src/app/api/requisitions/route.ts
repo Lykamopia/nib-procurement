@@ -272,7 +272,7 @@ export async function PATCH(
         if (status === 'Approved') {
             dataToUpdate.approver = { connect: { id: userId } };
             dataToUpdate.approverComment = comment;
-            dataToUpdate.currentApproverId = null;
+            dataToUpdate.currentApprover = { disconnect: true };
             
             if (isManagerialApproval) {
                 // If it's a managerial approval, this means the award process can continue.
@@ -292,7 +292,7 @@ export async function PATCH(
         } else if (status === 'Rejected') {
             dataToUpdate.approver = { connect: { id: userId } };
             dataToUpdate.approverComment = comment;
-            dataToUpdate.currentApproverId = null;
+            dataToUpdate.currentApprover = { disconnect: true };
              auditAction = 'REJECT_REQUISITION';
              auditDetails = `Requisition ${id} was rejected with comment: "${comment}".`;
         } else if (status === 'Pending Approval') {
