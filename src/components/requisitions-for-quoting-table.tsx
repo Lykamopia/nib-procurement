@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -41,7 +40,13 @@ export function RequisitionsForQuotingTable() {
     const fetchRequisitions = async () => {
         try {
             setLoading(true);
-            let response = await fetch('/api/requisitions');
+            let url = '/api/requisitions';
+            if (role === 'Procurement Officer') {
+                url += '?status=Approved';
+            }
+            
+            let response = await fetch(url);
+
             if (!response.ok) {
                 throw new Error('Failed to fetch requisitions');
             }
@@ -55,14 +60,25 @@ export function RequisitionsForQuotingTable() {
                 );
             }
             
-            // For POs, show requisitions that are approved or in the quotation/award lifecycle
+            // For POs, also show requisitions that are in the quotation/award lifecycle
             if (role === 'Procurement Officer' || role === 'Committee') {
                  const relevantStatuses = ['Approved', 'RFQ In Progress', 'PO Created', 'Fulfilled', 'Closed', 'Pending Managerial Approval'];
-                 data = data.filter(r => {
-                    const normalizedStatus = r.status.replace(/_/g, ' ');
-                    return relevantStatuses.includes(normalizedStatus);
-                 });
+                 // If we already filtered by 'Approved', we need to fetch the others and combine.
+                 if (role === 'Procurement Officer') {
+                     const otherStatuses = relevantStatuses.filter(s => s !== 'Approved');
+                     const otherResponses = await Promise.all(
+                         otherStatuses.map(s => fetch(`/api/requisitions?status=${s.replace(/ /g, '_')}`).then(res => res.json()))
+                     );
+                     const otherRequisitions = otherResponses.flat();
+                     data = [...data, ...otherRequisitions];
+                 } else {
+                     data = data.filter(r => {
+                        const normalizedStatus = r.status.replace(/_/g, ' ');
+                        return relevantStatuses.includes(normalizedStatus);
+                     });
+                 }
             }
+
 
             setRequisitions(data);
         } catch (e) {
@@ -177,7 +193,7 @@ export function RequisitionsForQuotingTable() {
                         <p className="text-muted-foreground">
                             {role === 'Committee Member'
                                 ? 'There are no requisitions currently assigned to you for scoring.'
-                                : 'There are no requisitions currently in the RFQ process.'
+                                : 'There are no approved requisitions ready for RFQ.'
                             }
                         </p>
                       </div>
