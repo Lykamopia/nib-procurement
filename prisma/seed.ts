@@ -8,6 +8,7 @@ const prisma = new PrismaClient();
 async function main() {
   console.log(`Clearing existing data...`);
   // Deleting in reverse order of creation to respect foreign key constraints
+  await prisma.permissionsOnRoles.deleteMany({});
   await prisma.auditLog.deleteMany({});
   await prisma.receiptItem.deleteMany({});
   await prisma.goodsReceiptNote.deleteMany({});
@@ -51,7 +52,7 @@ async function main() {
   }
   console.log('Seeded departments.');
 
-  // Seed RBAC Roles & Permissions
+  // Seed RBAC Permissions
   const allPermissions = [
     // Page Permissions
     { action: PermissionAction.VIEW, subject: PermissionSubject.DASHBOARD },
@@ -86,10 +87,20 @@ async function main() {
     { action: PermissionAction.MANAGE, subject: PermissionSubject.PERMISSIONS },
   ];
 
-  for (const perm of allPermissions) {
-    await prisma.permission.create({ data: perm });
-  }
+  await prisma.permission.createMany({
+      data: allPermissions,
+      skipDuplicates: true
+  });
   console.log('Seeded permissions.');
+
+  const createdPermissions = await prisma.permission.findMany();
+  const permissionMap = new Map(createdPermissions.map(p => [`${p.action}_${p.subject}`, p.id]));
+  
+  const getPermissionId = (action: PermissionAction, subject: PermissionSubject) => {
+      const id = permissionMap.get(`${action}_${subject}`);
+      if (!id) throw new Error(`Permission not found: ${action} on ${subject}`);
+      return id;
+  }
 
   const rolePermissionsMap: Record<UserRole, { action: PermissionAction, subject: PermissionSubject }[]> = {
     Admin: allPermissions,
@@ -160,15 +171,18 @@ async function main() {
   };
 
   for (const roleName of Object.values(UserRole)) {
+      await prisma.role.create({ data: { name: roleName } });
       const perms = rolePermissionsMap[roleName];
-      await prisma.role.create({
-          data: {
-              name: roleName,
-              permissions: perms ? {
-                  connect: perms.map(p => ({ action_subject: { action: p.action, subject: p.subject }}))
-              } : undefined
-          },
-      });
+      if (perms && perms.length > 0) {
+        const permissionsToLink = perms.map(p => ({
+            roleName: roleName,
+            permissionId: getPermissionId(p.action, p.subject),
+        }));
+        await prisma.permissionsOnRoles.createMany({
+            data: permissionsToLink,
+            skipDuplicates: true
+        });
+      }
   }
   console.log('Seeded roles and assigned permissions.');
 
@@ -184,7 +198,7 @@ async function main() {
           ...userData,
           password: hashedPassword,
           roleName: userData.role as UserRole,
-          department: user.departmentId ? { connect: { id: user.departmentId } } : undefined,
+          departmentId: user.departmentId || undefined,
       },
     });
   }
@@ -195,7 +209,7 @@ async function main() {
       await prisma.user.update({
           where: { id: user.id },
           data: {
-              manager: { connect: { id: user.managerId } }
+              managerId: user.managerId
           }
       });
   }
@@ -229,7 +243,6 @@ async function main() {
           ...vendorData,
           userId: createdUser.id,
           kycStatus: vendorData.kycStatus as any,
-          user: { connect: { id: createdUser.id } }
       },
     });
 
@@ -263,10 +276,10 @@ async function main() {
           data: {
               ...reqData,
               status: reqData.status.replace(/ /g, '_') as any,
-              requester: { connect: { id: requesterId } },
-              approver: approverId ? { connect: { id: approverId } } : undefined,
+              requesterId: requesterId,
+              approverId: approverId,
               currentApproverId: currentApproverId || approverId,
-              department: departmentId ? { connect: { id: departmentId } } : undefined,
+              departmentId: departmentId!,
               financialCommitteeMembers: financialCommitteeMemberIds ? { connect: financialCommitteeMemberIds.map(id => ({ id })) } : undefined,
               technicalCommitteeMembers: technicalCommitteeMemberIds ? { connect: technicalCommitteeMemberIds.map(id => ({ id })) } : undefined,
               deadline: reqData.deadline ? new Date(reqData.deadline) : undefined,
@@ -295,9 +308,9 @@ async function main() {
                status: quoteData.status.replace(/_/g, '_') as any,
                deliveryDate: new Date(quoteData.deliveryDate),
                createdAt: new Date(quoteData.createdAt),
-               vendor: { connect: { id: vendorId } },
-               requisition: { connect: { id: requisitionId } },
-               items: { create: items },
+               vendorId: vendorId,
+               requisitionId: requisitionId,
+               items: { create: items.map(i => ({...i, unitPrice: i.unitPrice || 0, leadTimeDays: i.leadTimeDays || 0})) },
                answers: { create: answers },
            }
        });
@@ -364,7 +377,7 @@ async function main() {
       data: {
           ...logData,
           timestamp: new Date(log.timestamp),
-          user: userForLog ? { connect: { id: userForLog.id } } : undefined
+          userId: userForLog?.id,
       },
     });
   }
