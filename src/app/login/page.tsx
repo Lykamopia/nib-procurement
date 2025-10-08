@@ -42,11 +42,12 @@ export default function LoginPage() {
       const result = await response.json();
 
       if (response.ok) {
-        authLogin(result.token, result.user, result.user.role);
+        authLogin(result.token, result.user);
         toast({
           title: 'Login Successful',
           description: `Welcome back, ${result.user.name}!`,
         });
+        // The AuthProvider and layouts will handle the redirect, not the login page.
         router.push('/');
       } else {
         throw new Error(result.error || 'Invalid email or password.');

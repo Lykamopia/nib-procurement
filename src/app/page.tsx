@@ -15,6 +15,8 @@ export default function HomePage() {
     // The layouts themselves handle permission checks and further redirection.
     if (!loading) {
       if (user) {
+        // The appropriate layout (/app or /vendor) will handle the final destination.
+        // We just need to get them out of the root page.
         if (roleName === 'Vendor') {
           router.push('/vendor/dashboard');
         } else {

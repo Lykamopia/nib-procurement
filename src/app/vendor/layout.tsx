@@ -41,7 +41,7 @@ export default function VendorLayout({
       // If no user, send to login
       router.push('/login');
     } else if (roleName !== 'Vendor') {
-      // If a non-vendor lands here, send them away
+      // If a non-vendor lands here, send them away to the main dashboard.
       router.push('/dashboard');
     }
   }, [user, loading, roleName, router]);

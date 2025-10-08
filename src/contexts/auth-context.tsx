@@ -45,30 +45,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     await fetchAllUsers();
     try {
-        const storedToken = localStorage.getItem('authToken');
-        if (storedToken) {
-            const userPayload = await getUserByToken(storedToken);
-            if (userPayload) {
-                // Fetch the full user object from the API to ensure all relations (like role with permissions) are loaded.
-                const response = await fetch(`/api/users/${userPayload.user.id}`);
-                if (response.ok) {
-                    const fullUser = await response.json();
-                    setUser(fullUser);
-                    setToken(storedToken);
-                    setRole(fullUser.role);
-                } else {
-                     throw new Error('Failed to fetch full user details during initialization');
-                }
-            } else {
-                throw new Error('Invalid token found in storage');
-            }
+      const storedToken = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+      if (storedToken) {
+        const userPayload = await getUserByToken(storedToken);
+        if (userPayload) {
+          // Fetch the full user object from the API to ensure all relations (like role with permissions) are loaded.
+          const response = await fetch(`/api/users/${userPayload.user.id}`);
+          if (response.ok) {
+            const fullUser = await response.json();
+            setUser(fullUser);
+            setToken(storedToken);
+            setRole(fullUser.role);
+          } else {
+            throw new Error('Failed to fetch full user details during initialization');
+          }
+        } else {
+          throw new Error('Invalid token found in storage');
         }
+      }
     } catch (error) {
-        console.error("Auth initialization failed:", error);
+      console.error("Auth initialization failed:", error);
+      if (typeof window !== 'undefined') {
         localStorage.clear(); // Clear bad auth data
-        setUser(null);
-        setToken(null);
-        setRole(null);
+      }
+      setUser(null);
+      setToken(null);
+      setRole(null);
     }
     setLoading(false);
   }, [fetchAllUsers]);
@@ -78,15 +80,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [initializeAuth]);
 
   const login = (newToken: string, loggedInUser: User) => {
-    localStorage.setItem('authToken', newToken);
-    // Don't store the full user in localStorage, it can become stale. The token is the source of truth.
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('authToken', newToken);
+    }
     setToken(newToken);
     setUser(loggedInUser);
     setRole(loggedInUser.role);
   };
 
   const logout = () => {
-    localStorage.removeItem('authToken');
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('authToken');
+    }
     setToken(null);
     setUser(null);
     setRole(null);
@@ -120,7 +125,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       token,
       role,
-      roleName: role?.name || null,
+      roleName: user?.role?.name || null,
       allUsers,
       login,
       logout,
