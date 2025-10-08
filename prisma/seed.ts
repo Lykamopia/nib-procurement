@@ -5,20 +5,9 @@ import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
-const roleStringToEnum: { [key: string]: UserRole } = {
-  'Requester': UserRole.Requester,
-  'Approver': UserRole.Approver,
-  'Procurement Officer': UserRole.Procurement_Officer,
-  'Finance': UserRole.Finance,
-  'Admin': UserRole.Admin,
-  'Receiving': UserRole.Receiving,
-  'Vendor': UserRole.Vendor,
-  'Committee Member': UserRole.Committee_Member,
-  'Committee': UserRole.Committee,
-};
-
 async function main() {
   console.log(`Clearing existing data...`);
+  // Deleting in reverse order of creation to respect foreign key constraints
   await prisma.auditLog.deleteMany({});
   await prisma.receiptItem.deleteMany({});
   await prisma.goodsReceiptNote.deleteMany({});
@@ -194,7 +183,7 @@ async function main() {
       data: {
           ...userData,
           password: hashedPassword,
-          role: { connect: { name: roleStringToEnum[userData.role] } },
+          roleName: userData.role as UserRole,
           department: user.departmentId ? { connect: { id: user.departmentId } } : undefined,
       },
     });
@@ -231,7 +220,7 @@ async function main() {
               email: vendorUser.email,
               password: hashedPassword,
               approvalLimit: vendorUser.approvalLimit,
-              role: { connect: { name: roleStringToEnum[vendorUser.role] } }
+              roleName: vendorUser.role as UserRole,
           }
       });
       
@@ -263,8 +252,6 @@ async function main() {
   console.log('Seeded vendors and their users.');
 
   // Seed the rest of the data... (requisitions, quotes, etc.)
-  // This part remains largely the same as the previous version
-  // ... (omitting for brevity, no changes needed in the rest of the file)
   for (const requisition of seedData.requisitions) {
       const { 
           items, customQuestions, evaluationCriteria, quotations, requesterId, approverId, currentApproverId,
