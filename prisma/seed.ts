@@ -47,7 +47,7 @@ async function main() {
   const allRoleNames = [...new Set(seedData.users.map(u => u.role))];
   for (const roleName of allRoleNames) {
     await prisma.role.create({
-      data: { name: roleName }
+      data: { name: roleName.replace(/ /g, '_') }
     });
   }
   console.log('Seeded roles.');
@@ -69,7 +69,7 @@ async function main() {
       data: {
           ...userData,
           password: hashedPassword,
-          role: { connect: { name: role } },
+          role: { connect: { name: role.replace(/ /g, '_') } },
           department: user.departmentId ? { connect: { id: user.departmentId } } : undefined,
       },
     });
@@ -108,7 +108,7 @@ async function main() {
               email: vendorUser.email,
               password: hashedPassword,
               approvalLimit: vendorUser.approvalLimit,
-              role: { connect: { name: vendorUser.role } },
+              role: { connect: { name: vendorUser.role.replace(/ /g, '_') } },
           }
       });
       

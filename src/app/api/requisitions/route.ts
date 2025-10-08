@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { NextResponse } from 'next/server';
@@ -275,12 +274,9 @@ export async function PATCH(
             dataToUpdate.currentApprover = { disconnect: true };
             
             if (isManagerialApproval) {
-                // If it's a managerial approval, this means the award process can continue.
-                // The finalize-scores endpoint already handles this. Here we just confirm the approval.
                 auditAction = 'APPROVE_AWARD';
                 auditDetails = `Managerially approved award for requisition ${id}. Notifying vendors.`;
-                 // We will re-run the finalize logic to send emails and update statuses
-                 // This is a simplification; a more robust system might use a state machine or queue
+
                  const { tallyAndAwardScores } = await import('./[id]/finalize-scores/route');
                  await tallyAndAwardScores(id, requisition.awardResponseDeadline || undefined, user);
 

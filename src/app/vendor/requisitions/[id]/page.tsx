@@ -619,7 +619,7 @@ export default function VendorRequisitionPage() {
 
 
     const fetchRequisitionData = async () => {
-        if (!id || !token || !user) return;
+        if (!id || !token || !user?.vendorId) return;
         
         setLoading(true);
         setError(null);
@@ -643,10 +643,14 @@ export default function VendorRequisitionPage() {
              
              if (vendorSubmittedQuote) {
                  setSubmittedQuote(vendorSubmittedQuote);
-                 const poResponse = await fetch('/api/purchase-orders');
-                 const allPOs: PurchaseOrder[] = await poResponse.json();
-                 const poForThisVendor = allPOs.find(p => p.requisitionId === foundReq.id && p.vendor.id === user.vendorId);
-                 setPurchaseOrder(poForThisVendor || null);
+                 
+                 // Only fetch PO if the quote has been accepted
+                 if (vendorSubmittedQuote.status === 'Accepted' || vendorSubmittedQuote.status === 'Invoice_Submitted') {
+                     const poResponse = await fetch('/api/purchase-orders');
+                     const allPOs: PurchaseOrder[] = await poResponse.json();
+                     const poForThisVendor = allPOs.find(p => p.requisitionId === foundReq.id && p.vendor.id === user.vendorId);
+                     setPurchaseOrder(poForThisVendor || null);
+                 }
              } else {
                 setSubmittedQuote(null);
              }
