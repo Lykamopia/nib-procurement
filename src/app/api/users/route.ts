@@ -55,7 +55,7 @@ export async function POST(request: Request) {
             role: role.replace(/ /g, '_'),
             department: { connect: { id: departmentId } },
             approvalLimit,
-            managerId: managerId || null,
+            manager: managerId && managerId !== 'null' ? { connect: { id: managerId } } : undefined,
         }
     });
     
@@ -104,8 +104,13 @@ export async function PATCH(request: Request) {
         role: role.replace(/ /g, '_'),
         department: { connect: { id: departmentId } },
         approvalLimit: approvalLimit,
-        managerId: managerId || null,
     };
+    
+    if (managerId && managerId !== 'null') {
+      updateData.manager = { connect: { id: managerId } };
+    } else {
+      updateData.manager = { disconnect: true };
+    }
 
     if (password) {
         updateData.password = await bcrypt.hash(password, 10);
