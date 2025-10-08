@@ -286,7 +286,7 @@ async function main() {
               scoringDeadline: reqData.scoringDeadline ? new Date(reqData.scoringDeadline) : undefined,
               awardResponseDeadline: reqData.awardResponseDeadline ? new Date(reqData.awardResponseDeadline) : undefined,
               items: { create: items },
-              customQuestions: { create: customQuestions?.map(q => ({...q, options: q.options || []}))},
+              customQuestions: { create: customQuestions?.map(q => ({...q, options: q.options || [], questionType: q.questionType.replace(/-/g, '_') as any }))},
               evaluationCriteria: evaluationCriteria ? {
                   create: {
                       financialWeight: evaluationCriteria.financialWeight,
@@ -347,7 +347,7 @@ async function main() {
         await prisma.invoice.create({
             data: {
                 ...invoiceData,
-                status: invoiceData.status.replace(/_/g, '_') as any,
+                status: invoiceData.status.replace(/ /g, '_') as any,
                 invoiceDate: new Date(invoiceData.invoiceDate),
                 paymentDate: invoiceData.paymentDate ? new Date(invoiceData.paymentDate) : undefined,
                 items: { create: items }

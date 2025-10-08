@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { NextResponse } from 'next/server';
@@ -127,7 +126,7 @@ export async function POST(request: Request) {
             customQuestions: {
                 create: body.customQuestions?.map((q: any) => ({
                     questionText: q.questionText,
-                    questionType: q.questionType,
+                    questionType: q.questionType.replace(/-/g, '_'),
                     options: q.options || [],
                 }))
             },
@@ -233,7 +232,7 @@ export async function PATCH(
                 deleteMany: {},
                 create: updateData.customQuestions?.map((q: any) => ({
                     questionText: q.questionText,
-                    questionType: q.questionType,
+                    questionType: q.questionType.replace(/-/g, '_'),
                     options: q.options || [],
                 })),
             },
