@@ -13,7 +13,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
 import { Badge } from './ui/badge';
 import { format, formatDistanceToNow } from 'date-fns';
-import { AuditLog as AuditLogType, UserRole } from '@/lib/types';
+import { AuditLog as AuditLogType } from '@/lib/types';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
