@@ -94,8 +94,8 @@ export function UserManagementEditor() {
   const selectedRole = form.watch('role');
   const currentApprovalLimit = form.watch('approvalLimit');
   
-  const managerRoles: UserRole[] = ['Approver', 'Procurement Officer', 'Admin', 'Finance'];
-  const approvalRoles: UserRole[] = ['Approver', 'Procurement Officer', 'Admin', 'Finance', 'Committee Member'];
+  const managerRoles: UserRole[] = ['Approver', 'Procurement_Officer', 'Admin', 'Finance'];
+  const approvalRoles: UserRole[] = ['Approver', 'Procurement_Officer', 'Admin', 'Finance', 'Committee_Member'];
   const showApprovalFields = approvalRoles.includes(selectedRole as UserRole);
 
   const potentialManagers = users.filter(
@@ -259,8 +259,8 @@ export function UserManagementEditor() {
                                 <TableCell className="text-muted-foreground">{index + 1}</TableCell>
                                 <TableCell className="font-semibold">{user.name}</TableCell>
                                 <TableCell>{user.email}</TableCell>
-                                <TableCell>{user.role.name}</TableCell>
-                                <TableCell>{user.department?.name}</TableCell>
+                                <TableCell>{user.role?.name.replace(/_/g, ' ') || 'N/A'}</TableCell>
+                                <TableCell>{user.department?.name || 'N/A'}</TableCell>
                                 <TableCell className="text-right">
                                     <div className="flex gap-2 justify-end">
                                         <Button variant="outline" size="sm" onClick={() => openDialog(user)}>

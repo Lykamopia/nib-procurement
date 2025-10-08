@@ -9,17 +9,25 @@ export async function GET() {
   try {
     const users = await prisma.user.findMany({
         where: { 
-            roleName: { not: 'Vendor' } 
+            role: {
+                name: {
+                    not: 'Vendor'
+                }
+            } 
         },
         include: { 
-            role: true,
+            role: {
+                include: {
+                    permissions: true
+                }
+            },
             department: true,
             committeeAssignments: true,
         }
     });
     const formattedUsers = users.map(u => ({
         ...u,
-        department: u.department?.name || 'N/A'
+        department: u.department // Keep department as an object
     }));
     return NextResponse.json(formattedUsers);
   } catch (error) {
@@ -201,5 +209,3 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
   }
 }
-
-    
