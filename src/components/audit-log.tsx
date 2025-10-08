@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -32,6 +31,7 @@ import {
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 import { useAuth } from '@/contexts/auth-context';
+import { usePermissions } from '@/hooks/use-permissions';
 
 const PAGE_SIZE = 15;
 
@@ -43,7 +43,8 @@ export function AuditLog() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filters, setFilters] = useState<{ role: string; action: string; date?: Date }>({ role: 'all', action: 'all' });
   const [currentPage, setCurrentPage] = useState(1);
-  const { user, role } = useAuth();
+  const { user } = useAuth();
+  const { can } = usePermissions();
 
   useEffect(() => {
     const fetchLogs = async () => {
@@ -104,13 +105,13 @@ export function AuditLog() {
 
   const getActionVariant = (action: string) => {
     const lowerAction = action.toLowerCase();
-    if (lowerAction.includes('create') || lowerAction.includes('approve') || lowerAction.includes('award') || lowerAction.includes('match')) return 'default';
+    if (lowerAction.includes('create') || lowerAction.includes('approve') || lowerAction.includes('award') || lowerAction.includes('match') || lowerAction.includes('verify')) return 'default';
     if (lowerAction.includes('update') || lowerAction.includes('submit') || lowerAction.includes('attach')) return 'secondary';
-    if (lowerAction.includes('reject') || lowerAction.includes('dispute')) return 'destructive';
+    if (lowerAction.includes('reject') || lowerAction.includes('dispute') || lowerAction.includes('delete')) return 'destructive';
     return 'outline';
   };
   
-   if (role !== 'Procurement Officer') {
+   if (!can('VIEW', 'AUDIT_LOG')) {
     return (
         <Card>
             <CardHeader>
@@ -159,7 +160,7 @@ export function AuditLog() {
               <SelectValue placeholder="Filter by action" />
             </SelectTrigger>
             <SelectContent>
-              {uniqueActions.map(action => <SelectItem key={action} value={action}>{action === 'all' ? 'All Actions' : action}</SelectItem>)}
+              {uniqueActions.map(action => <SelectItem key={action} value={action}>{action === 'all' ? 'All Actions' : action.replace(/_/g, ' ')}</SelectItem>)}
             </SelectContent>
           </Select>
           <Popover>
@@ -208,7 +209,7 @@ export function AuditLog() {
                   <TableCell className="font-medium">{log.user}</TableCell>
                   <TableCell>{log.role}</TableCell>
                   <TableCell>
-                    <Badge variant={getActionVariant(log.action)}>{log.action}</Badge>
+                    <Badge variant={getActionVariant(log.action)}>{log.action.replace(/_/g, ' ')}</Badge>
                   </TableCell>
                   <TableCell>
                     {log.entity}: <span className="text-muted-foreground">{log.entityId}</span>
