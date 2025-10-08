@@ -17,11 +17,17 @@ export function Breadcrumbs() {
     let currentPath = '';
     pathSegments.forEach(segment => {
       currentPath += `/${segment}`;
-      const navItem = navItems.find(item => item.path === currentPath);
+      
+      const navItem = navItems.find(item => {
+        if (item.path.includes('[') && currentPath.startsWith(item.path.split('[')[0])) {
+          return true;
+        }
+        return item.path === currentPath;
+      });
       
       let label = navItem?.label || segment.charAt(0).toUpperCase() + segment.slice(1).replace(/-/g, ' ');
 
-      // A simple check for what looks like an ID (numeric or long alphanumeric)
+      // A simple check for what looks like an ID
       if (segment.length > 8 || !isNaN(Number(segment))) {
           const parentPath = currentPath.substring(0, currentPath.lastIndexOf('/'));
           const parentNavItem = navItems.find(item => item.path === parentPath);
