@@ -87,8 +87,17 @@ async function main() {
     { action: PermissionAction.MANAGE, subject: PermissionSubject.PERMISSIONS },
   ];
 
+  // Robustness: Filter out any invalid permissions before attempting to create them.
+  const validPermissions = allPermissions.filter(p => {
+    if (p.action && p.subject) {
+      return true;
+    }
+    console.warn(`Skipping invalid permission during seed: action=${p.action}, subject=${p.subject}`);
+    return false;
+  });
+
   await prisma.permission.createMany({
-      data: allPermissions,
+      data: validPermissions,
       skipDuplicates: true
   });
   console.log('Seeded permissions.');
@@ -103,7 +112,7 @@ async function main() {
   }
 
   const rolePermissionsMap: Record<UserRole, { action: PermissionAction, subject: PermissionSubject }[]> = {
-    Admin: allPermissions,
+    Admin: allPermissions.filter(p => p.subject), // Ensure we only map valid permissions
     Procurement_Officer: [
         { action: PermissionAction.VIEW, subject: PermissionSubject.DASHBOARD },
         { action: PermissionAction.VIEW, subject: PermissionSubject.REQUISITIONS },
@@ -394,5 +403,3 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
-
-  
