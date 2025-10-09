@@ -140,6 +140,7 @@ export type PurchaseRequisition = {
   technicalCommitteeMemberIds?: string[];
   committeeName?: string;
   committeePurpose?: string;
+  meetingMinutes?: string;
   cpoAmount?: number;
   rfqSettings?: {
       allowQuoteEdits?: boolean;

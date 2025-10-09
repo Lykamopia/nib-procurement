@@ -932,7 +932,7 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent, isAuthorized }: { re
     const { user } = useAuth();
     const { toast } = useToast();
     
-    const isSent = requisition.status === 'RFQ In Progress' || requisition.status === 'PO Created';
+    const isSent = requisition.status === 'RFQ In Progress' || requisition.status === 'PO Created' || requisition.status === 'Pending Managerial Approval';
 
      useEffect(() => {
         if (requisition.deadline) {
@@ -1594,7 +1594,7 @@ const ScoringProgressTracker = ({
   requisition: PurchaseRequisition;
   quotations: Quotation[];
   allUsers: User[];
-  onFinalize: (awardStrategy: 'all' | 'item', awards: any, awardResponseDeadline?: Date) => void;
+  onFinalize: (awardStrategy: 'all' | 'item', awards: any, meetingMinutes: string, awardResponseDeadline?: Date) => void;
   onCommitteeUpdate: (open: boolean) => void;
   isFinalizing: boolean;
   isAwarded: boolean;
@@ -1818,6 +1818,12 @@ const CumulativeScoringReportDialog = ({ requisition, quotations, isOpen, onClos
                                 <p className="text-sm text-gray-500">{requisition.id}</p>
                                 <p className="text-sm text-gray-500">Report Generated: {format(new Date(), 'PPpp')}</p>
                             </div>
+                             {requisition.meetingMinutes && (
+                                <div className="p-4 border-l-4 border-primary bg-muted/50 print:border-blue-500 mb-6">
+                                    <h3 className="font-bold text-lg mb-2 print:text-black">Official Meeting Minutes & Justification</h3>
+                                    <p className="text-sm text-muted-foreground whitespace-pre-wrap print:text-gray-700">{requisition.meetingMinutes}</p>
+                                </div>
+                            )}
 
                             {quotations.sort((a, b) => (a.rank || 99) - (b.rank || 99)).map(quote => (
                                 <Card key={quote.id} className="break-inside-avoid print:border-gray-300 print:shadow-none print:rounded-lg">
@@ -1910,12 +1916,14 @@ const AwardCenterDialog = ({
 }: {
     requisition: PurchaseRequisition;
     quotations: Quotation[];
-    onFinalize: (awardStrategy: 'all' | 'item', awards: any, awardResponseDeadline?: Date) => void;
+    onFinalize: (awardStrategy: 'all' | 'item', awards: any, meetingMinutes: string, awardResponseDeadline?: Date) => void;
     onClose: () => void;
 }) => {
     const [awardStrategy, setAwardStrategy] = useState<'item' | 'all'>('item');
     const [awardResponseDeadlineDate, setAwardResponseDeadlineDate] = useState<Date|undefined>();
     const [awardResponseDeadlineTime, setAwardResponseDeadlineTime] = useState('17:00');
+    const [meetingMinutes, setMeetingMinutes] = useState('');
+    const { toast } = useToast();
 
     const awardResponseDeadline = useMemo(() => {
         if (!awardResponseDeadlineDate) return undefined;
@@ -1992,6 +2000,15 @@ const AwardCenterDialog = ({
 
 
     const handleConfirmAward = () => {
+        if (!meetingMinutes.trim()) {
+            toast({
+                variant: 'destructive',
+                title: 'Minutes Required',
+                description: 'Please provide the meeting minutes to justify the award decision.'
+            });
+            return;
+        }
+
         let awards: { [vendorId: string]: { vendorName: string, items: { requisitionItemId: string, quoteItemId: string }[] } } = {};
         
         if (awardStrategy === 'item') {
@@ -2012,7 +2029,7 @@ const AwardCenterDialog = ({
            }
         }
 
-        onFinalize(awardStrategy, awards, awardResponseDeadline);
+        onFinalize(awardStrategy, awards, meetingMinutes, awardResponseDeadline);
         onClose();
     }
 
@@ -2072,6 +2089,17 @@ const AwardCenterDialog = ({
                     </Card>
                 </TabsContent>
             </Tabs>
+            
+            <div className="pt-4 space-y-2">
+                <Label htmlFor="minutes">Meeting Minutes & Justification</Label>
+                <Textarea 
+                    id="minutes"
+                    placeholder="Record the committee's final discussion, justification for the chosen award strategy, and any other relevant notes for the audit trail."
+                    value={meetingMinutes}
+                    onChange={(e) => setMeetingMinutes(e.target.value)}
+                    rows={5}
+                />
+            </div>
 
              <div className="pt-4 space-y-2">
                 <Label>Vendor Response Deadline (Optional)</Label>
@@ -2500,7 +2528,7 @@ export default function QuotationDetailsPage() {
     setLastPOCreated(po);
   }
   
-   const handleFinalizeScores = async (awardStrategy: 'all' | 'item', awards: any, awardResponseDeadline?: Date) => {
+   const handleFinalizeScores = async (awardStrategy: 'all' | 'item', awards: any, meetingMinutes: string, awardResponseDeadline?: Date) => {
         if (!user || !requisition) return;
         
         setIsFinalizing(true);
@@ -2508,7 +2536,7 @@ export default function QuotationDetailsPage() {
              const response = await fetch(`/api/requisitions/${requisition.id}/finalize-scores`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId: user.id, awardResponseDeadline, highestApproverCanOverride }),
+                body: JSON.stringify({ userId: user.id, awardResponseDeadline, highestApproverCanOverride, meetingMinutes }),
             });
             if (!response.ok) {
                 const errorData = await response.json();
@@ -2574,27 +2602,27 @@ export default function QuotationDetailsPage() {
 
   const getCurrentStep = (): 'rfq' | 'committee' | 'award' | 'finalize' | 'completed' => {
     if (!requisition) return 'rfq';
-    if (requisition.status === 'Approved') {
-        return 'rfq';
-    }
-    if (requisition.status === 'RFQ In Progress' && !isDeadlinePassed) {
-        return 'rfq';
-    }
-     if (requisition.status === 'RFQ In Progress' && isDeadlinePassed) {
-        const anyCommittee = (requisition.financialCommitteeMemberIds && requisition.financialCommitteeMemberIds.length > 0) || 
-                             (requisition.technicalCommitteeMemberIds && requisition.technicalCommitteeMemberIds.length > 0);
-        if (!anyCommittee) {
-            return 'committee';
-        }
-        return 'award';
-    }
+    
+    const status = requisition.status;
+    
+    if (status === 'Approved') return 'rfq';
+    if (status === 'Pending Approval' || status === 'Draft' || status === 'Rejected') return 'rfq';
+    if (status === 'RFQ In Progress' && !isDeadlinePassed) return 'rfq';
+
+    const anyCommitteeAssigned = (requisition.financialCommitteeMemberIds && requisition.financialCommitteeMemberIds.length > 0) || 
+                                (requisition.technicalCommitteeMemberIds && requisition.technicalCommitteeMemberIds.length > 0);
+
+    if (isDeadlinePassed && !anyCommitteeAssigned) return 'committee';
+    
     if (isAccepted) {
-        if (requisition.status === 'PO Created') return 'completed';
-        return 'finalize';
+      if (status === 'PO Created' || status === 'Closed' || status === 'Fulfilled') return 'completed';
+      return 'finalize';
     }
-    if (isAwarded) {
-        return 'award';
+
+    if (isAwarded || status === 'Pending Managerial Approval' || isScoringComplete) {
+      return 'award';
     }
+    
     return 'award';
   };
   const currentStep = getCurrentStep();
@@ -2670,7 +2698,7 @@ export default function QuotationDetailsPage() {
             </Card>
         )}
 
-        {currentStep === 'rfq' && (role === 'Procurement Officer' || role === 'Committee' || role === 'Admin') && (
+        {(currentStep === 'rfq' || currentStep === 'committee') && (role === 'Procurement Officer' || role === 'Committee' || role === 'Admin') && (
             <div className="grid md:grid-cols-2 gap-6 items-start">
                 <RFQDistribution 
                     requisition={requisition} 
@@ -2678,44 +2706,19 @@ export default function QuotationDetailsPage() {
                     onRfqSent={fetchRequisitionAndQuotes}
                     isAuthorized={isAuthorized}
                 />
-                 <Card className="border-dashed h-full">
-                    <CardHeader>
-                        <CardTitle>Committee Selection</CardTitle>
-                        <CardDescription>Committee assignment will be available after the quotation deadline has passed.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="flex flex-col items-center justify-center text-center text-muted-foreground h-4/5">
-                        <Users className="h-12 w-12 mb-4" />
-                        <p>Waiting for vendor quotes...</p>
-                    </CardContent>
-                </Card>
+                 <CommitteeManagement
+                    requisition={requisition} 
+                    onCommitteeUpdated={fetchRequisitionAndQuotes}
+                    open={isCommitteeDialogOpen}
+                    onOpenChange={setCommitteeDialogOpen}
+                    isAuthorized={isAuthorized && isDeadlinePassed}
+                />
             </div>
-        )}
-        
-        {currentStep === 'committee' && (role === 'Procurement Officer' || role === 'Committee' || role === 'Admin') && (
-            <CommitteeManagement
-                requisition={requisition} 
-                onCommitteeUpdated={fetchRequisitionAndQuotes}
-                open={isCommitteeDialogOpen}
-                onOpenChange={setCommitteeDialogOpen}
-                isAuthorized={isAuthorized}
-            />
         )}
 
 
         {(currentStep === 'award' || currentStep === 'finalize' || currentStep === 'completed') && (
             <>
-                {/* Always render committee management when in award step so dialog can open */}
-                {(currentStep === 'award' || currentStep === 'finalize' || currentStep === 'completed') && (role === 'Procurement Officer' || role === 'Committee' || role === 'Admin') && (
-                     <div className={currentStep === 'award' ? '' : 'hidden'}>
-                        <CommitteeManagement
-                            requisition={requisition}
-                            onCommitteeUpdated={fetchRequisitionAndQuotes}
-                            open={isCommitteeDialogOpen}
-                            onOpenChange={setCommitteeDialogOpen}
-                            isAuthorized={isAuthorized}
-                        />
-                    </div>
-                )}
                 <Card>
                     <CardHeader className="flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                         <div>
@@ -2866,3 +2869,4 @@ export default function QuotationDetailsPage() {
     </div>
   );
 }
+

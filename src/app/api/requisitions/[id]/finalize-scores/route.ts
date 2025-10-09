@@ -109,7 +109,7 @@ export async function tallyAndAwardScores(
         // If the user has no manager (they are the top), check the override setting.
         if (!actor.managerId && highestApproverCanOverride) {
             // Setting is enabled, so they can proceed. Do nothing here and let the process continue.
-        } else {
+        } else if (!actor.managerId && !highestApproverCanOverride) {
              // If they are the top and override is OFF, then it's an error.
             throw new Error(`Award value of ${totalAwardValue.toLocaleString()} ETB exceeds the final approver's limit of ${(actor.approvalLimit || 0).toLocaleString()} ETB.`);
         }
@@ -259,7 +259,7 @@ export async function POST(
   const requisitionId = params.id;
   try {
     const body = await request.json();
-    const { userId, awardResponseDeadline, highestApproverCanOverride } = body;
+    const { userId, awardResponseDeadline, highestApproverCanOverride, meetingMinutes } = body;
 
     const user: User | null = await prisma.user.findUnique({where: {id: userId}});
     if (!user) {
@@ -270,6 +270,12 @@ export async function POST(
     if (!authorizedRoles.includes(user.role)) {
         return NextResponse.json({ error: 'Unauthorized to finalize awards.' }, { status: 403 });
     }
+
+    // First, save the meeting minutes
+    await prisma.purchaseRequisition.update({
+        where: { id: requisitionId },
+        data: { meetingMinutes }
+    });
     
     const result = await tallyAndAwardScores(
         requisitionId, 
@@ -308,3 +314,4 @@ export async function POST(
     return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
   }
 }
+
