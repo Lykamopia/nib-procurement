@@ -4,16 +4,19 @@
 
 import React, { createContext, useContext, useState, ReactNode, useEffect, useMemo, useCallback } from 'react';
 import { User, UserRole } from '@/lib/types';
+import { rolePermissions as defaultRolePermissions } from '@/lib/roles';
 
 interface AuthContextType {
   user: User | null;
   token: string | null;
   role: UserRole | null;
   allUsers: User[];
+  rolePermissions: Record<UserRole, string[]>;
   login: (token: string, user: User, role: UserRole) => void;
   logout: () => void;
   loading: boolean;
   switchUser: (userId: string) => void;
+  updateRolePermissions: (newPermissions: Record<UserRole, string[]>) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -24,13 +27,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [role, setRole] = useState<UserRole | null>(null);
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  const [rolePermissions, setRolePermissions] = useState<Record<UserRole, string[]>>(defaultRolePermissions);
+
 
   const fetchAllUsers = useCallback(async () => {
     try {
         const response = await fetch('/api/users');
         if (response.ok) {
             const usersData = await response.json();
-            // This is the key change: ensure committee assignments are included for all users
             const usersWithAssignments = usersData.map((u: any) => ({
                 ...u,
                 committeeAssignments: u.committeeAssignments || [],
@@ -51,6 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
         const storedUserJSON = localStorage.getItem('user');
         const storedToken = localStorage.getItem('authToken');
+        const storedPermissions = localStorage.getItem('rolePermissions');
         
         if (storedUserJSON && storedToken) {
             const storedUser = JSON.parse(storedUserJSON);
@@ -60,6 +65,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setToken(storedToken);
             setRole(fullUser.role);
         }
+
+        if (storedPermissions) {
+            setRolePermissions(JSON.parse(storedPermissions));
+        }
+
     } catch (error) {
         console.error("Failed to initialize auth from localStorage", error);
         localStorage.clear();
@@ -109,16 +119,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
   };
 
+  const updateRolePermissions = (newPermissions: Record<UserRole, string[]>) => {
+      localStorage.setItem('rolePermissions', JSON.stringify(newPermissions));
+      setRolePermissions(newPermissions);
+  }
+
   const authContextValue = useMemo(() => ({
       user,
       token,
       role,
       allUsers,
+      rolePermissions,
       login,
       logout,
       loading,
-      switchUser
-  }), [user, token, role, loading, allUsers]);
+      switchUser,
+      updateRolePermissions
+  }), [user, token, role, loading, allUsers, rolePermissions]);
 
 
   return (

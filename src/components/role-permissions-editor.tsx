@@ -1,7 +1,8 @@
 
+
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Card,
   CardContent,
@@ -12,18 +13,24 @@ import {
 } from '@/components/ui/card';
 import { Button } from './ui/button';
 import { Checkbox } from './ui/checkbox';
-import { navItems, rolePermissions as initialRolePermissions } from '@/lib/roles';
+import { navItems } from '@/lib/roles';
 import { UserRole } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { Label } from './ui/label';
+import { useAuth } from '@/contexts/auth-context';
 
 type PermissionsState = Record<UserRole, string[]>;
 
 export function RolePermissionsEditor() {
-  const [permissions, setPermissions] = useState<PermissionsState>(initialRolePermissions);
+  const { rolePermissions, updateRolePermissions } = useAuth();
+  const [permissions, setPermissions] = useState<PermissionsState>(rolePermissions);
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
+
+  useEffect(() => {
+    setPermissions(rolePermissions);
+  }, [rolePermissions]);
 
   const editableRoles = Object.keys(permissions).filter(
     role => role !== 'Vendor' && role !== 'Admin'
@@ -47,6 +54,7 @@ export function RolePermissionsEditor() {
     setIsSaving(true);
     // In a real app, you would make an API call to save the new permissions.
     console.log('Saving new permissions:', permissions);
+    updateRolePermissions(permissions);
     setTimeout(() => {
       toast({
         title: 'Permissions Saved',
