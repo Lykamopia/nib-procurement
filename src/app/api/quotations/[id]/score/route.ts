@@ -105,14 +105,18 @@ export async function POST(
         });
     }
 
-    const finalAverageScoreForQuote = totalItems > 0 ? totalWeightedScore / totalItems : 0;
+    const finalAverageScoreForThisScorer = totalItems > 0 ? totalWeightedScore / totalItems : 0;
     
     await prisma.committeeScoreSet.update({
         where: { id: createdScoreSet.id },
-        data: { finalScore: finalAverageScoreForQuote }
+        data: { finalScore: finalAverageScoreForThisScorer }
     });
     
-    const allScoreSetsForQuote = await prisma.committeeScoreSet.findMany({ where: { quotationId: quoteId } });
+    // Refetch all scores for the quote *after* this one has been added to get the correct new average
+    const allScoreSetsForQuote = await prisma.committeeScoreSet.findMany({
+      where: { quotationId: quoteId },
+    });
+
     const overallAverage = allScoreSetsForQuote.reduce((acc, s) => acc + s.finalScore, 0) / allScoreSetsForQuote.length;
     await prisma.quotation.update({ where: { id: quoteId }, data: { finalAverageScore: overallAverage } });
 
@@ -124,7 +128,7 @@ export async function POST(
             action: 'SCORE_QUOTE',
             entity: 'Quotation',
             entityId: quoteId,
-            details: `Submitted scores for quote from ${quoteToUpdate.vendorName}. Final Score: ${finalAverageScoreForQuote.toFixed(2)}.`,
+            details: `Submitted scores for quote from ${quoteToUpdate.vendorName}. Scorer's Average: ${finalAverageScoreForThisScorer.toFixed(2)}. New Overall Average: ${overallAverage.toFixed(2)}.`,
         }
     });
 
