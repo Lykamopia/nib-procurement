@@ -68,10 +68,11 @@ export default function ApprovalsPage() {
     if (!user) return;
     try {
       setLoading(true);
-      // Fetch all requisitions assigned to the current user for approval
+      // Fetch all requisitions where the current user is the designated approver
       const response = await fetch(`/api/requisitions?approverId=${user.id}`);
       if (!response.ok) {
-        throw new Error('Failed to fetch requisitions for approval');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch requisitions for approval');
       }
       const data: PurchaseRequisition[] = await response.json();
       setRequisitions(data);
@@ -83,12 +84,13 @@ export default function ApprovalsPage() {
   };
 
   useEffect(() => {
-    if (user?.role === 'Approver' || user?.approvalLimit) {
+    if (user) {
         fetchRequisitions();
     } else {
         setLoading(false);
     }
   }, [user]);
+
 
   const handleAction = (req: PurchaseRequisition, type: 'approve' | 'reject') => {
     setSelectedRequisition(req);
@@ -125,9 +127,12 @@ export default function ApprovalsPage() {
         const errorData = await response.json();
         throw new Error(errorData.error || `Failed to ${actionType} requisition`);
       }
+
+      const result = await response.json();
+
       toast({
         title: "Success",
-        description: `Requisition ${selectedRequisition.id} has been ${actionType === 'approve' ? 'approved' : 'rejected'}.`,
+        description: result.message || `Requisition ${selectedRequisition.id} has been ${actionType === 'approve' ? 'approved' : 'rejected'}.`,
       });
       fetchRequisitions(); // Re-fetch data to update the table
     } catch (error) {
@@ -184,9 +189,9 @@ export default function ApprovalsPage() {
                 <TableHead>Req. ID</TableHead>
                 <TableHead>Title</TableHead>
                 <TableHead>Requester</TableHead>
-                <TableHead>Type</TableHead>
+                <TableHead>Value (ETB)</TableHead>
                 <TableHead>Urgency</TableHead>
-                <TableHead>Created At</TableHead>
+                <TableHead>Submitted</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -198,13 +203,7 @@ export default function ApprovalsPage() {
                       <TableCell className="font-medium text-primary">{req.id}</TableCell>
                       <TableCell>{req.title}</TableCell>
                       <TableCell>{req.requesterName}</TableCell>
-                      <TableCell>
-                          {req.status === 'Pending Managerial Approval' ? (
-                              <Badge variant="destructive">Award Approval</Badge>
-                          ) : (
-                              <Badge variant="secondary">Requisition Approval</Badge>
-                          )}
-                      </TableCell>
+                      <TableCell>{req.totalPrice.toLocaleString()}</TableCell>
                        <TableCell>
                         <Badge variant={getUrgencyVariant(req.urgency)}>{req.urgency}</Badge>
                       </TableCell>

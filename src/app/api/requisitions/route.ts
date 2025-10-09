@@ -42,6 +42,9 @@ export async function GET(request: Request) {
     // Add logic for approval queue for a specific user
     if (approverId) {
         whereClause.currentApproverId = approverId;
+        whereClause.status = {
+            in: ['Pending_Approval', 'Pending Managerial Approval']
+        }
     }
 
 
@@ -210,6 +213,7 @@ export async function PATCH(
     let dataToUpdate: any = {};
     let auditAction = 'UPDATE_REQUISITION';
     let auditDetails = `Updated requisition ${id}.`;
+    let responseMessage = `Requisition ${id} updated.`;
     
     // This handles editing a draft or rejected requisition and resubmitting
     if ((requisition.status === 'Draft' || requisition.status === 'Rejected') && updateData.title) {
@@ -274,53 +278,67 @@ export async function PATCH(
         };
         
         if (status === 'Pending Approval') {
-            const department = await prisma.department.findUnique({ where: { id: requisition.departmentId! } });
+             const department = await prisma.department.findUnique({ 
+                where: { id: requisition.departmentId! }, 
+                include: { head: true } 
+            });
             if (department?.headId) {
                 dataToUpdate.currentApprover = { connect: { id: department.headId } };
+                 responseMessage = `Requisition submitted to ${department.head?.name} for approval.`;
+            } else {
+                 return NextResponse.json({ error: 'No department head assigned to approve this requisition.' }, { status: 400 });
             }
             auditAction = 'SUBMIT_FOR_APPROVAL';
             auditDetails = `Requisition ${id} ("${updateData.title}") was edited and submitted for approval.`;
         }
 
     } else if (status) { // This handles normal status changes (approve, reject, submit)
-        dataToUpdate.status = status.replace(/ /g, '_');
-        
         if (status === 'Pending Approval') {
-            const department = await prisma.department.findUnique({ where: { id: requisition.departmentId! } });
+            const department = await prisma.department.findUnique({ 
+                where: { id: requisition.departmentId! },
+                include: { head: true }
+            });
             if (department?.headId) {
                 dataToUpdate.currentApprover = { connect: { id: department.headId } };
+                responseMessage = `Requisition submitted to ${department.head?.name} for approval.`;
             } else {
-                 return NextResponse.json({ error: 'No department head assigned to approve this requisition.' }, { status: 400 });
+                return NextResponse.json({ error: 'No department head assigned to approve this requisition.' }, { status: 400 });
             }
+            dataToUpdate.status = 'Pending_Approval';
             auditAction = 'SUBMIT_FOR_APPROVAL';
             auditDetails = `Draft requisition ${id} was submitted for approval.`;
+
         } else if (status === 'Approved') {
-            dataToUpdate.approver = { connect: { id: userId } };
-            dataToUpdate.approverComment = comment;
-            dataToUpdate.currentApprover = { disconnect: true };
-            
-            if (isManagerialApproval) {
-                auditAction = 'APPROVE_AWARD';
-                auditDetails = `Managerially approved award for requisition ${id}. Notifying vendors.`;
-                // Re-run the finalization and notification logic now that the manager has approved
-                const { tallyAndAwardScores, processAndNotifyAwards } = await import('./[id]/finalize-scores/route');
-                const awardResult = await tallyAndAwardScores(id, user, highestApproverCanOverride);
-                if (awardResult.success && !awardResult.escalated) {
-                    await processAndNotifyAwards(id, awardResult.awards, requisition.awardResponseDeadline || undefined);
-                } else if (!awardResult.success) {
-                    throw new Error(awardResult.message);
+             // Hierarchical approval logic
+            if ((user.approvalLimit || 0) < requisition.totalPrice) {
+                const manager = await prisma.user.findUnique({ where: { id: user.managerId || '' } });
+                if (manager) {
+                    dataToUpdate.currentApproverId = manager.id;
+                    auditAction = 'ESCALATE_APPROVAL';
+                    auditDetails = `Approved by ${user.name}, but value exceeds limit. Escalated to ${manager.name}.`;
+                    responseMessage = `Approved. Escalated to ${manager.name} for final approval.`;
+                } else {
+                    return NextResponse.json({ error: `Approval limit of ${user.approvalLimit} ETB exceeded.`}, { status: 403 });
                 }
             } else {
+                // Final approval
+                dataToUpdate.status = 'Approved';
+                dataToUpdate.approver = { connect: { id: userId } };
+                dataToUpdate.approverComment = comment;
+                dataToUpdate.currentApprover = { disconnect: true };
                 auditAction = 'APPROVE_REQUISITION';
-                auditDetails = `Requisition ${id} was approved with comment: "${comment}".`;
+                auditDetails = `Requisition ${id} was approved by ${user.name} with comment: "${comment}".`;
+                responseMessage = `Requisition ${id} approved.`;
             }
             
         } else if (status === 'Rejected') {
+            dataToUpdate.status = 'Rejected';
             dataToUpdate.approver = { connect: { id: userId } };
             dataToUpdate.approverComment = comment;
             dataToUpdate.currentApprover = { disconnect: true };
-             auditAction = 'REJECT_REQUISITION';
-             auditDetails = `Requisition ${id} was rejected with comment: "${comment}".`;
+            auditAction = 'REJECT_REQUISITION';
+            auditDetails = `Requisition ${id} was rejected by ${user.name} with comment: "${comment}".`;
+            responseMessage = `Requisition ${id} rejected.`;
         }
 
     } else {
@@ -344,11 +362,11 @@ export async function PATCH(
         }
     });
 
-    return NextResponse.json(updatedRequisition);
+    return NextResponse.json({ ...updatedRequisition, message: responseMessage });
   } catch (error) {
     console.error('Failed to update requisition:', error);
     if (error instanceof Error) {
-        return NextResponse.json({ error: 'Failed to process request', details: error.message }, { status: 500 });
+        return NextResponse.json({ error: 'Failed to process request', details: error.message }, { status: 400 });
     }
     return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
   }
