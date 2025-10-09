@@ -11,7 +11,8 @@ import { differenceInMinutes } from 'date-fns';
 
 export async function tallyAndAwardScores(
     requisitionId: string, 
-    actor?: User | null
+    actor?: User | null,
+    highestApproverCanOverride?: boolean,
 ) {
     
     const allQuotesForReq = await prisma.quotation.findMany({
@@ -81,37 +82,40 @@ export async function tallyAndAwardScores(
     
     // --- HIERARCHICAL APPROVAL LOGIC ---
     if (actor && actor.approvalLimit !== null && totalAwardValue > (actor.approvalLimit || 0)) {
-        if (!actor.managerId) {
-            // This is the highest level, but their limit is still exceeded.
-            throw new Error(`Award value of ${totalAwardValue.toLocaleString()} ETB exceeds the final approver's limit of ${(actor.approvalLimit || 0).toLocaleString()} ETB.`);
+        // If the user has a manager, escalate to them.
+        if (actor.managerId) {
+            await prisma.purchaseRequisition.update({
+                where: { id: requisitionId },
+                data: {
+                    status: 'Pending_Managerial_Approval',
+                    currentApproverId: actor.managerId,
+                }
+            });
+
+            await prisma.auditLog.create({
+                data: {
+                    timestamp: new Date(),
+                    user: { connect: { id: actor.id } },
+                    action: 'ESCALATE_AWARD',
+                    entity: 'Requisition',
+                    entityId: requisitionId,
+                    details: `Award value of ${totalAwardValue.toLocaleString()} ETB exceeds approval limit. Escalated to manager.`,
+                }
+            });
+
+            return { success: true, message: "Award requires managerial approval and has been escalated.", escalated: true, awards: {} };
         }
         
-        // Escalate to the manager
-        await prisma.purchaseRequisition.update({
-            where: { id: requisitionId },
-            data: {
-                status: 'Pending_Managerial_Approval',
-                currentApproverId: actor.managerId,
-            }
-        });
-
-        // Log the escalation
-        await prisma.auditLog.create({
-            data: {
-                timestamp: new Date(),
-                user: { connect: { id: actor.id } },
-                action: 'ESCALATE_AWARD',
-                entity: 'Requisition',
-                entityId: requisitionId,
-                details: `Award value of ${totalAwardValue.toLocaleString()} ETB exceeds approval limit. Escalated to manager.`,
-            }
-        });
-
-        // Stop the award process here; it's now waiting for the manager.
-        return { success: true, message: "Award requires managerial approval and has been escalated.", escalated: true, awards: {} };
+        // If the user has no manager (they are the top), check the override setting.
+        if (!actor.managerId && highestApproverCanOverride) {
+            // Setting is enabled, so they can proceed. Do nothing here and let the process continue.
+        } else {
+             // If they are the top and override is OFF, then it's an error.
+            throw new Error(`Award value of ${totalAwardValue.toLocaleString()} ETB exceeds the final approver's limit of ${(actor.approvalLimit || 0).toLocaleString()} ETB.`);
+        }
     }
     
-    // --- PROCEED WITH AWARD (only if limit is NOT exceeded) ---
+    // --- PROCEED WITH AWARD (only if limit is NOT exceeded or is overridden) ---
     return { success: true, message: "Approval limit sufficient.", escalated: false, awards };
 }
 
@@ -255,7 +259,7 @@ export async function POST(
   const requisitionId = params.id;
   try {
     const body = await request.json();
-    const { userId, awardResponseDeadline } = body;
+    const { userId, awardResponseDeadline, highestApproverCanOverride } = body;
 
     const user: User | null = await prisma.user.findUnique({where: {id: userId}});
     if (!user) {
@@ -269,7 +273,8 @@ export async function POST(
     
     const result = await tallyAndAwardScores(
         requisitionId, 
-        user
+        user,
+        highestApproverCanOverride
     );
 
     if (result.escalated) {

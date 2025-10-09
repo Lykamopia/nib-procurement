@@ -330,9 +330,9 @@ const QuoteComparison = ({ quotes, requisition, onScore, user, isDeadlinePassed,
                         </CardContent>
                         <CardFooter className="flex flex-col gap-2">
                              {user.role === 'Committee Member' && (
-                                <Button className="w-full" variant={hasUserScored ? "secondary" : "outline"} onClick={() => onScore(quote, hidePrices)} disabled={!canScore}>
-                                    {hasUserScored ? <Check className="mr-2 h-4 w-4"/> : <Edit2 className="mr-2 h-4 w-4" />}
-                                    {hasUserScored ? 'View Your Score' : 'Score this Quote'}
+                                <Button className="w-full" variant={hasUserScored ? "secondary" : "outline"} onClick={() => onScore(quote, hidePrices)} disabled={!canScore || hasUserFinalizedScores}>
+                                    {hasUserFinalizedScores ? <CheckCircle className="mr-2 h-4 w-4"/> : hasUserScored ? <Check className="mr-2 h-4 w-4"/> : <Edit2 className="mr-2 h-4 w-4" />}
+                                    {hasUserFinalizedScores ? 'Scores Finalized' : hasUserScored ? 'View Your Score' : 'Score this Quote'}
                                 </Button>
                             )}
                         </CardFooter>
@@ -2335,7 +2335,7 @@ export default function QuotationDetailsPage() {
   const router = useRouter();
   const params = useParams();
   const { toast } = useToast();
-  const { user, allUsers, role, rfqSenderSetting, login } = useAuth();
+  const { user, allUsers, role, rfqSenderSetting, login, highestApproverCanOverride } = useAuth();
   const id = params.id as string;
   
   const [requisition, setRequisition] = useState<PurchaseRequisition | null>(null);
@@ -2453,32 +2453,26 @@ export default function QuotationDetailsPage() {
   
   // Logic to determine the final approver
   useEffect(() => {
-    if (isScoringComplete && quotations.length > 0) {
+    if (isScoringComplete && quotations.length > 0 && user) {
         const sortedQuotes = [...quotations].sort((a, b) => (b.finalAverageScore || 0) - (a.finalAverageScore || 0));
         const winner = sortedQuotes[0];
         if (!winner) return;
 
         const awardValue = winner.totalPrice;
 
-        let currentApprover: User | null | undefined = allUsers.find(u => u.id === user?.id && isAuthorized); // Start with PO
-        if (!currentApprover) { // Or find the designated PO
-             currentApprover = allUsers.find(u => u.id === rfqSenderSetting.userId);
-        }
-         if (!currentApprover) {
+        let currentApprover: User | null | undefined = allUsers.find(u => u.id === rfqSenderSetting.userId || u.role === 'Procurement Officer');
+        if (!currentApprover) {
              setFinalApprover(null);
              return;
-         }
-
+        }
 
         while (currentApprover && (currentApprover.approvalLimit || 0) < awardValue) {
             if (!currentApprover.managerId) {
-                // This person is at the top of the chain but still can't approve.
-                setFinalApprover(currentApprover); // They are the final one, though they can't approve.
+                setFinalApprover(currentApprover); 
                 break;
             }
             const manager = allUsers.find(u => u.id === currentApprover?.managerId);
             if (!manager) {
-                 // No further manager in the chain.
                  setFinalApprover(currentApprover);
                  break;
             }
@@ -2486,7 +2480,7 @@ export default function QuotationDetailsPage() {
         }
         setFinalApprover(currentApprover || null);
     }
-  }, [isScoringComplete, quotations, allUsers, user, isAuthorized, rfqSenderSetting]);
+  }, [isScoringComplete, quotations, allUsers, user, rfqSenderSetting]);
 
   const handleRfqSent = () => {
     fetchRequisitionAndQuotes();
@@ -2514,7 +2508,7 @@ export default function QuotationDetailsPage() {
              const response = await fetch(`/api/requisitions/${requisition.id}/finalize-scores`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId: user.id, awardResponseDeadline, awardStrategy, awards }),
+                body: JSON.stringify({ userId: user.id, awardResponseDeadline, highestApproverCanOverride }),
             });
             if (!response.ok) {
                 const errorData = await response.json();
@@ -2676,7 +2670,7 @@ export default function QuotationDetailsPage() {
             </Card>
         )}
 
-        {currentStep === 'rfq' && (role === 'Procurement Officer' || role === 'Committee') && (
+        {currentStep === 'rfq' && (role === 'Procurement Officer' || role === 'Committee' || role === 'Admin') && (
             <div className="grid md:grid-cols-2 gap-6 items-start">
                 <RFQDistribution 
                     requisition={requisition} 
@@ -2697,7 +2691,7 @@ export default function QuotationDetailsPage() {
             </div>
         )}
         
-        {currentStep === 'committee' && (role === 'Procurement Officer' || role === 'Committee') && (
+        {currentStep === 'committee' && (role === 'Procurement Officer' || role === 'Committee' || role === 'Admin') && (
             <CommitteeManagement
                 requisition={requisition} 
                 onCommitteeUpdated={fetchRequisitionAndQuotes}
@@ -2872,4 +2866,3 @@ export default function QuotationDetailsPage() {
     </div>
   );
 }
-

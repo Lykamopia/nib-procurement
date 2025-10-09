@@ -192,7 +192,7 @@ export async function PATCH(
   console.log('PATCH /api/requisitions - Updating requisition status or content in DB.');
   try {
     const body = await request.json();
-    const { id, status, userId, comment, isManagerialApproval, ...updateData } = body;
+    const { id, status, userId, comment, isManagerialApproval, highestApproverCanOverride, ...updateData } = body;
 
     const user = await prisma.user.findUnique({where: {id: userId}});
     if (!user) {
@@ -304,7 +304,7 @@ export async function PATCH(
                 auditDetails = `Managerially approved award for requisition ${id}. Notifying vendors.`;
                 // Re-run the finalization and notification logic now that the manager has approved
                 const { tallyAndAwardScores, processAndNotifyAwards } = await import('./[id]/finalize-scores/route');
-                const awardResult = await tallyAndAwardScores(id, user);
+                const awardResult = await tallyAndAwardScores(id, user, highestApproverCanOverride);
                 if (awardResult.success && !awardResult.escalated) {
                     await processAndNotifyAwards(id, awardResult.awards, requisition.awardResponseDeadline || undefined);
                 } else if (!awardResult.success) {
@@ -414,5 +414,3 @@ export async function DELETE(
     return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
   }
 }
-
-    

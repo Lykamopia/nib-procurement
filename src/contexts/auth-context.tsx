@@ -17,12 +17,14 @@ interface AuthContextType {
   allUsers: User[];
   rolePermissions: Record<UserRole, string[]>;
   rfqSenderSetting: RfqSenderSetting;
+  highestApproverCanOverride: boolean;
   login: (token: string, user: User, role: UserRole) => void;
   logout: () => void;
   loading: boolean;
   switchUser: (userId: string) => void;
   updateRolePermissions: (newPermissions: Record<UserRole, string[]>) => void;
   updateRfqSenderSetting: (newSetting: RfqSenderSetting) => void;
+  updateHighestApproverOverride: (newSetting: boolean) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -35,6 +37,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [rolePermissions, setRolePermissions] = useState<Record<UserRole, string[]>>(defaultRolePermissions);
   const [rfqSenderSetting, setRfqSenderSetting] = useState<RfqSenderSetting>({ type: 'all' });
+  const [highestApproverCanOverride, setHighestApproverCanOverride] = useState(false);
 
 
   const fetchAllUsers = useCallback(async () => {
@@ -64,6 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const storedToken = localStorage.getItem('authToken');
         const storedPermissions = localStorage.getItem('rolePermissions');
         const storedRfqSetting = localStorage.getItem('rfqSenderSetting');
+        const storedHighestApproverOverride = localStorage.getItem('highestApproverCanOverride');
         
         if (storedUserJSON && storedToken) {
             const storedUser = JSON.parse(storedUserJSON);
@@ -80,6 +84,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (storedRfqSetting) {
             setRfqSenderSetting(JSON.parse(storedRfqSetting));
+        }
+        if (storedHighestApproverOverride) {
+            setHighestApproverCanOverride(JSON.parse(storedHighestApproverOverride));
         }
 
     } catch (error) {
@@ -140,6 +147,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.setItem('rfqSenderSetting', JSON.stringify(newSetting));
       setRfqSenderSetting(newSetting);
   }
+  
+  const updateHighestApproverOverride = (newSetting: boolean) => {
+      localStorage.setItem('highestApproverCanOverride', JSON.stringify(newSetting));
+      setHighestApproverCanOverride(newSetting);
+  }
 
   const authContextValue = useMemo(() => ({
       user,
@@ -148,13 +160,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       allUsers,
       rolePermissions,
       rfqSenderSetting,
+      highestApproverCanOverride,
       login,
       logout,
       loading,
       switchUser,
       updateRolePermissions,
-      updateRfqSenderSetting
-  }), [user, token, role, loading, allUsers, rolePermissions, rfqSenderSetting]);
+      updateRfqSenderSetting,
+      updateHighestApproverOverride,
+  }), [user, token, role, loading, allUsers, rolePermissions, rfqSenderSetting, highestApproverCanOverride]);
 
 
   return (
