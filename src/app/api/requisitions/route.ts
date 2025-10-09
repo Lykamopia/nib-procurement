@@ -218,12 +218,18 @@ export async function PATCH(
             const quantity = item.quantity || 0;
             return acc + (price * quantity);
         }, 0);
+        
+        const department = await prisma.department.findUnique({ where: { name: updateData.department } });
+        if (!department) {
+            return NextResponse.json({ error: 'Selected department not found' }, { status: 404 });
+        }
+
 
         dataToUpdate = {
             title: updateData.title,
             justification: updateData.justification,
             urgency: updateData.urgency,
-            department: { connect: { name: updateData.department } },
+            department: { connect: { id: department.id } },
             totalPrice: totalPrice,
             // When editing, it always goes back to Pending Approval if a status is provided
             status: status ? status.replace(/ /g, '_') : requisition.status,
@@ -274,9 +280,10 @@ export async function PATCH(
         };
         
         if (status === 'Pending Approval') {
-            const department = await prisma.department.findUnique({ where: { id: requisition.departmentId! } });
             if (department?.headId) {
                 dataToUpdate.currentApprover = { connect: { id: department.headId } };
+            } else {
+                 return NextResponse.json({ error: `The "${department.name}" department has no head assigned. Cannot submit for approval.` }, { status: 400 });
             }
             auditAction = 'SUBMIT_FOR_APPROVAL';
             auditDetails = `Requisition ${id} ("${updateData.title}") was edited and submitted for approval.`;
@@ -290,7 +297,7 @@ export async function PATCH(
             if (department?.headId) {
                 dataToUpdate.currentApprover = { connect: { id: department.headId } };
             } else {
-                 return NextResponse.json({ error: 'No department head assigned to approve this requisition.' }, { status: 400 });
+                 return NextResponse.json({ error: `The "${department?.name}" department has no head assigned. Cannot submit for approval.` }, { status: 400 });
             }
             auditAction = 'SUBMIT_FOR_APPROVAL';
             auditDetails = `Draft requisition ${id} was submitted for approval.`;
@@ -348,7 +355,7 @@ export async function PATCH(
   } catch (error) {
     console.error('Failed to update requisition:', error);
     if (error instanceof Error) {
-        return NextResponse.json({ error: 'Failed to process request', details: error.message }, { status: 500 });
+        return NextResponse.json({ error: 'Failed to process request', details: error.message }, { status: 400 });
     }
     return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
   }

@@ -38,7 +38,7 @@ import {
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/auth-context';
 import { cn } from '@/lib/utils';
-import { PurchaseRequisition, Urgency } from '@/lib/types';
+import { PurchaseRequisition, Urgency, Department } from '@/lib/types';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { Slider } from './ui/slider';
 import { Badge } from './ui/badge';
@@ -106,8 +106,22 @@ export function NeedsRecognitionForm({ existingRequisition, onSuccess }: NeedsRe
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const { user } = useAuth();
-  const [departments, setDepartments] = useState<string[]>(['Design', 'Operations', 'IT', 'Marketing']);
+  const [departments, setDepartments] = useState<Department[]>([]);
   const isEditMode = !!existingRequisition;
+
+  useEffect(() => {
+    async function fetchDepartments() {
+      try {
+        const response = await fetch('/api/departments');
+        const data = await response.json();
+        setDepartments(data);
+      } catch (error) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Failed to load departments.' });
+      }
+    }
+    fetchDepartments();
+  }, [toast]);
+
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -199,7 +213,8 @@ export function NeedsRecognitionForm({ existingRequisition, onSuccess }: NeedsRe
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to ${isEditMode ? 'update' : 'submit'} requisition`);
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Failed to ${isEditMode ? 'update' : 'submit'} requisition`);
       }
 
       const result = await response.json();
@@ -265,9 +280,20 @@ export function NeedsRecognitionForm({ existingRequisition, onSuccess }: NeedsRe
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Department</FormLabel>
-                    <FormControl>
-                        <Input {...field} disabled />
-                    </FormControl>
+                     <Select onValueChange={field.onChange} value={field.value} disabled={isEditMode}>
+                        <FormControl>
+                        <SelectTrigger>
+                            <SelectValue placeholder="Select your department" />
+                        </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                        {departments.map(dept => (
+                            <SelectItem key={dept.id} value={dept.name}>
+                                {dept.name}
+                            </SelectItem>
+                        ))}
+                        </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
