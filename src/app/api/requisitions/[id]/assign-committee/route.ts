@@ -29,8 +29,13 @@ export async function POST(
     }
 
     const user: User | null = await prisma.user.findUnique({where: {id: userId}});
-    if (!user || (user.role !== 'Procurement_Officer' && user.role !== 'Committee' && user.role !== 'Admin')) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    if (!user) {
+        return NextResponse.json({ error: 'Unauthorized: User not found' }, { status: 403 });
+    }
+    
+    const authorizedRoles = ['Procurement Officer', 'Procurement_Officer', 'Committee', 'Admin'];
+    if (!authorizedRoles.includes(user.role)) {
+        return NextResponse.json({ error: 'Unauthorized: Insufficient permissions' }, { status: 403 });
     }
     
     // Start a transaction to ensure atomicity
