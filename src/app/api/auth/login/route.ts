@@ -16,6 +16,7 @@ export async function POST(request: Request) {
                 vendor: true,
                 department: true,
                 committeeAssignments: true,
+                role: true, // Include the role relation
             }
         });
 
@@ -23,12 +24,12 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'User not found' }, { status: 404 });
         }
 
-        if (user && user.password && await bcrypt.compare(password, user.password)) {
-            const { password: _, ...userWithoutPassword } = user;
+        if (user && user.password && user.role && await bcrypt.compare(password, user.password)) {
+            const { password: _, role: roleInfo, ...userWithoutPassword } = user;
             
             const finalUser = {
                 ...userWithoutPassword,
-                role: user.role.replace(/_/g, ' ') as UserRole,
+                role: roleInfo.name.replace(/_/g, ' ') as UserRole,
                 department: user.department?.name
             };
 
@@ -40,7 +41,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ 
                 user: finalUser, 
                 token: mockToken, 
-                role: user.role.replace(/_/g, ' ') as UserRole 
+                role: roleInfo.name.replace(/_/g, ' ') as UserRole 
             });
         }
         
@@ -51,5 +52,3 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'An internal server error occurred' }, { status: 500 });
     }
 }
-
-    
