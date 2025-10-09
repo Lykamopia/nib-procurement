@@ -13,7 +13,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const status = searchParams.get('status');
   const forVendor = searchParams.get('forVendor');
-  const approverId = searchParams.get('approverId');
+  const currentApproverId = searchParams.get('currentApproverId');
 
   try {
     const whereClause: any = {};
@@ -39,12 +39,10 @@ export async function GET(request: Request) {
         ];
     }
     
-    // Add logic for approval queue for a specific user
-    if (approverId) {
-        whereClause.currentApproverId = approverId;
-        whereClause.status = {
-            in: ['Pending_Approval', 'Pending_Managerial_Approval']
-        }
+    // This is specifically for the Requisition Approvals page.
+    if (currentApproverId) {
+        whereClause.currentApproverId = currentApproverId;
+        whereClause.status = 'Pending_Approval';
     }
 
 
@@ -67,7 +65,7 @@ export async function GET(request: Request) {
             include: {
                 vendor: true
             }
-        }, // Include quotations to check vendor status
+        },
       },
       orderBy: {
         createdAt: 'desc',
@@ -272,7 +270,7 @@ export async function PATCH(
         };
         
         if (status === 'Pending Approval') {
-            const department = await prisma.department.findUnique({ 
+             const department = await prisma.department.findUnique({ 
                 where: { id: requisition.departmentId! }, 
                 include: { head: true } 
             });
@@ -292,7 +290,7 @@ export async function PATCH(
         }
     } else if (status) { // This handles normal status changes (approve, reject, submit)
         if (status === 'Pending Approval') {
-            const department = await prisma.department.findUnique({ 
+             const department = await prisma.department.findUnique({ 
                 where: { id: requisition.departmentId! },
                 include: { head: true }
             });
@@ -418,5 +416,3 @@ export async function DELETE(
     return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
   }
 }
-
-    

@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -55,7 +54,7 @@ export default function ApprovalsPage() {
   const [requisitions, setRequisitions] = useState<PurchaseRequisition[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { user, highestApproverCanOverride } = useAuth();
+  const { user } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
 
@@ -70,8 +69,8 @@ export default function ApprovalsPage() {
     if (!user) return;
     try {
       setLoading(true);
-      // Fetch all requisitions where the current user is the designated approver
-      const response = await fetch(`/api/requisitions?approverId=${user.id}`);
+      // Fetch all requisitions where the current user is the designated approver and status is Pending Approval
+      const response = await fetch(`/api/requisitions?currentApproverId=${user.id}&status=Pending Approval`);
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to fetch requisitions for approval');
@@ -108,15 +107,7 @@ export default function ApprovalsPage() {
   const submitAction = async () => {
     if (!selectedRequisition || !actionType || !user) return;
     
-    // If it's a managerial approval, it's for an award, so we hit a different endpoint.
-    if (selectedRequisition.status === 'Pending Managerial Approval') {
-        router.push(`/quotations/${selectedRequisition.id}`);
-        setActionDialogOpen(false);
-        return;
-    }
-    
     let newStatus = actionType === 'approve' ? 'Approved' : 'Rejected';
-
 
     try {
       const response = await fetch(`/api/requisitions`, {
@@ -181,9 +172,9 @@ export default function ApprovalsPage() {
     <>
     <Card>
       <CardHeader>
-        <CardTitle>Pending Approvals</CardTitle>
+        <CardTitle>Pending Requisition Approvals</CardTitle>
         <CardDescription>
-          Review and act on items waiting for your approval.
+          Review and act on new purchase requisitions waiting for your approval.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -216,23 +207,15 @@ export default function ApprovalsPage() {
                       <TableCell>{format(new Date(req.createdAt), 'PP')}</TableCell>
                       <TableCell>
                       <div className="flex gap-2">
-                         {req.status === 'Pending Managerial Approval' ? (
-                            <Button variant="outline" size="sm" onClick={() => router.push(`/quotations/${req.id}`)}>
-                               <Eye className="mr-2 h-4 w-4" /> Review Award
-                            </Button>
-                         ) : (
-                           <>
-                            <Button variant="outline" size="sm" onClick={() => handleShowDetails(req)}>
-                                <Eye className="mr-2 h-4 w-4" /> View Details
-                            </Button>
-                            <Button variant="outline" size="sm" onClick={() => handleAction(req, 'approve')}>
-                                <Check className="mr-2 h-4 w-4" /> Approve
-                            </Button>
-                            <Button variant="destructive" size="sm" onClick={() => handleAction(req, 'reject')}>
-                                <X className="mr-2 h-4 w-4" /> Reject
-                            </Button>
-                           </>
-                         )}
+                        <Button variant="outline" size="sm" onClick={() => handleShowDetails(req)}>
+                            <Eye className="mr-2 h-4 w-4" /> View Details
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => handleAction(req, 'approve')}>
+                            <Check className="mr-2 h-4 w-4" /> Approve
+                        </Button>
+                        <Button variant="destructive" size="sm" onClick={() => handleAction(req, 'reject')}>
+                            <X className="mr-2 h-4 w-4" /> Reject
+                        </Button>
                       </div>
                       </TableCell>
                   </TableRow>
@@ -244,7 +227,7 @@ export default function ApprovalsPage() {
                       <Inbox className="h-16 w-16 text-muted-foreground/50" />
                       <div className="space-y-1">
                         <p className="font-semibold">All caught up!</p>
-                        <p className="text-muted-foreground">No items are currently pending your approval.</p>
+                        <p className="text-muted-foreground">No requisitions are currently pending your approval.</p>
                       </div>
                     </div>
                   </TableCell>
@@ -341,4 +324,3 @@ export default function ApprovalsPage() {
     </>
   );
 }
-

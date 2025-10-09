@@ -26,13 +26,13 @@ export type User = {
   name: string;
   email: string;
   password?: string; // Should not be sent to client
-  role: Role | UserRole; // Will be a Role object from the database
+  role: Role; 
   vendorId?: string;
   department?: Department;
   departmentId?: string;
   committeeAssignments?: CommitteeAssignment[];
   approvalLimit?: number;
-  managerId?: string;
+  managerId?: string | null;
 };
 
 export type Department = {
@@ -47,14 +47,14 @@ export type Department = {
 
 export type RequisitionStatus =
   | 'Draft'
-  | 'Pending Approval'
+  | 'Pending_Approval'
   | 'Approved'
   | 'Rejected'
-  | 'RFQ In Progress'
-  | 'PO Created'
+  | 'RFQ_In_Progress'
+  | 'PO_Created'
   | 'Fulfilled'
   | 'Closed'
-  | 'Pending Managerial Approval';
+  | 'Pending_Managerial_Approval';
 
 export type Urgency = 'Low' | 'Medium' | 'High' | 'Critical';
 
@@ -202,7 +202,7 @@ export type QuoteAnswer = {
   answer: string;
 }
 
-export type QuotationStatus = 'Submitted' | 'Awarded' | 'Partially_Awarded' | 'Rejected' | 'Standby' | 'Invoice Submitted' | 'Failed' | 'Accepted' | 'Declined';
+export type QuotationStatus = 'Submitted' | 'Awarded' | 'Partially_Awarded' | 'Rejected' | 'Standby' | 'Invoice_Submitted' | 'Failed' | 'Accepted' | 'Declined';
 
 export type Score = {
   criterionId: string;
@@ -363,3 +363,8 @@ export type DocumentRecord = {
     transactionId: string;
     auditTrail?: AuditLog[];
 }
+
+export type RfqSenderSetting = {
+  type: 'all' | 'specific';
+  userId?: string | null;
+};

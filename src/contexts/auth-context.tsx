@@ -4,11 +4,7 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect, useMemo, useCallback } from 'react';
 import { User, UserRole } from '@/lib/types';
 import { rolePermissions as defaultRolePermissions } from '@/lib/roles';
-
-export interface RfqSenderSetting {
-  type: 'all' | 'specific';
-  userId?: string | null;
-}
+import { RfqSenderSetting } from '@/lib/types';
 
 interface AuthContextType {
   user: User | null;
@@ -75,7 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             
             setUser(fullUser);
             setToken(storedToken);
-            setRole(fullUser.role);
+            setRole(fullUser.role.name as UserRole);
         }
 
         if (storedPermissions) {
