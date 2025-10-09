@@ -163,7 +163,10 @@ export function DepartmentManagementEditor() {
     setDialogOpen(true);
   }
 
-  const potentialHeads = allUsers.filter(u => u.role !== 'Vendor' && u.role !== 'Requester');
+  const potentialHeadsForSelectedDept = departmentToEdit
+    ? allUsers.filter(u => u.departmentId === departmentToEdit.id && u.role !== 'Vendor' && u.role !== 'Requester')
+    : allUsers.filter(u => u.role !== 'Vendor' && u.role !== 'Requester');
+
 
   return (
     <Card>
@@ -268,7 +271,7 @@ export function DepartmentManagementEditor() {
                         </SelectTrigger>
                         <SelectContent>
                              <SelectItem value="null">None</SelectItem>
-                            {potentialHeads.map(user => (
+                            {potentialHeadsForSelectedDept.map(user => (
                                 <SelectItem key={user.id} value={user.id}>{user.name} ({user.role})</SelectItem>
                             ))}
                         </SelectContent>
