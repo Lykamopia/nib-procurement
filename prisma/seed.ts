@@ -72,14 +72,14 @@ async function main() {
 
   // Seed non-vendor users first
   for (const user of seedData.users.filter(u => u.role !== 'Vendor')) {
-    const { committeeAssignments, department, vendorId, password, managerId, ...userData } = user;
+    const { committeeAssignments, department, vendorId, password, managerId, role, ...userData } = user;
     const hashedPassword = await bcrypt.hash(password || 'password123', 10);
 
     await prisma.user.create({
       data: {
           ...userData,
           password: hashedPassword,
-          role: userData.role, // Assign role as a string
+          roleName: user.role, // Use roleName to link to the Role table
           departmentId: user.departmentId,
       },
     });
@@ -129,7 +129,7 @@ async function main() {
               email: vendorUser.email,
               password: hashedPassword,
               approvalLimit: vendorUser.approvalLimit,
-              role: vendorUser.role, // Assign role as a string
+              roleName: vendorUser.role, // Use roleName to link to the Role table
           }
       });
       
