@@ -13,6 +13,7 @@ import { RolePermissionsEditor } from './role-permissions-editor';
 import { RoleManagementEditor } from './role-management-editor';
 import { DepartmentManagementEditor } from './department-management-editor';
 import { UserManagementEditor } from './user-management-editor';
+import { RfqSettings } from './settings/rfq-settings';
 
 
 export function SettingsPage() {
@@ -27,17 +28,7 @@ export function SettingsPage() {
         <TabsTrigger value="notifications">Notifications</TabsTrigger>
       </TabsList>
       <TabsContent value="general">
-        <Card>
-          <CardHeader>
-            <CardTitle>General Settings</CardTitle>
-            <CardDescription>
-              Manage application settings and configurations here. This page is under construction.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p>Future general settings options will be available here.</p>
-          </CardContent>
-        </Card>
+        <RfqSettings />
       </TabsContent>
       <TabsContent value="permissions">
         <RolePermissionsEditor />

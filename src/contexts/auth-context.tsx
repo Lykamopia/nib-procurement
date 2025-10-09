@@ -1,10 +1,14 @@
 
-
 'use client';
 
 import React, { createContext, useContext, useState, ReactNode, useEffect, useMemo, useCallback } from 'react';
 import { User, UserRole } from '@/lib/types';
 import { rolePermissions as defaultRolePermissions } from '@/lib/roles';
+
+export interface RfqSenderSetting {
+  type: 'all' | 'specific';
+  userId?: string | null;
+}
 
 interface AuthContextType {
   user: User | null;
@@ -12,11 +16,13 @@ interface AuthContextType {
   role: UserRole | null;
   allUsers: User[];
   rolePermissions: Record<UserRole, string[]>;
+  rfqSenderSetting: RfqSenderSetting;
   login: (token: string, user: User, role: UserRole) => void;
   logout: () => void;
   loading: boolean;
   switchUser: (userId: string) => void;
   updateRolePermissions: (newPermissions: Record<UserRole, string[]>) => void;
+  updateRfqSenderSetting: (newSetting: RfqSenderSetting) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -28,6 +34,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [rolePermissions, setRolePermissions] = useState<Record<UserRole, string[]>>(defaultRolePermissions);
+  const [rfqSenderSetting, setRfqSenderSetting] = useState<RfqSenderSetting>({ type: 'all' });
 
 
   const fetchAllUsers = useCallback(async () => {
@@ -56,6 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const storedUserJSON = localStorage.getItem('user');
         const storedToken = localStorage.getItem('authToken');
         const storedPermissions = localStorage.getItem('rolePermissions');
+        const storedRfqSetting = localStorage.getItem('rfqSenderSetting');
         
         if (storedUserJSON && storedToken) {
             const storedUser = JSON.parse(storedUserJSON);
@@ -68,6 +76,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (storedPermissions) {
             setRolePermissions(JSON.parse(storedPermissions));
+        }
+
+        if (storedRfqSetting) {
+            setRfqSenderSetting(JSON.parse(storedRfqSetting));
         }
 
     } catch (error) {
@@ -123,6 +135,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.setItem('rolePermissions', JSON.stringify(newPermissions));
       setRolePermissions(newPermissions);
   }
+  
+  const updateRfqSenderSetting = (newSetting: RfqSenderSetting) => {
+      localStorage.setItem('rfqSenderSetting', JSON.stringify(newSetting));
+      setRfqSenderSetting(newSetting);
+  }
 
   const authContextValue = useMemo(() => ({
       user,
@@ -130,12 +147,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       role,
       allUsers,
       rolePermissions,
+      rfqSenderSetting,
       login,
       logout,
       loading,
       switchUser,
-      updateRolePermissions
-  }), [user, token, role, loading, allUsers, rolePermissions]);
+      updateRolePermissions,
+      updateRfqSenderSetting
+  }), [user, token, role, loading, allUsers, rolePermissions, rfqSenderSetting]);
 
 
   return (
