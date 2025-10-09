@@ -61,10 +61,11 @@ async function main() {
   }
   console.log('Seeded roles.');
 
-  // Seed Departments
+  // Seed Departments without heads first
   for (const department of seedData.departments) {
+    const { headId, ...deptData } = department;
     await prisma.department.create({
-      data: department,
+      data: deptData,
     });
   }
   console.log('Seeded departments.');
