@@ -30,10 +30,11 @@ async function main() {
   await prisma.contract.deleteMany({});
   await prisma.purchaseRequisition.deleteMany({});
   await prisma.kYC_Document.deleteMany({});
-  await prisma.vendor.deleteMany({});
-  // Manually manage order of user deletion to avoid foreign key issues
-  await prisma.user.updateMany({ data: { managerId: null, headId: null } });
+  
+  // Manually manage order of user/vendor deletion to avoid foreign key issues
+  await prisma.user.updateMany({ data: { managerId: null } });
   await prisma.department.updateMany({data: { headId: null }});
+  await prisma.vendor.deleteMany({});
   await prisma.user.deleteMany({});
   await prisma.department.deleteMany({});
   await prisma.role.deleteMany({});
