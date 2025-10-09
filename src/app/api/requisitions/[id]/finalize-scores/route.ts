@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { NextResponse } from 'next/server';
@@ -261,16 +260,24 @@ export async function POST(
     const body = await request.json();
     const { userId, awardResponseDeadline, highestApproverCanOverride } = body;
 
-    const user: User | null = await prisma.user.findUnique({where: {id: userId}});
+    const user: User | null = await prisma.user.findUnique({
+        where: {id: userId},
+        include: { role: true }
+    });
     if (!user) {
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
-
-    const authorizedRoles = ['Procurement_Officer', 'Procurement Officer', 'Admin'];
-    if (!authorizedRoles.includes(user.role)) {
-        return NextResponse.json({ error: 'Unauthorized to finalize awards.' }, { status: 403 });
+    
+    const requisition = await prisma.purchaseRequisition.findUnique({ where: { id: requisitionId } });
+    if (!requisition) {
+        return NextResponse.json({ error: 'Requisition not found' }, { status: 404 });
     }
     
+    // Authorization: Allow if the user is the designated current approver
+    if (requisition.currentApproverId !== user.id) {
+         return NextResponse.json({ error: 'Unauthorized. You are not the current approver for this award.' }, { status: 403 });
+    }
+
     const result = await tallyAndAwardScores(
         requisitionId, 
         user,
