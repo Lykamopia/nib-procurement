@@ -79,8 +79,8 @@ async function main() {
       data: {
           ...userData,
           password: hashedPassword,
-          role: { connect: { name: userData.role } },
-          department: user.departmentId ? { connect: { id: user.departmentId } } : undefined,
+          role: userData.role, // Assign role as a string
+          departmentId: user.departmentId,
       },
     });
   }
@@ -129,7 +129,7 @@ async function main() {
               email: vendorUser.email,
               password: hashedPassword,
               approvalLimit: vendorUser.approvalLimit,
-              role: { connect: { name: vendorUser.role } },
+              role: vendorUser.role, // Assign role as a string
           }
       });
       
