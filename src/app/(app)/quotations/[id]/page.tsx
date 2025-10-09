@@ -1589,6 +1589,7 @@ const ScoringProgressTracker = ({
   onCommitteeUpdate,
   isFinalizing,
   isAwarded,
+  finalApprover,
 }: {
   requisition: PurchaseRequisition;
   quotations: Quotation[];
@@ -1597,7 +1598,9 @@ const ScoringProgressTracker = ({
   onCommitteeUpdate: (open: boolean) => void;
   isFinalizing: boolean;
   isAwarded: boolean;
+  finalApprover?: User | null;
 }) => {
+    const { user } = useAuth();
     const [isExtendDialogOpen, setExtendDialogOpen] = useState(false);
     const [isReportDialogOpen, setReportDialogOpen] = useState(false);
     const [selectedMember, setSelectedMember] = useState<User | null>(null);
@@ -1622,7 +1625,6 @@ const ScoringProgressTracker = ({
             
             let submissionDate: Date | null = null;
             if (hasSubmittedFinalScores) {
-                // To get the submission date, we can look at the latest score's submission time from that user for this requisition's quotes.
                 const latestScore = quotations
                     .flatMap(q => q.scores || [])
                     .filter(s => s.scorerId === member.id)
@@ -1630,10 +1632,6 @@ const ScoringProgressTracker = ({
                 
                 if (latestScore) {
                     submissionDate = new Date(latestScore.submittedAt);
-                } else {
-                    // Fallback if scores are not loaded but submission flag is true (edge case)
-                    // We could perhaps look at the audit log here in a real-world complex system.
-                    // For now, let's assume if the flag is true, a score exists.
                 }
             }
 
@@ -1655,13 +1653,15 @@ const ScoringProgressTracker = ({
     
     const overdueMembers = scoringStatus.filter(s => s.isOverdue);
     const allHaveScored = scoringStatus.every(s => s.hasSubmittedFinalScores);
+    
+    const canFinalize = user && finalApprover && user.id === finalApprover.id;
 
 
     return (
         <Card className="mt-6">
             <CardHeader>
-                <CardTitle className="flex items-center gap-2"><GanttChart /> Scoring Progress</CardTitle>
-                <CardDescription>Track the committee's scoring progress. The award can be finalized once all members have submitted their scores for all quotations.</CardDescription>
+                <CardTitle className="flex items-center gap-2"><GanttChart /> Scoring &amp; Approval Progress</CardTitle>
+                <CardDescription>Track committee scoring and the final approval for the award.</CardDescription>
             </CardHeader>
             <CardContent>
                 <ul className="space-y-3">
@@ -1700,10 +1700,10 @@ const ScoringProgressTracker = ({
                     ))}
                 </ul>
             </CardContent>
-            <CardFooter>
+            <CardFooter className="flex-col items-start gap-4">
                  <Dialog open={isAwardCenterOpen} onOpenChange={setAwardCenterOpen}>
                     <DialogTrigger asChild>
-                         <Button disabled={!allHaveScored || isFinalizing || isAwarded}>
+                         <Button disabled={!allHaveScored || isFinalizing || isAwarded || !canFinalize}>
                             {isFinalizing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             Finalize Scores and Award
                         </Button>
@@ -1715,6 +1715,11 @@ const ScoringProgressTracker = ({
                         onClose={() => setAwardCenterOpen(false)}
                     />
                  </Dialog>
+                  {allHaveScored && !isAwarded && (
+                    <div className="text-sm text-muted-foreground">
+                        {canFinalize ? "All scores are in. You can now finalize the award." : `Awaiting final award approval from ${finalApprover?.name || 'the designated approver'}.`}
+                    </div>
+                 )}
             </CardFooter>
             {selectedMember && (
                 <>
@@ -2347,6 +2352,7 @@ export default function QuotationDetailsPage() {
   const [isChangingAward, setIsChangingAward] = useState(false);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isReportOpen, setReportOpen] = useState(false);
+  const [finalApprover, setFinalApprover] = useState<User | null>(null);
   
   const isAuthorized = useMemo(() => {
     if (!user || !role) return false;
@@ -2359,7 +2365,7 @@ export default function QuotationDetailsPage() {
     }
     return false;
   }, [user, role, rfqSenderSetting]);
-
+  
   const isAwarded = useMemo(() => quotations.some(q => q.status === 'Awarded' || q.status === 'Accepted' || q.status === 'Declined' || q.status === 'Failed' || q.status === 'Partially_Awarded'), [quotations]);
   const isAccepted = useMemo(() => quotations.some(q => q.status === 'Accepted' || q.status === 'Partially_Awarded'), [quotations]);
   const secondStandby = useMemo(() => quotations.find(q => q.rank === 2), [quotations]);
@@ -2407,7 +2413,6 @@ export default function QuotationDetailsPage() {
             const quoData = await quoResponse.json();
 
             if (currentReq) {
-                // Check for expired award and auto-promote if necessary
                 const awardedQuote = quoData.find((q: Quotation) => q.status === 'Awarded');
                 if (awardedQuote && currentReq.awardResponseDeadline && isPast(new Date(currentReq.awardResponseDeadline))) {
                     toast({
@@ -2416,7 +2421,6 @@ export default function QuotationDetailsPage() {
                         variant: 'destructive',
                     });
                     await handleAwardChange(secondStandby ? 'promote_second' : 'restart_rfq');
-                    // Refetch after the change
                     const [refetchedReqRes, refetchedQuoRes] = await Promise.all([
                         fetch(`/api/requisitions/${id}`),
                         fetch(`/api/quotations?requisitionId=${id}`)
@@ -2442,10 +2446,47 @@ export default function QuotationDetailsPage() {
 
 
   useEffect(() => {
-    if (id && user) { // ensure user is loaded
+    if (id && user) {
         fetchRequisitionAndQuotes();
     }
   }, [id, user]);
+  
+  // Logic to determine the final approver
+  useEffect(() => {
+    if (isScoringComplete && quotations.length > 0) {
+        const sortedQuotes = [...quotations].sort((a, b) => (b.finalAverageScore || 0) - (a.finalAverageScore || 0));
+        const winner = sortedQuotes[0];
+        if (!winner) return;
+
+        const awardValue = winner.totalPrice;
+
+        let currentApprover: User | null | undefined = allUsers.find(u => u.id === user?.id && isAuthorized); // Start with PO
+        if (!currentApprover) { // Or find the designated PO
+             currentApprover = allUsers.find(u => u.id === rfqSenderSetting.userId);
+        }
+         if (!currentApprover) {
+             setFinalApprover(null);
+             return;
+         }
+
+
+        while (currentApprover && (currentApprover.approvalLimit || 0) < awardValue) {
+            if (!currentApprover.managerId) {
+                // This person is at the top of the chain but still can't approve.
+                setFinalApprover(currentApprover); // They are the final one, though they can't approve.
+                break;
+            }
+            const manager = allUsers.find(u => u.id === currentApprover?.managerId);
+            if (!manager) {
+                 // No further manager in the chain.
+                 setFinalApprover(currentApprover);
+                 break;
+            }
+            currentApprover = manager;
+        }
+        setFinalApprover(currentApprover || null);
+    }
+  }, [isScoringComplete, quotations, allUsers, user, isAuthorized, rfqSenderSetting]);
 
   const handleRfqSent = () => {
     fetchRequisitionAndQuotes();
@@ -2670,7 +2711,7 @@ export default function QuotationDetailsPage() {
         {(currentStep === 'award' || currentStep === 'finalize' || currentStep === 'completed') && (
             <>
                 {/* Always render committee management when in award step so dialog can open */}
-                {(currentStep === 'award' || currentStep === 'finalize' || currentStep === 'completed') && (role === 'Procurement Officer' || role === 'Committee') && (
+                {(currentStep === 'award' || currentStep === 'finalize' || currentStep === 'completed') && (role === 'Procurement Officer' || role === 'Committee' || role === 'Admin') && (
                      <div className={currentStep === 'award' ? '' : 'hidden'}>
                         <CommitteeManagement
                             requisition={requisition}
@@ -2788,7 +2829,7 @@ export default function QuotationDetailsPage() {
             </>
         )}
         
-        {currentStep === 'award' && (role === 'Procurement Officer' || role === 'Admin' || role === 'Committee') && quotations.length > 0 && (role === 'Procurement Officer' || role === 'Admin') && (
+        {currentStep === 'award' && (role === 'Procurement Officer' || role === 'Admin' || role === 'Committee Member') && quotations.length > 0 && (
              <ScoringProgressTracker 
                 requisition={requisition}
                 quotations={quotations}
@@ -2797,6 +2838,7 @@ export default function QuotationDetailsPage() {
                 onCommitteeUpdate={setCommitteeDialogOpen}
                 isFinalizing={isFinalizing}
                 isAwarded={isAwarded}
+                finalApprover={finalApprover}
             />
         )}
         
@@ -2830,12 +2872,4 @@ export default function QuotationDetailsPage() {
     </div>
   );
 }
-    
 
-    
-
-    
-
-    
-
-    
