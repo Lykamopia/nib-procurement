@@ -300,15 +300,16 @@ export async function PATCH(
             dataToUpdate.currentApprover = { disconnect: true };
             
             if (isManagerialApproval) {
-                // If it's a managerial approval, this means the award process can continue.
-                // The finalize-scores endpoint already handles this. Here we just confirm the approval.
                 auditAction = 'APPROVE_AWARD';
                 auditDetails = `Managerially approved award for requisition ${id}. Notifying vendors.`;
-                 // We will re-run the finalize logic to send emails and update statuses
-                 // This is a simplification; a more robust system might use a state machine or queue
-                 const { tallyAndAwardScores } = await import('./[id]/finalize-scores/route');
-                 await tallyAndAwardScores(id, requisition.awardResponseDeadline || undefined, user);
-
+                // Re-run the finalization and notification logic now that the manager has approved
+                const { tallyAndAwardScores, processAndNotifyAwards } = await import('./[id]/finalize-scores/route');
+                const awardResult = await tallyAndAwardScores(id, user);
+                if (awardResult.success && !awardResult.escalated) {
+                    await processAndNotifyAwards(id, awardResult.awards, requisition.awardResponseDeadline || undefined);
+                } else if (!awardResult.success) {
+                    throw new Error(awardResult.message);
+                }
             } else {
                 auditAction = 'APPROVE_REQUISITION';
                 auditDetails = `Requisition ${id} was approved with comment: "${comment}".`;
@@ -320,8 +321,6 @@ export async function PATCH(
             dataToUpdate.currentApprover = { disconnect: true };
              auditAction = 'REJECT_REQUISITION';
              auditDetails = `Requisition ${id} was rejected with comment: "${comment}".`;
-        } else {
-            // Other status changes
         }
 
     } else {
@@ -349,7 +348,7 @@ export async function PATCH(
   } catch (error) {
     console.error('Failed to update requisition:', error);
     if (error instanceof Error) {
-        return NextResponse.json({ error: 'Failed to process request', details: error.message }, { status: 400 });
+        return NextResponse.json({ error: 'Failed to process request', details: error.message }, { status: 500 });
     }
     return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
   }
@@ -410,7 +409,7 @@ export async function DELETE(
   } catch (error) {
      console.error('Failed to delete requisition:', error);
      if (error instanceof Error) {
-        return NextResponse.json({ error: 'Failed to process request', details: error.message }, { status: 500 });
+        return NextResponse.json({ error: 'Failed to process request', details: error.message }, { status: 400 });
     }
     return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
   }

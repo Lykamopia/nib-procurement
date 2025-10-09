@@ -11,7 +11,6 @@ import { differenceInMinutes } from 'date-fns';
 
 export async function tallyAndAwardScores(
     requisitionId: string, 
-    awardResponseDeadline?: Date,
     actor?: User | null
 ) {
     
@@ -109,10 +108,22 @@ export async function tallyAndAwardScores(
         });
 
         // Stop the award process here; it's now waiting for the manager.
-        return { success: true, message: "Award requires managerial approval and has been escalated.", escalated: true };
+        return { success: true, message: "Award requires managerial approval and has been escalated.", escalated: true, awards: {} };
     }
     
-    // --- PROCEED WITH AWARD ---
+    // --- PROCEED WITH AWARD (only if limit is NOT exceeded) ---
+    return { success: true, message: "Approval limit sufficient.", escalated: false, awards };
+}
+
+export async function processAndNotifyAwards(
+    requisitionId: string, 
+    awards: any,
+    awardResponseDeadline?: Date,
+) {
+    const awardedVendorIds = Object.keys(awards);
+    if (awardedVendorIds.length === 0) {
+        throw new Error("No vendor was awarded. Cannot proceed.");
+    }
 
     const awardedQuoteItemIds = Object.values(awards).flatMap((award: any) => award.items.map((item: any) => item.quoteItemId));
 
@@ -120,6 +131,11 @@ export async function tallyAndAwardScores(
     await prisma.quotation.updateMany({
         where: { requisitionId: requisitionId },
         data: { status: 'Rejected', rank: null }
+    });
+
+    const allQuotesForReq = await prisma.quotation.findMany({
+        where: { requisitionId },
+        include: { items: true }
     });
     
 
@@ -179,7 +195,7 @@ export async function tallyAndAwardScores(
                 .flatMap(q => q.items)
                 .filter(item => awardDetails.items.some((i: any) => i.quoteItemId === item.id));
 
-              
+              const totalPriceForThisVendor = awardedQuoteItems.reduce((acc, item) => acc + (item.quantity * item.unitPrice), 0);
               const isPartialAward = awardedVendorIds.length > 1 || awardedQuoteItems.length < requisition.items.length;
 
               const itemsHtml = `
@@ -203,6 +219,10 @@ export async function tallyAndAwardScores(
                                 <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">${(item.quantity * item.unitPrice).toFixed(2)} ETB</td>
                             </tr>
                         `).join('')}
+                         <tr>
+                            <td colspan="4" style="padding: 8px; border: 1px solid #ddd; text-align: right; font-weight: bold;">Total Award Value</td>
+                            <td style="padding: 8px; border: 1px solid #ddd; text-align: right; font-weight: bold;">${totalPriceForThisVendor.toFixed(2)} ETB</td>
+                         </tr>
                     </tbody>
                 </table>
               `;
@@ -225,9 +245,8 @@ export async function tallyAndAwardScores(
             });
          }
     }
-
-    return { success: true, message: "Scores tallied and awards processed.", escalated: false };
 }
+
 
 export async function POST(
   request: Request,
@@ -236,44 +255,46 @@ export async function POST(
   const requisitionId = params.id;
   try {
     const body = await request.json();
-    const { userId, awardResponseDeadline, awardStrategy, awards } = body;
+    const { userId, awardResponseDeadline } = body;
 
     const user: User | null = await prisma.user.findUnique({where: {id: userId}});
     if (!user) {
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    if (user.role !== 'Procurement_Officer' && user.role !== 'Admin') {
+    const authorizedRoles = ['Procurement_Officer', 'Procurement Officer', 'Admin'];
+    if (!authorizedRoles.includes(user.role)) {
         return NextResponse.json({ error: 'Unauthorized to finalize awards.' }, { status: 403 });
     }
     
-    // Note: The `tallyAndAwardScores` function now contains all the logic, including handling escalation.
-    // The `awards` parameter from the client is now effectively a suggestion that will be overridden if the strategy is 'all'.
     const result = await tallyAndAwardScores(
         requisitionId, 
-        awardResponseDeadline ? new Date(awardResponseDeadline) : undefined,
         user
     );
+
+    if (result.escalated) {
+        return NextResponse.json({ message: result.message });
+    }
 
     if (!result.success) {
         throw new Error(result.message);
     }
     
-    // If not escalated, log the finalization. If it was, the escalation is already logged.
-    if (!result.escalated) {
-        await prisma.auditLog.create({
-            data: {
-                timestamp: new Date(),
-                user: { connect: { id: user.id } },
-                action: 'FINALIZE_SCORES',
-                entity: 'Requisition',
-                entityId: requisitionId,
-                details: `Finalized scores and distributed awards for requisition ${requisitionId}.`,
-            }
-        });
-    }
+    await processAndNotifyAwards(requisitionId, result.awards, awardResponseDeadline ? new Date(awardResponseDeadline) : undefined);
+    
+    await prisma.auditLog.create({
+        data: {
+            timestamp: new Date(),
+            user: { connect: { id: user.id } },
+            action: 'FINALIZE_SCORES',
+            entity: 'Requisition',
+            entityId: requisitionId,
+            details: `Finalized scores and distributed awards for requisition ${requisitionId}.`,
+        }
+    });
+    
 
-    return NextResponse.json({ message: result.message });
+    return NextResponse.json({ message: "Scores finalized and awards sent." });
   } catch (error) {
     console.error('Failed to finalize scores:', error);
     if (error instanceof Error) {
