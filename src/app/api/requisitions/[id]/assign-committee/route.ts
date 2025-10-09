@@ -37,7 +37,9 @@ export async function POST(
         return NextResponse.json({ error: 'Unauthorized: User not found' }, { status: 403 });
     }
     
-    const authorizedRoles = ['Procurement_Officer', 'Committee', 'Admin'];
+    // Authorization is now handled on the client-side based on settings,
+    // but we can keep a general server-side guard.
+    const authorizedRoles = ['Procurement_Officer', 'Admin', 'Committee'];
     if (!authorizedRoles.includes(user.role.name)) {
         return NextResponse.json({ error: `Unauthorized: User role "${user.role.name}" is not permitted.` }, { status: 403 });
     }
