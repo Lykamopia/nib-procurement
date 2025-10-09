@@ -13,14 +13,18 @@ export async function POST(
     const body = await request.json();
     const { userId } = body;
 
-    const user = await prisma.user.findUnique({ where: { id: userId } });
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { role: true }
+    });
+    
     if (!user) {
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
     const authorizedRoles = ['Committee Member', 'Committee_Member'];
-    if (!authorizedRoles.includes(user.role)) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    if (!user.role || !authorizedRoles.includes(user.role.name)) {
+        return NextResponse.json({ error: 'Unauthorized to submit final scores.' }, { status: 403 });
     }
     
     await prisma.committeeAssignment.upsert({
@@ -38,8 +42,11 @@ export async function POST(
       },
     });
 
+    const requisition = await prisma.purchaseRequisition.findUnique({ where: { id: requisitionId }});
+
     await prisma.auditLog.create({
         data: {
+            transactionId: requisition?.transactionId,
             timestamp: new Date(),
             user: { connect: { id: user.id } },
             action: 'SUBMIT_SCORES',
