@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { NextResponse } from 'next/server';
@@ -39,8 +38,8 @@ export async function GET(request: Request) {
         ];
     }
     
-    // Add logic for managerial approval queue
-    if (status === 'Pending_Managerial_Approval' && approverId) {
+    // Add logic for approval queue for a specific user
+    if (approverId) {
         whereClause.currentApproverId = approverId;
     }
 
@@ -107,11 +106,16 @@ export async function POST(request: Request) {
         return acc + (price * quantity);
     }, 0);
     
+    const department = await prisma.department.findUnique({ where: { name: body.department } });
+    if (!department) {
+        return NextResponse.json({ error: 'Department not found' }, { status: 404 });
+    }
+
     const newRequisition = await prisma.purchaseRequisition.create({
         data: {
             requester: { connect: { id: user.id } },
             requesterName: user.name,
-            department: { connect: { name: body.department } },
+            department: { connect: { id: department.id } },
             title: body.title,
             urgency: body.urgency,
             justification: body.justification,
@@ -193,7 +197,10 @@ export async function PATCH(
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    const requisition = await prisma.purchaseRequisition.findUnique({ where: { id }});
+    const requisition = await prisma.purchaseRequisition.findUnique({ 
+        where: { id },
+        include: { department: true }
+    });
     if (!requisition) {
       return NextResponse.json({ error: 'Requisition not found' }, { status: 404 });
     }
@@ -263,7 +270,11 @@ export async function PATCH(
             }
         };
         
-        if (status) {
+        if (status === 'Pending Approval') {
+            const department = await prisma.department.findUnique({ where: { id: requisition.departmentId! } });
+            if (department?.headId) {
+                dataToUpdate.currentApproverId = department.headId;
+            }
             auditAction = 'SUBMIT_FOR_APPROVAL';
             auditDetails = `Requisition ${id} ("${updateData.title}") was edited and submitted for approval.`;
         }
@@ -271,7 +282,16 @@ export async function PATCH(
     } else if (status) { // This handles normal status changes (approve, reject, submit)
         dataToUpdate.status = status.replace(/ /g, '_');
         
-        if (status === 'Approved') {
+        if (status === 'Pending Approval') {
+            const department = await prisma.department.findUnique({ where: { id: requisition.departmentId! } });
+            if (department?.headId) {
+                dataToUpdate.currentApproverId = department.headId;
+            } else {
+                 return NextResponse.json({ error: 'No department head assigned to approve this requisition.' }, { status: 400 });
+            }
+            auditAction = 'SUBMIT_FOR_APPROVAL';
+            auditDetails = `Draft requisition ${id} was submitted for approval.`;
+        } else if (status === 'Approved') {
             dataToUpdate.approver = { connect: { id: userId } };
             dataToUpdate.approverComment = comment;
             dataToUpdate.currentApproverId = null;
@@ -297,9 +317,6 @@ export async function PATCH(
             dataToUpdate.currentApproverId = null;
              auditAction = 'REJECT_REQUISITION';
              auditDetails = `Requisition ${id} was rejected with comment: "${comment}".`;
-        } else if (status === 'Pending Approval') {
-            auditAction = 'SUBMIT_FOR_APPROVAL';
-            auditDetails = `Draft requisition ${id} was submitted for approval.`;
         } else {
             // Other status changes
         }

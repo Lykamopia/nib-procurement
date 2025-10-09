@@ -68,19 +68,13 @@ export function ApprovalsTable() {
     if (!user) return;
     try {
       setLoading(true);
-      const [pendingResponse, managerialResponse] = await Promise.all([
-          fetch('/api/requisitions?status=Pending_Approval'),
-          fetch(`/api/requisitions?status=Pending_Managerial_Approval&approverId=${user.id}`)
-      ]);
-      if (!pendingResponse.ok || !managerialResponse.ok) {
-        throw new Error('Failed to fetch requisitions');
+      // Fetch all requisitions assigned to the current user for approval
+      const response = await fetch(`/api/requisitions?approverId=${user.id}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch requisitions for approval');
       }
-      const pendingData: PurchaseRequisition[] = await pendingResponse.json();
-      const managerialData: PurchaseRequisition[] = await managerialResponse.json();
-      
-      const combinedData = [...pendingData, ...managerialData];
-
-      setRequisitions(combinedData);
+      const data: PurchaseRequisition[] = await response.json();
+      setRequisitions(data);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'An unknown error occurred');
     } finally {
