@@ -3,19 +3,32 @@
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { users, departments as inMemoryDepartments } from '@/lib/data-store'; // Some data still in-memory
+import { User } from '@/lib/types';
 
 export async function GET() {
-    // This is temporary, should be replaced with Prisma fetch
-    return NextResponse.json(inMemoryDepartments);
+    try {
+        const departments = await prisma.department.findMany({
+            include: {
+                head: {
+                    select: {
+                        name: true,
+                    }
+                }
+            }
+        });
+        return NextResponse.json(departments);
+    } catch (error) {
+        console.error("Failed to fetch departments:", error);
+        return NextResponse.json({ error: 'Failed to fetch departments' }, { status: 500 });
+    }
 }
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { name, userId } = body;
+    const { name, description, headId, userId } = body;
     
-    const user = users.find(u => u.id === userId);
+    const user: User | null = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
@@ -30,7 +43,11 @@ export async function POST(request: Request) {
     }
 
     const newDepartment = await prisma.department.create({
-      data: { name },
+      data: { 
+        name,
+        description,
+        headId: headId === 'null' ? null : headId
+      },
     });
 
     await prisma.auditLog.create({
@@ -46,6 +63,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json(newDepartment, { status: 201 });
   } catch (error) {
+    console.error("Error creating department:", error);
     if (error instanceof Error) {
         return NextResponse.json({ error: 'Failed to process request', details: error.message }, { status: 400 });
     }
@@ -56,9 +74,9 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
    try {
     const body = await request.json();
-    const { id, name, userId } = body;
+    const { id, name, description, headId, userId } = body;
     
-    const user = users.find(u => u.id === userId);
+    const user: User | null = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
@@ -80,7 +98,11 @@ export async function PATCH(request: Request) {
 
     const updatedDepartment = await prisma.department.update({
         where: { id },
-        data: { name },
+        data: { 
+          name,
+          description,
+          headId: headId === 'null' ? null : headId
+        },
     });
     
     await prisma.auditLog.create({
@@ -97,6 +119,7 @@ export async function PATCH(request: Request) {
 
     return NextResponse.json(updatedDepartment);
   } catch (error) {
+     console.error("Error updating department:", error);
      if (error instanceof Error) {
         return NextResponse.json({ error: 'Failed to process request', details: error.message }, { status: 400 });
     }
@@ -109,7 +132,7 @@ export async function DELETE(request: Request) {
     const body = await request.json();
     const { id, userId } = body;
 
-    const user = users.find(u => u.id === userId);
+    const user: User | null = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
@@ -133,6 +156,7 @@ export async function DELETE(request: Request) {
 
     return NextResponse.json({ message: 'Department deleted successfully' });
   } catch (error) {
+     console.error("Error deleting department:", error);
      if (error instanceof Error) {
         return NextResponse.json({ error: 'Failed to process request', details: error.message }, { status: 400 });
     }

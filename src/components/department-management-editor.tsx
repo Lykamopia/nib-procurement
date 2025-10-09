@@ -12,7 +12,7 @@ import {
 import { Button } from './ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, PlusCircle, Trash2, Edit } from 'lucide-react';
-import { Department } from '@/lib/types';
+import { Department, User } from '@/lib/types';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,21 +34,31 @@ import {
   DialogTrigger,
   DialogClose,
 } from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from './ui/select';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
+import { Textarea } from './ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { useAuth } from '@/contexts/auth-context';
 
 export function DepartmentManagementEditor() {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [isAddDialogOpen, setAddDialogOpen] = useState(false);
-  const [isEditDialogOpen, setEditDialogOpen] = useState(false);
-  const [newDepartmentName, setNewDepartmentName] = useState('');
+  const [isDialogOpen, setDialogOpen] = useState(false);
   const [departmentToEdit, setDepartmentToEdit] = useState<Department | null>(null);
-  const [editedDepartmentName, setEditedDepartmentName] = useState('');
+  
+  const [departmentName, setDepartmentName] = useState('');
+  const [departmentDesc, setDepartmentDesc] = useState('');
+  const [departmentHeadId, setDepartmentHeadId] = useState<string | null>(null);
+  
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user: actor, allUsers } = useAuth();
 
   const fetchDepartments = async () => {
     setIsLoading(true);
@@ -68,30 +78,42 @@ export function DepartmentManagementEditor() {
     fetchDepartments();
   }, []);
 
-  const handleAddNewDepartment = async () => {
-    if (!newDepartmentName.trim()) {
+  const handleFormSubmit = async () => {
+    if (!departmentName.trim()) {
         toast({ variant: 'destructive', title: 'Error', description: 'Department name cannot be empty.' });
         return;
     }
-    if (!user) return;
+    if (!actor) return;
     
     setIsLoading(true);
+
+    const isEditing = !!departmentToEdit;
+    const url = '/api/departments';
+    const method = isEditing ? 'PATCH' : 'POST';
+    const body = {
+      id: isEditing ? departmentToEdit.id : undefined,
+      name: departmentName,
+      description: departmentDesc,
+      headId: departmentHeadId,
+      userId: actor.id,
+    };
+    
     try {
-        const response = await fetch('/api/departments', {
-            method: 'POST',
+        const response = await fetch(url, {
+            method,
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: newDepartmentName, userId: user.id }),
+            body: JSON.stringify(body),
         });
         if (!response.ok) {
             const errorData = await response.json();
-            throw new Error(errorData.error || 'Failed to create department.');
+            throw new Error(errorData.error || `Failed to ${isEditing ? 'update' : 'create'} department.`);
         }
         toast({
-            title: 'Department Added',
-            description: `The department "${newDepartmentName}" has been successfully added.`,
+            title: `Department ${isEditing ? 'Updated' : 'Added'}`,
+            description: `The department "${departmentName}" has been successfully ${isEditing ? 'updated' : 'added'}.`,
         });
-        setNewDepartmentName('');
-        setAddDialogOpen(false);
+        
+        setDialogOpen(false);
         fetchDepartments();
     } catch (error) {
         toast({ variant: 'destructive', title: 'Error', description: error instanceof Error ? error.message : 'An unknown error occurred.'});
@@ -100,47 +122,15 @@ export function DepartmentManagementEditor() {
     }
   };
 
-  const handleEditDepartment = async () => {
-    if (!departmentToEdit || !editedDepartmentName.trim()) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Department name cannot be empty.' });
-      return;
-    }
-    if (!user) return;
-
-    setIsLoading(true);
-    try {
-        const response = await fetch(`/api/departments`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: departmentToEdit.id, name: editedDepartmentName, userId: user.id }),
-        });
-        if (!response.ok) {
-             const errorData = await response.json();
-            throw new Error(errorData.error || 'Failed to update department.');
-        }
-        toast({
-            title: 'Department Updated',
-            description: `The department has been renamed to "${editedDepartmentName}".`,
-        });
-        setDepartmentToEdit(null);
-        setEditedDepartmentName('');
-        setEditDialogOpen(false);
-        fetchDepartments();
-    } catch (error) {
-        toast({ variant: 'destructive', title: 'Error', description: error instanceof Error ? error.message : 'An unknown error occurred.'});
-    } finally {
-        setIsLoading(false);
-    }
-  };
 
   const handleDeleteDepartment = async (departmentId: string) => {
-    if (!user) return;
+    if (!actor) return;
     setIsLoading(true);
     try {
          const response = await fetch(`/api/departments`, {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: departmentId, userId: user.id }),
+            body: JSON.stringify({ id: departmentId, userId: actor.id }),
         });
          if (!response.ok) {
             const errorData = await response.json();
@@ -158,12 +148,22 @@ export function DepartmentManagementEditor() {
     }
   };
 
-  const openEditDialog = (dept: Department) => {
-    setDepartmentToEdit(dept);
-    setEditedDepartmentName(dept.name);
-    setEditDialogOpen(true);
+  const openDialog = (dept?: Department) => {
+    if (dept) {
+        setDepartmentToEdit(dept);
+        setDepartmentName(dept.name);
+        setDepartmentDesc(dept.description || '');
+        setDepartmentHeadId(dept.headId || null);
+    } else {
+        setDepartmentToEdit(null);
+        setDepartmentName('');
+        setDepartmentDesc('');
+        setDepartmentHeadId(null);
+    }
+    setDialogOpen(true);
   }
 
+  const potentialHeads = allUsers.filter(u => u.role !== 'Vendor' && u.role !== 'Requester');
 
   return (
     <Card>
@@ -175,27 +175,7 @@ export function DepartmentManagementEditor() {
                 Add, edit, and delete departments for user assignment.
                 </CardDescription>
             </div>
-             <Dialog open={isAddDialogOpen} onOpenChange={setAddDialogOpen}>
-                <DialogTrigger asChild>
-                    <Button><PlusCircle className="mr-2"/> Add New Department</Button>
-                </DialogTrigger>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Add New Department</DialogTitle>
-                    </DialogHeader>
-                    <div className="py-4">
-                        <Label htmlFor="dept-name">Department Name</Label>
-                        <Input id="dept-name" placeholder="e.g., Human Resources" value={newDepartmentName} onChange={(e) => setNewDepartmentName(e.target.value)} />
-                    </div>
-                    <DialogFooter>
-                        <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
-                        <Button onClick={handleAddNewDepartment} disabled={isLoading}>
-                             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
-                            Create Department
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+             <Button onClick={() => openDialog()}><PlusCircle className="mr-2"/> Add New Department</Button>
         </div>
       </CardHeader>
       <CardContent>
@@ -203,26 +183,28 @@ export function DepartmentManagementEditor() {
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead className="w-16">#</TableHead>
                         <TableHead>Department Name</TableHead>
+                        <TableHead>Description</TableHead>
+                        <TableHead>Department Head</TableHead>
                         <TableHead className="text-right w-40">Actions</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
                     {isLoading && departments.length === 0 ? (
                          <TableRow>
-                            <TableCell colSpan={3} className="h-24 text-center">
+                            <TableCell colSpan={4} className="h-24 text-center">
                                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground mx-auto" />
                             </TableCell>
                         </TableRow>
                     ) : departments.length > 0 ? (
-                        departments.map((dept, index) => (
+                        departments.map((dept) => (
                             <TableRow key={dept.id}>
-                                <TableCell className="text-muted-foreground">{index + 1}</TableCell>
                                 <TableCell className="font-semibold">{dept.name}</TableCell>
+                                <TableCell className="text-muted-foreground">{dept.description}</TableCell>
+                                <TableCell>{dept.head?.name || <span className="text-muted-foreground italic">Not Assigned</span>}</TableCell>
                                 <TableCell className="text-right">
                                     <div className="flex gap-2 justify-end">
-                                        <Button variant="outline" size="sm" onClick={() => openEditDialog(dept)}>
+                                        <Button variant="outline" size="sm" onClick={() => openDialog(dept)}>
                                             <Edit className="mr-2 h-4 w-4"/>
                                             Edit
                                         </Button>
@@ -255,7 +237,7 @@ export function DepartmentManagementEditor() {
                         ))
                     ) : (
                          <TableRow>
-                            <TableCell colSpan={3} className="h-24 text-center text-muted-foreground">
+                            <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
                                 No departments found.
                             </TableCell>
                         </TableRow>
@@ -264,20 +246,40 @@ export function DepartmentManagementEditor() {
             </Table>
         </div>
       </CardContent>
-       <Dialog open={isEditDialogOpen} onOpenChange={setEditDialogOpen}>
+       <Dialog open={isDialogOpen} onOpenChange={(open) => { if (!open) setDepartmentToEdit(null); setDialogOpen(open);}}>
         <DialogContent>
             <DialogHeader>
-                <DialogTitle>Edit Department: {departmentToEdit?.name}</DialogTitle>
+                <DialogTitle>{departmentToEdit ? 'Edit Department' : 'Add New Department'}</DialogTitle>
             </DialogHeader>
-            <div className="py-4">
-                <Label htmlFor="edit-dept-name">New Department Name</Label>
-                <Input id="edit-dept-name" value={editedDepartmentName} onChange={(e) => setEditedDepartmentName(e.target.value)} />
+            <div className="py-4 space-y-4">
+                <div>
+                    <Label htmlFor="dept-name">Department Name</Label>
+                    <Input id="dept-name" placeholder="e.g., Human Resources" value={departmentName} onChange={(e) => setDepartmentName(e.target.value)} />
+                </div>
+                 <div>
+                    <Label htmlFor="dept-desc">Description</Label>
+                    <Textarea id="dept-desc" placeholder="e.g., Responsible for all employee-related matters." value={departmentDesc} onChange={(e) => setDepartmentDesc(e.target.value)} />
+                </div>
+                 <div>
+                    <Label htmlFor="dept-head">Department Head</Label>
+                     <Select value={departmentHeadId || ''} onValueChange={setDepartmentHeadId}>
+                        <SelectTrigger id="dept-head">
+                            <SelectValue placeholder="Select a responsible person" />
+                        </SelectTrigger>
+                        <SelectContent>
+                             <SelectItem value="null">None</SelectItem>
+                            {potentialHeads.map(user => (
+                                <SelectItem key={user.id} value={user.id}>{user.name} ({user.role})</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
             </div>
             <DialogFooter>
                 <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
-                <Button onClick={handleEditDepartment} disabled={isLoading}>
+                <Button onClick={handleFormSubmit} disabled={isLoading}>
                     {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
-                    Save Changes
+                    {departmentToEdit ? 'Save Changes' : 'Create Department'}
                 </Button>
             </DialogFooter>
         </DialogContent>

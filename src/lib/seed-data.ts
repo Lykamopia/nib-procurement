@@ -235,11 +235,11 @@ const seedData: AppData = {
         { id: '12', name: 'Diana', email: 'diana@example.com', password: 'password123', role: 'Admin', departmentId: 'DEPT-2', department: 'Operations', approvalLimit: 1000000 },
     ],
     departments: [
-        { id: 'DEPT-1', name: 'Design' },
-        { id: 'DEPT-2', name: 'Operations' },
-        { id: 'DEPT-3', name: 'IT' },
-        { id: 'DEPT-4', name: 'Marketing' },
-        { id: 'DEPT-5', name: 'Finance' },
-        { id: 'DEPT-6', name: 'Human Resources' },
+        { id: 'DEPT-1', name: 'Design', description: 'Handles all creative and design tasks.', headId: '1' },
+        { id: 'DEPT-2', name: 'Operations', description: 'Manages day-to-day business operations.', headId: '12' },
+        { id: 'DEPT-3', name: 'IT', description: 'Manages all technology and infrastructure.', headId: '3' },
+        { id: 'DEPT-4', name: 'Marketing', description: 'Responsible for marketing and sales.', headId: null },
+        { id: 'DEPT-5', name: 'Finance', description: 'Handles all financial matters.', headId: '5' },
+        { id: 'DEPT-6', name: 'Human Resources', description: 'Manages employee relations and hiring.', headId: null },
     ]
 };

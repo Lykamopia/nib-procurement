@@ -33,6 +33,11 @@ export type User = {
 export type Department = {
   id: string;
   name: string;
+  description?: string;
+  headId?: string;
+  head?: {
+    name: string;
+  };
 };
 
 export type RequisitionStatus =

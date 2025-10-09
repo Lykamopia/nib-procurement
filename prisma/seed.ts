@@ -31,15 +31,17 @@ async function main() {
   await prisma.purchaseRequisition.deleteMany({});
   await prisma.kYC_Document.deleteMany({});
   await prisma.vendor.deleteMany({});
+  // Manually manage order of user deletion to avoid foreign key issues
+  await prisma.user.updateMany({ data: { managerId: null, headId: null } });
+  await prisma.department.updateMany({data: { headId: null }});
   await prisma.user.deleteMany({});
-  await prisma.role.deleteMany({});
   await prisma.department.deleteMany({});
+  await prisma.role.deleteMany({});
   console.log('Existing data cleared.');
 
   console.log(`Start seeding ...`);
 
   const seedData = getInitialData();
-  const allDepartments = seedData.departments;
   const allRoles = [
       { name: 'Requester', description: 'Can create purchase requisitions.' },
       { name: 'Approver', description: 'Can approve or reject requisitions.' },
@@ -68,7 +70,7 @@ async function main() {
 
   // Seed non-vendor users first
   for (const user of seedData.users.filter(u => u.role !== 'Vendor')) {
-    const { committeeAssignments, departmentId, department, vendorId, password, managerId, ...userData } = user;
+    const { committeeAssignments, department, vendorId, password, managerId, ...userData } = user;
     const hashedPassword = await bcrypt.hash(password || 'password123', 10);
 
     await prisma.user.create({
@@ -92,6 +94,17 @@ async function main() {
       });
   }
   console.log('Linked managers to users.');
+  
+  // Third pass to link department heads
+  for (const dept of seedData.departments) {
+    if (dept.headId) {
+      await prisma.department.update({
+        where: { id: dept.id },
+        data: { head: { connect: { id: dept.headId } } }
+      });
+    }
+  }
+  console.log('Linked department heads.');
 
 
   // Seed Vendors and their associated users
@@ -164,8 +177,6 @@ async function main() {
           committeeMemberIds, // old field, remove it
           ...reqData 
       } = requisition;
-
-      const departmentRecord = allDepartments.find(d => d.name === department);
 
       const createdRequisition = await prisma.purchaseRequisition.create({
           data: {
