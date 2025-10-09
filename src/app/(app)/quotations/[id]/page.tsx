@@ -2375,7 +2375,7 @@ export default function QuotationDetailsPage() {
     if (!user || !role) return false;
     if (role === 'Admin') return true;
     if (rfqSenderSetting.type === 'all') {
-      return role === 'Procurement Officer';
+      return role === 'Procurement Officer' || role === 'Committee';
     }
     if (rfqSenderSetting.type === 'specific') {
       return user.id === rfqSenderSetting.userId;

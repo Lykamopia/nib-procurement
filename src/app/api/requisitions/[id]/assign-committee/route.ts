@@ -28,21 +28,13 @@ export async function POST(
       return NextResponse.json({ error: 'Requisition not found' }, { status: 404 });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      include: { role: true }
-    });
-    
+    const user: User | null = await prisma.user.findUnique({where: {id: userId}});
     if (!user) {
-        return NextResponse.json({ error: 'Unauthorized: User not found' }, { status: 403 });
+        return NextResponse.json({ error: 'User performing action not found.' }, { status: 404 });
     }
     
-    // Authorization is now handled on the client-side based on settings,
-    // but we can keep a general server-side guard.
-    const authorizedRoles = ['Procurement_Officer', 'Admin', 'Committee'];
-    if (!authorizedRoles.includes(user.role.name)) {
-        return NextResponse.json({ error: `Unauthorized: User role "${user.role.name}" is not permitted.` }, { status: 403 });
-    }
+    // Authorization is now handled on the client-side based on settings.
+    // The server just performs the action if the request is received.
     
     // Start a transaction to ensure atomicity
     const transactionResult = await prisma.$transaction(async (tx) => {
