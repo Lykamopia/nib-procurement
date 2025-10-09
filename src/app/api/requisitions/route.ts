@@ -133,6 +133,7 @@ export async function POST(request: Request) {
                 create: body.customQuestions?.map((q: any) => ({
                     questionText: q.questionText,
                     questionType: q.questionType,
+                    isRequired: q.isRequired,
                     options: q.options || [],
                 }))
             },
@@ -243,6 +244,7 @@ export async function PATCH(
                 create: updateData.customQuestions?.map((q: any) => ({
                     questionText: q.questionText,
                     questionType: q.questionType,
+                    isRequired: q.isRequired,
                     options: q.options || [],
                 })),
             },
@@ -273,7 +275,7 @@ export async function PATCH(
         if (status === 'Pending Approval') {
             const department = await prisma.department.findUnique({ where: { id: requisition.departmentId! } });
             if (department?.headId) {
-                dataToUpdate.currentApproverId = department.headId;
+                dataToUpdate.currentApprover = { connect: { id: department.headId } };
             }
             auditAction = 'SUBMIT_FOR_APPROVAL';
             auditDetails = `Requisition ${id} ("${updateData.title}") was edited and submitted for approval.`;
@@ -285,7 +287,7 @@ export async function PATCH(
         if (status === 'Pending Approval') {
             const department = await prisma.department.findUnique({ where: { id: requisition.departmentId! } });
             if (department?.headId) {
-                dataToUpdate.currentApproverId = department.headId;
+                dataToUpdate.currentApprover = { connect: { id: department.headId } };
             } else {
                  return NextResponse.json({ error: 'No department head assigned to approve this requisition.' }, { status: 400 });
             }
@@ -294,7 +296,7 @@ export async function PATCH(
         } else if (status === 'Approved') {
             dataToUpdate.approver = { connect: { id: userId } };
             dataToUpdate.approverComment = comment;
-            dataToUpdate.currentApproverId = null;
+            dataToUpdate.currentApprover = { disconnect: true };
             
             if (isManagerialApproval) {
                 // If it's a managerial approval, this means the award process can continue.
@@ -314,7 +316,7 @@ export async function PATCH(
         } else if (status === 'Rejected') {
             dataToUpdate.approver = { connect: { id: userId } };
             dataToUpdate.approverComment = comment;
-            dataToUpdate.currentApproverId = null;
+            dataToUpdate.currentApprover = { disconnect: true };
              auditAction = 'REJECT_REQUISITION';
              auditDetails = `Requisition ${id} was rejected with comment: "${comment}".`;
         } else {
@@ -412,3 +414,5 @@ export async function DELETE(
     return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
   }
 }
+
+    
