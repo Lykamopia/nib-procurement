@@ -137,7 +137,6 @@ async function main() {
     const createdVendor = await prisma.vendor.create({
       data: {
           ...vendorData,
-          userId: createdUser.id, // Explicitly set the foreign key
           kycStatus: vendorData.kycStatus.replace(/ /g, '_') as any,
           user: { connect: { id: createdUser.id } }
       },
