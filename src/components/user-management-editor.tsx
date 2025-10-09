@@ -105,6 +105,13 @@ export function UserManagementEditor() {
       (u.approvalLimit || 0) > (currentApprovalLimit || 0)
   );
 
+  const getRoleName = (u: User) => {
+    if (typeof u.role === 'string') {
+        return u.role;
+    }
+    return u.role?.name || 'N/A';
+  }
+
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -206,7 +213,7 @@ export function UserManagementEditor() {
       form.reset({
         name: user.name,
         email: user.email,
-        role: user.role,
+        role: getRoleName(user),
         departmentId: user.departmentId || '',
         password: '',
         approvalLimit: user.approvalLimit || 0,
@@ -258,8 +265,8 @@ export function UserManagementEditor() {
                                 <TableCell className="text-muted-foreground">{index + 1}</TableCell>
                                 <TableCell className="font-semibold">{user.name}</TableCell>
                                 <TableCell>{user.email}</TableCell>
-                                <TableCell>{user.role}</TableCell>
-                                <TableCell>{user.department}</TableCell>
+                                <TableCell>{getRoleName(user)}</TableCell>
+                                <TableCell>{user.department?.name}</TableCell>
                                 <TableCell className="text-right">
                                     <div className="flex gap-2 justify-end">
                                         <Button variant="outline" size="sm" onClick={() => openDialog(user)}>
@@ -268,7 +275,7 @@ export function UserManagementEditor() {
                                         </Button>
                                         <AlertDialog>
                                             <AlertDialogTrigger asChild>
-                                                <Button variant="destructive" size="sm" disabled={user.role === 'Admin'}>
+                                                <Button variant="destructive" size="sm" disabled={getRoleName(user) === 'Admin'}>
                                                     <Trash2 className="mr-2 h-4 w-4" />
                                                     Delete
                                                 </Button>

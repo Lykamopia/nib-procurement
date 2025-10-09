@@ -16,14 +16,19 @@ export type CommitteeAssignment = {
   scoresSubmitted: boolean;
 }
 
+export type Role = {
+    name: UserRole;
+    description?: string;
+}
+
 export type User = {
   id: string;
   name: string;
   email: string;
   password?: string; // Should not be sent to client
-  role: UserRole;
+  role: Role | UserRole; // Will be a Role object from the database
   vendorId?: string;
-  department?: string;
+  department?: Department;
   departmentId?: string;
   committeeAssignments?: CommitteeAssignment[];
   approvalLimit?: number;
