@@ -1594,7 +1594,7 @@ const ScoringProgressTracker = ({
   requisition: PurchaseRequisition;
   quotations: Quotation[];
   allUsers: User[];
-  onFinalize: (awardStrategy: 'all' | 'item', awards: any, awardResponseDeadline?: Date) => void;
+  onFinalize: (awardStrategy: 'all' | 'item', awards: any, awardResponseDeadline?: Date, meetingMinutes?: string) => void;
   onCommitteeUpdate: (open: boolean) => void;
   isFinalizing: boolean;
   isAwarded: boolean;
@@ -1910,12 +1910,13 @@ const AwardCenterDialog = ({
 }: {
     requisition: PurchaseRequisition;
     quotations: Quotation[];
-    onFinalize: (awardStrategy: 'all' | 'item', awards: any, awardResponseDeadline?: Date) => void;
+    onFinalize: (awardStrategy: 'all' | 'item', awards: any, awardResponseDeadline?: Date, meetingMinutes?: string) => void;
     onClose: () => void;
 }) => {
     const [awardStrategy, setAwardStrategy] = useState<'item' | 'all'>('item');
     const [awardResponseDeadlineDate, setAwardResponseDeadlineDate] = useState<Date|undefined>();
     const [awardResponseDeadlineTime, setAwardResponseDeadlineTime] = useState('17:00');
+    const [meetingMinutes, setMeetingMinutes] = useState('');
 
     const awardResponseDeadline = useMemo(() => {
         if (!awardResponseDeadlineDate) return undefined;
@@ -1992,6 +1993,11 @@ const AwardCenterDialog = ({
 
 
     const handleConfirmAward = () => {
+        if (!meetingMinutes.trim()) {
+            alert("Meeting minutes are required to justify the award decision.");
+            return;
+        }
+
         let awards: { [vendorId: string]: { vendorName: string, items: { requisitionItemId: string, quoteItemId: string }[] } } = {};
         
         if (awardStrategy === 'item') {
@@ -2012,7 +2018,7 @@ const AwardCenterDialog = ({
            }
         }
 
-        onFinalize(awardStrategy, awards, awardResponseDeadline);
+        onFinalize(awardStrategy, awards, awardResponseDeadline, meetingMinutes);
         onClose();
     }
 
@@ -2072,6 +2078,17 @@ const AwardCenterDialog = ({
                     </Card>
                 </TabsContent>
             </Tabs>
+            
+             <div className="pt-4 space-y-2">
+                <Label htmlFor="meeting-minutes">Meeting Minutes & Justification</Label>
+                <Textarea 
+                    id="meeting-minutes" 
+                    placeholder="Record the key discussion points and final justification for the award decision here. This is mandatory for the audit trail."
+                    rows={5}
+                    value={meetingMinutes}
+                    onChange={(e) => setMeetingMinutes(e.target.value)}
+                />
+            </div>
 
              <div className="pt-4 space-y-2">
                 <Label>Vendor Response Deadline (Optional)</Label>
@@ -2500,7 +2517,7 @@ export default function QuotationDetailsPage() {
     setLastPOCreated(po);
   }
   
-   const handleFinalizeScores = async (awardStrategy: 'all' | 'item', awards: any, awardResponseDeadline?: Date) => {
+   const handleFinalizeScores = async (awardStrategy: 'all' | 'item', awards: any, awardResponseDeadline?: Date, meetingMinutes?: string) => {
         if (!user || !requisition) return;
         
         setIsFinalizing(true);
@@ -2508,7 +2525,7 @@ export default function QuotationDetailsPage() {
              const response = await fetch(`/api/requisitions/${requisition.id}/finalize-scores`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId: user.id, awardResponseDeadline, highestApproverCanOverride }),
+                body: JSON.stringify({ userId: user.id, awardResponseDeadline, highestApproverCanOverride, meetingMinutes }),
             });
             if (!response.ok) {
                 const errorData = await response.json();
@@ -2823,7 +2840,7 @@ export default function QuotationDetailsPage() {
             </>
         )}
         
-        {currentStep === 'award' && (role === 'Procurement Officer' || role === 'Admin' || role === 'Committee Member') && quotations.length > 0 && (
+        {currentStep === 'award' && (role === 'Procurement Officer' || role === 'Admin') && quotations.length > 0 && (
              <ScoringProgressTracker 
                 requisition={requisition}
                 quotations={quotations}
