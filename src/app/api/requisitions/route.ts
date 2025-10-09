@@ -7,6 +7,7 @@ import type { PurchaseRequisition } from '@/lib/types';
 import { prisma } from '@/lib/prisma';
 import { getUserByToken } from '@/lib/auth';
 import { headers } from 'next/headers';
+import { sendEmail } from '@/services/email-service';
 
 export async function GET(request: Request) {
   console.log('GET /api/requisitions - Fetching requisitions from DB.');
@@ -43,7 +44,7 @@ export async function GET(request: Request) {
     if (approverId) {
         whereClause.currentApproverId = approverId;
         whereClause.status = {
-            in: ['Pending_Approval', 'Pending Managerial Approval']
+            in: ['Pending_Approval', 'Pending_Managerial_Approval']
         }
     }
 
@@ -282,9 +283,14 @@ export async function PATCH(
                 where: { id: requisition.departmentId! }, 
                 include: { head: true } 
             });
-            if (department?.headId) {
-                dataToUpdate.currentApprover = { connect: { id: department.headId } };
+            if (department?.head) {
+                dataToUpdate.currentApprover = { connect: { id: department.head.id } };
                  responseMessage = `Requisition submitted to ${department.head?.name} for approval.`;
+                await sendEmail({
+                    to: department.head.email,
+                    subject: `Approval Required: ${requisition.title}`,
+                    html: `<p>A new purchase requisition, <strong>${requisition.title}</strong>, from ${user.name} requires your approval.</p><p><a href="${process.env.NEXT_PUBLIC_BASE_URL}/approvals">View Pending Approvals</a></p>`
+                });
             } else {
                  return NextResponse.json({ error: 'No department head assigned to approve this requisition.' }, { status: 400 });
             }
@@ -298,9 +304,14 @@ export async function PATCH(
                 where: { id: requisition.departmentId! },
                 include: { head: true }
             });
-            if (department?.headId) {
-                dataToUpdate.currentApprover = { connect: { id: department.headId } };
-                responseMessage = `Requisition submitted to ${department.head?.name} for approval.`;
+            if (department?.head) {
+                dataToUpdate.currentApprover = { connect: { id: department.head.id } };
+                responseMessage = `Requisition submitted to ${department.head.name} for approval.`;
+                await sendEmail({
+                    to: department.head.email,
+                    subject: `Approval Required: ${requisition.title}`,
+                    html: `<p>A new purchase requisition, <strong>${requisition.title}</strong>, from ${user.name} requires your approval.</p><p><a href="${process.env.NEXT_PUBLIC_BASE_URL}/approvals">View Pending Approvals</a></p>`
+                });
             } else {
                 return NextResponse.json({ error: 'No department head assigned to approve this requisition.' }, { status: 400 });
             }
@@ -317,6 +328,11 @@ export async function PATCH(
                     auditAction = 'ESCALATE_APPROVAL';
                     auditDetails = `Approved by ${user.name}, but value exceeds limit. Escalated to ${manager.name}.`;
                     responseMessage = `Approved. Escalated to ${manager.name} for final approval.`;
+                    await sendEmail({
+                        to: manager.email,
+                        subject: `Approval Required (Escalated): ${requisition.title}`,
+                        html: `<p>The purchase requisition, <strong>${requisition.title}</strong>, has been escalated to you for final approval due to its value.</p><p><a href="${process.env.NEXT_PUBLIC_BASE_URL}/approvals">View Pending Approvals</a></p>`
+                    });
                 } else {
                     return NextResponse.json({ error: `Approval limit of ${user.approvalLimit} ETB exceeded.`}, { status: 403 });
                 }
