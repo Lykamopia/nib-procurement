@@ -46,6 +46,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { RequisitionDetailsDialog } from '@/components/requisition-details-dialog';
 import { Badge } from '@/components/ui/badge';
+import { useRouter } from 'next/navigation';
 
 
 const PAGE_SIZE = 10;
@@ -56,6 +57,7 @@ export default function ApprovalsPage() {
   const [error, setError] = useState<string | null>(null);
   const { user, highestApproverCanOverride } = useAuth();
   const { toast } = useToast();
+  const router = useRouter();
 
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedRequisition, setSelectedRequisition] = useState<PurchaseRequisition | null>(null);
@@ -106,7 +108,13 @@ export default function ApprovalsPage() {
   const submitAction = async () => {
     if (!selectedRequisition || !actionType || !user) return;
     
-    // Determine the correct new status based on context
+    // If it's a managerial approval, it's for an award, so we hit a different endpoint.
+    if (selectedRequisition.status === 'Pending Managerial Approval') {
+        router.push(`/quotations/${selectedRequisition.id}`);
+        setActionDialogOpen(false);
+        return;
+    }
+    
     let newStatus = actionType === 'approve' ? 'Approved' : 'Rejected';
 
 
@@ -119,8 +127,6 @@ export default function ApprovalsPage() {
             status: newStatus, 
             userId: user.id, 
             comment,
-            isManagerialApproval: selectedRequisition.status === 'Pending Managerial Approval',
-            highestApproverCanOverride,
         }),
       });
       if (!response.ok) {
@@ -210,15 +216,23 @@ export default function ApprovalsPage() {
                       <TableCell>{format(new Date(req.createdAt), 'PP')}</TableCell>
                       <TableCell>
                       <div className="flex gap-2">
-                          <Button variant="outline" size="sm" onClick={() => handleShowDetails(req)}>
-                              <Eye className="mr-2 h-4 w-4" /> View Details
-                          </Button>
-                          <Button variant="outline" size="sm" onClick={() => handleAction(req, 'approve')}>
-                              <Check className="mr-2 h-4 w-4" /> Approve
-                          </Button>
-                          <Button variant="destructive" size="sm" onClick={() => handleAction(req, 'reject')}>
-                              <X className="mr-2 h-4 w-4" /> Reject
-                          </Button>
+                         {req.status === 'Pending Managerial Approval' ? (
+                            <Button variant="outline" size="sm" onClick={() => router.push(`/quotations/${req.id}`)}>
+                               <Eye className="mr-2 h-4 w-4" /> Review Award
+                            </Button>
+                         ) : (
+                           <>
+                            <Button variant="outline" size="sm" onClick={() => handleShowDetails(req)}>
+                                <Eye className="mr-2 h-4 w-4" /> View Details
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={() => handleAction(req, 'approve')}>
+                                <Check className="mr-2 h-4 w-4" /> Approve
+                            </Button>
+                            <Button variant="destructive" size="sm" onClick={() => handleAction(req, 'reject')}>
+                                <X className="mr-2 h-4 w-4" /> Reject
+                            </Button>
+                           </>
+                         )}
                       </div>
                       </TableCell>
                   </TableRow>
@@ -288,7 +302,7 @@ export default function ApprovalsPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {actionType === 'approve' ? 'Approve' : 'Reject'} Item: {selectedRequisition?.id}
+              {actionType === 'approve' ? 'Approve' : 'Reject'} Requisition: {selectedRequisition?.id}
             </DialogTitle>
             <DialogDescription>
                 You are about to {actionType} this item. Please provide a comment for this action.
@@ -327,3 +341,4 @@ export default function ApprovalsPage() {
     </>
   );
 }
+
