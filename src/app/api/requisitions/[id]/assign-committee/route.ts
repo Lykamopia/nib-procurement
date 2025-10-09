@@ -28,14 +28,18 @@ export async function POST(
       return NextResponse.json({ error: 'Requisition not found' }, { status: 404 });
     }
 
-    const user: User | null = await prisma.user.findUnique({where: {id: userId}});
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { role: true }
+    });
+    
     if (!user) {
         return NextResponse.json({ error: 'Unauthorized: User not found' }, { status: 403 });
     }
     
-    const authorizedRoles = ['Procurement Officer', 'Procurement_Officer', 'Committee', 'Admin'];
-    if (!authorizedRoles.includes(user.role)) {
-        return NextResponse.json({ error: 'Unauthorized: Insufficient permissions' }, { status: 403 });
+    const authorizedRoles = ['Procurement_Officer', 'Committee', 'Admin'];
+    if (!authorizedRoles.includes(user.role.name)) {
+        return NextResponse.json({ error: `Unauthorized: User role "${user.role.name}" is not permitted.` }, { status: 403 });
     }
     
     // Start a transaction to ensure atomicity
