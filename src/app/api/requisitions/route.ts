@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { NextResponse } from 'next/server';
@@ -196,7 +195,7 @@ export async function PATCH(
   console.log('PATCH /api/requisitions - Updating requisition status or content in DB.');
   try {
     const body = await request.json();
-    const { id, status, userId, comment, isManagerialApproval, highestApproverCanOverride, ...updateData } = body;
+    const { id, status, userId, comment, ...updateData } = body;
 
     const user = await prisma.user.findUnique({where: {id: userId}});
     if (!user) {
@@ -205,7 +204,7 @@ export async function PATCH(
 
     const requisition = await prisma.purchaseRequisition.findUnique({ 
         where: { id },
-        include: { department: true }
+        include: { department: true, requester: true }
     });
     if (!requisition) {
       return NextResponse.json({ error: 'Requisition not found' }, { status: 404 });
@@ -230,11 +229,9 @@ export async function PATCH(
             urgency: updateData.urgency,
             department: { connect: { name: updateData.department } },
             totalPrice: totalPrice,
-            // When editing, it always goes back to Pending Approval if a status is provided
             status: status ? status.replace(/ /g, '_') : requisition.status,
             approver: { disconnect: true },
             approverComment: null,
-            // We need to delete old items and create new ones
             items: {
                 deleteMany: {},
                 create: updateData.items.map((item: any) => ({
@@ -244,7 +241,6 @@ export async function PATCH(
                     description: item.description || ''
                 })),
             },
-            // Same for questions and criteria
             customQuestions: {
                 deleteMany: {},
                 create: updateData.customQuestions?.map((q: any) => ({
@@ -255,10 +251,7 @@ export async function PATCH(
                 })),
             },
         };
-        // Handle evaluation criteria update by deleting old and creating new
-         const oldCriteria = await prisma.evaluationCriteria.findUnique({
-            where: { requisitionId: id },
-         });
+        const oldCriteria = await prisma.evaluationCriteria.findUnique({ where: { requisitionId: id } });
          if (oldCriteria) {
              await prisma.financialCriterion.deleteMany({ where: { evaluationCriteriaId: oldCriteria.id } });
              await prisma.technicalCriterion.deleteMany({ where: { evaluationCriteriaId: oldCriteria.id } });
@@ -279,7 +272,7 @@ export async function PATCH(
         };
         
         if (status === 'Pending Approval') {
-             const department = await prisma.department.findUnique({ 
+            const department = await prisma.department.findUnique({ 
                 where: { id: requisition.departmentId! }, 
                 include: { head: true } 
             });
@@ -297,7 +290,6 @@ export async function PATCH(
             auditAction = 'SUBMIT_FOR_APPROVAL';
             auditDetails = `Requisition ${id} ("${updateData.title}") was edited and submitted for approval.`;
         }
-
     } else if (status) { // This handles normal status changes (approve, reject, submit)
         if (status === 'Pending Approval') {
             const department = await prisma.department.findUnique({ 
@@ -310,7 +302,7 @@ export async function PATCH(
                 await sendEmail({
                     to: department.head.email,
                     subject: `Approval Required: ${requisition.title}`,
-                    html: `<p>A new purchase requisition, <strong>${requisition.title}</strong>, from ${user.name} requires your approval.</p><p><a href="${process.env.NEXT_PUBLIC_BASE_URL}/approvals">View Pending Approvals</a></p>`
+                    html: `<p>A new purchase requisition, <strong>${requisition.title}</strong>, from ${requisition.requester.name} requires your approval.</p><p><a href="${process.env.NEXT_PUBLIC_BASE_URL}/approvals">View Pending Approvals</a></p>`
                 });
             } else {
                 return NextResponse.json({ error: 'No department head assigned to approve this requisition.' }, { status: 400 });
@@ -318,35 +310,14 @@ export async function PATCH(
             dataToUpdate.status = 'Pending_Approval';
             auditAction = 'SUBMIT_FOR_APPROVAL';
             auditDetails = `Draft requisition ${id} was submitted for approval.`;
-
         } else if (status === 'Approved') {
-             // Hierarchical approval logic
-            if ((user.approvalLimit || 0) < requisition.totalPrice) {
-                const manager = await prisma.user.findUnique({ where: { id: user.managerId || '' } });
-                if (manager) {
-                    dataToUpdate.currentApproverId = manager.id;
-                    auditAction = 'ESCALATE_APPROVAL';
-                    auditDetails = `Approved by ${user.name}, but value exceeds limit. Escalated to ${manager.name}.`;
-                    responseMessage = `Approved. Escalated to ${manager.name} for final approval.`;
-                    await sendEmail({
-                        to: manager.email,
-                        subject: `Approval Required (Escalated): ${requisition.title}`,
-                        html: `<p>The purchase requisition, <strong>${requisition.title}</strong>, has been escalated to you for final approval due to its value.</p><p><a href="${process.env.NEXT_PUBLIC_BASE_URL}/approvals">View Pending Approvals</a></p>`
-                    });
-                } else {
-                    return NextResponse.json({ error: `Approval limit of ${user.approvalLimit} ETB exceeded.`}, { status: 403 });
-                }
-            } else {
-                // Final approval
-                dataToUpdate.status = 'Approved';
-                dataToUpdate.approver = { connect: { id: userId } };
-                dataToUpdate.approverComment = comment;
-                dataToUpdate.currentApprover = { disconnect: true };
-                auditAction = 'APPROVE_REQUISITION';
-                auditDetails = `Requisition ${id} was approved by ${user.name} with comment: "${comment}".`;
-                responseMessage = `Requisition ${id} approved.`;
-            }
-            
+            dataToUpdate.status = 'Approved';
+            dataToUpdate.approver = { connect: { id: userId } };
+            dataToUpdate.approverComment = comment;
+            dataToUpdate.currentApprover = { disconnect: true };
+            auditAction = 'APPROVE_REQUISITION';
+            auditDetails = `Requisition ${id} was approved by ${user.name} with comment: "${comment}".`;
+            responseMessage = `Requisition ${id} approved.`;
         } else if (status === 'Rejected') {
             dataToUpdate.status = 'Rejected';
             dataToUpdate.approver = { connect: { id: userId } };
@@ -356,7 +327,6 @@ export async function PATCH(
             auditDetails = `Requisition ${id} was rejected by ${user.name} with comment: "${comment}".`;
             responseMessage = `Requisition ${id} rejected.`;
         }
-
     } else {
         return NextResponse.json({ error: 'No valid update action specified.' }, { status: 400 });
     }
@@ -448,3 +418,5 @@ export async function DELETE(
     return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
   }
 }
+
+    
