@@ -247,6 +247,8 @@ const QuoteComparison = ({ quotes, requisition, onScore, user, isDeadlinePassed,
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {quotes.sort((a, b) => (a.rank || 4) - (b.rank || 4)).map(quote => {
                 const hasUserScored = quote.scores?.some(s => s.scorerId === user.id);
+                const hasUserFinalizedScores = user.committeeAssignments?.find(a => a.requisitionId === requisition.id)?.scoresSubmitted || false;
+                const canScore = isDeadlinePassed && !isScoringDeadlinePassed && (!hasUserScored || !hasUserFinalizedScores);
                 return (
                     <Card key={quote.id} className={cn("flex flex-col", (quote.status === 'Awarded' || quote.status === 'Accepted' || quote.status === 'Partially_Awarded') && 'border-primary ring-2 ring-primary')}>
                        <CardHeader>
@@ -327,8 +329,8 @@ const QuoteComparison = ({ quotes, requisition, onScore, user, isDeadlinePassed,
                              )}
                         </CardContent>
                         <CardFooter className="flex flex-col gap-2">
-                            {user.role === 'Committee Member' && (
-                                <Button className="w-full" variant={hasUserScored ? "secondary" : "outline"} onClick={() => onScore(quote, hidePrices)} disabled={isScoringDeadlinePassed && !hasUserScored}>
+                             {user.role === 'Committee Member' && (
+                                <Button className="w-full" variant={hasUserScored ? "secondary" : "outline"} onClick={() => onScore(quote, hidePrices)} disabled={!canScore}>
                                     {hasUserScored ? <Check className="mr-2 h-4 w-4"/> : <Edit2 className="mr-2 h-4 w-4" />}
                                     {hasUserScored ? 'View Your Score' : 'Score this Quote'}
                                 </Button>
@@ -1346,9 +1348,10 @@ const ScoringDialog = ({
         name: "itemScores",
     });
 
+    const existingScoreSet = quote.scores?.find(s => s.scorerId === user.id);
+
     useEffect(() => {
         if (quote && requisition) {
-            const existingScoreSet = quote.scores?.find(s => s.scorerId === user.id);
             const initialItemScores = quote.items.map(item => {
                 const existingItemScore = existingScoreSet?.itemScores.find(i => i.quoteItemId === item.id);
                 return {
@@ -1368,7 +1371,7 @@ const ScoringDialog = ({
                 itemScores: initialItemScores,
             });
         }
-    }, [quote, requisition, user, form]);
+    }, [quote, requisition, user, form, existingScoreSet]);
 
     const onSubmit = async (values: ScoreFormValues) => {
         setSubmitting(true);
@@ -1398,7 +1401,6 @@ const ScoringDialog = ({
     };
     
     if (!requisition.evaluationCriteria) return null;
-    const existingScore = quote.scores?.find(s => s.scorerId === user.id);
     const isFinancialScorer = requisition.financialCommitteeMemberIds?.includes(user.id);
     const isTechnicalScorer = requisition.technicalCommitteeMemberIds?.includes(user.id);
 
@@ -1424,9 +1426,9 @@ const ScoringDialog = ({
                                     max={100}
                                     step={5}
                                     onValueChange={(v) => field.onChange(v[0])}
-                                    disabled={!!existingScore}
+                                    disabled={!!existingScoreSet}
                                 />
-                                <Input type="number" {...field} className="w-24" disabled={!!existingScore} />
+                                <Input type="number" {...field} className="w-24" disabled={!!existingScoreSet} />
                                 </div>
                             </FormControl>
                             <FormMessage />
@@ -1439,7 +1441,7 @@ const ScoringDialog = ({
                     render={({ field }) => (
                          <FormItem>
                              <FormControl>
-                                <Textarea placeholder="Optional comment for this criterion..." {...field} rows={2} disabled={!!existingScore} />
+                                <Textarea placeholder="Optional comment for this criterion..." {...field} rows={2} disabled={!!existingScoreSet} />
                              </FormControl>
                             <FormMessage />
                         </FormItem>
@@ -1454,7 +1456,7 @@ const ScoringDialog = ({
         return requisition.items.filter(i => itemIds.has(i.id));
     }, [requisition.items, quote.items]);
 
-    if (!existingScore && isScoringDeadlinePassed) {
+    if (!existingScoreSet && isScoringDeadlinePassed) {
         return (
             <DialogContent>
                 <DialogHeader>
@@ -1535,7 +1537,7 @@ const ScoringDialog = ({
                                 <FormItem>
                                     <FormLabel className="text-lg font-semibold">Overall Comment</FormLabel>
                                     <FormControl>
-                                        <Textarea placeholder="Provide an overall summary or justification for your scores for this entire quotation..." {...field} rows={4} disabled={!!existingScore} />
+                                        <Textarea placeholder="Provide an overall summary or justification for your scores for this entire quotation..." {...field} rows={4} disabled={!!existingScoreSet} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -1545,7 +1547,7 @@ const ScoringDialog = ({
                 </ScrollArea>
 
                 <DialogFooter className="pt-4 mt-4 border-t">
-                    {existingScore ? (
+                    {existingScoreSet ? (
                         <p className="text-sm text-muted-foreground">You have already scored this quote.</p>
                     ) : (
                         <AlertDialog>
@@ -2345,6 +2347,18 @@ export default function QuotationDetailsPage() {
   const [isChangingAward, setIsChangingAward] = useState(false);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isReportOpen, setReportOpen] = useState(false);
+  
+  const isAuthorized = useMemo(() => {
+    if (!user || !role) return false;
+    if (role === 'Admin') return true;
+    if (rfqSenderSetting.type === 'all') {
+      return role === 'Procurement Officer';
+    }
+    if (rfqSenderSetting.type === 'specific') {
+      return user.id === rfqSenderSetting.userId;
+    }
+    return false;
+  }, [user, role, rfqSenderSetting]);
 
   const isAwarded = useMemo(() => quotations.some(q => q.status === 'Awarded' || q.status === 'Accepted' || q.status === 'Declined' || q.status === 'Failed' || q.status === 'Partially_Awarded'), [quotations]);
   const isAccepted = useMemo(() => quotations.some(q => q.status === 'Accepted' || q.status === 'Partially_Awarded'), [quotations]);
@@ -2377,18 +2391,6 @@ export default function QuotationDetailsPage() {
         return member?.committeeAssignments?.some(a => a.requisitionId === requisition.id && a.scoresSubmitted) || false;
     });
   }, [requisition, quotations, allUsers]);
-
-  const isAuthorized = useMemo(() => {
-    if (!user || !role) return false;
-    if (role === 'Admin') return true;
-    if (rfqSenderSetting.type === 'all') {
-      return role === 'Procurement Officer';
-    }
-    if (rfqSenderSetting.type === 'specific') {
-      return user.id === rfqSenderSetting.userId;
-    }
-    return false;
-  }, [user, role, rfqSenderSetting]);
 
     const fetchRequisitionAndQuotes = async () => {
         if (!id) return;
@@ -2668,8 +2670,8 @@ export default function QuotationDetailsPage() {
         {(currentStep === 'award' || currentStep === 'finalize' || currentStep === 'completed') && (
             <>
                 {/* Always render committee management when in award step so dialog can open */}
-                {(currentStep === 'award' || currentStep === 'finalize' || currentStep === 'completed') && role === 'Procurement Officer' && (
-                     <div className="hidden">
+                {(currentStep === 'award' || currentStep === 'finalize' || currentStep === 'completed') && (role === 'Procurement Officer' || role === 'Committee') && (
+                     <div className={currentStep === 'award' ? '' : 'hidden'}>
                         <CommitteeManagement
                             requisition={requisition}
                             onCommitteeUpdated={fetchRequisitionAndQuotes}
@@ -2702,12 +2704,12 @@ export default function QuotationDetailsPage() {
                             </div>
                         </div>
                         <div className="flex items-center gap-2 w-full sm:w-auto">
-                            {isAwarded && isScoringComplete && role === 'Procurement Officer' && (
+                            {isAwarded && isScoringComplete && (role === 'Procurement Officer' || role === 'Admin') && (
                                 <Button variant="secondary" onClick={() => setReportOpen(true)}>
                                     <FileBarChart2 className="mr-2 h-4 w-4" /> View Cumulative Report
                                 </Button>
                             )}
-                            {isAwarded && requisition.status !== 'PO Created' && role === 'Procurement Officer' && (
+                            {isAwarded && requisition.status !== 'PO Created' && (role === 'Procurement Officer' || role === 'Admin') && (
                                 <AlertDialog>
                                     <AlertDialogTrigger asChild>
                                         <Button variant="outline" disabled={isChangingAward} className="w-full">
@@ -2786,7 +2788,7 @@ export default function QuotationDetailsPage() {
             </>
         )}
         
-        {currentStep === 'award' && (role === 'Procurement Officer' || role === 'Committee') && quotations.length > 0 && role === 'Procurement Officer' && (
+        {currentStep === 'award' && (role === 'Procurement Officer' || role === 'Admin' || role === 'Committee') && quotations.length > 0 && (role === 'Procurement Officer' || role === 'Admin') && (
              <ScoringProgressTracker 
                 requisition={requisition}
                 quotations={quotations}
