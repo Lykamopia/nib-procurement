@@ -129,7 +129,7 @@ export function NeedsRecognitionForm({ existingRequisition, onSuccess }: NeedsRe
         }))
     } : {
       requesterName: user?.name || '',
-      department: '',
+      department: user?.department || '',
       title: '',
       justification: '',
       evaluationCriteria: {
@@ -145,6 +145,13 @@ export function NeedsRecognitionForm({ existingRequisition, onSuccess }: NeedsRe
       customQuestions: [],
     },
   });
+
+  useEffect(() => {
+    if (user && !isEditMode) {
+      form.setValue('department', user.department || '');
+      form.setValue('requesterName', user.name || '');
+    }
+  }, [user, isEditMode, form]);
 
   const { fields, append, remove } = useFieldArray({
     control: form.control,
@@ -243,7 +250,7 @@ export function NeedsRecognitionForm({ existingRequisition, onSuccess }: NeedsRe
                   <FormItem>
                     <FormLabel>Your Name</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g. Jane Doe" {...field} disabled={isEditMode} />
+                      <Input placeholder="e.g. Jane Doe" {...field} disabled />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -255,16 +262,9 @@ export function NeedsRecognitionForm({ existingRequisition, onSuccess }: NeedsRe
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Department</FormLabel>
-                     <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a department" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {departments.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
+                    <FormControl>
+                        <Input {...field} disabled />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -681,3 +681,4 @@ function QuestionOptions({ index }: { index: number }) {
 }
 
     
+
