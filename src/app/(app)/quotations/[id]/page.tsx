@@ -445,7 +445,7 @@ const committeeFormSchema = z.object({
 
 type CommitteeFormValues = z.infer<typeof committeeFormSchema>;
 
-const CommitteeManagement = ({ requisition, onCommitteeUpdated, open, onOpenChange }: { requisition: PurchaseRequisition; onCommitteeUpdated: () => void; open: boolean; onOpenChange: (open: boolean) => void; }) => {
+const CommitteeManagement = ({ requisition, onCommitteeUpdated, open, onOpenChange, isAuthorized }: { requisition: PurchaseRequisition; onCommitteeUpdated: () => void; open: boolean; onOpenChange: (open: boolean) => void; isAuthorized: boolean; }) => {
     const { user, allUsers } = useAuth();
     const { toast } = useToast();
     const [isSubmitting, setSubmitting] = useState(false);
@@ -643,6 +643,16 @@ const CommitteeManagement = ({ requisition, onCommitteeUpdated, open, onOpenChan
         );
     }
 
+    const triggerButton = (
+        <Button variant="outline" className="w-full sm:w-auto" disabled={!isAuthorized}>
+            {allAssignedMemberIds.length > 0 ? (
+                <><Edit2 className="mr-2 h-4 w-4" /> Edit Committee</>
+            ) : (
+                <><Users className="mr-2 h-4 w-4" /> Assign Committee</>
+            )}
+        </Button>
+    );
+
 
     return (
         <Card className="border-dashed">
@@ -655,13 +665,20 @@ const CommitteeManagement = ({ requisition, onCommitteeUpdated, open, onOpenChan
                 </div>
                  <Dialog open={open} onOpenChange={onOpenChange}>
                     <DialogTrigger asChild>
-                        <Button variant="outline" className="w-full sm:w-auto">
-                            {allAssignedMemberIds.length > 0 ? (
-                                <><Edit2 className="mr-2 h-4 w-4" /> Edit Committee</>
-                            ) : (
-                                <><Users className="mr-2 h-4 w-4" /> Assign Committee</>
-                            )}
-                        </Button>
+                         {isAuthorized ? (
+                            triggerButton
+                        ) : (
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <span tabIndex={0}>{triggerButton}</span>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>You are not authorized to manage committees.</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                        )}
                     </DialogTrigger>
                     <DialogContent className="max-w-4xl flex flex-col max-h-[90vh]">
                          <Form {...form}>
@@ -899,7 +916,7 @@ const RFQActionDialog = ({
     )
 }
 
-const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: PurchaseRequisition; vendors: Vendor[]; onRfqSent: () => void; }) => {
+const RFQDistribution = ({ requisition, vendors, onRfqSent, isAuthorized }: { requisition: PurchaseRequisition; vendors: Vendor[]; onRfqSent: () => void; isAuthorized: boolean; }) => {
     const [distributionType, setDistributionType] = useState('all');
     const [selectedVendors, setSelectedVendors] = useState<string[]>([]);
     const [vendorSearch, setVendorSearch] = useState("");
@@ -910,23 +927,10 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
     const [actionDialog, setActionDialog] = useState<{isOpen: boolean, type: 'update' | 'cancel'}>({isOpen: false, type: 'update'});
     const [allowQuoteEdits, setAllowQuoteEdits] = useState(requisition.rfqSettings?.allowQuoteEdits ?? true);
     const [experienceDocumentRequired, setExperienceDocumentRequired] = useState(requisition.rfqSettings?.experienceDocumentRequired ?? false);
-    const { user, role, rfqSenderSetting } = useAuth();
+    const { user } = useAuth();
     const { toast } = useToast();
     
     const isSent = requisition.status === 'RFQ In Progress' || requisition.status === 'PO Created';
-
-    const isAuthorized = useMemo(() => {
-        if (!user || !role) return false;
-        if (role === 'Admin') return true;
-
-        if (rfqSenderSetting.type === 'all') {
-            return role === 'Procurement Officer';
-        }
-        if (rfqSenderSetting.type === 'specific') {
-            return user.id === rfqSenderSetting.userId;
-        }
-        return false;
-    }, [user, role, rfqSenderSetting]);
 
      useEffect(() => {
         if (requisition.deadline) {
@@ -2324,7 +2328,7 @@ export default function QuotationDetailsPage() {
   const router = useRouter();
   const params = useParams();
   const { toast } = useToast();
-  const { user, allUsers, role, login } = useAuth();
+  const { user, allUsers, role, rfqSenderSetting, login } = useAuth();
   const id = params.id as string;
   
   const [requisition, setRequisition] = useState<PurchaseRequisition | null>(null);
@@ -2373,6 +2377,18 @@ export default function QuotationDetailsPage() {
         return member?.committeeAssignments?.some(a => a.requisitionId === requisition.id && a.scoresSubmitted) || false;
     });
   }, [requisition, quotations, allUsers]);
+
+  const isAuthorized = useMemo(() => {
+    if (!user || !role) return false;
+    if (role === 'Admin') return true;
+    if (rfqSenderSetting.type === 'all') {
+      return role === 'Procurement Officer';
+    }
+    if (rfqSenderSetting.type === 'specific') {
+      return user.id === rfqSenderSetting.userId;
+    }
+    return false;
+  }, [user, role, rfqSenderSetting]);
 
     const fetchRequisitionAndQuotes = async () => {
         if (!id) return;
@@ -2623,6 +2639,7 @@ export default function QuotationDetailsPage() {
                     requisition={requisition} 
                     vendors={vendors} 
                     onRfqSent={fetchRequisitionAndQuotes}
+                    isAuthorized={isAuthorized}
                 />
                  <Card className="border-dashed h-full">
                     <CardHeader>
@@ -2643,6 +2660,7 @@ export default function QuotationDetailsPage() {
                 onCommitteeUpdated={fetchRequisitionAndQuotes}
                 open={isCommitteeDialogOpen}
                 onOpenChange={setCommitteeDialogOpen}
+                isAuthorized={isAuthorized}
             />
         )}
 
@@ -2657,6 +2675,7 @@ export default function QuotationDetailsPage() {
                             onCommitteeUpdated={fetchRequisitionAndQuotes}
                             open={isCommitteeDialogOpen}
                             onOpenChange={setCommitteeDialogOpen}
+                            isAuthorized={isAuthorized}
                         />
                     </div>
                 )}
