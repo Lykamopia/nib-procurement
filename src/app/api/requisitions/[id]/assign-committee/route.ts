@@ -29,7 +29,7 @@ export async function POST(
     }
 
     const user: User | null = await prisma.user.findUnique({where: {id: userId}});
-    if (!user || (user.role !== 'Procurement_Officer' && user.role !== 'Committee')) {
+    if (!user || (user.role !== 'Procurement_Officer' && user.role !== 'Committee' && user.role !== 'Admin')) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
     
@@ -86,6 +86,7 @@ export async function POST(
 
         await tx.auditLog.create({
             data: {
+                transactionId: updatedRequisition.transactionId,
                 timestamp: new Date(),
                 user: { connect: { id: user.id } },
                 action: 'ASSIGN_COMMITTEE',
