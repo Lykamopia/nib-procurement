@@ -910,10 +910,23 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
     const [actionDialog, setActionDialog] = useState<{isOpen: boolean, type: 'update' | 'cancel'}>({isOpen: false, type: 'update'});
     const [allowQuoteEdits, setAllowQuoteEdits] = useState(requisition.rfqSettings?.allowQuoteEdits ?? true);
     const [experienceDocumentRequired, setExperienceDocumentRequired] = useState(requisition.rfqSettings?.experienceDocumentRequired ?? false);
-    const { user } = useAuth();
+    const { user, role, rfqSenderSetting } = useAuth();
     const { toast } = useToast();
     
     const isSent = requisition.status === 'RFQ In Progress' || requisition.status === 'PO Created';
+
+    const isAuthorized = useMemo(() => {
+        if (!user || !role) return false;
+        if (role === 'Admin') return true;
+
+        if (rfqSenderSetting.type === 'all') {
+            return role === 'Procurement Officer';
+        }
+        if (rfqSenderSetting.type === 'specific') {
+            return user.id === rfqSenderSetting.userId;
+        }
+        return false;
+    }, [user, role, rfqSenderSetting]);
 
      useEffect(() => {
         if (requisition.deadline) {
@@ -1010,6 +1023,7 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
         );
     }, [vendors, vendorSearch]);
 
+    const canTakeAction = !isSent && isAuthorized;
 
     return (
         <>
@@ -1024,7 +1038,7 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
                         }
                     </CardDescription>
                 </div>
-                 {isSent && requisition.status !== 'PO Created' && user?.role === 'Procurement Officer' && (
+                 {isSent && requisition.status !== 'PO Created' && isAuthorized && (
                     <div className="flex gap-2">
                         <Button variant="outline" size="sm" onClick={() => setActionDialog({isOpen: true, type: 'update'})}><Settings2 className="mr-2"/> Update RFQ</Button>
                         <Button variant="destructive" size="sm" onClick={() => setActionDialog({isOpen: true, type: 'cancel'})}><Ban className="mr-2"/> Cancel RFQ</Button>
@@ -1032,6 +1046,15 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
                 )}
             </CardHeader>
             <CardContent className="space-y-4">
+                 {!isAuthorized && !isSent && (
+                    <Alert variant="default" className="border-amber-500/50">
+                        <AlertCircle className="h-4 w-4 text-amber-600" />
+                        <AlertTitle>Read-Only Mode</AlertTitle>
+                        <AlertDescription>
+                            You do not have permission to send RFQs based on current system settings.
+                        </AlertDescription>
+                    </Alert>
+                )}
                  <div className="space-y-2">
                     <Label>Quotation Submission Deadline</Label>
                      <div className="flex gap-2">
@@ -1039,7 +1062,7 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
                             <PopoverTrigger asChild>
                                 <Button
                                     variant={"outline"}
-                                    disabled={isSent}
+                                    disabled={!canTakeAction}
                                     className={cn(
                                     "w-full justify-start text-left font-normal",
                                     !deadlineDate && "text-muted-foreground"
@@ -1054,7 +1077,7 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
                                     mode="single"
                                     selected={deadlineDate}
                                     onSelect={setDeadlineDate}
-                                    disabled={(date) => date < new Date(new Date().setHours(0,0,0,0)) || isSent}
+                                    disabled={(date) => date < new Date(new Date().setHours(0,0,0,0)) || !canTakeAction}
                                     initialFocus
                                 />
                             </PopoverContent>
@@ -1064,13 +1087,13 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
                             className="w-32"
                             value={deadlineTime}
                             onChange={(e) => setDeadlineTime(e.target.value)}
-                            disabled={isSent}
+                            disabled={!canTakeAction}
                         />
                     </div>
                 </div>
                 <div className="space-y-2">
                     <Label>Distribution Type</Label>
-                    <Select value={distributionType} onValueChange={(v) => setDistributionType(v as any)} disabled={isSent}>
+                    <Select value={distributionType} onValueChange={(v) => setDistributionType(v as any)} disabled={!canTakeAction}>
                         <SelectTrigger>
                             <SelectValue />
                         </SelectTrigger>
@@ -1091,7 +1114,7 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
                             className="pl-10"
                             value={cpoAmount || ''}
                             onChange={(e) => setCpoAmount(Number(e.target.value))}
-                            disabled={isSent}
+                            disabled={!canTakeAction}
                         />
                      </div>
                     <p className="text-xs text-muted-foreground">Optional. If set, vendors must submit a CPO of this amount to qualify.</p>
@@ -1104,7 +1127,7 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
                                 id="allow-edits"
                                 checked={allowQuoteEdits}
                                 onCheckedChange={setAllowQuoteEdits}
-                                disabled={isSent}
+                                disabled={!canTakeAction}
                             />
                         </div>
                         <p className="text-xs text-muted-foreground">If enabled, vendors can edit their submitted quotes until the deadline passes.</p>
@@ -1116,7 +1139,7 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
                                 id="experience-doc"
                                 checked={experienceDocumentRequired}
                                 onCheckedChange={setExperienceDocumentRequired}
-                                disabled={isSent}
+                                disabled={!canTakeAction}
                             />
                         </div>
                         <p className="text-xs text-muted-foreground">If enabled, vendors must upload a document detailing their relevant experience.</p>
@@ -1134,7 +1157,7 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
                                     className="pl-8 w-full"
                                     value={vendorSearch}
                                     onChange={(e) => setVendorSearch(e.target.value)}
-                                    disabled={isSent}
+                                    disabled={!canTakeAction}
                                 />
                             </div>
                         </CardHeader>
@@ -1152,7 +1175,7 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
                                                 )
                                             }}
                                             className="mt-1"
-                                            disabled={isSent}
+                                            disabled={!canTakeAction}
                                         />
                                         <div className="flex items-start gap-4 flex-1">
                                             <Avatar>
@@ -1188,7 +1211,7 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent }: { requisition: Pur
                     </Badge>
                 ) : (
                     <>
-                    <Button onClick={handleSendRFQ} disabled={isSubmitting || !deadline}>
+                    <Button onClick={handleSendRFQ} disabled={isSubmitting || !deadline || !isAuthorized}>
                         {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
                         Send RFQ
                     </Button>
