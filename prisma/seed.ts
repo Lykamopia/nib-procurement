@@ -1,21 +1,9 @@
 
-import { PrismaClient, UserRole } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import { getInitialData } from '../src/lib/seed-data';
 import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
-
-const roleStringToEnum: { [key: string]: UserRole } = {
-  'Requester': UserRole.Requester,
-  'Approver': UserRole.Approver,
-  'Procurement Officer': UserRole.Procurement_Officer,
-  'Finance': UserRole.Finance,
-  'Admin': UserRole.Admin,
-  'Receiving': UserRole.Receiving,
-  'Vendor': UserRole.Vendor,
-  'Committee Member': UserRole.Committee_Member,
-  'Committee': UserRole.Committee,
-};
 
 async function main() {
   console.log(`Clearing existing data...`);
@@ -44,6 +32,7 @@ async function main() {
   await prisma.kYC_Document.deleteMany({});
   await prisma.vendor.deleteMany({});
   await prisma.user.deleteMany({});
+  await prisma.role.deleteMany({});
   await prisma.department.deleteMany({});
   console.log('Existing data cleared.');
 
@@ -51,7 +40,23 @@ async function main() {
 
   const seedData = getInitialData();
   const allDepartments = seedData.departments;
+  const allRoles = [
+      { name: 'Requester', description: 'Can create purchase requisitions.' },
+      { name: 'Approver', description: 'Can approve or reject requisitions.' },
+      { name: 'Procurement Officer', description: 'Manages the RFQ and PO process.' },
+      { name: 'Finance', description: 'Manages invoices and payments.' },
+      { name: 'Admin', description: 'System administrator with all permissions.' },
+      { name: 'Receiving', description: 'Manages goods receipt notes.' },
+      { name: 'Vendor', description: 'External supplier of goods/services.' },
+      { name: 'Committee Member', description: 'Scores and evaluates vendor quotations.' },
+      { name: 'Committee', description: 'Manages evaluation committees.' },
+  ];
 
+  // Seed Roles
+  for (const role of allRoles) {
+      await prisma.role.create({ data: role });
+  }
+  console.log('Seeded roles.');
 
   // Seed Departments
   for (const department of seedData.departments) {
@@ -70,7 +75,7 @@ async function main() {
       data: {
           ...userData,
           password: hashedPassword,
-          role: roleStringToEnum[userData.role],
+          role: { connect: { name: userData.role } },
           department: user.departmentId ? { connect: { id: user.departmentId } } : undefined,
       },
     });
@@ -109,7 +114,7 @@ async function main() {
               email: vendorUser.email,
               password: hashedPassword,
               approvalLimit: vendorUser.approvalLimit,
-              role: roleStringToEnum[vendorUser.role],
+              role: { connect: { name: vendorUser.role } },
           }
       });
       
@@ -166,9 +171,10 @@ async function main() {
           data: {
               ...reqData,
               status: reqData.status.replace(/ /g, '_') as any,
+              urgency: reqData.urgency || 'Low',
               requester: { connect: { id: requesterId } },
               approver: approverId ? { connect: { id: approverId } } : undefined,
-              currentApproverId: currentApproverId || approverId,
+              currentApprover: currentApproverId ? { connect: { id: currentApproverId } } : undefined,
               department: departmentId ? { connect: { id: departmentId } } : undefined,
               financialCommitteeMembers: financialCommitteeMemberIds ? { connect: financialCommitteeMemberIds.map(id => ({ id })) } : undefined,
               technicalCommitteeMembers: technicalCommitteeMemberIds ? { connect: technicalCommitteeMemberIds.map(id => ({ id })) } : undefined,

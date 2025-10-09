@@ -19,7 +19,7 @@ import {
   CardDescription,
 } from './ui/card';
 import { Button } from './ui/button';
-import { PurchaseRequisition } from '@/lib/types';
+import { PurchaseRequisition, Urgency } from '@/lib/types';
 import { format } from 'date-fns';
 import {
   Check,
@@ -152,6 +152,18 @@ export function ApprovalsTable() {
     return requisitions.slice(startIndex, startIndex + PAGE_SIZE);
   }, [requisitions, currentPage]);
 
+  const getUrgencyVariant = (urgency: Urgency) => {
+    switch (urgency) {
+      case 'High':
+      case 'Critical':
+        return 'destructive';
+      case 'Medium':
+        return 'secondary';
+      default:
+        return 'outline';
+    }
+  }
+
 
   if (loading) return <div className="flex h-64 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   if (error) return <div className="text-destructive">Error: {error}</div>;
@@ -175,6 +187,7 @@ export function ApprovalsTable() {
                 <TableHead>Title</TableHead>
                 <TableHead>Requester</TableHead>
                 <TableHead>Type</TableHead>
+                <TableHead>Urgency</TableHead>
                 <TableHead>Created At</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
@@ -194,6 +207,9 @@ export function ApprovalsTable() {
                               <Badge variant="secondary">Requisition Approval</Badge>
                           )}
                       </TableCell>
+                       <TableCell>
+                        <Badge variant={getUrgencyVariant(req.urgency)}>{req.urgency}</Badge>
+                      </TableCell>
                       <TableCell>{format(new Date(req.createdAt), 'PP')}</TableCell>
                       <TableCell>
                       <div className="flex gap-2">
@@ -212,7 +228,7 @@ export function ApprovalsTable() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={7} className="h-48 text-center">
+                  <TableCell colSpan={8} className="h-48 text-center">
                     <div className="flex flex-col items-center gap-4">
                       <Inbox className="h-16 w-16 text-muted-foreground/50" />
                       <div className="space-y-1">

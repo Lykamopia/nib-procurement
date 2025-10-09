@@ -27,7 +27,7 @@ import {
   SelectValue,
 } from './ui/select';
 import { Button } from './ui/button';
-import { PurchaseRequisition, RequisitionStatus, BudgetStatus } from '@/lib/types';
+import { PurchaseRequisition, RequisitionStatus, Urgency } from '@/lib/types';
 import { format } from 'date-fns';
 import { Badge } from './ui/badge';
 import {
@@ -195,6 +195,18 @@ export function RequisitionsTable() {
     }
   };
 
+  const getUrgencyVariant = (urgency: Urgency) => {
+    switch (urgency) {
+      case 'High':
+      case 'Critical':
+        return 'destructive';
+      case 'Medium':
+        return 'secondary';
+      default:
+        return 'outline';
+    }
+  }
+
   if (loading) return <div className="flex h-64 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   if (error) return <div className="text-destructive">Error: {error}</div>;
 
@@ -260,6 +272,7 @@ export function RequisitionsTable() {
                 <TableHead>Title</TableHead>
                 <TableHead>Requester</TableHead>
                 <TableHead>Department</TableHead>
+                <TableHead>Urgency</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Created At</TableHead>
                 <TableHead>Deadline</TableHead>
@@ -275,6 +288,9 @@ export function RequisitionsTable() {
                     <TableCell>{req.title}</TableCell>
                     <TableCell>{req.requesterName}</TableCell>
                     <TableCell>{req.department}</TableCell>
+                     <TableCell>
+                      <Badge variant={getUrgencyVariant(req.urgency)}>{req.urgency}</Badge>
+                    </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <Badge variant={getStatusVariant(req.status)}>{req.status.replace(/_/g, ' ')}</Badge>
@@ -354,7 +370,7 @@ export function RequisitionsTable() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={9} className="h-48 text-center">
+                  <TableCell colSpan={10} className="h-48 text-center">
                     <div className="flex flex-col items-center gap-4">
                         <ListX className="h-16 w-16 text-muted-foreground/50" />
                         <div className="space-y-1">

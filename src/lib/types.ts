@@ -46,6 +46,8 @@ export type RequisitionStatus =
   | 'Closed'
   | 'Pending Managerial Approval';
 
+export type Urgency = 'Low' | 'Medium' | 'High' | 'Critical';
+
 export type RequisitionItem = {
   id: string; // Will be UUID
   name: string;
@@ -108,6 +110,7 @@ export type PurchaseRequisition = {
   totalPrice: number;
   justification: string;
   status: RequisitionStatus;
+  urgency: Urgency;
   createdAt: Date;
   updatedAt: Date;
   approverId?: string;

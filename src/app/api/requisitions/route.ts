@@ -113,6 +113,7 @@ export async function POST(request: Request) {
             requesterName: user.name,
             department: { connect: { name: body.department } },
             title: body.title,
+            urgency: body.urgency,
             justification: body.justification,
             status: 'Draft',
             totalPrice: totalPrice,
@@ -212,6 +213,7 @@ export async function PATCH(
         dataToUpdate = {
             title: updateData.title,
             justification: updateData.justification,
+            urgency: updateData.urgency,
             department: { connect: { name: updateData.department } },
             totalPrice: totalPrice,
             // When editing, it always goes back to Pending Approval if a status is provided

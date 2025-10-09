@@ -38,7 +38,7 @@ import {
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/auth-context';
 import { cn } from '@/lib/utils';
-import { PurchaseRequisition } from '@/lib/types';
+import { PurchaseRequisition, Urgency } from '@/lib/types';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { Slider } from './ui/slider';
 import { Badge } from './ui/badge';
@@ -54,6 +54,7 @@ const formSchema = z.object({
   requesterName: z.string().min(2, 'Name must be at least 2 characters.'),
   department: z.string().min(1, 'Department is required.'),
   title: z.string().min(5, 'Title must be at least 5 characters.'),
+  urgency: z.enum(['Low', 'Medium', 'High', 'Critical']),
   justification: z
     .string()
     .min(10, 'Justification must be at least 10 characters.'),
@@ -114,6 +115,7 @@ export function NeedsRecognitionForm({ existingRequisition, onSuccess }: NeedsRe
         requesterName: existingRequisition.requesterName,
         department: existingRequisition.department,
         title: existingRequisition.title,
+        urgency: existingRequisition.urgency || 'Low',
         justification: existingRequisition.justification,
         evaluationCriteria: existingRequisition.evaluationCriteria,
         items: existingRequisition.items.map(item => ({
@@ -131,6 +133,7 @@ export function NeedsRecognitionForm({ existingRequisition, onSuccess }: NeedsRe
       requesterName: user?.name || '',
       department: user?.department || '',
       title: '',
+      urgency: 'Low',
       justification: '',
       evaluationCriteria: {
           financialWeight: 40,
@@ -270,25 +273,53 @@ export function NeedsRecognitionForm({ existingRequisition, onSuccess }: NeedsRe
                 )}
               />
             </div>
-            <FormField
-              control={form.control}
-              name="title"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Requisition Title</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="e.g. New Laptops for Design Team"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    A short, descriptive title for your request.
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            
+            <div className="grid md:grid-cols-2 gap-8">
+                <FormField
+                control={form.control}
+                name="title"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Requisition Title</FormLabel>
+                    <FormControl>
+                        <Input
+                        placeholder="e.g. New Laptops for Design Team"
+                        {...field}
+                        />
+                    </FormControl>
+                    <FormDescription>
+                        A short, descriptive title for your request.
+                    </FormDescription>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+                 <FormField
+                  control={form.control}
+                  name="urgency"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Urgency</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a priority level" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {(['Low', 'Medium', 'High', 'Critical'] as Urgency[]).map(level => (
+                            <SelectItem key={level} value={level}>{level}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                       <FormDescription>
+                        How urgently is this request needed?
+                    </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+            </div>
 
             <Separator />
 
@@ -679,6 +710,3 @@ function QuestionOptions({ index }: { index: number }) {
     </div>
   );
 }
-
-    
-
