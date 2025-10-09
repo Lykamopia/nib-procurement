@@ -5,6 +5,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { User } from '@/lib/types';
+import { sendEmail } from '@/services/email-service';
 
 export async function POST(
   request: Request,
@@ -62,6 +63,39 @@ export async function POST(
         }
     });
 
+    // --- Send Email Notifications ---
+    const vendorsToNotify = await prisma.vendor.findMany({
+        where: {
+            id: { in: finalVendorIds }
+        }
+    });
+
+    for (const vendor of vendorsToNotify) {
+        if (vendor.email) {
+            const emailHtml = `
+                <h1>New Request for Quotation</h1>
+                <p>Hello ${vendor.name},</p>
+                <p>A new Request for Quotation (RFQ) has been issued that you are invited to bid on.</p>
+                <ul>
+                    <li><strong>Requisition Title:</strong> ${requisition.title}</li>
+                    <li><strong>Requisition ID:</strong> ${requisition.id}</li>
+                    <li><strong>Submission Deadline:</strong> ${deadline ? new Date(deadline).toLocaleString() : 'N/A'}</li>
+                </ul>
+                <p>Please log in to the vendor portal to view the full details and submit your quotation.</p>
+                <a href="${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:9002'}/vendor/dashboard">Go to Vendor Portal</a>
+                <p>Thank you,</p>
+                <p>Nib InternationalBank Procurement</p>
+            `;
+            
+            await sendEmail({
+                to: vendor.email,
+                subject: `New Request for Quotation: ${requisition.title}`,
+                html: emailHtml
+            });
+        }
+    }
+
+
     return NextResponse.json(updatedRequisition);
 
   } catch (error) {
@@ -72,3 +106,4 @@ export async function POST(
     return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
   }
 }
+
