@@ -1671,14 +1671,20 @@ const ScoringProgressTracker = ({
         }
         // Case 2: No approver is assigned yet (initial approval state).
         // Check if the current user is an authorized initial approver.
-        if (rfqSenderSetting.type === 'all') {
-            return user.role === 'Procurement Officer' || user.role === 'Admin';
+        if (requisition.status === 'Pending Managerial Approval' && requisition.currentApproverId) {
+            return user.id === requisition.currentApproverId;
         }
-        if (rfqSenderSetting.type === 'specific') {
-            return user.id === rfqSenderSetting.userId;
+        
+        if (!requisition.currentApproverId) {
+            if (rfqSenderSetting.type === 'all') {
+                return user.role === 'Procurement Officer' || user.role === 'Admin';
+            }
+            if (rfqSenderSetting.type === 'specific') {
+                return user.id === rfqSenderSetting.userId;
+            }
         }
         return false;
-    }, [user, requisition.currentApproverId, rfqSenderSetting]);
+    }, [user, requisition.currentApproverId, rfqSenderSetting, requisition.status]);
 
 
     return (
@@ -2863,6 +2869,7 @@ export default function QuotationDetailsPage() {
     </div>
   );
 }
+
 
 
 
