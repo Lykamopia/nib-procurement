@@ -11,10 +11,9 @@ import { differenceInMinutes } from 'date-fns';
  * Determines the correct approver for an award based on its value.
  * It finds the user with the smallest approval limit that is still sufficient.
  * @param awardValue The total value of the items being awarded.
- * @param initialApproverId The ID of the user who initiated the finalization.
  * @returns The user object of the determined approver, or null.
  */
-async function determineAwardApprover(awardValue: number, initialApproverId: string): Promise<User | null> {
+async function determineAwardApprover(awardValue: number): Promise<User | null> {
     const allApprovers = await prisma.user.findMany({
         where: {
             approvalLimit: {
@@ -31,14 +30,16 @@ async function determineAwardApprover(awardValue: number, initialApproverId: str
     }
 
     // Find the first user in the sorted list whose limit is sufficient
+    // We use >= to include the case where the limit is exactly the award value.
     const bestFitApprover = allApprovers.find(u => (u.approvalLimit || 0) >= awardValue);
 
-    // If a best-fit is found, they are the approver.
+    // If a best-fit is found (including someone with an exact limit), they are the approver.
     if (bestFitApprover) {
         return bestFitApprover as User;
     }
 
     // If no single user has a high enough limit, find the absolute highest approver.
+    // This handles the "override" scenario.
     const highestApprover = allApprovers.sort((a, b) => (b.approvalLimit || 0) - (a.approvalLimit || 0))[0];
     
     return highestApprover as User;
@@ -51,11 +52,10 @@ export async function POST(
     const requisitionId = params.id;
     try {
         const body = await request.json();
-        const { userId, awardResponseDeadline, meetingMinutes, rfqSenderSetting } = body as { 
+        const { userId, awardResponseDeadline, meetingMinutes } = body as { 
             userId: string, 
             awardResponseDeadline?: string,
-            meetingMinutes?: string,
-            rfqSenderSetting: RfqSenderSetting 
+            meetingMinutes?: string
         };
 
         const actor = await prisma.user.findUnique({
@@ -64,8 +64,11 @@ export async function POST(
         });
         if (!actor) return NextResponse.json({ error: 'User not found' }, { status: 404 });
 
-        const requisition = await prisma.purchaseRequisition.findUnique({ where: { id: requisitionId } });
+        const requisition = await prisma.purchaseRequisition.findUnique({ where: { id: requisitionId }, include: { rfqSettings: true } });
         if (!requisition) return NextResponse.json({ error: 'Requisition not found' }, { status: 404 });
+        
+        // This is the settings object for who can initiate this flow
+        const rfqSenderSetting = (requisition.rfqSettings as any)?.value as RfqSenderSetting || { type: 'all' };
 
         // Authorization: Check if the user is the current designated approver OR the initial approver if none is set.
         const isInitialApprover = 
@@ -89,13 +92,13 @@ export async function POST(
         const awardValue = winningQuote.totalPrice;
 
         // --- Determine the next approver ---
-        const nextApprover = await determineAwardApprover(awardValue, actor.id);
+        const nextApprover = await determineAwardApprover(awardValue);
 
         if (!nextApprover) {
             throw new Error("No suitable approver could be found for this award value.");
         }
         
-        // If the actor is not the final designated approver, escalate it.
+        // If the actor IS NOT the correct final approver, escalate it.
         if (actor.id !== nextApprover.id) {
              await prisma.purchaseRequisition.update({
                 where: { id: requisitionId },
@@ -112,7 +115,7 @@ export async function POST(
                     action: 'ESCALATE_AWARD',
                     entity: 'Requisition',
                     entityId: requisitionId,
-                    details: `Award value of ${awardValue.toLocaleString()} ETB requires higher approval. Escalated to ${nextApprover.name}.`,
+                    details: `Award value of ${awardValue.toLocaleString()} ETB requires higher approval. Assigned to ${nextApprover.name}.`,
                 }
             });
             
@@ -120,14 +123,13 @@ export async function POST(
             await sendEmail({
                 to: nextApprover.email,
                 subject: `Award Approval Required: ${requisition.title}`,
-                html: `<p>An award for requisition <strong>${requisition.title}</strong> has been escalated to you for final approval.</p><p><a href="${process.env.NEXT_PUBLIC_BASE_URL}/quotations/${requisitionId}">View and Finalize Award</a></p>`
+                html: `<p>An award for requisition <strong>${requisition.title}</strong> has been assigned to you for final approval.</p><p><a href="${process.env.NEXT_PUBLIC_BASE_URL}/quotations/${requisitionId}">View and Finalize Award</a></p>`
             });
 
-            return NextResponse.json({ message: `Award requires higher approval. Escalated to ${nextApprover.name}.` });
+            return NextResponse.json({ message: `Award requires higher approval. Assigned to ${nextApprover.name}.` });
         }
         
         // --- If the actor IS the correct final approver, finalize the award ---
-        const awardedVendorIds = [winningQuote.vendorId];
         const awardedQuoteItemIds = winningQuote.items.map(item => item.id);
 
         // Reject all other quotes
