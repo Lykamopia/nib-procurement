@@ -7,142 +7,41 @@ import { sendEmail } from '@/services/email-service';
 import { User, RequisitionStatus, RfqSenderSetting } from '@/lib/types';
 import { differenceInMinutes } from 'date-fns';
 
-async function tallyAndAwardScores(
-    requisitionId: string,
-    actor: User,
-    highestApproverCanOverride?: boolean,
-): Promise<{ success: boolean; message: string; escalated: boolean; awards: any; escalationTarget?: User | null }> {
-    const allQuotesForReq = await prisma.quotation.findMany({
-        where: { requisitionId },
-        include: {
-            scores: {
-                include: {
-                    itemScores: {
-                        include: {
-                            financialScores: true,
-                            technicalScores: true
-                        }
-                    }
-                }
-            },
-            items: true,
+/**
+ * Determines the correct approver for an award based on its value.
+ * It finds the user with the smallest approval limit that is still sufficient.
+ * @param awardValue The total value of the items being awarded.
+ * @param initialApproverId The ID of the user who initiated the finalization.
+ * @returns The user object of the determined approver, or null.
+ */
+async function determineAwardApprover(awardValue: number, initialApproverId: string): Promise<User | null> {
+    const allApprovers = await prisma.user.findMany({
+        where: {
+            approvalLimit: {
+                gt: 0
+            }
+        },
+        orderBy: {
+            approvalLimit: 'asc'
         }
     });
 
-    if (allQuotesForReq.length === 0) {
-        throw new Error("No quotes found for this requisition to score or award.");
+    if (allApprovers.length === 0) {
+        return null;
     }
 
-    let awards: any = {};
-    allQuotesForReq.forEach(quote => {
-        if (!quote.scores || quote.scores.length === 0) {
-            quote.finalAverageScore = 0;
-            return;
-        }
-        const totalScorers = quote.scores.length;
-        const aggregateScore = quote.scores.reduce((sum, scoreSet) => sum + scoreSet.finalScore, 0);
-        quote.finalAverageScore = aggregateScore / totalScorers;
-    });
+    // Find the first user in the sorted list whose limit is sufficient
+    const bestFitApprover = allApprovers.find(u => (u.approvalLimit || 0) >= awardValue);
 
-    const sortedByScore = allQuotesForReq.sort((a, b) => (b.finalAverageScore || 0) - (a.finalAverageScore || 0));
-    if (sortedByScore.length > 0) {
-        const winner = sortedByScore[0];
-        awards[winner.vendorId] = {
-            vendorName: winner.vendorName,
-            items: winner.items.map(i => ({
-                requisitionItemId: i.requisitionItemId,
-                quoteItemId: i.id
-            }))
-        };
+    // If a best-fit is found, they are the approver.
+    if (bestFitApprover) {
+        return bestFitApprover as User;
     }
 
-    const awardedVendorIds = Object.keys(awards);
-    if (awardedVendorIds.length === 0) {
-        throw new Error("No vendor was awarded. Cannot proceed.");
-    }
-
-    let totalAwardValue = 0;
-    awardedVendorIds.forEach(vendorId => {
-        const quote = allQuotesForReq.find(q => q.vendorId === vendorId);
-        const awardedItems = (awards[vendorId] as any).items.map((i: any) => i.quoteItemId);
-        if (quote) {
-            quote.items.forEach(item => {
-                if (awardedItems.includes(item.id)) {
-                    totalAwardValue += item.quantity * item.unitPrice;
-                }
-            });
-        }
-    });
-
-    if (actor.approvalLimit !== null && totalAwardValue > (actor.approvalLimit || 0)) {
-        if (actor.managerId) {
-            const manager = await prisma.user.findUnique({ where: { id: actor.managerId }, include: { role: true } });
-            return {
-                success: true,
-                message: `Award value of ${totalAwardValue.toLocaleString()} ETB exceeds approval limit. Escalated to manager.`,
-                escalated: true,
-                awards: {},
-                escalationTarget: manager,
-            };
-        }
-        if (!actor.managerId && !highestApproverCanOverride) {
-            throw new Error(`Award value of ${totalAwardValue.toLocaleString()} ETB exceeds the final approver's limit of ${(actor.approvalLimit || 0).toLocaleString()} ETB.`);
-        }
-    }
-
-    return { success: true, message: "Approval limit sufficient.", escalated: false, awards, escalationTarget: null };
-}
-
-export async function processAndNotifyAwards(
-    requisitionId: string,
-    awards: any,
-    awardResponseDeadline?: Date,
-) {
-    const awardedVendorIds = Object.keys(awards);
-    if (awardedVendorIds.length === 0) throw new Error("No vendor was awarded.");
-
-    const awardedQuoteItemIds = Object.values(awards).flatMap((award: any) => award.items.map((item: any) => item.quoteItemId));
-
-    await prisma.quotation.updateMany({
-        where: { requisitionId: requisitionId },
-        data: { status: 'Rejected', rank: null }
-    });
-
-    const allQuotesForReq = await prisma.quotation.findMany({ where: { requisitionId }, include: { items: true } });
-
-    for (const vendorId of awardedVendorIds) {
-        const quote = allQuotesForReq.find(q => q.vendorId === vendorId);
-        if (quote) {
-            await prisma.quotation.update({ where: { id: quote.id }, data: { status: 'Awarded', rank: 1 } });
-        }
-    }
-
-    const standbyCandidates = allQuotesForReq
-        .filter(q => !awardedVendorIds.includes(q.vendorId))
-        .sort((a, b) => (b.finalAverageScore || 0) - (a.finalAverageScore || 0));
-
-    for (let i = 0; i < Math.min(2, standbyCandidates.length); i++) {
-        await prisma.quotation.update({ where: { id: standbyCandidates[i].id }, data: { status: 'Standby', rank: (i + 2) as 2 | 3 } });
-    }
+    // If no single user has a high enough limit, find the absolute highest approver.
+    const highestApprover = allApprovers.sort((a, b) => (b.approvalLimit || 0) - (a.approvalLimit || 0))[0];
     
-    let updatedStatus: RequisitionStatus = 'RFQ_In_Progress';
-    if(awardedVendorIds.length > 0) {
-        updatedStatus = 'Pending_Managerial_Approval';
-    }
-
-
-    await prisma.purchaseRequisition.update({
-        where: { id: requisitionId },
-        data: {
-            status: updatedStatus,
-            awardResponseDeadline: awardResponseDeadline,
-            awardResponseDurationMinutes: awardResponseDeadline ? differenceInMinutes(awardResponseDeadline, new Date()) : undefined,
-            awardedQuoteItemIds: awardedQuoteItemIds,
-            currentApproverId: null,
-        }
-    });
-
-    // Email logic remains the same...
+    return highestApprover as User;
 }
 
 export async function POST(
@@ -152,69 +51,132 @@ export async function POST(
     const requisitionId = params.id;
     try {
         const body = await request.json();
-        const { userId, awardResponseDeadline, meetingMinutes, highestApproverCanOverride, rfqSenderSetting } = body as { 
+        const { userId, awardResponseDeadline, meetingMinutes, rfqSenderSetting } = body as { 
             userId: string, 
             awardResponseDeadline?: string,
             meetingMinutes?: string,
-            highestApproverCanOverride: boolean,
             rfqSenderSetting: RfqSenderSetting 
         };
 
-        const user = await prisma.user.findUnique({
+        const actor = await prisma.user.findUnique({
             where: { id: userId },
             include: { role: true }
         });
-        if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
+        if (!actor) return NextResponse.json({ error: 'User not found' }, { status: 404 });
 
         const requisition = await prisma.purchaseRequisition.findUnique({ where: { id: requisitionId } });
         if (!requisition) return NextResponse.json({ error: 'Requisition not found' }, { status: 404 });
 
+        // Authorization: Check if the user is the current designated approver OR the initial approver if none is set.
         const isInitialApprover = 
-            (rfqSenderSetting.type === 'all' && ['Procurement Officer', 'Admin'].includes(user.role.name)) ||
-            (rfqSenderSetting.type === 'specific' && user.id === rfqSenderSetting.userId);
+            (rfqSenderSetting.type === 'all' && ['Procurement Officer', 'Admin'].includes(actor.role.name.replace(/_/g, ' '))) ||
+            (rfqSenderSetting.type === 'specific' && actor.id === rfqSenderSetting.userId);
         
-        const isCurrentEscalatedApprover = requisition.currentApproverId === user.id;
+        const isCurrentEscalatedApprover = requisition.currentApproverId === actor.id;
 
         if (!isCurrentEscalatedApprover && !(requisition.currentApproverId === null && isInitialApprover)) {
              return NextResponse.json({ error: 'Unauthorized. You are not the current approver for this award.' }, { status: 403 });
         }
         
-        const result = await tallyAndAwardScores(requisitionId, user, highestApproverCanOverride);
+        // --- Tally scores and find the winning quote's value ---
+        const allQuotesForReq = await prisma.quotation.findMany({ where: { requisitionId }, include: { items: true } });
+        if (allQuotesForReq.length === 0) {
+            throw new Error("No quotes found for this requisition to score or award.");
+        }
 
-        if (result.escalated && result.escalationTarget) {
-            await prisma.purchaseRequisition.update({
+        const sortedByScore = allQuotesForReq.sort((a, b) => (b.finalAverageScore || 0) - (a.finalAverageScore || 0));
+        const winningQuote = sortedByScore[0];
+        const awardValue = winningQuote.totalPrice;
+
+        // --- Determine the next approver ---
+        const nextApprover = await determineAwardApprover(awardValue, actor.id);
+
+        if (!nextApprover) {
+            throw new Error("No suitable approver could be found for this award value.");
+        }
+        
+        // If the actor is not the final designated approver, escalate it.
+        if (actor.id !== nextApprover.id) {
+             await prisma.purchaseRequisition.update({
                 where: { id: requisitionId },
                 data: {
-                    currentApproverId: result.escalationTarget.id,
+                    status: 'Pending_Managerial_Approval',
+                    currentApproverId: nextApprover.id,
                 }
             });
             await prisma.auditLog.create({
                 data: {
+                    transactionId: requisition.transactionId,
                     timestamp: new Date(),
-                    user: { connect: { id: user.id } },
+                    user: { connect: { id: actor.id } },
                     action: 'ESCALATE_AWARD',
                     entity: 'Requisition',
                     entityId: requisitionId,
-                    details: `Award requires higher approval. Escalated to ${result.escalationTarget.name}.`,
+                    details: `Award value of ${awardValue.toLocaleString()} ETB requires higher approval. Escalated to ${nextApprover.name}.`,
                 }
             });
-            return NextResponse.json({ message: result.message });
+            
+            // Notify the next approver
+            await sendEmail({
+                to: nextApprover.email,
+                subject: `Award Approval Required: ${requisition.title}`,
+                html: `<p>An award for requisition <strong>${requisition.title}</strong> has been escalated to you for final approval.</p><p><a href="${process.env.NEXT_PUBLIC_BASE_URL}/quotations/${requisitionId}">View and Finalize Award</a></p>`
+            });
+
+            return NextResponse.json({ message: `Award requires higher approval. Escalated to ${nextApprover.name}.` });
+        }
+        
+        // --- If the actor IS the correct final approver, finalize the award ---
+        const awardedVendorIds = [winningQuote.vendorId];
+        const awardedQuoteItemIds = winningQuote.items.map(item => item.id);
+
+        // Reject all other quotes
+        await prisma.quotation.updateMany({
+            where: { requisitionId: requisitionId, NOT: { vendorId: winningQuote.vendorId } },
+            data: { status: 'Rejected', rank: null }
+        });
+        // Award the winning quote
+        await prisma.quotation.update({ where: { id: winningQuote.id }, data: { status: 'Awarded', rank: 1 } });
+        
+        // Mark standby vendors
+        const standbyCandidates = sortedByScore.filter(q => q.id !== winningQuote.id);
+        for (let i = 0; i < Math.min(2, standbyCandidates.length); i++) {
+            await prisma.quotation.update({ where: { id: standbyCandidates[i].id }, data: { status: 'Standby', rank: (i + 2) as 2 | 3 } });
         }
 
-        if (!result.success) throw new Error(result.message);
-
-        await processAndNotifyAwards(requisitionId, result.awards, awardResponseDeadline ? new Date(awardResponseDeadline) : undefined);
-
+        // Update the requisition state
+        await prisma.purchaseRequisition.update({
+            where: { id: requisitionId },
+            data: {
+                status: 'RFQ_In_Progress', // Indicates award has been sent out
+                awardResponseDeadline: awardResponseDeadline ? new Date(awardResponseDeadline) : undefined,
+                awardResponseDurationMinutes: awardResponseDeadline ? differenceInMinutes(new Date(awardResponseDeadline), new Date()) : undefined,
+                awardedQuoteItemIds: awardedQuoteItemIds,
+            }
+        });
+        
         await prisma.auditLog.create({
             data: {
+                transactionId: requisition.transactionId,
                 timestamp: new Date(),
-                user: { connect: { id: user.id } },
+                user: { connect: { id: actor.id } },
                 action: 'FINALIZE_SCORES_AND_AWARD',
                 entity: 'Requisition',
                 entityId: requisitionId,
-                details: `Finalized scores and distributed awards. Justification: ${meetingMinutes || 'N/A'}.`,
+                details: `Finalized scores and distributed award to ${winningQuote.vendorName}. Justification: ${meetingMinutes || 'N/A'}.`,
             }
         });
+        
+        // Notify the awarded vendor
+        const awardedVendor = await prisma.vendor.findUnique({ where: { id: winningQuote.vendorId }});
+        if(awardedVendor) {
+            await sendEmail({
+                to: awardedVendor.email,
+                subject: `Congratulations! You've been awarded: ${requisition.title}`,
+                html: `<p>You have been awarded the contract for requisition <strong>${requisition.title}</strong>.</p><p>Please log in to the vendor portal to accept or decline the award.</p><p><a href="${process.env.NEXT_PUBLIC_BASE_URL}/vendor/dashboard">Go to Vendor Portal</a></p>`
+            });
+        }
+
 
         return NextResponse.json({ message: "Scores finalized and awards sent." });
     } catch (error) {

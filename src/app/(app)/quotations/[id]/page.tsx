@@ -67,7 +67,7 @@ const quoteFormSchema = z.object({
   notes: z.string().optional(),
   items: z.array(z.object({
     requisitionItemId: z.string(),
-    name: z.string(),
+    name: z.string().min(1, "Item name cannot be empty."),
     quantity: z.number(),
     unitPrice: z.coerce.number().min(0.01, "Price is required."),
     leadTimeDays: z.coerce.number().min(0, "Lead time is required."),
@@ -914,7 +914,6 @@ const RFQActionDialog = ({
                     </Button>
                 </DialogFooter>
             </DialogContent>
-        </Dialog>
     )
 }
 
@@ -1589,7 +1588,6 @@ const ScoringProgressTracker = ({
   onCommitteeUpdate,
   isFinalizing,
   isAwarded,
-  finalApprover,
 }: {
   requisition: PurchaseRequisition;
   quotations: Quotation[];
@@ -1598,9 +1596,8 @@ const ScoringProgressTracker = ({
   onCommitteeUpdate: (open: boolean) => void;
   isFinalizing: boolean;
   isAwarded: boolean;
-  finalApprover?: User | null;
 }) => {
-    const { user } = useAuth();
+    const { user, rfqSenderSetting } = useAuth();
     const [isExtendDialogOpen, setExtendDialogOpen] = useState(false);
     const [isReportDialogOpen, setReportDialogOpen] = useState(false);
     const [selectedMember, setSelectedMember] = useState<User | null>(null);
@@ -1654,7 +1651,9 @@ const ScoringProgressTracker = ({
     const overdueMembers = scoringStatus.filter(s => s.isOverdue);
     const allHaveScored = scoringStatus.every(s => s.hasSubmittedFinalScores);
     
-    const canFinalize = user && finalApprover && user.id === finalApprover.id;
+    const currentApprover = allUsers.find(u => u.id === requisition.currentApproverId);
+    
+    const canFinalize = user && user.id === requisition.currentApproverId;
 
 
     return (
@@ -1717,7 +1716,7 @@ const ScoringProgressTracker = ({
                  </Dialog>
                   {allHaveScored && !isAwarded && (
                     <div className="text-sm text-muted-foreground">
-                        {canFinalize ? "All scores are in. You can now finalize the award." : `Awaiting final award approval from ${finalApprover?.name || 'the designated approver'}.`}
+                        {canFinalize ? "All scores are in. You can now finalize the award." : `Awaiting final award approval from ${currentApprover?.name || 'the designated approver'}.`}
                     </div>
                  )}
             </CardFooter>
@@ -2352,7 +2351,7 @@ export default function QuotationDetailsPage() {
   const router = useRouter();
   const params = useParams();
   const { toast } = useToast();
-  const { user, allUsers, role, rfqSenderSetting, login, highestApproverCanOverride } = useAuth();
+  const { user, allUsers, role, rfqSenderSetting, login } = useAuth();
   const id = params.id as string;
   
   const [requisition, setRequisition] = useState<PurchaseRequisition | null>(null);
@@ -2369,7 +2368,6 @@ export default function QuotationDetailsPage() {
   const [isChangingAward, setIsChangingAward] = useState(false);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isReportOpen, setReportOpen] = useState(false);
-  const [finalApprover, setFinalApprover] = useState<User | null>(null);
   
   const isAuthorized = useMemo(() => {
     if (!user || !role) return false;
@@ -2467,37 +2465,6 @@ export default function QuotationDetailsPage() {
         fetchRequisitionAndQuotes();
     }
   }, [id, user]);
-  
-  // Logic to determine the final approver
-  useEffect(() => {
-    if (isScoringComplete && quotations.length > 0 && user) {
-        const sortedQuotes = [...quotations].sort((a, b) => (b.finalAverageScore || 0) - (a.finalAverageScore || 0));
-        const winner = sortedQuotes[0];
-        if (!winner) return;
-
-        const awardValue = winner.totalPrice;
-
-        let currentApprover: User | null | undefined = allUsers.find(u => u.id === rfqSenderSetting.userId || u.role === 'Procurement Officer');
-        if (!currentApprover) {
-             setFinalApprover(null);
-             return;
-        }
-
-        while (currentApprover && (currentApprover.approvalLimit || 0) < awardValue) {
-            if (!currentApprover.managerId) {
-                setFinalApprover(currentApprover); 
-                break;
-            }
-            const manager = allUsers.find(u => u.id === currentApprover?.managerId);
-            if (!manager) {
-                 setFinalApprover(currentApprover);
-                 break;
-            }
-            currentApprover = manager;
-        }
-        setFinalApprover(currentApprover || null);
-    }
-  }, [isScoringComplete, quotations, allUsers, user, rfqSenderSetting]);
 
   const handleRfqSent = () => {
     fetchRequisitionAndQuotes();
@@ -2525,13 +2492,18 @@ export default function QuotationDetailsPage() {
              const response = await fetch(`/api/requisitions/${requisition.id}/finalize-scores`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId: user.id, awardResponseDeadline, highestApproverCanOverride, meetingMinutes }),
+                body: JSON.stringify({ 
+                    userId: user.id, 
+                    awardResponseDeadline, 
+                    meetingMinutes,
+                    rfqSenderSetting,
+                }),
             });
+            const result = await response.json();
             if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || 'Failed to finalize scores.');
+                throw new Error(result.error || 'Failed to finalize scores.');
             }
-            toast({ title: 'Success', description: 'Scores have been finalized and awards distributed.' });
+            toast({ title: 'Success', description: result.message || 'Scores have been finalized and action taken.' });
             fetchRequisitionAndQuotes();
         } catch(error) {
              toast({
@@ -2594,10 +2566,10 @@ export default function QuotationDetailsPage() {
     if (requisition.status === 'Approved') {
         return 'rfq';
     }
-    if (requisition.status === 'RFQ In Progress' && !isDeadlinePassed) {
+    if (requisition.status === 'RFQ_In_Progress' && !isDeadlinePassed) {
         return 'rfq';
     }
-     if (requisition.status === 'RFQ In Progress' && isDeadlinePassed) {
+     if (requisition.status === 'RFQ_In_Progress' && isDeadlinePassed) {
         const anyCommittee = (requisition.financialCommitteeMemberIds && requisition.financialCommitteeMemberIds.length > 0) || 
                              (requisition.technicalCommitteeMemberIds && requisition.technicalCommitteeMemberIds.length > 0);
         if (!anyCommittee) {
@@ -2606,7 +2578,7 @@ export default function QuotationDetailsPage() {
         return 'award';
     }
     if (isAccepted) {
-        if (requisition.status === 'PO Created') return 'completed';
+        if (requisition.status === 'PO_Created') return 'completed';
         return 'finalize';
     }
     if (isAwarded) {
@@ -2840,7 +2812,7 @@ export default function QuotationDetailsPage() {
             </>
         )}
         
-        {currentStep === 'award' && (role === 'Procurement Officer' || role === 'Admin') && quotations.length > 0 && (
+        {currentStep === 'award' && (role === 'Procurement Officer' || role === 'Admin' || role === 'Committee') && quotations.length > 0 && (
              <ScoringProgressTracker 
                 requisition={requisition}
                 quotations={quotations}
@@ -2849,7 +2821,6 @@ export default function QuotationDetailsPage() {
                 onCommitteeUpdate={setCommitteeDialogOpen}
                 isFinalizing={isFinalizing}
                 isAwarded={isAwarded}
-                finalApprover={finalApprover}
             />
         )}
         

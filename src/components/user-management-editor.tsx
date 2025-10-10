@@ -58,7 +58,7 @@ const userFormSchema = z.object({
   departmentId: z.string().min(1, "Department is required."),
   password: z.string().optional(),
   approvalLimit: z.coerce.number().min(0, "Approval limit must be a positive number.").optional(),
-  managerId: z.string().optional(),
+  managerId: z.string().nullable().optional(),
 });
 
 const userEditFormSchema = userFormSchema.extend({
@@ -85,7 +85,7 @@ export function UserManagementEditor() {
       departmentId: '',
       password: '',
       approvalLimit: 0,
-      managerId: '',
+      managerId: null,
     },
   });
   
@@ -101,8 +101,7 @@ export function UserManagementEditor() {
   const potentialManagers = users.filter(
     (u) => 
       u.id !== userToEdit?.id && 
-      managerRoles.includes(u.role) &&
-      (u.approvalLimit || 0) > (currentApprovalLimit || 0)
+      managerRoles.includes(getRoleName(u))
   );
 
   const getRoleName = (u: User) => {
@@ -173,7 +172,7 @@ export function UserManagementEditor() {
       });
       setDialogOpen(false);
       setUserToEdit(null);
-      form.reset({ name: '', email: '', role: '', departmentId: '', password: '', approvalLimit: 0, managerId: '' });
+      form.reset({ name: '', email: '', role: '', departmentId: '', password: '', approvalLimit: 0, managerId: null });
       fetchData();
     } catch (error) {
       toast({ variant: 'destructive', title: 'Error', description: error instanceof Error ? error.message : 'An unknown error occurred.' });
@@ -217,11 +216,11 @@ export function UserManagementEditor() {
         departmentId: user.departmentId || '',
         password: '',
         approvalLimit: user.approvalLimit || 0,
-        managerId: user.managerId || 'null',
+        managerId: user.managerId || null,
       });
     } else {
       setUserToEdit(null);
-      form.reset({ name: '', email: '', role: '', departmentId: '', password: '', approvalLimit: 0, managerId: 'null' });
+      form.reset({ name: '', email: '', role: '', departmentId: '', password: '', approvalLimit: 0, managerId: null });
     }
     setDialogOpen(true);
   };
