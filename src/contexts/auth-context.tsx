@@ -71,7 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             
             setUser(fullUser);
             setToken(storedToken);
-            setRole(fullUser.role.replace(/ /g, ' ') as UserRole);
+            setRole(fullUser.role as UserRole);
         }
 
         if (storedPermissions) {
@@ -89,10 +89,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [fetchAllUsers]);
 
   useEffect(() => {
-    if (!isInitialized) {
-      initializeAuth();
-    }
-  }, [isInitialized, initializeAuth]);
+    initializeAuth();
+  }, [initializeAuth]);
 
   const login = async (newToken: string, loggedInUser: User, loggedInRole: UserRole) => {
     localStorage.setItem('authToken', newToken);
@@ -100,7 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('role', loggedInRole);
     setToken(newToken);
     setUser(loggedInUser);
-    setRole(loggedInRole.replace(/_/g, ' ') as UserRole);
+    setRole(loggedInRole);
     await fetchAllUsers(); // Refresh the user list to include any new user
     setIsInitialized(true); // Ensure initialized state is set on login
   };
@@ -137,7 +135,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                   localStorage.setItem('user', JSON.stringify(targetUser));
                   localStorage.setItem('role', targetUser.role);
                   setUser(targetUser);
-                  setRole(targetUser.role.replace(/_/g, ' ') as UserRole);
+                  setRole(targetUser.role as UserRole);
                   window.location.reload();
               }
           } catch (e) {
@@ -162,7 +160,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isInitialized,
       switchUser,
       updateRolePermissions
-  }), [user, token, role, isInitialized, allUsers, rolePermissions, fetchAllUsers]);
+  }), [user, token, role, isInitialized, allUsers, rolePermissions, fetchAllUsers, login, logout, switchUser, updateRolePermissions]);
 
 
   return (

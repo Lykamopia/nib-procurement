@@ -19,7 +19,14 @@ export default function HomePage() {
           const permissionsRole = role.replace(/ /g, '_');
           const allowedPaths = rolePermissions[permissionsRole as keyof typeof rolePermissions] || [];
           const defaultPath = allowedPaths.includes('/dashboard') ? '/dashboard' : allowedPaths[0];
-          router.push(defaultPath || '/login');
+          if (defaultPath) {
+            router.push(defaultPath);
+          } else {
+            // If no default path is found for a non-vendor role, something is wrong with permissions.
+            // Log out to prevent a loop.
+            console.error(`No default path found for role: ${role}. Logging out.`);
+            router.push('/login');
+          }
         }
       } else {
         router.push('/login');
