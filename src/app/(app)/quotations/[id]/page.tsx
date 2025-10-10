@@ -914,8 +914,9 @@ const RFQActionDialog = ({
                     </Button>
                 </DialogFooter>
             </DialogContent>
-    )
-}
+        </Dialog>
+    );
+};
 
 const RFQDistribution = ({ requisition, vendors, onRfqSent, isAuthorized }: { requisition: PurchaseRequisition; vendors: Vendor[]; onRfqSent: () => void; isAuthorized: boolean; }) => {
     const [distributionType, setDistributionType] = useState('all');
