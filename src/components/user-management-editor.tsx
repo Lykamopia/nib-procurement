@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Card,
   CardContent,
@@ -92,6 +92,7 @@ export function UserManagementEditor() {
   const availableRoles = Object.keys(rolePermissions).filter(role => role !== 'Vendor') as UserRole[];
   
   const selectedRole = form.watch('role');
+  const selectedApprovalLimit = form.watch('approvalLimit');
   
   const managerRoles: UserRole[] = ['Approver', 'Procurement Officer', 'Admin', 'Finance'];
   const approvalRoles: UserRole[] = ['Approver', 'Procurement Officer', 'Admin', 'Finance', 'Committee Member'];
@@ -101,14 +102,17 @@ export function UserManagementEditor() {
     if (typeof u.role === 'string') {
         return u.role;
     }
-    return u.role?.name || 'N/A';
+    return u.role?.name.replace(/_/g, ' ') || 'N/A';
   }
 
-  const potentialManagers = users.filter(
-    (u) => 
-      u.id !== userToEdit?.id && 
-      managerRoles.includes(getRoleName(u) as UserRole)
-  );
+  const potentialManagers = useMemo(() => {
+    return users.filter(
+      (u) => 
+        u.id !== userToEdit?.id && 
+        managerRoles.includes(getRoleName(u) as UserRole) &&
+        (u.approvalLimit || 0) > (selectedApprovalLimit || 0)
+    );
+  }, [users, userToEdit, selectedApprovalLimit]);
 
 
   const fetchData = async () => {
