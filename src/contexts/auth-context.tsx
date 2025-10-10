@@ -10,12 +10,12 @@ interface AuthContextType {
   token: string | null;
   role: UserRole | null;
   allUsers: User[];
-  rolePermissions: Record<UserRole, string[]>;
+  rolePermissions: Record<string, string[]>;
   login: (token: string, user: User, role: UserRole) => void;
   logout: () => void;
   isInitialized: boolean;
   switchUser: (userId: string) => void;
-  updateRolePermissions: (newPermissions: Record<UserRole, string[]>) => void;
+  updateRolePermissions: (newPermissions: Record<string, string[]>) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -28,15 +28,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isInitialized, setIsInitialized] = useState(false);
   
   const initialPermissions = () => {
-    const permissions: Partial<Record<UserRole, string[]>> = {};
+    const permissions: Partial<Record<string, string[]>> = {};
     allRoles.forEach(r => {
-        const key = r.replace(/ /g, '_') as UserRole;
-        permissions[key] = defaultRolePermissions[key] || [];
+        const key = r.replace(/ /g, '_');
+        permissions[key] = defaultRolePermissions[key as UserRole] || [];
     });
-    return permissions as Record<UserRole, string[]>;
+    return permissions as Record<string, string[]>;
   };
 
-  const [rolePermissions, setRolePermissions] = useState<Record<UserRole, string[]>>(initialPermissions());
+  const [rolePermissions, setRolePermissions] = useState<Record<string, string[]>>(initialPermissions());
 
 
   const fetchAllUsers = useCallback(async () => {
@@ -60,10 +60,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const initializeAuth = useCallback(async () => {
     try {
-        const users = await fetchAllUsers();
         const storedUserJSON = localStorage.getItem('user');
         const storedToken = localStorage.getItem('authToken');
-        const storedPermissions = localStorage.getItem('rolePermissions');
+        const storedPermissionsJSON = localStorage.getItem('rolePermissions');
+        const users = await fetchAllUsers();
         
         if (storedUserJSON && storedToken) {
             const storedUser = JSON.parse(storedUserJSON);
@@ -74,8 +74,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setRole(fullUser.role as UserRole);
         }
 
-        if (storedPermissions) {
-            setRolePermissions(JSON.parse(storedPermissions));
+        if (storedPermissionsJSON) {
+            setRolePermissions(JSON.parse(storedPermissionsJSON));
         } else {
             setRolePermissions(initialPermissions());
         }
@@ -99,8 +99,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(newToken);
     setUser(loggedInUser);
     setRole(loggedInRole);
-    await fetchAllUsers(); // Refresh the user list to include any new user
-    setIsInitialized(true); // Ensure initialized state is set on login
+    await fetchAllUsers();
+    setIsInitialized(true);
   };
 
   const logout = () => {
@@ -144,7 +144,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
   };
 
-  const updateRolePermissions = (newPermissions: Record<UserRole, string[]>) => {
+  const updateRolePermissions = (newPermissions: Record<string, string[]>) => {
       localStorage.setItem('rolePermissions', JSON.stringify(newPermissions));
       setRolePermissions(newPermissions);
   }
@@ -160,7 +160,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isInitialized,
       switchUser,
       updateRolePermissions
-  }), [user, token, role, isInitialized, allUsers, rolePermissions, fetchAllUsers, login, logout, switchUser, updateRolePermissions]);
+  }), [user, token, role, isInitialized, allUsers, rolePermissions]);
 
 
   return (

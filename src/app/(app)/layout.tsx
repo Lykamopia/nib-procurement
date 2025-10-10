@@ -46,7 +46,7 @@ export default function AppLayout({
   const accessibleNavItems = useMemo(() => {
     if (!role) return [];
     const permissionsRole = role.replace(/ /g, '_');
-    const allowedPaths = rolePermissions[permissionsRole as keyof typeof rolePermissions] || [];
+    const allowedPaths = rolePermissions[permissionsRole] || [];
     return navItems.filter(item => allowedPaths.includes(item.path));
   }, [role, rolePermissions]);
 
@@ -98,7 +98,7 @@ export default function AppLayout({
 
       const currentPath = pathname.split('?')[0];
       const permissionsRole = role.replace(/ /g, '_');
-      const allowedPaths = rolePermissions[permissionsRole as keyof typeof rolePermissions] || [];
+      const allowedPaths = rolePermissions[permissionsRole] || [];
       
       const isAllowed = allowedPaths.includes(currentPath) || 
                         allowedPaths.some(p => p !== '/' && currentPath.startsWith(p));

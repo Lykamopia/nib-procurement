@@ -17,7 +17,7 @@ export default function HomePage() {
           router.push('/vendor/dashboard');
         } else {
           const permissionsRole = role.replace(/ /g, '_');
-          const allowedPaths = rolePermissions[permissionsRole as keyof typeof rolePermissions] || [];
+          const allowedPaths = rolePermissions[permissionsRole] || [];
           const defaultPath = allowedPaths.includes('/dashboard') ? '/dashboard' : allowedPaths[0];
           if (defaultPath) {
             router.push(defaultPath);
