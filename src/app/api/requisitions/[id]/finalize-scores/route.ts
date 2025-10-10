@@ -4,7 +4,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { sendEmail } from '@/services/email-service';
-import { User, RequisitionStatus, RfqSenderSetting } from '@/lib/types';
+import { User, RequisitionStatus } from '@/lib/types';
 import { differenceInMinutes } from 'date-fns';
 
 /**
@@ -64,11 +64,11 @@ export async function POST(
         });
         if (!actor) return NextResponse.json({ error: 'User not found' }, { status: 404 });
 
-        const requisition = await prisma.purchaseRequisition.findUnique({ where: { id: requisitionId }, include: { rfqSettings: true } });
+        const requisition = await prisma.purchaseRequisition.findUnique({ where: { id: requisitionId } });
         if (!requisition) return NextResponse.json({ error: 'Requisition not found' }, { status: 404 });
         
         // This is the settings object for who can initiate this flow
-        const rfqSenderSetting = (requisition.rfqSettings as any)?.value as RfqSenderSetting || { type: 'all' };
+        const rfqSenderSetting = (requisition.rfqSettings as any)?.value || { type: 'all' };
 
         // Authorization: Check if the user is the current designated approver OR the initial approver if none is set.
         const isInitialApprover = 
