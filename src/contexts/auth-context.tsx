@@ -71,18 +71,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             
             setUser(fullUser);
             setToken(storedToken);
-            setRole(fullUser.role.name as UserRole);
+            setRole(fullUser.role as UserRole);
         }
 
         if (storedPermissions) {
             setRolePermissions(JSON.parse(storedPermissions));
+        } else {
+             localStorage.setItem('rolePermissions', JSON.stringify(defaultRolePermissions));
         }
 
         if (storedRfqSetting) {
             setRfqSenderSetting(JSON.parse(storedRfqSetting));
+        } else {
+             localStorage.setItem('rfqSenderSetting', JSON.stringify({ type: 'all' }));
         }
         if (storedHighestApproverOverride) {
             setHighestApproverCanOverride(JSON.parse(storedHighestApproverOverride));
+        } else {
+            localStorage.setItem('highestApproverCanOverride', JSON.stringify(false));
         }
 
     } catch (error) {
@@ -94,7 +100,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     initializeAuth();
-  }, [initializeAuth]);
+  }, []);
 
   const login = (newToken: string, loggedInUser: User, loggedInRole: UserRole) => {
     localStorage.setItem('authToken', newToken);
