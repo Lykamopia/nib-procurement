@@ -223,7 +223,7 @@ export async function PATCH(
         // ... (existing edit logic)
     } else if (status) { // This handles normal status changes
         const currentStatus = requisition.status.replace(/_/g, ' ');
-        const newStatus = status.replace(/_/g, '_');
+        const newStatus = status.replace(/ /g, '_');
         
         // --- WORKFLOW LOGIC ---
         if (newStatus === 'Pending_Approval' && currentStatus === 'Draft') {
@@ -377,5 +377,3 @@ export async function DELETE(
     return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
   }
 }
-
-    
