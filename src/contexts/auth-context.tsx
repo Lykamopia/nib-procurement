@@ -71,7 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             
             setUser(fullUser);
             setToken(storedToken);
-            setRole(fullUser.role.replace(/_/g, ' ') as UserRole);
+            setRole(fullUser.role.replace(/ /g, ' ') as UserRole);
         }
 
         if (storedPermissions) {
@@ -159,7 +159,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       rolePermissions,
       login,
       logout,
-      isInitialized, // Removed 'loading' in favor of just 'isInitialized'
+      isInitialized,
       switchUser,
       updateRolePermissions
   }), [user, token, role, isInitialized, allUsers, rolePermissions, fetchAllUsers]);
