@@ -13,7 +13,6 @@ interface AuthContextType {
   rolePermissions: Record<UserRole, string[]>;
   login: (token: string, user: User, role: UserRole) => void;
   logout: () => void;
-  loading: boolean;
   isInitialized: boolean;
   switchUser: (userId: string) => void;
   updateRolePermissions: (newPermissions: Record<UserRole, string[]>) => void;
@@ -103,7 +102,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(loggedInUser);
     setRole(loggedInRole.replace(/_/g, ' ') as UserRole);
     await fetchAllUsers(); // Refresh the user list to include any new user
-    setIsInitialized(true);
+    setIsInitialized(true); // Ensure initialized state is set on login
   };
 
   const logout = () => {
@@ -160,8 +159,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       rolePermissions,
       login,
       logout,
-      loading: !isInitialized,
-      isInitialized,
+      isInitialized, // Removed 'loading' in favor of just 'isInitialized'
       switchUser,
       updateRolePermissions
   }), [user, token, role, isInitialized, allUsers, rolePermissions, fetchAllUsers]);
