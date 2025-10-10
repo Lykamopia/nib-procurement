@@ -16,7 +16,10 @@ export default function HomePage() {
         if (role === 'Vendor') {
           router.push('/vendor/dashboard');
         } else {
-          router.push('/dashboard');
+          const permissionsRole = role.replace(/ /g, '_');
+          const allowedPaths = useAuth().rolePermissions[permissionsRole as keyof typeof useAuth.arguments] || [];
+          const defaultPath = allowedPaths.includes('/dashboard') ? '/dashboard' : allowedPaths[0];
+          router.push(defaultPath || '/login');
         }
       } else {
         router.push('/login');

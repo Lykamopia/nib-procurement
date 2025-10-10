@@ -26,7 +26,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [role, setRole] = useState<UserRole | null>(null);
   const [allUsers, setAllUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
   const [isInitialized, setIsInitialized] = useState(false);
   
   const initialPermissions = () => {
@@ -61,7 +60,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const initializeAuth = useCallback(async () => {
-    setLoading(true);
     try {
         const users = await fetchAllUsers();
         const storedUserJSON = localStorage.getItem('user');
@@ -88,13 +86,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.clear();
     } finally {
         setIsInitialized(true);
-        setLoading(false);
     }
   }, [fetchAllUsers]);
 
   useEffect(() => {
-    initializeAuth();
-  }, [initializeAuth]);
+    if (!isInitialized) {
+      initializeAuth();
+    }
+  }, [isInitialized, initializeAuth]);
 
   const login = async (newToken: string, loggedInUser: User, loggedInRole: UserRole) => {
     localStorage.setItem('authToken', newToken);
