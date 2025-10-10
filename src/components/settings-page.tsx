@@ -13,6 +13,7 @@ import { RolePermissionsEditor } from './role-permissions-editor';
 import { RoleManagementEditor } from './role-management-editor';
 import { DepartmentManagementEditor } from './department-management-editor';
 import { UserManagementEditor } from './user-management-editor';
+import { WorkflowEditor } from './workflow-editor';
 
 
 export function SettingsPage() {
@@ -20,6 +21,7 @@ export function SettingsPage() {
     <Tabs defaultValue="permissions" className="space-y-4">
       <TabsList>
         <TabsTrigger value="general">General</TabsTrigger>
+        <TabsTrigger value="workflow">Workflow</TabsTrigger>
         <TabsTrigger value="permissions">Role Permissions</TabsTrigger>
         <TabsTrigger value="roles">Role Management</TabsTrigger>
         <TabsTrigger value="users">User Management</TabsTrigger>
@@ -38,6 +40,9 @@ export function SettingsPage() {
             <p>Future general settings options will be available here.</p>
           </CardContent>
         </Card>
+      </TabsContent>
+      <TabsContent value="workflow">
+        <WorkflowEditor />
       </TabsContent>
       <TabsContent value="permissions">
         <RolePermissionsEditor />

@@ -54,12 +54,17 @@ export type Department = {
 export type RequisitionStatus =
   | 'Draft'
   | 'Pending_Division_Manager_Approval'
+  | 'Pending_Department_Head_Approval'
   | 'Pending_Department_Director_Approval'
   | 'Pending_Procurement_Director_Approval'
   | 'Pending_Procurement_Division_Manager_Approval'
-  | 'Pending_Committee_Leader_Assignment'
+  | 'Pending_Procurement_Officer_Assignment'
+  | 'Pending_Committee_Head_Assignment'
   | 'Pending_Committee_Evaluation'
   | 'Evaluation_Complete'
+  | 'Pending_Procurement_Director_Review'
+  | 'Pending_Procurement_Division_Manager_Review'
+  | 'Pending_Award_Decision'
   | 'Approved' // Approved for RFQ
   | 'Rejected'
   | 'RFQ_In_Progress'
@@ -379,5 +384,3 @@ export type DocumentRecord = {
     transactionId: string;
     auditTrail?: AuditLog[];
 }
-
-    

@@ -227,50 +227,47 @@ export async function PATCH(
         
         // --- WORKFLOW LOGIC ---
         if (newStatus === 'Pending_Approval' && currentStatus === 'Draft') {
-            // Requester submits
-            const requester = await prisma.user.findUnique({where: {id: requisition.requesterId}});
-            if (!requester?.managerId) throw new Error("Requester's manager not found for initial approval.");
+            // 1. Requester submits
+            const requesterDepartment = await prisma.department.findUnique({where: {id: requisition.departmentId}});
+            if (!requesterDepartment) throw new Error("Requester's department not found.");
+            
+            const divisionManager = await prisma.user.findFirst({where: {departmentId: requesterDepartment.id, role: 'Division_Manager'}});
+            if (!divisionManager) throw new Error(`Division Manager for department ${requesterDepartment.name} not found.`);
+
             dataToUpdate.status = 'Pending_Division_Manager_Approval';
-            dataToUpdate.currentApproverId = requester.managerId;
+            dataToUpdate.currentApproverId = divisionManager.id;
             auditAction = 'SUBMIT_FOR_APPROVAL';
             auditDetails = `Requisition submitted. Pending Division Manager approval.`;
+
         } else if (newStatus === 'Approved') {
            // Generic approval action, determine next step based on current status
             dataToUpdate.approverComment = comment;
 
             switch(currentStatus) {
                 case 'Pending Division Manager Approval':
-                    const divisionManager = await prisma.user.findUnique({where: {id: user.id}});
-                    if (!divisionManager?.managerId) throw new Error("Division Manager's manager (Dept. Director) not found.");
-                    dataToUpdate.status = 'Pending_Department_Director_Approval';
-                    dataToUpdate.currentApproverId = divisionManager.managerId;
+                    // 2. Division Manager approves -> Send to Department Head
+                    if (!requisition.department?.headId) throw new Error(`Department Head for ${requisition.department?.name} not configured.`);
+                    dataToUpdate.status = 'Pending_Department_Head_Approval';
+                    dataToUpdate.currentApproverId = requisition.department.headId;
                     auditAction = 'APPROVE_REQUISITION';
-                    auditDetails = `Division Manager approved. Pending Department Director approval.`;
+                    auditDetails = `Division Manager approved. Pending Department Head approval.`;
                     break;
-                case 'Pending Department Director Approval':
+                case 'Pending Department Head Approval':
+                    // 3. Department Head approves -> Send to Procurement Director
                      const procDirector = await prisma.user.findFirst({where: {role: 'Procurement_Director'}});
                      if(!procDirector) throw new Error("Procurement Director not found.");
                      dataToUpdate.status = 'Pending_Procurement_Director_Approval';
                      dataToUpdate.currentApproverId = procDirector.id;
                      auditAction = 'APPROVE_REQUISITION';
-                     auditDetails = `Department Director approved. Pending Procurement Director approval.`;
+                     auditDetails = `Department Head approved. Pending Procurement Director approval.`;
                     break;
                 case 'Pending Procurement Director Approval':
-                     const procDivManager = await prisma.user.findFirst({where: {role: 'Procurement_Division_Manager'}});
-                     if(!procDivManager) throw new Error("Procurement Division Manager not found.");
-                     dataToUpdate.status = 'Pending_Procurement_Division_Manager_Approval';
-                     dataToUpdate.currentApproverId = procDivManager.id;
-                     auditAction = 'APPROVE_REQUISITION';
-                     auditDetails = `Procurement Director approved. Pending assignment of Procurement Officer.`;
-                    break;
-                case 'Pending Procurement Division Manager Approval': // This is the step to assign officer
+                     // 4. Procurement Director approves -> Final Approval
                      dataToUpdate.status = 'Approved'; // Final "pre-procurement" approval
                      dataToUpdate.currentApproverId = null; // Cleared for Procurement Officer to pick up
-                     auditAction = 'ASSIGN_PROCUREMENT_OFFICER'; // Or a similar action
-                     auditDetails = `Ready for RFQ. A Procurement Officer can now take over.`;
-                     // Note: The actual assignment of an officer would be a separate action/endpoint
+                     auditAction = 'FINALIZE_APPROVAL';
+                     auditDetails = `Procurement Director gave final approval. Requisition is ready for RFQ process.`;
                     break;
-                 // other approval steps from your workflow go here...
                  default:
                     dataToUpdate.status = 'Approved';
                     dataToUpdate.currentApproverId = null;
@@ -339,7 +336,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'You are not authorized to delete this requisition.' }, { status: 403 });
     }
 
-    if (requisition.status !== 'Draft' && requisition.status !== 'Pending_Approval') {
+    if (requisition.status !== 'Draft' && !requisition.status.startsWith('Pending')) {
       return NextResponse.json({ error: `Cannot delete a requisition with status "${requisition.status}".` }, { status: 403 });
     }
     
