@@ -82,6 +82,10 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("Failed to create user:", error);
     if (error instanceof Error) {
+        // Specifically check for the P2025 error for a more informative message
+        if ((error as any).code === 'P2025') {
+            return NextResponse.json({ error: 'Invalid data provided. Please ensure the selected role and department exist.', details: error.message }, { status: 400 });
+        }
         return NextResponse.json({ error: 'Failed to process request', details: error.message }, { status: 400 });
     }
     return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
@@ -145,6 +149,9 @@ export async function PATCH(request: Request) {
   } catch (error) {
      console.error('Failed to update user:', error);
      if (error instanceof Error) {
+        if ((error as any).code === 'P2025') {
+            return NextResponse.json({ error: 'Invalid data provided. Please ensure the selected role and department exist.', details: error.message }, { status: 400 });
+        }
         return NextResponse.json({ error: 'Failed to process request', details: error.message }, { status: 400 });
     }
     return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
