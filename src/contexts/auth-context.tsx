@@ -74,7 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             
             setUser(fullUser);
             setToken(storedToken);
-            setRole(fullUser.role.replace(/ /g, ' ') as UserRole);
+            setRole(fullUser.role.replace(/_/g, ' ') as UserRole);
         }
 
         if (storedPermissions) {
@@ -119,8 +119,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
   
   const switchUser = async (userId: string) => {
-      const allUsersList = allUsers.length > 0 ? allUsers : await fetchAllUsers();
-      const targetUser = allUsersList.find(u => u.id === userId);
+      const users = allUsers.length > 0 ? allUsers : await fetchAllUsers();
+      const targetUser = users.find(u => u.id === userId);
       
       if (targetUser) {
           try {
@@ -132,16 +132,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               
               if(response.ok) {
                   const result = await response.json();
-                  // Use the login function to ensure a consistent state update
                   await login(result.token, result.user, result.role);
                   window.location.href = '/';
               } else {
                   console.error("Failed to switch user via API.");
-                  // Fallback for simple local switch if API fails
                   localStorage.setItem('user', JSON.stringify(targetUser));
+                  localStorage.setItem('role', targetUser.role);
                   setUser(targetUser);
                   setRole(targetUser.role.replace(/_/g, ' ') as UserRole);
-                  window.location.href = '/';
+                  window.location.reload();
               }
           } catch (e) {
               console.error("Error during user switch:", e);
@@ -166,7 +165,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isInitialized,
       switchUser,
       updateRolePermissions
-  }), [user, token, role, isInitialized, allUsers, rolePermissions]);
+  }), [user, token, role, isInitialized, allUsers, rolePermissions, fetchAllUsers]);
 
 
   return (
