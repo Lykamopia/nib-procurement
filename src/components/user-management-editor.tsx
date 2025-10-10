@@ -92,17 +92,10 @@ export function UserManagementEditor() {
   const availableRoles = Object.keys(rolePermissions).filter(role => role !== 'Vendor') as UserRole[];
   
   const selectedRole = form.watch('role');
-  const currentApprovalLimit = form.watch('approvalLimit');
   
   const managerRoles: UserRole[] = ['Approver', 'Procurement Officer', 'Admin', 'Finance'];
   const approvalRoles: UserRole[] = ['Approver', 'Procurement Officer', 'Admin', 'Finance', 'Committee Member'];
   const showApprovalFields = approvalRoles.includes(selectedRole as UserRole);
-
-  const potentialManagers = users.filter(
-    (u) => 
-      u.id !== userToEdit?.id && 
-      managerRoles.includes(getRoleName(u))
-  );
 
   const getRoleName = (u: User) => {
     if (typeof u.role === 'string') {
@@ -110,6 +103,12 @@ export function UserManagementEditor() {
     }
     return u.role?.name || 'N/A';
   }
+
+  const potentialManagers = users.filter(
+    (u) => 
+      u.id !== userToEdit?.id && 
+      managerRoles.includes(getRoleName(u) as UserRole)
+  );
 
 
   const fetchData = async () => {
