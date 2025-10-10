@@ -32,7 +32,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const initialPermissions = () => {
     const permissions: Partial<Record<UserRole, string[]>> = {};
     allRoles.forEach(r => {
-        permissions[r] = defaultRolePermissions[r] || [];
+        const key = r.replace(/ /g, '_') as UserRole;
+        permissions[key] = defaultRolePermissions[key] || [];
     });
     return permissions as Record<UserRole, string[]>;
   };
@@ -60,6 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const initializeAuth = useCallback(async () => {
+    setLoading(true);
     try {
         const users = await fetchAllUsers();
         const storedUserJSON = localStorage.getItem('user');
@@ -147,11 +149,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       rolePermissions,
       login,
       logout,
-      loading,
+      loading: !isInitialized, // Use isInitialized to determine loading state
       isInitialized,
       switchUser,
       updateRolePermissions
-  }), [user, token, role, loading, isInitialized, allUsers, rolePermissions]);
+  }), [user, token, role, isInitialized, allUsers, rolePermissions]);
 
 
   return (
