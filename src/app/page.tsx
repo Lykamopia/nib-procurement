@@ -7,17 +7,17 @@ import { useAuth } from '@/contexts/auth-context';
 import { Loader2 } from 'lucide-react';
 
 export default function HomePage() {
-  const { user, isInitialized, role } = useAuth();
+  const { user, isInitialized, role, rolePermissions } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
     if (isInitialized) {
-      if (user) {
+      if (user && role) {
         if (role === 'Vendor') {
           router.push('/vendor/dashboard');
         } else {
           const permissionsRole = role.replace(/ /g, '_');
-          const allowedPaths = useAuth().rolePermissions[permissionsRole as keyof typeof useAuth.arguments] || [];
+          const allowedPaths = rolePermissions[permissionsRole as keyof typeof rolePermissions] || [];
           const defaultPath = allowedPaths.includes('/dashboard') ? '/dashboard' : allowedPaths[0];
           router.push(defaultPath || '/login');
         }
@@ -25,7 +25,7 @@ export default function HomePage() {
         router.push('/login');
       }
     }
-  }, [user, isInitialized, role, router]);
+  }, [user, isInitialized, role, router, rolePermissions]);
 
   return (
     <div className="flex h-screen w-full items-center justify-center">
