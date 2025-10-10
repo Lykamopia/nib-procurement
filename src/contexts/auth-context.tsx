@@ -74,7 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             
             setUser(fullUser);
             setToken(storedToken);
-            setRole(fullUser.role.replace(/_/g, ' ') as UserRole);
+            setRole(fullUser.role.replace(/ /g, ' ') as UserRole);
         }
 
         if (storedPermissions) {
@@ -96,14 +96,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     initializeAuth();
   }, [initializeAuth]);
 
-  const login = (newToken: string, loggedInUser: User, loggedInRole: UserRole) => {
+  const login = async (newToken: string, loggedInUser: User, loggedInRole: UserRole) => {
     localStorage.setItem('authToken', newToken);
     localStorage.setItem('user', JSON.stringify(loggedInUser));
     localStorage.setItem('role', loggedInRole);
     setToken(newToken);
     setUser(loggedInUser);
     setRole(loggedInRole.replace(/_/g, ' ') as UserRole);
-    setIsInitialized(true); // Explicitly mark as initialized on login
+    await fetchAllUsers(); // Refresh the user list to include any new user
+    setIsInitialized(true);
   };
 
   const logout = () => {
@@ -118,20 +119,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
   
   const switchUser = async (userId: string) => {
-      const targetUser = allUsers.find(u => u.id === userId);
+      const allUsersList = allUsers.length > 0 ? allUsers : await fetchAllUsers();
+      const targetUser = allUsersList.find(u => u.id === userId);
+      
       if (targetUser) {
-          const response = await fetch('/api/auth/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: targetUser.email, password: 'password123' }),
-          });
-          
-          if(response.ok) {
-              const result = await response.json();
-              login(result.token, result.user, result.role);
-              window.location.href = '/';
-          } else {
-              console.error("Failed to switch user.")
+          try {
+              const response = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: targetUser.email, password: 'password123' }),
+              });
+              
+              if(response.ok) {
+                  const result = await response.json();
+                  // Use the login function to ensure a consistent state update
+                  await login(result.token, result.user, result.role);
+                  window.location.href = '/';
+              } else {
+                  console.error("Failed to switch user via API.");
+                  // Fallback for simple local switch if API fails
+                  localStorage.setItem('user', JSON.stringify(targetUser));
+                  setUser(targetUser);
+                  setRole(targetUser.role.replace(/_/g, ' ') as UserRole);
+                  window.location.href = '/';
+              }
+          } catch (e) {
+              console.error("Error during user switch:", e);
           }
       }
   };
@@ -149,7 +162,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       rolePermissions,
       login,
       logout,
-      loading: !isInitialized, // Use isInitialized to determine loading state
+      loading: !isInitialized,
       isInitialized,
       switchUser,
       updateRolePermissions
