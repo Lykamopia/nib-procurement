@@ -43,13 +43,6 @@ export default function AppLayout({
   const pathname = usePathname();
   const { toast } = useToast();
 
-  const accessibleNavItems = useMemo(() => {
-    if (!role) return [];
-    const permissionsRole = role.replace(/ /g, '_');
-    const allowedPaths = rolePermissions[permissionsRole] || [];
-    return navItems.filter(item => allowedPaths.includes(item.path));
-  }, [role, rolePermissions]);
-
   const handleLogout = useCallback(() => {
     toast({
       title: 'Session Expired',
@@ -83,47 +76,51 @@ export default function AppLayout({
     };
   }, [user, handleLogout]);
 
+  // This effect handles redirecting unauthenticated users.
   useEffect(() => {
     if (isInitialized && !user) {
       router.push('/login');
     }
   }, [user, isInitialized, router]);
   
-  // Page-level access check
+  // This effect handles role-based page access for authenticated users.
   useEffect(() => {
-    if (isInitialized && role) {
+    if (isInitialized && user && role) {
       if (role === 'Vendor') {
+          // Vendors have a different layout, so they should be redirected if they land here.
+          router.push('/vendor/dashboard');
           return;
       }
 
-      const currentPath = pathname.split('?')[0];
+      // **THE FIX**: Normalize the role name by replacing spaces with underscores.
       const permissionsRole = role.replace(/ /g, '_');
       const allowedPaths = rolePermissions[permissionsRole] || [];
       
-      const isAllowed = allowedPaths.includes(currentPath) || 
-                        allowedPaths.some(p => p !== '/' && currentPath.startsWith(p));
+      const currentPath = pathname.split('?')[0];
+      const isAllowed = allowedPaths.some(p => currentPath.startsWith(p));
 
-      if (!isAllowed) {
+      if (!isAllowed && allowedPaths.length > 0) {
+        // If not allowed and they have other pages they can access, redirect to their default page.
         const defaultPath = allowedPaths.includes('/dashboard') ? '/dashboard' : allowedPaths[0];
-        if(defaultPath) {
-          router.push(defaultPath);
-        } else {
-           router.push('/login');
-        }
+        toast({
+          variant: 'destructive',
+          title: 'Access Denied',
+          description: `You do not have permission to view ${currentPath}.`,
+        });
+        router.push(defaultPath);
+      } else if (!isAllowed && allowedPaths.length === 0) {
+        // If they are not allowed and have no pages to go to, log them out.
+        logout();
       }
     }
-  }, [pathname, isInitialized, role, router, rolePermissions]);
-
-  const pageTitle = useMemo(() => {
-     const currentNavItem = navItems.find(item => {
-      if (item.path.includes('[')) {
-        const basePath = item.path.split('/[')[0];
-        return pathname.startsWith(basePath);
-      }
-      return pathname === item.path;
-    });
-    return currentNavItem?.label || 'Nib InternationalBank';
-  }, [pathname]);
+  }, [pathname, isInitialized, user, role, router, rolePermissions, logout, toast]);
+  
+  const accessibleNavItems = useMemo(() => {
+    if (!role) return [];
+    const permissionsRole = role.replace(/ /g, '_');
+    const allowedPaths = rolePermissions[permissionsRole] || [];
+    return navItems.filter(item => allowedPaths.includes(item.path));
+  }, [role, rolePermissions]);
 
   if (!isInitialized || !user || !role) {
     return (

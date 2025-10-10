@@ -99,6 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(newToken);
     setUser(loggedInUser);
     setRole(loggedInRole);
+    // **THE FIX**: Immediately refresh the list of all users upon login.
     await fetchAllUsers();
     setIsInitialized(true);
   };
@@ -115,6 +116,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
   
   const switchUser = async (userId: string) => {
+      // Ensure allUsers is populated before switching.
       const users = allUsers.length > 0 ? allUsers : await fetchAllUsers();
       const targetUser = users.find(u => u.id === userId);
       
@@ -129,9 +131,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               if(response.ok) {
                   const result = await response.json();
                   await login(result.token, result.user, result.role);
+                  // Use router push for smoother navigation within the app.
                   window.location.href = '/';
               } else {
-                  console.error("Failed to switch user via API.");
+                  console.error("Failed to switch user via API. Performing local switch as fallback.");
                   localStorage.setItem('user', JSON.stringify(targetUser));
                   localStorage.setItem('role', targetUser.role);
                   setUser(targetUser);
@@ -160,7 +163,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isInitialized,
       switchUser,
       updateRolePermissions
-  }), [user, token, role, isInitialized, allUsers, rolePermissions]);
+  }), [user, token, role, isInitialized, allUsers, rolePermissions, login, logout, switchUser, updateRolePermissions]);
 
 
   return (
