@@ -447,7 +447,7 @@ const committeeFormSchema = z.object({
 
 type CommitteeFormValues = z.infer<typeof committeeFormSchema>;
 
-const CommitteeManagement = ({ requisition, onCommitteeUpdated, open, onOpenChange, isAuthorized }: { requisition: PurchaseRequisition; onCommitteeUpdated: () => void; open: boolean; onOpenChange: (open: boolean) => void; isAuthorized: boolean; }) => {
+const CommitteeManagement = ({ requisition, onCommitteeUpdated, open, onOpenChange, isAuthorized, isDeadlinePassed }: { requisition: PurchaseRequisition; onCommitteeUpdated: () => void; open: boolean; onOpenChange: (open: boolean) => void; isAuthorized: boolean; isDeadlinePassed: boolean }) => {
     const { user, allUsers } = useAuth();
     const { toast } = useToast();
     const [isSubmitting, setSubmitting] = useState(false);
@@ -646,7 +646,7 @@ const CommitteeManagement = ({ requisition, onCommitteeUpdated, open, onOpenChan
     }
 
     const triggerButton = (
-        <Button variant="outline" className="w-full sm:w-auto" disabled={!isAuthorized}>
+        <Button variant="outline" className="w-full sm:w-auto" disabled={!isAuthorized || !isDeadlinePassed}>
             {allAssignedMemberIds.length > 0 ? (
                 <><Edit2 className="mr-2 h-4 w-4" /> Edit Committee</>
             ) : (
@@ -654,6 +654,28 @@ const CommitteeManagement = ({ requisition, onCommitteeUpdated, open, onOpenChan
             )}
         </Button>
     );
+
+    const triggerWrapper = (children: React.ReactNode) => {
+        if (isAuthorized && isDeadlinePassed) {
+            return children;
+        }
+        let tooltipMessage = "You are not authorized to manage committees.";
+        if (isAuthorized && !isDeadlinePassed) {
+            tooltipMessage = "Committee can be assigned only after the quotation deadline has passed.";
+        }
+        return (
+            <TooltipProvider>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <span tabIndex={0}>{children}</span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                        <p>{tooltipMessage}</p>
+                    </TooltipContent>
+                </Tooltip>
+            </TooltipProvider>
+        );
+    }
 
 
     return (
@@ -667,20 +689,7 @@ const CommitteeManagement = ({ requisition, onCommitteeUpdated, open, onOpenChan
                 </div>
                  <Dialog open={open} onOpenChange={onOpenChange}>
                     <DialogTrigger asChild>
-                         {isAuthorized ? (
-                            triggerButton
-                        ) : (
-                            <TooltipProvider>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <span tabIndex={0}>{triggerButton}</span>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                        <p>You are not authorized to manage committees.</p>
-                                    </TooltipContent>
-                                </Tooltip>
-                            </TooltipProvider>
-                        )}
+                        {triggerWrapper(triggerButton)}
                     </DialogTrigger>
                     <DialogContent className="max-w-4xl flex flex-col max-h-[90vh]">
                          <Form {...form}>
@@ -2564,27 +2573,14 @@ export default function QuotationDetailsPage() {
 
   const getCurrentStep = (): 'rfq' | 'committee' | 'award' | 'finalize' | 'completed' => {
     if (!requisition) return 'rfq';
-    if (requisition.status === 'Approved') {
-        return 'rfq';
-    }
-    if (requisition.status === 'RFQ_In_Progress' && !isDeadlinePassed) {
-        return 'rfq';
-    }
-     if (requisition.status === 'RFQ_In_Progress' && isDeadlinePassed) {
-        const anyCommittee = (requisition.financialCommitteeMemberIds && requisition.financialCommitteeMemberIds.length > 0) || 
-                             (requisition.technicalCommitteeMemberIds && requisition.technicalCommitteeMemberIds.length > 0);
-        if (!anyCommittee) {
-            return 'committee';
-        }
-        return 'award';
-    }
+    if (requisition.status === 'Approved') return 'rfq';
+    if (requisition.status === 'RFQ_In_Progress' && !isDeadlinePassed) return 'rfq';
+    if (requisition.status === 'RFQ_In_Progress' && isDeadlinePassed) return 'committee';
     if (isAccepted) {
         if (requisition.status === 'PO_Created') return 'completed';
         return 'finalize';
     }
-    if (isAwarded) {
-        return 'award';
-    }
+    if (isAwarded) return 'award';
     return 'award';
   };
   const currentStep = getCurrentStep();
@@ -2688,23 +2684,23 @@ export default function QuotationDetailsPage() {
                 open={isCommitteeDialogOpen}
                 onOpenChange={setCommitteeDialogOpen}
                 isAuthorized={isAuthorized}
+                isDeadlinePassed={isDeadlinePassed}
             />
         )}
 
 
-        {(currentStep === 'award' || currentStep === 'finalize' || currentStep === 'completed') && (
+        {(currentStep === 'award' || currentStep === 'finalize' || currentStep === 'completed' || (currentStep === 'committee' && isDeadlinePassed)) && (
             <>
                 {/* Always render committee management when in award step so dialog can open */}
-                {(currentStep === 'award' || currentStep === 'finalize' || currentStep === 'completed') && (role === 'Procurement Officer' || role === 'Committee' || role === 'Admin') && (
-                     <div className={currentStep === 'award' ? '' : 'hidden'}>
-                        <CommitteeManagement
-                            requisition={requisition}
-                            onCommitteeUpdated={fetchRequisitionAndQuotes}
-                            open={isCommitteeDialogOpen}
-                            onOpenChange={setCommitteeDialogOpen}
-                            isAuthorized={isAuthorized}
-                        />
-                    </div>
+                {(currentStep === 'committee' && isDeadlinePassed) && (role === 'Procurement Officer' || role === 'Committee' || role === 'Admin') && (
+                     <CommitteeManagement
+                        requisition={requisition}
+                        onCommitteeUpdated={fetchRequisitionAndQuotes}
+                        open={isCommitteeDialogOpen}
+                        onOpenChange={setCommitteeDialogOpen}
+                        isAuthorized={isAuthorized}
+                        isDeadlinePassed={isDeadlinePassed}
+                     />
                 )}
                 <Card>
                     <CardHeader className="flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -2813,7 +2809,7 @@ export default function QuotationDetailsPage() {
             </>
         )}
         
-        {currentStep === 'award' && (role === 'Procurement Officer' || role === 'Admin' || role === 'Committee') && quotations.length > 0 && (
+        {(currentStep === 'award' || currentStep === 'committee') && (role === 'Procurement Officer' || role === 'Admin' || role === 'Committee') && quotations.length > 0 && (
              <ScoringProgressTracker 
                 requisition={requisition}
                 quotations={quotations}
@@ -2825,7 +2821,7 @@ export default function QuotationDetailsPage() {
             />
         )}
         
-        {user.role === 'Committee Member' && currentStep === 'award' && (
+        {user.role === 'Committee Member' && (currentStep === 'award' || (currentStep === 'committee' && isDeadlinePassed)) && (
              <CommitteeActions 
                 user={user}
                 requisition={requisition}
@@ -2855,3 +2851,4 @@ export default function QuotationDetailsPage() {
     </div>
   );
 }
+
