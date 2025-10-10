@@ -941,7 +941,7 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent, isAuthorized }: { re
     const { user } = useAuth();
     const { toast } = useToast();
     
-    const isSent = requisition.status === 'RFQ In Progress' || requisition.status === 'PO Created';
+    const isSent = requisition.status === 'RFQ_In_Progress' || requisition.status === 'PO_Created' || requisition.status === 'Pending_Managerial_Approval';
 
      useEffect(() => {
         if (requisition.deadline) {
@@ -1663,7 +1663,22 @@ const ScoringProgressTracker = ({
     
     const currentApprover = allUsers.find(u => u.id === requisition.currentApproverId);
     
-    const canFinalize = user && user.id === requisition.currentApproverId;
+    const canFinalize = useMemo(() => {
+        if (!user) return false;
+        // Case 1: An approver is explicitly assigned for escalation.
+        if (requisition.currentApproverId) {
+            return user.id === requisition.currentApproverId;
+        }
+        // Case 2: No approver is assigned yet (initial approval state).
+        // Check if the current user is an authorized initial approver.
+        if (rfqSenderSetting.type === 'all') {
+            return user.role === 'Procurement Officer' || user.role === 'Admin';
+        }
+        if (rfqSenderSetting.type === 'specific') {
+            return user.id === rfqSenderSetting.userId;
+        }
+        return false;
+    }, [user, requisition.currentApproverId, rfqSenderSetting]);
 
 
     return (
@@ -1726,7 +1741,10 @@ const ScoringProgressTracker = ({
                  </Dialog>
                   {allHaveScored && !isAwarded && (
                     <div className="text-sm text-muted-foreground">
-                        {canFinalize ? "All scores are in. You can now finalize the award." : `Awaiting final award approval from ${currentApprover?.name || 'the designated approver'}.`}
+                        {canFinalize 
+                            ? "All scores are in. You can now finalize the award." 
+                            : `Awaiting final award approval from ${currentApprover?.name || 'the designated approver'}.`
+                        }
                     </div>
                  )}
             </CardFooter>
@@ -2573,17 +2591,20 @@ export default function QuotationDetailsPage() {
 
   const getCurrentStep = (): 'rfq' | 'committee' | 'award' | 'finalize' | 'completed' => {
     if (!requisition) return 'rfq';
-    if (requisition.status === 'Approved') return 'rfq';
-    if (requisition.status === 'RFQ_In_Progress' && !isDeadlinePassed) return 'rfq';
-    if (isDeadlinePassed && !requisition.committeeName) return 'committee'; // Active: deadline passed, no committee
-    if (isDeadlinePassed && requisition.committeeName && !isScoringComplete) return 'committee'; // Still active while scoring
-    if (isScoringComplete) return 'award'; // All scores are in, move to award
+    const isApproved = requisition.status === 'Approved';
+    const isRfqInProgress = requisition.status === 'RFQ_In_Progress';
+    
+    if (isApproved) return 'rfq';
+    if (isRfqInProgress && !isDeadlinePassed) return 'rfq';
+    if (isDeadlinePassed && !requisition.committeeName) return 'rfq';
+    if (isDeadlinePassed && requisition.committeeName && !isScoringComplete) return 'committee';
+    if (isScoringComplete) return 'award';
     if (isAccepted) {
-        if (requisition.status === 'PO_Created') return 'completed';
+        if (requisition.status === 'PO_Created' || requisition.status === 'Fulfilled' || requisition.status === 'Closed') return 'completed';
         return 'finalize';
     }
     if (isAwarded) return 'award';
-    return 'committee';
+    return 'rfq';
   };
   const currentStep = getCurrentStep();
   
@@ -2658,7 +2679,7 @@ export default function QuotationDetailsPage() {
             </Card>
         )}
 
-        {(currentStep === 'rfq' || (currentStep === 'committee' && !requisition.committeeName)) && (role === 'Procurement Officer' || role === 'Committee' || role === 'Admin') && (
+        {(currentStep === 'rfq') && (role === 'Procurement Officer' || role === 'Committee' || role === 'Admin') && (
             <div className="grid md:grid-cols-2 gap-6 items-start">
                 <RFQDistribution 
                     requisition={requisition} 
@@ -2666,32 +2687,20 @@ export default function QuotationDetailsPage() {
                     onRfqSent={fetchRequisitionAndQuotes}
                     isAuthorized={isAuthorized}
                 />
-                {currentStep === 'rfq' && (
-                    <Card className="border-dashed h-full">
-                        <CardHeader>
-                            <CardTitle>Committee Selection</CardTitle>
-                            <CardDescription>Committee assignment will be available after the quotation deadline has passed.</CardDescription>
-                        </CardHeader>
-                        <CardContent className="flex flex-col items-center justify-center text-center text-muted-foreground h-4/5">
-                            <Users className="h-12 w-12 mb-4" />
-                            <p>Waiting for vendor quotes...</p>
-                        </CardContent>
-                    </Card>
-                )}
-                 {currentStep === 'committee' && !requisition.committeeName && (
-                     <CommitteeManagement
-                        requisition={requisition} 
-                        onCommitteeUpdated={fetchRequisitionAndQuotes}
-                        open={isCommitteeDialogOpen}
-                        onOpenChange={setCommitteeDialogOpen}
-                        isAuthorized={isAuthorized}
-                        isDeadlinePassed={isDeadlinePassed}
-                     />
-                 )}
+                <Card className="border-dashed h-full">
+                    <CardHeader>
+                        <CardTitle>Committee Selection</CardTitle>
+                        <CardDescription>Committee assignment will be available after the quotation deadline has passed.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="flex flex-col items-center justify-center text-center text-muted-foreground h-4/5">
+                        <Users className="h-12 w-12 mb-4" />
+                        <p>Waiting for vendor quotes...</p>
+                    </CardContent>
+                </Card>
             </div>
         )}
         
-        {(currentStep === 'committee' && !!requisition.committeeName) && (role === 'Procurement Officer' || role === 'Committee' || role === 'Admin') && (
+        {(currentStep === 'committee' || (currentStep === 'award' && !isScoringComplete)) && (role === 'Procurement Officer' || role === 'Committee' || role === 'Admin') && (
             <CommitteeManagement
                 requisition={requisition} 
                 onCommitteeUpdated={fetchRequisitionAndQuotes}
@@ -2703,7 +2712,7 @@ export default function QuotationDetailsPage() {
         )}
 
 
-        {(currentStep === 'award' || currentStep === 'finalize' || currentStep === 'completed' || (currentStep === 'committee' && isDeadlinePassed && !!requisition.committeeName)) && (
+        {(currentStep === 'committee' || currentStep === 'award' || currentStep === 'finalize' || currentStep === 'completed') && (
             <>
                 <Card>
                     <CardHeader className="flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -2728,12 +2737,12 @@ export default function QuotationDetailsPage() {
                             </div>
                         </div>
                         <div className="flex items-center gap-2 w-full sm:w-auto">
-                            {isAwarded && isScoringComplete && (role === 'Procurement Officer' || role === 'Admin') && (
+                            {isAwarded && isScoringComplete && (role === 'Procurement Officer' || role === 'Admin' || role === 'Committee') && (
                                 <Button variant="secondary" onClick={() => setReportOpen(true)}>
                                     <FileBarChart2 className="mr-2 h-4 w-4" /> View Cumulative Report
                                 </Button>
                             )}
-                            {isAwarded && requisition.status !== 'PO Created' && (role === 'Procurement Officer' || role === 'Admin') && (
+                            {isAwarded && requisition.status !== 'PO Created' && (role === 'Procurement Officer' || role === 'Admin' || role === 'Committee') && (
                                 <AlertDialog>
                                     <AlertDialogTrigger asChild>
                                         <Button variant="outline" disabled={isChangingAward} className="w-full">
@@ -2812,7 +2821,7 @@ export default function QuotationDetailsPage() {
             </>
         )}
         
-        {(currentStep === 'award' || currentStep === 'committee') && (role === 'Procurement Officer' || role === 'Admin' || role === 'Committee') && quotations.length > 0 && !!requisition.committeeName && (
+        {(currentStep === 'award' || (currentStep === 'committee' && isDeadlinePassed)) && (role === 'Procurement Officer' || role === 'Admin' || role === 'Committee') && quotations.length > 0 && !!requisition.committeeName && (
              <ScoringProgressTracker 
                 requisition={requisition}
                 quotations={quotations}
@@ -2854,5 +2863,6 @@ export default function QuotationDetailsPage() {
     </div>
   );
 }
+
 
 
