@@ -46,12 +46,12 @@ async function main() {
   const allRoles = [
       { name: 'Requester', description: 'Can create purchase requisitions.' },
       { name: 'Approver', description: 'Can approve or reject requisitions.' },
-      { name: 'Procurement Officer', description: 'Manages the RFQ and PO process.' },
+      { name: 'Procurement_Officer', description: 'Manages the RFQ and PO process.' },
       { name: 'Finance', description: 'Manages invoices and payments.' },
       { name: 'Admin', description: 'System administrator with all permissions.' },
       { name: 'Receiving', description: 'Manages goods receipt notes.' },
       { name: 'Vendor', description: 'External supplier of goods/services.' },
-      { name: 'Committee Member', description: 'Scores and evaluates vendor quotations.' },
+      { name: 'Committee_Member', description: 'Scores and evaluates vendor quotations.' },
       { name: 'Committee', description: 'Manages evaluation committees.' },
   ];
 
@@ -79,7 +79,7 @@ async function main() {
       data: {
           ...userData,
           password: hashedPassword,
-          roleName: user.role, // Use roleName to link to the Role table
+          roleName: user.role.replace(/ /g, '_'), // Use roleName to link to the Role table
           departmentId: user.departmentId,
       },
     });
@@ -129,7 +129,7 @@ async function main() {
               email: vendorUser.email,
               password: hashedPassword,
               approvalLimit: vendorUser.approvalLimit,
-              roleName: vendorUser.role, // Use roleName to link to the Role table
+              roleName: vendorUser.role.replace(/ /g, '_'), // Use roleName to link to the Role table
           }
       });
       
