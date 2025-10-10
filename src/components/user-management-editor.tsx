@@ -89,19 +89,19 @@ export function UserManagementEditor() {
     },
   });
   
-  const availableRoles = Object.keys(rolePermissions).filter(role => role !== 'Vendor') as UserRole[];
+  const availableRoles = Object.keys(rolePermissions).filter(role => role !== 'Vendor') as (keyof typeof rolePermissions)[];
   
   const selectedRole = form.watch('role');
   const currentApprovalLimit = form.watch('approvalLimit');
   
-  const managerRoles: UserRole[] = ['Approver', 'Procurement Officer', 'Admin', 'Finance'];
-  const approvalRoles: UserRole[] = ['Approver', 'Procurement Officer', 'Admin', 'Finance', 'Committee Member'];
-  const showApprovalFields = approvalRoles.includes(selectedRole as UserRole);
+  const managerRoles: (keyof typeof rolePermissions)[] = ['Approver', 'Procurement_Officer', 'Admin', 'Finance'];
+  const approvalRoles: (keyof typeof rolePermissions)[] = ['Approver', 'Procurement_Officer', 'Admin', 'Finance', 'Committee_Member'];
+  const showApprovalFields = approvalRoles.includes(selectedRole as any);
 
   const potentialManagers = users.filter(
     (u) => 
       u.id !== userToEdit?.id && 
-      managerRoles.includes(u.role) &&
+      managerRoles.includes(u.role as any) &&
       (u.approvalLimit || 0) > (currentApprovalLimit || 0)
   );
 
@@ -258,7 +258,7 @@ export function UserManagementEditor() {
                                 <TableCell className="text-muted-foreground">{index + 1}</TableCell>
                                 <TableCell className="font-semibold">{user.name}</TableCell>
                                 <TableCell>{user.email}</TableCell>
-                                <TableCell>{user.role}</TableCell>
+                                <TableCell>{user.role.replace(/_/g, ' ')}</TableCell>
                                 <TableCell>{user.department}</TableCell>
                                 <TableCell className="text-right">
                                     <div className="flex gap-2 justify-end">
@@ -319,7 +319,7 @@ export function UserManagementEditor() {
                 <FormField control={form.control} name="name" render={({ field }) => ( <FormItem className="col-span-2"><FormLabel>Full Name</FormLabel><FormControl><Input placeholder="e.g. John Doe" {...field} /></FormControl><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name="email" render={({ field }) => ( <FormItem className="col-span-2"><FormLabel>Email</FormLabel><FormControl><Input type="email" placeholder="e.g. john.doe@example.com" {...field} /></FormControl><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name="password" render={({ field }) => ( <FormItem className="col-span-2"><FormLabel>Password</FormLabel><FormControl><Input type="password" placeholder={userToEdit ? "Leave blank to keep current password" : ""} {...field} /></FormControl><FormMessage /></FormItem> )} />
-                <FormField control={form.control} name="role" render={({ field }) => ( <FormItem><FormLabel>Role</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select a role" /></SelectTrigger></FormControl><SelectContent>{availableRoles.map(role => <SelectItem key={role} value={role}>{role}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)} />
+                <FormField control={form.control} name="role" render={({ field }) => ( <FormItem><FormLabel>Role</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select a role" /></SelectTrigger></FormControl><SelectContent>{availableRoles.map(role => <SelectItem key={role} value={role}>{role.replace(/_/g, ' ')}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)} />
                 <FormField control={form.control} name="departmentId" render={({ field }) => ( <FormItem><FormLabel>Department</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select a department" /></SelectTrigger></FormControl><SelectContent>{departments.map(dept => <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)} />
                 
                 {showApprovalFields && (

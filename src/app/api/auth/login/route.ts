@@ -28,7 +28,6 @@ export async function POST(request: Request) {
             
             const finalUser = {
                 ...userWithoutPassword,
-                role: user.role.replace(/_/g, ' ') as UserRole,
                 department: user.department?.name
             };
 
@@ -40,7 +39,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ 
                 user: finalUser, 
                 token: mockToken, 
-                role: user.role.replace(/_/g, ' ') as UserRole 
+                role: user.role as UserRole 
             });
         }
         

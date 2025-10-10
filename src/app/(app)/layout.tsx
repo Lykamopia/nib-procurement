@@ -39,14 +39,15 @@ export default function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { user, logout, loading, role, rolePermissions } = useAuth();
+  const { user, logout, loading, role, rolePermissions, isInitialized } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const { toast } = useToast();
 
   const accessibleNavItems = useMemo(() => {
     if (!role) return [];
-    const allowedPaths = rolePermissions[role] || [];
+    const permissionsRole = role.replace(/ /g, '_');
+    const allowedPaths = rolePermissions[permissionsRole as keyof typeof rolePermissions] || [];
     return navItems.filter(item => allowedPaths.includes(item.path));
   }, [role, rolePermissions]);
 
@@ -84,20 +85,21 @@ export default function AppLayout({
   }, [user, handleLogout]);
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (!loading && isInitialized && !user) {
       router.push('/login');
     }
-  }, [user, loading, router]);
+  }, [user, loading, isInitialized, router]);
   
   // Page-level access check
   useEffect(() => {
-    if (!loading && role) {
+    if (isInitialized && role) {
       if (role === 'Vendor') {
           return;
       }
 
       const currentPath = pathname.split('?')[0];
-      const allowedPaths = rolePermissions[role] || [];
+      const permissionsRole = role.replace(/ /g, '_');
+      const allowedPaths = rolePermissions[permissionsRole as keyof typeof rolePermissions] || [];
       
       const isAllowed = allowedPaths.includes(currentPath) || 
                         allowedPaths.some(p => currentPath.startsWith(p) && p !== '/');
@@ -111,7 +113,7 @@ export default function AppLayout({
         }
       }
     }
-  }, [pathname, loading, role, router, rolePermissions]);
+  }, [pathname, isInitialized, role, router, rolePermissions]);
 
   const pageTitle = useMemo(() => {
      const currentNavItem = navItems.find(item => {
@@ -124,7 +126,7 @@ export default function AppLayout({
     return currentNavItem?.label || 'Nib InternationalBank';
   }, [pathname]);
 
-  if (loading || !user || !role) {
+  if (!isInitialized || !user || !role) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
