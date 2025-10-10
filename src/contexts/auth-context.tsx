@@ -14,6 +14,7 @@ interface AuthContextType {
   login: (token: string, user: User, role: UserRole) => void;
   logout: () => void;
   loading: boolean;
+  isInitialized: boolean;
   switchUser: (userId: string) => void;
   updateRolePermissions: (newPermissions: Record<UserRole, string[]>) => void;
 }
@@ -26,6 +27,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [role, setRole] = useState<UserRole | null>(null);
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isInitialized, setIsInitialized] = useState(false);
   
   const initialPermissions = () => {
     const permissions: Partial<Record<UserRole, string[]>> = {};
@@ -58,9 +60,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const initializeAuth = useCallback(async () => {
-    setLoading(true);
-    const users = await fetchAllUsers();
     try {
+        const users = await fetchAllUsers();
         const storedUserJSON = localStorage.getItem('user');
         const storedToken = localStorage.getItem('authToken');
         const storedPermissions = localStorage.getItem('rolePermissions');
@@ -83,8 +84,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error) {
         console.error("Failed to initialize auth from localStorage", error);
         localStorage.clear();
+    } finally {
+        setIsInitialized(true);
+        setLoading(false);
     }
-    setLoading(false);
   }, [fetchAllUsers]);
 
   useEffect(() => {
@@ -98,6 +101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(newToken);
     setUser(loggedInUser);
     setRole(loggedInRole.replace(/_/g, ' ') as UserRole);
+    setIsInitialized(true); // Explicitly mark as initialized on login
   };
 
   const logout = () => {
@@ -107,6 +111,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(null);
     setUser(null);
     setRole(null);
+    setIsInitialized(false);
     window.location.href = '/login';
   };
   
@@ -143,9 +148,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       login,
       logout,
       loading,
+      isInitialized,
       switchUser,
       updateRolePermissions
-  }), [user, token, role, loading, allUsers, rolePermissions]);
+  }), [user, token, role, loading, isInitialized, allUsers, rolePermissions]);
 
 
   return (
@@ -162,5 +168,3 @@ export function useAuth() {
   }
   return context;
 }
-
-    

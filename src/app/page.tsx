@@ -7,11 +7,11 @@ import { useAuth } from '@/contexts/auth-context';
 import { Loader2 } from 'lucide-react';
 
 export default function HomePage() {
-  const { user, loading, role } = useAuth();
+  const { user, isInitialized, role } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading) {
+    if (isInitialized) {
       if (user) {
         if (role === 'Vendor') {
           router.push('/vendor/dashboard');
@@ -22,7 +22,7 @@ export default function HomePage() {
         router.push('/login');
       }
     }
-  }, [user, loading, role, router]);
+  }, [user, isInitialized, role, router]);
 
   return (
     <div className="flex h-screen w-full items-center justify-center">

@@ -39,7 +39,7 @@ export default function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { user, logout, loading, role, rolePermissions } = useAuth();
+  const { user, logout, isInitialized, role, rolePermissions } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const { toast } = useToast();
@@ -84,14 +84,14 @@ export default function AppLayout({
   }, [user, handleLogout]);
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (isInitialized && !user) {
       router.push('/login');
     }
-  }, [user, loading, router]);
+  }, [user, isInitialized, router]);
   
   // Page-level access check
   useEffect(() => {
-    if (!loading && role) {
+    if (isInitialized && role) {
       if (role === 'Vendor') {
           return;
       }
@@ -111,7 +111,7 @@ export default function AppLayout({
         }
       }
     }
-  }, [pathname, loading, role, router, rolePermissions]);
+  }, [pathname, isInitialized, role, router, rolePermissions]);
 
   const pageTitle = useMemo(() => {
      const currentNavItem = navItems.find(item => {
@@ -124,7 +124,7 @@ export default function AppLayout({
     return currentNavItem?.label || 'Nib InternationalBank';
   }, [pathname]);
 
-  if (loading || !user || !role) {
+  if (!isInitialized || !user || !role) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />

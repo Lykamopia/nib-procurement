@@ -29,21 +29,21 @@ export default function VendorLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { user, logout, loading, role } = useAuth();
+  const { user, logout, isInitialized, role } = useAuth();
   const router = useRouter();
 
   React.useEffect(() => {
-    if (!loading) {
+    if (isInitialized) {
         if (!user) {
             router.push('/login');
         } else if (role !== 'Vendor') {
             router.push('/dashboard'); // Redirect non-vendors away
         }
     }
-  }, [user, loading, role, router]);
+  }, [user, isInitialized, role, router]);
 
 
-  if (loading || !user) {
+  if (!isInitialized || !user) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
