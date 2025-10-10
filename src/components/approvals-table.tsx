@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -83,7 +82,7 @@ export function ApprovalsTable() {
   };
 
   useEffect(() => {
-    if (user?.role === 'Approver' || user?.approvalLimit) {
+    if (user) {
         fetchRequisitions();
     } else {
         setLoading(false);
@@ -104,9 +103,7 @@ export function ApprovalsTable() {
   const submitAction = async () => {
     if (!selectedRequisition || !actionType || !user) return;
     
-    // Determine the correct new status based on context
     let newStatus = actionType === 'approve' ? 'Approved' : 'Rejected';
-
 
     try {
       const response = await fetch(`/api/requisitions`, {
@@ -117,7 +114,6 @@ export function ApprovalsTable() {
             status: newStatus, 
             userId: user.id, 
             comment,
-            isManagerialApproval: selectedRequisition.status === 'Pending Managerial Approval'
         }),
       });
       if (!response.ok) throw new Error(`Failed to ${actionType} requisition`);
@@ -166,9 +162,9 @@ export function ApprovalsTable() {
     <>
     <Card>
       <CardHeader>
-        <CardTitle>Pending Approvals</CardTitle>
+        <CardTitle>My Approval Queue</CardTitle>
         <CardDescription>
-          Review and act on items waiting for your approval.
+          Review and act on items assigned to you.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -180,7 +176,7 @@ export function ApprovalsTable() {
                 <TableHead>Req. ID</TableHead>
                 <TableHead>Title</TableHead>
                 <TableHead>Requester</TableHead>
-                <TableHead>Type</TableHead>
+                <TableHead>Current Status</TableHead>
                 <TableHead>Urgency</TableHead>
                 <TableHead>Created At</TableHead>
                 <TableHead>Actions</TableHead>
@@ -195,11 +191,7 @@ export function ApprovalsTable() {
                       <TableCell>{req.title}</TableCell>
                       <TableCell>{req.requesterName}</TableCell>
                       <TableCell>
-                          {req.status === 'Pending Managerial Approval' ? (
-                              <Badge variant="destructive">Award Approval</Badge>
-                          ) : (
-                              <Badge variant="secondary">Requisition Approval</Badge>
-                          )}
+                          <Badge variant="secondary">{req.status}</Badge>
                       </TableCell>
                        <TableCell>
                         <Badge variant={getUrgencyVariant(req.urgency)}>{req.urgency}</Badge>
@@ -324,3 +316,5 @@ export function ApprovalsTable() {
     </>
   );
 }
+
+    

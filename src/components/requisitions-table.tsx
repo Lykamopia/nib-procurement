@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -164,7 +163,8 @@ export function RequisitionsTable() {
         return (
           req.title.toLowerCase().includes(lowerCaseSearch) ||
           req.id.toLowerCase().includes(lowerCaseSearch) ||
-          (req.requesterName && req.requesterName.toLowerCase().includes(lowerCaseSearch))
+          (req.requesterName && req.requesterName.toLowerCase().includes(lowerCaseSearch)) ||
+          (req.currentApprover?.name && req.currentApprover.name.toLowerCase().includes(lowerCaseSearch))
         );
       })
       .filter(req => statusFilter === 'all' || req.status.replace(/ /g, '_') === statusFilter)
@@ -179,20 +179,12 @@ export function RequisitionsTable() {
 
 
   const getStatusVariant = (status: string) => {
-    switch (status.replace(/_/g, ' ')) {
-      case 'Approved':
-        return 'default';
-      case 'Pending Approval':
-        return 'secondary';
-      case 'Pending Managerial Approval':
-        return 'secondary';
-      case 'Rejected':
-        return 'destructive';
-      case 'Draft':
-        return 'outline';
-      default:
-        return 'outline';
-    }
+    const s = status.toLowerCase();
+    if (s.includes('approve')) return 'default';
+    if (s.includes('pending')) return 'secondary';
+    if (s.includes('reject')) return 'destructive';
+    if (s.includes('draft')) return 'outline';
+    return 'outline';
   };
 
   const getUrgencyVariant = (urgency: Urgency) => {
@@ -224,21 +216,23 @@ export function RequisitionsTable() {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search by title, ID, or requester..."
+              placeholder="Search by title, ID, or user..."
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
               className="pl-10"
             />
           </div>
           <Select value={statusFilter} onValueChange={value => setStatusFilter(value as any)}>
-            <SelectTrigger className="w-full sm:w-[180px]">
+            <SelectTrigger className="w-full sm:w-[220px]">
               <SelectValue placeholder="Filter by status" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Statuses</SelectItem>
               <SelectItem value="Draft">Draft</SelectItem>
-              <SelectItem value="Pending_Approval">Pending Approval</SelectItem>
-              <SelectItem value="Pending_Managerial_Approval">Pending Managerial Approval</SelectItem>
+              <SelectItem value="Pending_Division_Manager_Approval">Pending Division Manager Approval</SelectItem>
+              <SelectItem value="Pending_Department_Director_Approval">Pending Department Director Approval</SelectItem>
+              <SelectItem value="Pending_Procurement_Director_Approval">Pending Procurement Director Approval</SelectItem>
+              <SelectItem value="Pending_Procurement_Division_Manager_Approval">Pending Procurement Division Mgr. Approval</SelectItem>
               <SelectItem value="Approved">Approved</SelectItem>
               <SelectItem value="Rejected">Rejected</SelectItem>
               <SelectItem value="PO_Created">PO Created</SelectItem>
@@ -271,11 +265,10 @@ export function RequisitionsTable() {
                 <TableHead>Req. ID</TableHead>
                 <TableHead>Title</TableHead>
                 <TableHead>Requester</TableHead>
-                <TableHead>Department</TableHead>
+                <TableHead>Current Approver</TableHead>
                 <TableHead>Urgency</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Created At</TableHead>
-                <TableHead>Deadline</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -287,7 +280,7 @@ export function RequisitionsTable() {
                     <TableCell className="font-medium text-primary">{req.id}</TableCell>
                     <TableCell>{req.title}</TableCell>
                     <TableCell>{req.requesterName}</TableCell>
-                    <TableCell>{req.department}</TableCell>
+                    <TableCell>{req.currentApprover?.name || 'N/A'}</TableCell>
                      <TableCell>
                       <Badge variant={getUrgencyVariant(req.urgency)}>{req.urgency}</Badge>
                     </TableCell>
@@ -309,9 +302,6 @@ export function RequisitionsTable() {
                       </div>
                     </TableCell>
                     <TableCell>{format(new Date(req.createdAt), 'PP')}</TableCell>
-                    <TableCell>
-                        {req.deadline ? format(new Date(req.deadline), 'PP') : 'N/A'}
-                    </TableCell>
                     <TableCell className="text-right">
                        <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -338,7 +328,7 @@ export function RequisitionsTable() {
                                 Submit for Approval
                               </DropdownMenuItem>
                             )}
-                            {(req.status === 'Draft' || req.status === 'Pending_Approval') && req.requesterId === user?.id && (
+                            {(req.status === 'Draft' || req.status.startsWith('Pending')) && req.requesterId === user?.id && (
                               <>
                                 <DropdownMenuSeparator />
                                  <AlertDialog>
@@ -370,7 +360,7 @@ export function RequisitionsTable() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={10} className="h-48 text-center">
+                  <TableCell colSpan={9} className="h-48 text-center">
                     <div className="flex flex-col items-center gap-4">
                         <ListX className="h-16 w-16 text-muted-foreground/50" />
                         <div className="space-y-1">
@@ -438,3 +428,5 @@ export function RequisitionsTable() {
     </>
   );
 }
+
+    

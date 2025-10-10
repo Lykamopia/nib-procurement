@@ -1,10 +1,9 @@
 
-
 'use client';
 
 import React, { createContext, useContext, useState, ReactNode, useEffect, useMemo, useCallback } from 'react';
 import { User, UserRole } from '@/lib/types';
-import { rolePermissions as defaultRolePermissions } from '@/lib/roles';
+import { rolePermissions as defaultRolePermissions, allRoles } from '@/lib/roles';
 
 interface AuthContextType {
   user: User | null;
@@ -27,7 +26,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [role, setRole] = useState<UserRole | null>(null);
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
-  const [rolePermissions, setRolePermissions] = useState<Record<UserRole, string[]>>(defaultRolePermissions);
+  
+  const initialPermissions = () => {
+    const permissions: Partial<Record<UserRole, string[]>> = {};
+    allRoles.forEach(r => {
+        permissions[r] = defaultRolePermissions[r] || [];
+    });
+    return permissions as Record<UserRole, string[]>;
+  };
+
+  const [rolePermissions, setRolePermissions] = useState<Record<UserRole, string[]>>(initialPermissions());
 
 
   const fetchAllUsers = useCallback(async () => {
@@ -63,11 +71,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             
             setUser(fullUser);
             setToken(storedToken);
-            setRole(fullUser.role);
+            setRole(fullUser.role.replace(/_/g, ' ') as UserRole);
         }
 
         if (storedPermissions) {
             setRolePermissions(JSON.parse(storedPermissions));
+        } else {
+            setRolePermissions(initialPermissions());
         }
 
     } catch (error) {
@@ -87,7 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('role', loggedInRole);
     setToken(newToken);
     setUser(loggedInUser);
-    setRole(loggedInRole);
+    setRole(loggedInRole.replace(/_/g, ' ') as UserRole);
   };
 
   const logout = () => {
@@ -152,3 +162,5 @@ export function useAuth() {
   }
   return context;
 }
+
+    

@@ -1,5 +1,4 @@
 
-
 export type UserRole =
   | 'Requester'
   | 'Approver'
@@ -9,7 +8,19 @@ export type UserRole =
   | 'Receiving'
   | 'Vendor'
   | 'Committee Member'
-  | 'Committee';
+  | 'Committee'
+  | 'Division_Manager'
+  | 'Department_Director'
+  | 'Procurement_Director'
+  | 'Procurement_Division_Manager'
+  | 'Committee_Leader'
+  | 'CEO'
+  | 'Chief'
+  | 'Deputy_Chief'
+  | 'Senior_Director'
+  | 'Senior_Officer'
+  | 'Officer'
+  | 'Junior';
 
 export type CommitteeAssignment = {
   requisitionId: string;
@@ -42,14 +53,22 @@ export type Department = {
 
 export type RequisitionStatus =
   | 'Draft'
-  | 'Pending Approval'
-  | 'Approved'
+  | 'Pending_Division_Manager_Approval'
+  | 'Pending_Department_Director_Approval'
+  | 'Pending_Procurement_Director_Approval'
+  | 'Pending_Procurement_Division_Manager_Approval'
+  | 'Pending_Committee_Leader_Assignment'
+  | 'Pending_Committee_Evaluation'
+  | 'Evaluation_Complete'
+  | 'Approved' // Approved for RFQ
   | 'Rejected'
-  | 'RFQ In Progress'
-  | 'PO Created'
+  | 'RFQ_In_Progress'
+  | 'PO_Created'
   | 'Fulfilled'
   | 'Closed'
-  | 'Pending Managerial Approval';
+  | 'Pending_Managerial_Approval'
+  | 'Pending Approval';
+
 
 export type Urgency = 'Low' | 'Medium' | 'High' | 'Critical';
 
@@ -121,6 +140,7 @@ export type PurchaseRequisition = {
   approverId?: string;
   approverComment?: string;
   currentApproverId?: string;
+  currentApprover?: User;
   quotations?: Quotation[];
   contract?: {
       fileName: string;
@@ -138,6 +158,7 @@ export type PurchaseRequisition = {
   evaluationCriteria?: EvaluationCriteria;
   financialCommitteeMemberIds?: string[];
   technicalCommitteeMemberIds?: string[];
+  assignedProcurementOfficerId?: string;
   committeeName?: string;
   committeePurpose?: string;
   cpoAmount?: number;
@@ -358,3 +379,5 @@ export type DocumentRecord = {
     transactionId: string;
     auditTrail?: AuditLog[];
 }
+
+    

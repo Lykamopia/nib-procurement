@@ -42,6 +42,15 @@ export const navItems: NavItem[] = [
   { path: '/settings', label: 'Settings', icon: Settings },
 ];
 
+export const allRoles: UserRole[] = [
+  'Requester', 'Approver', 'Procurement Officer', 'Finance', 'Admin',
+  'Receiving', 'Vendor', 'Committee Member', 'Committee', 'Division_Manager',
+  'Department_Director', 'Procurement_Director', 'Procurement_Division_Manager',
+  'Committee_Leader', 'CEO', 'Chief', 'Deputy_Chief', 'Senior_Director',
+  'Senior_Officer', 'Officer', 'Junior'
+];
+
+
 export const rolePermissions: Record<UserRole, string[]> = {
   Admin: navItems.map(item => item.path), // Admin has access to all pages
   'Procurement Officer': [
@@ -92,4 +101,18 @@ export const rolePermissions: Record<UserRole, string[]> = {
     '/quotations',
     '/records'
   ],
+  'Division_Manager': ['/dashboard', '/approvals', '/requisitions'],
+  'Department_Director': ['/dashboard', '/approvals', '/requisitions'],
+  'Procurement_Director': ['/dashboard', '/approvals', '/quotations', '/records', '/audit-log'],
+  'Procurement_Division_Manager': ['/dashboard', '/approvals', '/quotations'],
+  'Committee_Leader': ['/dashboard', '/quotations'],
+  'CEO': navItems.map(item => item.path),
+  'Chief': navItems.map(item => item.path),
+  'Deputy_Chief': navItems.map(item => item.path),
+  'Senior_Director': ['/dashboard', '/approvals', '/requisitions', '/records'],
+  'Senior_Officer': ['/dashboard', '/requisitions'],
+  'Officer': ['/dashboard', '/requisitions'],
+  'Junior': ['/dashboard', '/new-requisition'],
 };
+
+    
