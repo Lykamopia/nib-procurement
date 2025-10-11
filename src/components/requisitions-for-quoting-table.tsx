@@ -39,16 +39,26 @@ export function RequisitionsForQuotingTable() {
 
   useEffect(() => {
     const fetchRequisitions = async () => {
+        if (!user || !role) return;
         try {
             setLoading(true);
-            let response = await fetch('/api/requisitions');
+            let response;
+            if (role === 'Committee_A_Member') {
+                response = await fetch('/api/requisitions?status=Pending_Committee_A_Recommendation');
+            } else if (role === 'Committee_B_Member') {
+                response = await fetch('/api/requisitions?status=Pending_Committee_B_Review');
+            } else {
+                 response = await fetch('/api/requisitions');
+            }
+            
             if (!response.ok) {
                 throw new Error('Failed to fetch requisitions');
             }
+            
             let data: PurchaseRequisition[] = await response.json();
             
              // For Committee Members, only show requisitions they are assigned to.
-            if (role === 'Committee Member' && user) {
+            if (role === 'Committee Member') {
                 data = data.filter(r => 
                     (r.financialCommitteeMemberIds?.includes(user.id)) ||
                     (r.technicalCommitteeMemberIds?.includes(user.id))
@@ -118,19 +128,34 @@ export function RequisitionsForQuotingTable() {
     return <Badge variant="outline">{req.status}</Badge>;
   }
 
+  const getPageTitle = () => {
+    if (role === 'Committee_A_Member' || role === 'Committee_B_Member') {
+      return 'Requisitions Pending Your Review';
+    }
+    if (role === 'Committee Member') {
+      return 'Requisitions Assigned for Scoring';
+    }
+    return 'Requisitions in Quotation';
+  }
+
+  const getPageDescription = () => {
+    if (role === 'Committee_A_Member' || role === 'Committee_B_Member') {
+      return 'Review the winning bid and provide your recommendation for these high-value procurements.';
+    }
+    if (role === 'Committee Member') {
+      return 'Requisitions assigned to you for technical and financial scoring.';
+    }
+    return 'Manage requisitions that are in the quotation, scoring, and award process.';
+  }
+
   if (loading) return <div className="flex h-64 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   if (error) return <div className="text-destructive">Error: {error}</div>;
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Requisitions in Quotation</CardTitle>
-        <CardDescription>
-          {role === 'Committee Member' 
-            ? 'Requisitions assigned to you for scoring.'
-            : 'Manage requisitions that are in the quotation, scoring, and award process.'
-          }
-        </CardDescription>
+        <CardTitle>{getPageTitle()}</CardTitle>
+        <CardDescription>{getPageDescription()}</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="border rounded-md">
@@ -162,7 +187,7 @@ export function RequisitionsForQuotingTable() {
                     </TableCell>
                     <TableCell className="text-right">
                        <Button variant="outline" size="sm">
-                          {role === 'Committee Member' ? 'View & Score' : 'Manage'} <ArrowRight className="ml-2 h-4 w-4" />
+                          {role === 'Committee Member' ? 'View & Score' : (role === 'Committee_A_Member' || role === 'Committee_B_Member' ? 'Review & Recommend' : 'Manage')} <ArrowRight className="ml-2 h-4 w-4" />
                        </Button>
                     </TableCell>
                   </TableRow>
@@ -175,8 +200,8 @@ export function RequisitionsForQuotingTable() {
                       <div className="space-y-1">
                         <p className="font-semibold">No Requisitions Found</p>
                         <p className="text-muted-foreground">
-                            {role === 'Committee Member'
-                                ? 'There are no requisitions currently assigned to you for scoring.'
+                            {role?.includes('Committee')
+                                ? 'There are no requisitions currently assigned to you for review or scoring.'
                                 : 'There are no requisitions currently in the RFQ process.'
                             }
                         </p>
@@ -190,7 +215,7 @@ export function RequisitionsForQuotingTable() {
         </div>
          <div className="flex items-center justify-between mt-4">
           <div className="text-sm text-muted-foreground">
-            Page {currentPage} of {totalPages} ({requisitions.length} total requisitions)
+            Page {currentPage} of {totalPages || 1} ({requisitions.length} total requisitions)
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="icon" onClick={() => setCurrentPage(1)} disabled={currentPage === 1}><ChevronsLeft /></Button>
@@ -203,3 +228,4 @@ export function RequisitionsForQuotingTable() {
     </Card>
   );
 }
+

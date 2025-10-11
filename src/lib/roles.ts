@@ -94,12 +94,13 @@ export const rolePermissions: Record<UserRole, string[]> = {
   ],
   'Committee_A_Member': [
     '/dashboard',
-    '/quotations', // or a new review page
-    '/records',
+    '/quotations',
+    '/records'
   ],
   'Committee_B_Member': [
-      '/dashboard',
-      '/quotations', // or a new review page
-      '/records',
+    '/dashboard',
+    '/quotations',
+    '/records'
   ],
 };
+
