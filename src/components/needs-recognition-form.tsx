@@ -1,8 +1,7 @@
-
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useFieldArray, useForm, useFormContext } from 'react-hook-form';
+import { useFieldArray, useForm } from 'react-hook-form';
 import * as z from 'zod';
 
 import { Button } from '@/components/ui/button';
@@ -25,7 +24,7 @@ import {
   CardTitle,
   CardDescription,
 } from './ui/card';
-import { PlusCircle, Trash2, Loader2, Send, Percent, Info } from 'lucide-react';
+import { PlusCircle, Trash2, Loader2, Send } from 'lucide-react';
 import { Separator } from './ui/separator';
 import {
   Select,
@@ -36,13 +35,8 @@ import {
 } from './ui/select';
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/auth-context';
-import { cn } from '@/lib/utils';
 import { PurchaseRequisition, Urgency } from '@/lib/types';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
-import { Slider } from './ui/slider';
-import { Badge } from './ui/badge';
-import { Switch } from './ui/switch';
-
 
 const formSchema = z.object({
   requesterName: z.string().min(2, 'Name must be at least 2 characters.'),
