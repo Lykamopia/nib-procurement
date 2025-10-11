@@ -12,7 +12,7 @@ export async function POST(
   const requisitionId = params.id;
   try {
     const body = await request.json();
-    const { userId, recommendation } = body;
+    const { userId, recommendation, comment } = body;
 
     const user: User | null = await prisma.user.findUnique({ where: { id: userId } });
     if (!user || (user.role !== 'Committee_A_Member' && user.role !== 'Committee_B_Member')) {
@@ -26,14 +26,6 @@ export async function POST(
     if (!requisition) {
       return NextResponse.json({ error: 'Requisition not found' }, { status: 404 });
     }
-    
-    // Check if the winning quote exists
-    const winningQuote = await prisma.quotation.findFirst({
-        where: { requisitionId: requisitionId, rank: 1 }
-    });
-    if (!winningQuote) {
-        return NextResponse.json({ error: 'Winning quote not found.' }, { status: 400 });
-    }
 
     // Save the recommendation
     await prisma.committeeRecommendation.create({
@@ -42,20 +34,32 @@ export async function POST(
             user: { connect: { id: userId } },
             committeeRole: user.role,
             recommendation,
+            comment,
         }
     });
+    
+    let nextStatus: any = 'Pending_Final_Approval';
+    let nextApproverId: string | null | undefined = requisition.requester?.manager?.id;
+    let auditDetails = `Submitted recommendation for requisition ${requisitionId}. Recommendation: ${recommendation}.`;
+    
+    if (recommendation === 'Recommend for Approval') {
+        const poOfficer = await prisma.user.findFirst({where: {role: 'Procurement_Officer'}});
+        nextApproverId = poOfficer?.managerId || poOfficer?.id; // Fallback to PO if no manager
+        auditDetails += ` Requisition now pending final approval from management.`
+    } else {
+        // 'Request Changes' - send back to Procurement Officer
+        const poOfficer = await prisma.user.findFirst({where: {role: 'Procurement_Officer'}});
+        nextStatus = 'Approved'; // Reset to a state where PO can re-evaluate
+        nextApproverId = poOfficer?.id;
+        auditDetails += ` Changes requested. Requisition returned to Procurement Officer.`
+    }
 
-    // All committee reviews are done, now escalate for final financial approval
-    // In a real system, the starting point of this hierarchy would be more complex
-    // For now, let's assume it goes to the Procurement Officer's manager if one exists
-    const poOfficer = await prisma.user.findFirst({where: {role: 'Procurement_Officer'}});
-    let finalApproverId = poOfficer?.managerId || poOfficer?.id; // Fallback to PO if no manager
 
     const updatedRequisition = await prisma.purchaseRequisition.update({
       where: { id: requisitionId },
       data: {
-        status: 'Pending_Final_Approval',
-        currentApproverId: finalApproverId,
+        status: nextStatus,
+        currentApproverId: nextApproverId,
       },
     });
 
@@ -66,7 +70,7 @@ export async function POST(
             action: 'SUBMIT_RECOMMENDATION',
             entity: 'Requisition',
             entityId: requisitionId,
-            details: `Submitted recommendation from ${user.role}. Requisition now pending final approval.`,
+            details: auditDetails,
         }
     });
 
@@ -79,6 +83,3 @@ export async function POST(
     return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
   }
 }
-
-
-    

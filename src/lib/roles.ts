@@ -17,6 +17,7 @@ import {
   Settings,
   Wallet,
   Clock,
+  ClipboardCheck,
 } from 'lucide-react';
 import { ComponentType } from 'react';
 
@@ -28,7 +29,7 @@ export interface NavItem {
 
 export const navItems: NavItem[] = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { path: '/coming-soon', label: 'Coming Soon', icon: Clock },
+  { path: '/reviews', label: 'Reviews', icon: ClipboardCheck },
   { path: '/new-requisition', label: 'New Requisition', icon: FilePlus },
   { path: '/requisitions', label: 'Requisitions', icon: FileText },
   { path: '/approvals', label: 'Approvals', icon: GanttChartSquare },
@@ -89,17 +90,12 @@ export const rolePermissions: Record<UserRole, string[]> = {
     '/records',
   ],
   Vendor: [],
-  'Committee Member': [
-    '/dashboard',
-    '/quotations',
-    '/records'
-  ],
   'Committee A Member': [
-    '/dashboard',
-    '/approvals',
+    '/reviews',
     '/records'
   ],
   'Committee B Member': [
-      '/coming-soon'
+      '/reviews',
+      '/records'
   ],
 };
