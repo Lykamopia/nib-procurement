@@ -59,7 +59,7 @@ async function main() {
 
   // Seed Roles
   for (const role of allRoles) {
-      await prisma.role.create({ data: { name: role.name.replace(/ /g, '_'), description: role.description } });
+      await prisma.role.create({ data: { name: role.name, description: role.description } });
   }
   console.log('Seeded roles.');
 
@@ -343,7 +343,7 @@ async function main() {
         });
 
         if (items) {
-            for (const item of items) {
+            for (const item of item) {
                 await prisma.receiptItem.create({
                     data: {
                         ...item,
