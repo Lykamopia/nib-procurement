@@ -27,6 +27,7 @@ async function main() {
   await prisma.customQuestion.deleteMany({});
   await prisma.requisitionItem.deleteMany({});
   await prisma.committeeAssignment.deleteMany({});
+  await prisma.committeeRecommendation.deleteMany({});
   await prisma.contract.deleteMany({});
   await prisma.purchaseRequisition.deleteMany({});
   await prisma.kYC_Document.deleteMany({});
@@ -53,6 +54,8 @@ async function main() {
       { name: 'Vendor', description: 'External supplier of goods/services.' },
       { name: 'Committee Member', description: 'Scores and evaluates vendor quotations.' },
       { name: 'Committee', description: 'Manages evaluation committees.' },
+      { name: 'Committee A Member', description: 'Reviews high-value awards.' },
+      { name: 'Committee B Member', description: 'Reviews mid-value awards.' },
   ];
 
   // Seed Roles
@@ -79,7 +82,7 @@ async function main() {
       data: {
           ...userData,
           password: hashedPassword,
-          role: userData.role, // Assign role as a string
+          role: userData.role.replace(/ /g, '_') as any, // Assign role as a string
           departmentId: user.departmentId,
       },
     });
@@ -129,7 +132,7 @@ async function main() {
               email: vendorUser.email,
               password: hashedPassword,
               approvalLimit: vendorUser.approvalLimit,
-              role: vendorUser.role, // Assign role as a string
+              role: vendorUser.role.replace(/ /g, '_') as any, // Assign role as a string
           }
       });
       
@@ -247,7 +250,7 @@ async function main() {
        const createdQuote = await prisma.quotation.create({
            data: {
                ...quoteData,
-               status: quoteData.status.replace(/_/g, '_') as any,
+               status: quoteData.status.replace(/ /g, '_') as any,
                deliveryDate: new Date(quoteData.deliveryDate),
                createdAt: new Date(quoteData.createdAt),
                vendor: { connect: { id: vendorId } },
@@ -311,7 +314,7 @@ async function main() {
         const createdInvoice = await prisma.invoice.create({
             data: {
                 ...invoiceData,
-                status: invoiceData.status.replace(/_/g, '_') as any,
+                status: invoiceData.status.replace(/ /g, '_') as any,
                 invoiceDate: new Date(invoiceData.invoiceDate),
                 paymentDate: invoiceData.paymentDate ? new Date(invoiceData.paymentDate) : undefined,
             }
