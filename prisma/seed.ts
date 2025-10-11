@@ -47,20 +47,20 @@ async function main() {
   const allRoles = [
       { name: 'Requester', description: 'Can create purchase requisitions.' },
       { name: 'Approver', description: 'Can approve or reject requisitions.' },
-      { name: 'Procurement Officer', description: 'Manages the RFQ and PO process.' },
+      { name: 'Procurement_Officer', description: 'Manages the RFQ and PO process.' },
       { name: 'Finance', description: 'Manages invoices and payments.' },
       { name: 'Admin', description: 'System administrator with all permissions.' },
       { name: 'Receiving', description: 'Manages goods receipt notes.' },
       { name: 'Vendor', description: 'External supplier of goods/services.' },
-      { name: 'Committee Member', description: 'Scores and evaluates vendor quotations.' },
+      { name: 'Committee_Member', description: 'Scores and evaluates vendor quotations.' },
       { name: 'Committee', description: 'Manages evaluation committees.' },
-      { name: 'Committee A Member', description: 'Reviews high-value awards.' },
-      { name: 'Committee B Member', description: 'Reviews mid-value awards.' },
+      { name: 'Committee_A_Member', description: 'Reviews high-value awards.' },
+      { name: 'Committee_B_Member', description: 'Reviews mid-value awards.' },
   ];
 
   // Seed Roles
   for (const role of allRoles) {
-      await prisma.role.create({ data: role });
+      await prisma.role.create({ data: { ...role, name: role.name.replace(/ /g, '_') } });
   }
   console.log('Seeded roles.');
 
@@ -136,20 +136,16 @@ async function main() {
           }
       });
       
-      // Then create the vendor and link it to the user
+    // Then create the vendor and link it to the user
     const createdVendor = await prisma.vendor.create({
       data: {
           ...vendorData,
           kycStatus: vendorData.kycStatus.replace(/ /g, '_') as any,
+          userId: createdUser.id, // Provide the scalar userId directly
           user: { connect: { id: createdUser.id } }
       },
     });
 
-    // Now, update the user with the vendorId
-    await prisma.user.update({
-        where: { id: createdUser.id },
-        data: { vendorId: createdVendor.id }
-    });
 
     if (kycDocuments) {
         for (const doc of kycDocuments) {
