@@ -29,7 +29,7 @@ export async function POST(
     }
 
     const user: User | null = await prisma.user.findUnique({where: {id: userId}});
-    if (!user || (user.role !== 'Procurement_Officer' && user.role !== 'Committee')) {
+    if (!user || (user.role !== 'Procurement_Officer')) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
     

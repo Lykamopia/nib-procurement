@@ -1,5 +1,4 @@
 
-
 import type { PurchaseRequisition, AuditLog, Vendor, Quotation, PurchaseOrder, GoodsReceiptNote, Invoice, User, Department } from './types';
 
 export interface AppData {
@@ -90,7 +89,8 @@ const seedData: AppData = {
             createdAt: new Date('2023-10-01T10:00:00Z'),
             updatedAt: new Date('2023-10-05T11:30:00Z'),
             quotations: [],
-            committeeMemberIds: ['9', '10'],
+            financialCommitteeMemberIds: ['9'],
+            technicalCommitteeMemberIds: ['10'],
         },
         {
             id: `REQ-1672617600`,
@@ -231,7 +231,6 @@ const seedData: AppData = {
         { id: '8', name: 'Office Depot', email: 'vendor@officedepot.com', password: 'password123', role: 'Vendor', vendorId: 'VENDOR-003', approvalLimit: 0 },
         { id: '9', name: 'Fiona', email: 'fiona@example.com', password: 'password123', role: 'Committee Member', departmentId: 'DEPT-1', department: 'Design', approvalLimit: 0 },
         { id: '10', name: 'George', email: 'george@example.com', password: 'password123', role: 'Committee Member', departmentId: 'DEPT-3', department: 'IT', approvalLimit: 0 },
-        { id: '11', name: 'Hannah', email: 'hannah@example.com', password: 'password123', role: 'Committee', departmentId: 'DEPT-2', department: 'Operations', approvalLimit: 0 },
         { id: '12', name: 'Diana', email: 'diana@example.com', password: 'password123', role: 'Admin', departmentId: 'DEPT-2', department: 'Operations', approvalLimit: 1000000 },
         { id: '13', name: 'Ian (Committee A)', email: 'ian@example.com', password: 'password123', role: 'Committee A Member', departmentId: 'DEPT-5', department: 'Finance', approvalLimit: 0 },
         { id: '14', name: 'Jane (Committee B)', email: 'jane@example.com', password: 'password123', role: 'Committee B Member', departmentId: 'DEPT-2', department: 'Operations', approvalLimit: 0 },

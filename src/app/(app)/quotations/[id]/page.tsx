@@ -2633,7 +2633,7 @@ export default function QuotationDetailsPage() {
             </Card>
         )}
 
-        {currentStep === 'rfq' && (role === 'Procurement Officer' || role === 'Committee') && (
+        {currentStep === 'rfq' && (role === 'Procurement Officer' || role === 'Admin') && (
             <div className="grid md:grid-cols-2 gap-6 items-start">
                 <RFQDistribution 
                     requisition={requisition} 
@@ -2654,7 +2654,7 @@ export default function QuotationDetailsPage() {
             </div>
         )}
         
-        {currentStep === 'committee' && (role === 'Procurement Officer' || role === 'Committee') && (
+        {currentStep === 'committee' && (role === 'Procurement Officer' || role === 'Admin') && (
             <CommitteeManagement
                 requisition={requisition} 
                 onCommitteeUpdated={fetchRequisitionAndQuotes}
@@ -2786,7 +2786,7 @@ export default function QuotationDetailsPage() {
             </>
         )}
         
-        {currentStep === 'award' && (role === 'Procurement Officer' || role === 'Committee') && quotations.length > 0 && role === 'Procurement Officer' && (
+        {currentStep === 'award' && (role === 'Procurement Officer' || role === 'Admin') && quotations.length > 0 && (
              <ScoringProgressTracker 
                 requisition={requisition}
                 quotations={quotations}

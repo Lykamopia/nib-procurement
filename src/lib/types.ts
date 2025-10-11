@@ -7,10 +7,9 @@ export type UserRole =
   | 'Admin'
   | 'Receiving'
   | 'Vendor'
-  | 'Committee Member'
-  | 'Committee'
-  | 'Committee A Member'
-  | 'Committee B Member';
+  | 'Committee Member' // Evaluators like Fiona and George
+  | 'Committee A Member' // Reviewers
+  | 'Committee B Member'; // Reviewers
 
 export type CommitteeAssignment = {
   requisitionId: string;
@@ -363,5 +362,3 @@ export type DocumentRecord = {
     transactionId: string;
     auditTrail?: AuditLog[];
 }
-
-    
