@@ -80,39 +80,24 @@ export async function tallyAndAwardScores(
         }
     });
     
-    // --- HIERARCHICAL APPROVAL LOGIC ---
-    if (actor && actor.approvalLimit !== null && totalAwardValue > (actor.approvalLimit || 0)) {
-        if (!actor.managerId) {
-            // This is the highest level, but their limit is still exceeded.
-            throw new Error(`Award value of ${totalAwardValue.toLocaleString()} ETB exceeds the final approver's limit of ${(actor.approvalLimit || 0).toLocaleString()} ETB.`);
-        }
-        
-        // Escalate to the manager
-        await prisma.purchaseRequisition.update({
-            where: { id: requisitionId },
-            data: {
-                status: 'Pending_Managerial_Approval',
-                currentApproverId: actor.managerId,
-            }
-        });
-
-        // Log the escalation
-        await prisma.auditLog.create({
-            data: {
-                timestamp: new Date(),
-                user: { connect: { id: actor.id } },
-                action: 'ESCALATE_AWARD',
-                entity: 'Requisition',
-                entityId: requisitionId,
-                details: `Award value of ${totalAwardValue.toLocaleString()} ETB exceeds approval limit. Escalated to manager.`,
-            }
-        });
-
-        // Stop the award process here; it's now waiting for the manager.
-        return { success: true, message: "Award requires managerial approval and has been escalated.", escalated: true };
-    }
+    const committeeConfig = { A: { min: 200001, max: Infinity }, B: { min: 10000, max: 200000 } };
+    let nextStatus: any = 'Approved'; // Default for < 10k
     
-    // --- PROCEED WITH AWARD ---
+    if (totalAwardValue >= committeeConfig.B.min && totalAwardValue <= committeeConfig.B.max) {
+        nextStatus = 'Pending_Committee_B_Review';
+    } else if (totalAwardValue >= committeeConfig.A.min) {
+        nextStatus = 'Pending_Committee_A_Recommendation';
+    }
+
+    if (nextStatus !== 'Approved') {
+         await prisma.purchaseRequisition.update({
+            where: { id: requisitionId },
+            data: { status: nextStatus, totalPrice: totalAwardValue }
+        });
+        return { success: true, message: `Scores tallied. Requisition sent for ${nextStatus.replace(/_/g, ' ')}.`, escalated: true };
+    }
+
+    // --- PROCEED WITH DIRECT AWARD FOR LOW-VALUE ITEMS ---
 
     const awardedQuoteItemIds = Object.values(awards).flatMap((award: any) => award.items.map((item: any) => item.quoteItemId));
 
@@ -226,7 +211,7 @@ export async function tallyAndAwardScores(
          }
     }
 
-    return { success: true, message: "Scores tallied and awards processed.", escalated: false };
+    return { success: true, message: "Scores tallied and awards processed for low-value item.", escalated: false };
 }
 
 export async function POST(
@@ -236,19 +221,17 @@ export async function POST(
   const requisitionId = params.id;
   try {
     const body = await request.json();
-    const { userId, awardResponseDeadline, awardStrategy, awards } = body;
+    const { userId, awardResponseDeadline } = body;
 
     const user: User | null = await prisma.user.findUnique({where: {id: userId}});
     if (!user) {
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    if (user.role !== 'Procurement_Officer' && user.role !== 'Admin') {
+    if (user.role !== 'Procurement_Officer' && user.role !== 'Admin' && user.role !== 'Committee') {
         return NextResponse.json({ error: 'Unauthorized to finalize awards.' }, { status: 403 });
     }
     
-    // Note: The `tallyAndAwardScores` function now contains all the logic, including handling escalation.
-    // The `awards` parameter from the client is now effectively a suggestion that will be overridden if the strategy is 'all'.
     const result = await tallyAndAwardScores(
         requisitionId, 
         awardResponseDeadline ? new Date(awardResponseDeadline) : undefined,
@@ -259,19 +242,16 @@ export async function POST(
         throw new Error(result.message);
     }
     
-    // If not escalated, log the finalization. If it was, the escalation is already logged.
-    if (!result.escalated) {
-        await prisma.auditLog.create({
-            data: {
-                timestamp: new Date(),
-                user: { connect: { id: user.id } },
-                action: 'FINALIZE_SCORES',
-                entity: 'Requisition',
-                entityId: requisitionId,
-                details: `Finalized scores and distributed awards for requisition ${requisitionId}.`,
-            }
-        });
-    }
+    await prisma.auditLog.create({
+        data: {
+            timestamp: new Date(),
+            user: { connect: { id: user.id } },
+            action: 'FINALIZE_SCORES',
+            entity: 'Requisition',
+            entityId: requisitionId,
+            details: `Finalized scores for requisition ${requisitionId}. Result: ${result.message}`,
+        }
+    });
 
     return NextResponse.json({ message: result.message });
   } catch (error) {
@@ -282,3 +262,5 @@ export async function POST(
     return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
   }
 }
+
+    

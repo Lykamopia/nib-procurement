@@ -1239,64 +1239,58 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent, isAuthorized }: { re
     );
 };
 
-const WorkflowStepper = ({ step }: { step: 'rfq' | 'committee' | 'award' | 'finalize' | 'completed' }) => {
-     const getStepClass = (currentStep: string, targetStep: string) => {
-        const stepOrder = ['rfq', 'committee', 'award', 'finalize', 'completed'];
-        const currentIndex = stepOrder.indexOf(currentStep);
-        const targetIndex = stepOrder.indexOf(targetStep);
-        if (currentIndex > targetIndex) return 'completed';
-        if (currentIndex === targetIndex) return 'active';
-        return 'inactive';
+const WorkflowStepper = ({ step, currentStatus }: { step: string; currentStatus: string; }) => {
+    const steps = [
+        { id: 'rfq', label: 'Send RFQ', statuses: ['Approved', 'RFQ In Progress'] },
+        { id: 'committee', label: 'Assign Committee', statuses: [] }, // This is a manual step after deadline
+        { id: 'review', label: 'Committee Review', statuses: ['Pending Committee B Review', 'Pending Committee A Recommendation'] },
+        { id: 'approval', label: 'Final Approval', statuses: ['Pending Final Approval'] },
+        { id: 'award', label: 'Award & Finalize', statuses: ['PO Created', 'Awarded', 'Accepted'] },
+    ];
+
+    const getCurrentStepIndex = () => {
+        if (['Pending Committee B Review', 'Pending Committee A Recommendation'].includes(currentStatus)) return 2;
+        if (currentStatus === 'Pending Final Approval') return 3;
+        if (['PO Created', 'Awarded', 'Accepted'].includes(currentStatus)) return 4;
+        if (step === 'award') return 4; // Fallback
+        if (step === 'committee') return 1;
+        return 0;
     };
-
-    const rfqState = getStepClass(step, 'rfq');
-    const committeeState = getStepClass(step, 'committee');
-    const awardState = getStepClass(step, 'award');
-    const finalizeState = getStepClass(step, 'finalize');
-
-    const stateClasses = {
-        active: 'bg-primary text-primary-foreground border-primary',
-        completed: 'bg-green-500 text-white border-green-500',
-        inactive: 'border-border text-muted-foreground'
-    };
-
-    const textClasses = {
-        active: 'text-primary',
-        completed: 'text-muted-foreground',
-        inactive: 'text-muted-foreground'
-    }
+    
+    const activeIndex = getCurrentStepIndex();
 
     return (
         <div className="flex items-center justify-center space-x-1 sm:space-x-2 flex-wrap">
-            <div className="flex items-center gap-2">
-                <div className={cn("flex h-6 w-6 items-center justify-center rounded-full border text-xs font-semibold", stateClasses[rfqState])}>
-                    {rfqState === 'completed' ? <Check className="h-4 w-4"/> : '1'}
-                </div>
-                <span className={cn("font-medium", textClasses[rfqState])}>Send RFQ</span>
-            </div>
-             <div className={cn("h-px flex-1 bg-border transition-colors", (committeeState === 'active' || committeeState === 'completed') && "bg-primary")}></div>
+            {steps.map((step, index) => {
+                const isActive = index === activeIndex;
+                const isCompleted = index < activeIndex;
+                const state = isCompleted ? 'completed' : isActive ? 'active' : 'inactive';
 
-            <div className="flex items-center gap-2">
-                <div className={cn("flex h-6 w-6 items-center justify-center rounded-full border text-xs font-semibold", stateClasses[committeeState])}>
-                    {committeeState === 'completed' ? <Check className="h-4 w-4"/> : '2'}
-                </div>
-                <span className={cn("font-medium", textClasses[committeeState])}>Assign Committee &amp; Score</span>
-            </div>
-             <div className={cn("h-px flex-1 bg-border transition-colors", (awardState === 'active' || awardState === 'completed') && "bg-primary")}></div>
-
-            <div className="flex items-center gap-2">
-                <div className={cn("flex h-6 w-6 items-center justify-center rounded-full border text-xs font-semibold", stateClasses[awardState])}>
-                    {awardState === 'completed' ? <Check className="h-4 w-4"/> : '3'}
-                </div>
-                <span className={cn("font-medium", textClasses[awardState])}>Award</span>
-            </div>
-            <div className={cn("h-px flex-1 bg-border transition-colors", (finalizeState === 'active' || finalizeState === 'completed') && "bg-primary")}></div>
-             <div className="flex items-center gap-2">
-                <div className={cn("flex h-6 w-6 items-center justify-center rounded-full border text-xs font-semibold", stateClasses[finalizeState])}>
-                    {finalizeState === 'completed' ? <Check className="h-4 w-4"/> : '4'}
-                </div>
-                <span className={cn("font-medium", textClasses[finalizeState])}>Finalize</span>
-            </div>
+                const stateClasses = {
+                    active: 'bg-primary text-primary-foreground border-primary',
+                    completed: 'bg-green-500 text-white border-green-500',
+                    inactive: 'border-border text-muted-foreground'
+                };
+                const textClasses = {
+                    active: 'text-primary',
+                    completed: 'text-muted-foreground',
+                    inactive: 'text-muted-foreground'
+                }
+                
+                return (
+                     <React.Fragment key={step.id}>
+                        <div className="flex items-center gap-2">
+                            <div className={cn("flex h-6 w-6 items-center justify-center rounded-full border text-xs font-semibold", stateClasses[state])}>
+                                {isCompleted ? <Check className="h-4 w-4"/> : index + 1}
+                            </div>
+                            <span className={cn("font-medium", textClasses[state])}>{step.label}</span>
+                        </div>
+                        {index < steps.length - 1 && (
+                            <div className={cn("h-px flex-1 bg-border transition-colors", (isCompleted || isActive) && "bg-primary")}></div>
+                        )}
+                    </React.Fragment>
+                );
+            })}
         </div>
     );
 };
@@ -2323,6 +2317,89 @@ const CommitteeActions = ({
     );
 };
 
+const CommitteeReview = ({ requisition, onRecommendationSubmit }: { requisition: PurchaseRequisition; onRecommendationSubmit: () => void; }) => {
+    const { user } = useAuth();
+    const { toast } = useToast();
+    const [recommendation, setRecommendation] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    const winningQuote = useMemo(() => {
+        return requisition.quotations?.sort((a, b) => (b.finalAverageScore || 0) - (a.finalAverageScore || 0))[0];
+    }, [requisition.quotations]);
+
+    if (!user || !['Committee_A_Member', 'Committee_B_Member'].includes(user.role)) {
+        return null;
+    }
+    
+    const handleSubmit = async () => {
+        if (!recommendation.trim()) {
+            toast({ variant: 'destructive', title: 'Error', description: 'A recommendation comment is required.' });
+            return;
+        }
+        setIsSubmitting(true);
+        try {
+            const response = await fetch(`/api/requisitions/${requisition.id}/recommend`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: user.id, recommendation, status: requisition.status }),
+            });
+            if (!response.ok) {
+                 const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to submit recommendation.');
+            }
+            toast({ title: 'Recommendation Submitted', description: 'The requisition has been forwarded for final approval.' });
+            onRecommendationSubmit();
+        } catch(error) {
+            toast({ variant: 'destructive', title: 'Error', description: error instanceof Error ? error.message : 'An unknown error occurred.' });
+        } finally {
+            setIsSubmitting(false);
+        }
+    }
+
+
+    return (
+        <Card className="mt-6 border-amber-500/50">
+            <CardHeader>
+                <CardTitle>Committee Review & Recommendation</CardTitle>
+                <CardDescription>
+                    As a member of Procurement Committee {user.role.includes('A') ? 'A' : 'B'}, please review the winning bid and provide your official recommendation.
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                 {winningQuote ? (
+                    <Card className="bg-muted/30">
+                        <CardHeader>
+                            <CardTitle className="text-lg">Winning Bid Summary</CardTitle>
+                        </CardHeader>
+                         <CardContent className="space-y-2 text-sm">
+                            <p><strong>Vendor:</strong> {winningQuote.vendorName}</p>
+                            <p><strong>Final Score:</strong> {winningQuote.finalAverageScore?.toFixed(2)}</p>
+                            <p><strong>Total Price:</strong> {winningQuote.totalPrice.toLocaleString()} ETB</p>
+                         </CardContent>
+                    </Card>
+                ) : <p className="text-muted-foreground">Could not determine winning bid.</p>}
+                 <div>
+                    <Label htmlFor="recommendation">Your Recommendation</Label>
+                    <Textarea 
+                        id="recommendation"
+                        value={recommendation}
+                        onChange={(e) => setRecommendation(e.target.value)}
+                        placeholder="e.g., 'Recommend for approval. The price is within budget and the vendor has high scores.'..."
+                        className="mt-2"
+                        rows={4}
+                    />
+                 </div>
+            </CardContent>
+            <CardFooter>
+                 <Button onClick={handleSubmit} disabled={isSubmitting || !recommendation.trim()}>
+                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                    Submit Recommendation &amp; Escalate
+                </Button>
+            </CardFooter>
+        </Card>
+    )
+}
+
 
 export default function QuotationDetailsPage() {
   const router = useRouter();
@@ -2535,30 +2612,31 @@ export default function QuotationDetailsPage() {
       fetchRequisitionAndQuotes();
   }
 
-  const getCurrentStep = (): 'rfq' | 'committee' | 'award' | 'finalize' | 'completed' => {
+  const getCurrentStep = (): string => {
     if (!requisition) return 'rfq';
-    if (requisition.status === 'Approved') {
-        return 'rfq';
+    const status = requisition.status.replace(/ /g, '_');
+    
+    switch (status) {
+        case 'Approved':
+            return 'rfq';
+        case 'RFQ_In_Progress':
+            if (isDeadlinePassed) return 'committee';
+            return 'rfq';
+        case 'Pending_Committee_B_Review':
+        case 'Pending_Committee_A_Recommendation':
+            return 'review';
+        case 'Pending_Final_Approval':
+            return 'approval';
+        case 'PO_Created':
+        case 'Fulfilled':
+        case 'Closed':
+            return 'completed';
+        default:
+            if (isAwarded) return 'award';
+            if (isScoringComplete) return 'award';
+            if (isDeadlinePassed) return 'committee';
+            return 'rfq';
     }
-    if (requisition.status === 'RFQ In Progress' && !isDeadlinePassed) {
-        return 'rfq';
-    }
-     if (requisition.status === 'RFQ In Progress' && isDeadlinePassed) {
-        const anyCommittee = (requisition.financialCommitteeMemberIds && requisition.financialCommitteeMemberIds.length > 0) || 
-                             (requisition.technicalCommitteeMemberIds && requisition.technicalCommitteeMemberIds.length > 0);
-        if (!anyCommittee) {
-            return 'committee';
-        }
-        return 'award';
-    }
-    if (isAccepted) {
-        if (requisition.status === 'PO Created') return 'completed';
-        return 'finalize';
-    }
-    if (isAwarded) {
-        return 'award';
-    }
-    return 'award';
   };
   const currentStep = getCurrentStep();
   
@@ -2602,7 +2680,7 @@ export default function QuotationDetailsPage() {
         </Button>
         
         <Card className="p-4 sm:p-6">
-            <WorkflowStepper step={currentStep} />
+            <WorkflowStepper step={currentStep} currentStatus={requisition.status} />
         </Card>
         
         {prevAwardedFailed && (
@@ -2633,7 +2711,7 @@ export default function QuotationDetailsPage() {
             </Card>
         )}
 
-        {currentStep === 'rfq' && (role === 'Procurement Officer' || role === 'Committee') && (
+        {(currentStep === 'rfq') && (role === 'Procurement Officer' || role === 'Committee' || role === 'Admin') && (
             <div className="grid md:grid-cols-2 gap-6 items-start">
                 <RFQDistribution 
                     requisition={requisition} 
@@ -2654,7 +2732,7 @@ export default function QuotationDetailsPage() {
             </div>
         )}
         
-        {currentStep === 'committee' && (role === 'Procurement Officer' || role === 'Committee') && (
+        {currentStep === 'committee' && (role === 'Procurement Officer' || role === 'Committee' || role === 'Admin') && (
             <CommitteeManagement
                 requisition={requisition} 
                 onCommitteeUpdated={fetchRequisitionAndQuotes}
@@ -2663,12 +2741,15 @@ export default function QuotationDetailsPage() {
                 isAuthorized={isAuthorized}
             />
         )}
+        
+        {role?.includes('Committee_') && ['review', 'approval'].includes(currentStep) && (
+            <CommitteeReview requisition={requisition} onRecommendationSubmit={fetchRequisitionAndQuotes} />
+        )}
 
 
-        {(currentStep === 'award' || currentStep === 'finalize' || currentStep === 'completed') && (
+        {(currentStep === 'award' || currentStep === 'finalize' || currentStep === 'completed' || currentStep === 'review' || currentStep === 'approval') && (
             <>
-                {/* Always render committee management when in award step so dialog can open */}
-                {(currentStep === 'award' || currentStep === 'finalize' || currentStep === 'completed') && role === 'Procurement Officer' && (
+                {(role === 'Procurement Officer' || role === 'Admin') && (
                      <div className="hidden">
                         <CommitteeManagement
                             requisition={requisition}
@@ -2702,12 +2783,12 @@ export default function QuotationDetailsPage() {
                             </div>
                         </div>
                         <div className="flex items-center gap-2 w-full sm:w-auto">
-                            {isAwarded && isScoringComplete && role === 'Procurement Officer' && (
+                            {isAwarded && isScoringComplete && (role === 'Procurement Officer' || role === 'Admin') && (
                                 <Button variant="secondary" onClick={() => setReportOpen(true)}>
                                     <FileBarChart2 className="mr-2 h-4 w-4" /> View Cumulative Report
                                 </Button>
                             )}
-                            {isAwarded && requisition.status !== 'PO Created' && role === 'Procurement Officer' && (
+                            {isAwarded && requisition.status !== 'PO Created' && (role === 'Procurement Officer' || role === 'Admin') && (
                                 <AlertDialog>
                                     <AlertDialogTrigger asChild>
                                         <Button variant="outline" disabled={isChangingAward} className="w-full">
@@ -2786,7 +2867,7 @@ export default function QuotationDetailsPage() {
             </>
         )}
         
-        {currentStep === 'award' && (role === 'Procurement Officer' || role === 'Committee') && quotations.length > 0 && role === 'Procurement Officer' && (
+        {isScoringComplete && !isAwarded && (role === 'Procurement Officer' || role === 'Committee' || role === 'Admin') && quotations.length > 0 && (
              <ScoringProgressTracker 
                 requisition={requisition}
                 quotations={quotations}
@@ -2798,7 +2879,7 @@ export default function QuotationDetailsPage() {
             />
         )}
         
-        {user.role === 'Committee Member' && currentStep === 'award' && (
+        {user.role === 'Committee Member' && isDeadlinePassed && !isScoringComplete && (
              <CommitteeActions 
                 user={user}
                 requisition={requisition}
@@ -2828,6 +2909,8 @@ export default function QuotationDetailsPage() {
     </div>
   );
 }
+    
+
     
 
     
