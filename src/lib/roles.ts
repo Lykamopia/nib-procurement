@@ -16,6 +16,7 @@ import {
   History,
   Settings,
   Wallet,
+  Clock,
 } from 'lucide-react';
 import { ComponentType } from 'react';
 
@@ -27,6 +28,7 @@ export interface NavItem {
 
 export const navItems: NavItem[] = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { path: '/coming-soon', label: 'Coming Soon', icon: Clock },
   { path: '/new-requisition', label: 'New Requisition', icon: FilePlus },
   { path: '/requisitions', label: 'Requisitions', icon: FileText },
   { path: '/approvals', label: 'Approvals', icon: GanttChartSquare },
@@ -43,7 +45,7 @@ export const navItems: NavItem[] = [
 ];
 
 export const rolePermissions: Record<UserRole, string[]> = {
-  Admin: navItems.map(item => item.path), // Admin has access to all pages
+  Admin: navItems.map(item => item.path),
   'Procurement Officer': [
     '/dashboard',
     '/new-requisition',
@@ -58,7 +60,7 @@ export const rolePermissions: Record<UserRole, string[]> = {
     '/audit-log',
     '/settings',
   ],
-  'Committee': [
+  Committee: [
     '/dashboard',
     '/quotations',
     '/records',
@@ -86,10 +88,18 @@ export const rolePermissions: Record<UserRole, string[]> = {
     '/receive-goods',
     '/records',
   ],
-  Vendor: [], // Vendor has a separate layout, no access to the main app layout
+  Vendor: [],
   'Committee Member': [
     '/dashboard',
     '/quotations',
     '/records'
+  ],
+  'Committee A Member': [
+    '/dashboard',
+    '/approvals',
+    '/records'
+  ],
+  'Committee B Member': [
+      '/coming-soon'
   ],
 };
