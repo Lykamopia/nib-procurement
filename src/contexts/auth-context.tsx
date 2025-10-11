@@ -118,16 +118,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [initializeAuth]);
 
   const login = (newToken: string, loggedInUser: User, loggedInRole: UserRole) => {
-    let normalizedRole = loggedInRole.replace(/_/g, ' ');
-    if (normalizedRole === 'Committee A Member') normalizedRole = 'Committee A Member';
-    if (normalizedRole === 'Committee B Member') normalizedRole = 'Committee B Member';
-    const userWithNormalizedRole = { ...loggedInUser, role: normalizedRole as UserRole };
+    let normalizedRole = loggedInRole;
+    if (loggedInRole === 'Committee_A_Member') {
+        normalizedRole = 'Committee A Member' as UserRole;
+    } else if (loggedInRole === 'Committee_B_Member') {
+        normalizedRole = 'Committee B Member' as UserRole;
+    } else {
+        normalizedRole = loggedInRole.replace(/_/g, ' ') as UserRole;
+    }
+    
+    const userWithNormalizedRole = { ...loggedInUser, role: normalizedRole };
 
     localStorage.setItem('authToken', newToken);
     localStorage.setItem('user', JSON.stringify(userWithNormalizedRole));
     setToken(newToken);
     setUser(userWithNormalizedRole);
-    setRole(normalizedRole as UserRole);
+    setRole(normalizedRole);
   };
 
   const logout = () => {
@@ -171,15 +177,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const updateUserRole = async (userId: string, newRole: UserRole) => {
     const userToUpdate = allUsers.find(u => u.id === userId);
-    if (!userToUpdate) return;
+    if (!userToUpdate || !user) return;
     
     try {
         const response = await fetch('/api/users', {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ...userToUpdate, role: newRole, actorUserId: user?.id })
+            body: JSON.stringify({ 
+              ...userToUpdate,
+              role: newRole, 
+              actorUserId: user.id 
+            })
         });
-        if (!response.ok) throw new Error("Failed to update role");
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || "Failed to update role");
+        }
         await fetchAllUsers(); // re-fetch all users to get the updated list
     } catch (e) {
         console.error(e);

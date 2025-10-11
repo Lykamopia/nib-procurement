@@ -36,8 +36,8 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'Action performing user not found' }, { status: 404 });
     }
 
-    if (!name || !email || !password || !role || !departmentId) {
-      return NextResponse.json({ error: 'All fields are required' }, { status: 400 });
+    if (!name || !email || !password || !role) {
+      return NextResponse.json({ error: 'Name, email, password, and role are required' }, { status: 400 });
     }
 
     const existingUser = await prisma.user.findUnique({ where: { email } });
@@ -53,7 +53,7 @@ export async function POST(request: Request) {
             email,
             password: hashedPassword,
             role: role.replace(/ /g, '_'),
-            department: { connect: { id: departmentId } },
+            department: departmentId ? { connect: { id: departmentId } } : undefined,
             approvalLimit,
             manager: managerId && managerId !== 'null' ? { connect: { id: managerId } } : undefined,
         }
@@ -90,8 +90,8 @@ export async function PATCH(request: Request) {
         return NextResponse.json({ error: 'Action performing user not found' }, { status: 404 });
     }
 
-    if (!id || !name || !email || !role || !departmentId) {
-      return NextResponse.json({ error: 'User ID and all fields are required' }, { status: 400 });
+    if (!id || !name || !email || !role) {
+      return NextResponse.json({ error: 'User ID, name, email, and role are required' }, { status: 400 });
     }
     
     const oldUser = await prisma.user.findUnique({ where: { id } });
@@ -103,9 +103,12 @@ export async function PATCH(request: Request) {
         name,
         email,
         role: role.replace(/ /g, '_'),
-        department: { connect: { id: departmentId } },
         approvalLimit: approvalLimit,
     };
+
+    if (departmentId) {
+        updateData.department = { connect: { id: departmentId } };
+    }
     
     if (managerId && managerId !== 'null') {
       updateData.manager = { connect: { id: managerId } };
