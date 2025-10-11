@@ -233,6 +233,8 @@ const seedData: AppData = {
         { id: '10', name: 'George', email: 'george@example.com', password: 'password123', role: 'Committee Member', departmentId: 'DEPT-3', department: 'IT', approvalLimit: 0 },
         { id: '11', name: 'Hannah', email: 'hannah@example.com', password: 'password123', role: 'Committee', departmentId: 'DEPT-2', department: 'Operations', approvalLimit: 0 },
         { id: '12', name: 'Diana', email: 'diana@example.com', password: 'password123', role: 'Admin', departmentId: 'DEPT-2', department: 'Operations', approvalLimit: 1000000 },
+        { id: '13', name: 'Ian (Committee A)', email: 'ian@example.com', password: 'password123', role: 'Committee A Member', departmentId: 'DEPT-5', department: 'Finance', approvalLimit: 0 },
+        { id: '14', name: 'Jane (Committee B)', email: 'jane@example.com', password: 'password123', role: 'Committee B Member', departmentId: 'DEPT-2', department: 'Operations', approvalLimit: 0 },
     ],
     departments: [
         { id: 'DEPT-1', name: 'Design', description: 'Handles all creative and design tasks.', headId: '1' },
