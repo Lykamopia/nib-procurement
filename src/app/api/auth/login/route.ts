@@ -25,28 +25,28 @@ export async function POST(request: Request) {
         
         const passwordMatch = user.password && await bcrypt.compare(password, user.password);
 
-        if (passwordMatch) {
-            const { password: _, ...userWithoutPassword } = user;
-            
-            const finalUser = {
-                ...userWithoutPassword,
-                role: user.role.replace(/_/g, ' ') as UserRole,
-                department: user.department?.name
-            };
-
-            // Create a more robust mock token
-            const userString = JSON.stringify(finalUser);
-            const base64User = Buffer.from(userString).toString('base64');
-            const mockToken = `mock-token-for-${base64User}__TS__${Date.now()}`;
-
-            return NextResponse.json({ 
-                user: finalUser, 
-                token: mockToken, 
-                role: user.role.replace(/_/g, ' ') as UserRole 
-            });
+        if (!passwordMatch) {
+            return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
         }
         
-        return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
+        const { password: _, ...userWithoutPassword } = user;
+        
+        const finalUser = {
+            ...userWithoutPassword,
+            role: user.role.replace(/_/g, ' ') as UserRole,
+            department: user.department?.name
+        };
+
+        // Create a more robust mock token
+        const userString = JSON.stringify(finalUser);
+        const base64User = Buffer.from(userString).toString('base64');
+        const mockToken = `mock-token-for-${base64User}__TS__${Date.now()}`;
+
+        return NextResponse.json({ 
+            user: finalUser, 
+            token: mockToken, 
+            role: user.role.replace(/_/g, ' ') as UserRole 
+        });
 
     } catch (error) {
         console.error('Login error:', error);
