@@ -37,7 +37,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [rfqSenderSetting, setRfqSenderSetting] = useState<RfqSenderSetting>({ type: 'all' });
 
   const normalizeRole = (roleName: string): UserRole => {
-      return roleName.replace(/_/g, ' ') as UserRole;
+    // This handles "Procurement_Officer" -> "Procurement Officer"
+    // and "Committee_A_Member" -> "Committee A Member"
+    return roleName.replace(/_/g, ' ') as UserRole;
   }
 
   const fetchAllUsers = useCallback(async () => {
@@ -47,6 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const usersData = await response.json();
             const usersWithAssignments = usersData.map((u: any) => ({
                 ...u,
+                role: normalizeRole(u.role),
                 committeeAssignments: u.committeeAssignments || [],
             }));
             setAllUsers(usersWithAssignments);
@@ -97,12 +100,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [initializeAuth]);
 
   const login = (newToken: string, loggedInUser: User, loggedInRole: UserRole) => {
+    const normalizedRole = normalizeRole(loggedInUser.role);
     localStorage.setItem('authToken', newToken);
-    localStorage.setItem('user', JSON.stringify(loggedInUser));
-    localStorage.setItem('role', loggedInRole); // Store the raw role
+    localStorage.setItem('user', JSON.stringify({ ...loggedInUser, role: normalizedRole }));
+    localStorage.setItem('role', normalizedRole);
     setToken(newToken);
-    setUser(loggedInUser);
-    setRole(normalizeRole(loggedInRole)); // Set the normalized role in state
+    setUser({ ...loggedInUser, role: normalizedRole });
+    setRole(normalizedRole);
   };
 
   const logout = () => {
@@ -118,6 +122,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const switchUser = async (userId: string) => {
       const targetUser = allUsers.find(u => u.id === userId);
       if (targetUser) {
+          // The role in `allUsers` is already normalized, so we need the raw version for login
+          const rawRole = targetUser.role.replace(/ /g, '_');
           const response = await fetch('/api/auth/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
