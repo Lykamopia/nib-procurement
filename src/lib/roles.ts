@@ -95,7 +95,7 @@ export const rolePermissions: Record<UserRole, string[]> = {
     '/records'
   ],
   'Committee B Member': [
-      '/reviews',
-      '/records'
+    '/reviews',
+    '/records'
   ],
 };
