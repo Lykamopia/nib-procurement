@@ -69,7 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.error("Failed to fetch all users", error);
         return [];
     }
-  }, []);
+  }, []); // The dependency array is intentionally left empty to prevent re-fetching on every render.
 
   const initializeAuth = useCallback(async () => {
     setLoading(true);
