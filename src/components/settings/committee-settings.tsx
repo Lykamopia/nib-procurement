@@ -15,8 +15,8 @@ import { ScrollArea } from '../ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 
 interface CommitteeConfig {
-    min: number;
-    max: number;
+    A: { min: number, max: number },
+    B: { min: number, max: number },
 }
 
 export function CommitteeSettings() {
@@ -66,9 +66,16 @@ export function CommitteeSettings() {
     }
 
     const renderCommitteeSection = (committee: 'A' | 'B') => {
-        const role: UserRole = `Committee_${committee}_Member`;
-        const members = allUsers.filter(u => u.role === role);
-        const nonMembers = allUsers.filter(u => u.role !== role && u.role !== 'Admin' && u.role !== 'Vendor')
+        const currentRole: UserRole = `Committee_${committee}_Member`;
+        const otherRole: UserRole = committee === 'A' ? 'Committee_B_Member' : 'Committee_A_Member';
+        const members = allUsers.filter(u => u.role === currentRole);
+
+        const nonMembers = allUsers.filter(u => 
+                u.role !== currentRole && 
+                u.role !== otherRole && 
+                u.role !== 'Admin' && 
+                u.role !== 'Vendor'
+            )
             .filter(u => departmentFilters[committee.toLowerCase() as 'a'|'b'] === 'all' || u.departmentId === departmentFilters[committee.toLowerCase() as 'a'|'b'])
             .filter(u => u.name.toLowerCase().includes(searchTerms[committee.toLowerCase() as 'a'|'b'].toLowerCase()));
 
@@ -134,7 +141,7 @@ export function CommitteeSettings() {
                                                 <p className="text-xs text-muted-foreground">{user.department}</p>
                                             </div>
                                         </div>
-                                        <Button size="sm" variant="outline" onClick={() => handleRoleChange(user, role)}><UserCheck className="h-4 w-4 mr-2" /> Add</Button>
+                                        <Button size="sm" variant="outline" onClick={() => handleRoleChange(user, currentRole)}><UserCheck className="h-4 w-4 mr-2" /> Add</Button>
                                     </div>
                                 ))}
                              </ScrollArea>
@@ -158,5 +165,3 @@ export function CommitteeSettings() {
         </div>
     );
 }
-
-    

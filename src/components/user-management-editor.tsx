@@ -68,13 +68,12 @@ const userEditFormSchema = userFormSchema.extend({
 type UserFormValues = z.infer<typeof userFormSchema>;
 
 export function UserManagementEditor() {
-  const [users, setUsers] = useState<User[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isDialogOpen, setDialogOpen] = useState(false);
   const [userToEdit, setUserToEdit] = useState<User | null>(null);
   const { toast } = useToast();
-  const { user: actor } = useAuth();
+  const { user: actor, allUsers, fetchAllUsers } = useAuth();
 
   const form = useForm<UserFormValues>({
     resolver: zodResolver(userToEdit ? userEditFormSchema : userFormSchema),
@@ -94,11 +93,11 @@ export function UserManagementEditor() {
   const selectedRole = form.watch('role');
   const currentApprovalLimit = form.watch('approvalLimit');
   
-  const managerRoles: UserRole[] = ['Approver', 'Procurement Officer', 'Admin', 'Finance'];
-  const approvalRoles: UserRole[] = ['Approver', 'Procurement Officer', 'Admin', 'Finance', 'Committee Member'];
-  const showApprovalFields = approvalRoles.includes(selectedRole as UserRole);
+  const managerRoles: UserRole[] = ['Approver', 'Procurement_Officer', 'Admin', 'Finance', 'Committee', 'Committee_A_Member', 'Committee_B_Member'];
+  const approvalRoles: UserRole[] = ['Approver', 'Procurement_Officer', 'Admin', 'Finance', 'Committee_Member', 'Committee', 'Committee_A_Member', 'Committee_B_Member'];
+  const showApprovalFields = approvalRoles.some(r => selectedRole?.replace(/ /g, '_').startsWith(r));
 
-  const potentialManagers = users.filter(
+  const potentialManagers = allUsers.filter(
     (u) => 
       u.id !== userToEdit?.id && 
       managerRoles.includes(u.role) &&
@@ -109,14 +108,10 @@ export function UserManagementEditor() {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const [usersResponse, deptsResponse] = await Promise.all([
-        fetch('/api/users'),
-        fetch('/api/departments'),
-      ]);
-      if (!usersResponse.ok || !deptsResponse.ok) throw new Error('Failed to fetch data');
-      const usersData = await usersResponse.json();
+      await fetchAllUsers();
+      const deptsResponse = await fetch('/api/departments');
+      if (!deptsResponse.ok) throw new Error('Failed to fetch departments');
       const deptsData = await deptsResponse.json();
-      setUsers(usersData);
       setDepartments(deptsData);
     } catch (error) {
       toast({ variant: 'destructive', title: 'Error', description: 'Could not load user data.' });
@@ -246,19 +241,19 @@ export function UserManagementEditor() {
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {isLoading && users.length === 0 ? (
+                    {isLoading && allUsers.length === 0 ? (
                          <TableRow>
                             <TableCell colSpan={6} className="h-24 text-center">
                                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground mx-auto" />
                             </TableCell>
                         </TableRow>
-                    ) : users.length > 0 ? (
-                        users.map((user, index) => (
+                    ) : allUsers.length > 0 ? (
+                        allUsers.map((user, index) => (
                             <TableRow key={user.id}>
                                 <TableCell className="text-muted-foreground">{index + 1}</TableCell>
                                 <TableCell className="font-semibold">{user.name}</TableCell>
                                 <TableCell>{user.email}</TableCell>
-                                <TableCell>{user.role}</TableCell>
+                                <TableCell>{user.role.replace(/_/g, ' ')}</TableCell>
                                 <TableCell>{user.department}</TableCell>
                                 <TableCell className="text-right">
                                     <div className="flex gap-2 justify-end">
@@ -319,7 +314,7 @@ export function UserManagementEditor() {
                 <FormField control={form.control} name="name" render={({ field }) => ( <FormItem className="col-span-2"><FormLabel>Full Name</FormLabel><FormControl><Input placeholder="e.g. John Doe" {...field} /></FormControl><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name="email" render={({ field }) => ( <FormItem className="col-span-2"><FormLabel>Email</FormLabel><FormControl><Input type="email" placeholder="e.g. john.doe@example.com" {...field} /></FormControl><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name="password" render={({ field }) => ( <FormItem className="col-span-2"><FormLabel>Password</FormLabel><FormControl><Input type="password" placeholder={userToEdit ? "Leave blank to keep current password" : ""} {...field} /></FormControl><FormMessage /></FormItem> )} />
-                <FormField control={form.control} name="role" render={({ field }) => ( <FormItem><FormLabel>Role</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select a role" /></SelectTrigger></FormControl><SelectContent>{availableRoles.map(role => <SelectItem key={role} value={role}>{role}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)} />
+                <FormField control={form.control} name="role" render={({ field }) => ( <FormItem><FormLabel>Role</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select a role" /></SelectTrigger></FormControl><SelectContent>{availableRoles.map(role => <SelectItem key={role} value={role.replace(/ /g, '_')}>{role.replace(/_/g, ' ')}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)} />
                 <FormField control={form.control} name="departmentId" render={({ field }) => ( <FormItem><FormLabel>Department</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select a department" /></SelectTrigger></FormControl><SelectContent>{departments.map(dept => <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)} />
                 
                 {showApprovalFields && (

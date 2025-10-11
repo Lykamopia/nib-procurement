@@ -1,10 +1,10 @@
 
-
 'use client';
 
 import React, { createContext, useContext, useState, ReactNode, useEffect, useMemo, useCallback } from 'react';
 import { User, UserRole } from '@/lib/types';
 import { rolePermissions as defaultRolePermissions } from '@/lib/roles';
+import { useToast } from '@/hooks/use-toast';
 
 export interface RfqSenderSetting {
   type: 'all' | 'specific';
@@ -30,8 +30,9 @@ interface AuthContextType {
   switchUser: (userId: string) => void;
   updateRolePermissions: (newPermissions: Record<UserRole, string[]>) => void;
   updateRfqSenderSetting: (newSetting: RfqSenderSetting) => void;
-  updateUserRole: (userId: string, newRole: UserRole) => void;
+  updateUserRole: (userId: string, newRole: UserRole) => Promise<void>;
   updateCommitteeConfig: (newConfig: CommitteeConfig) => void;
+  fetchAllUsers: () => Promise<User[]>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -48,6 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       A: { min: 200001, max: Infinity },
       B: { min: 10000, max: 200000 },
   });
+  const { toast } = useToast();
 
 
   const fetchAllUsers = useCallback(async () => {
@@ -198,6 +200,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       updateRfqSenderSetting,
       updateUserRole,
       updateCommitteeConfig,
+      fetchAllUsers,
   }), [user, token, role, loading, allUsers, rolePermissions, rfqSenderSetting, committeeConfig, fetchAllUsers]);
 
 
