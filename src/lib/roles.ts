@@ -44,7 +44,7 @@ export const navItems: NavItem[] = [
 
 export const rolePermissions: Record<UserRole, string[]> = {
   Admin: navItems.map(item => item.path), // Admin has access to all pages
-  'Procurement_Officer': [
+  'Procurement Officer': [
     '/dashboard',
     '/new-requisition',
     '/requisitions',
@@ -58,7 +58,7 @@ export const rolePermissions: Record<UserRole, string[]> = {
     '/audit-log',
     '/settings',
   ],
-  'Committee': [
+  Committee: [
     '/dashboard',
     '/quotations',
     '/records',
@@ -87,21 +87,21 @@ export const rolePermissions: Record<UserRole, string[]> = {
     '/records',
   ],
   Vendor: [], // Vendor has a separate layout, no access to the main app layout
-  'Committee_Member': [
+  'Committee Member': [
     '/dashboard',
     '/quotations',
     '/records'
   ],
-  'Committee_A_Member': [
+  'Committee A Member': [
     '/dashboard',
     '/quotations',
     '/records',
   ],
-  'Committee_B_Member': [
+  'Committee B Member': [
     '/dashboard',
     '/quotations',
     '/records',
   ],
 };
 
-
+    

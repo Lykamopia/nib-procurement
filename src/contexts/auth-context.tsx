@@ -87,7 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             
             setUser(fullUser);
             setToken(storedToken);
-            setRole(fullUser.role);
+            setRole(fullUser.role.replace(/_/g, ' ') as UserRole);
         }
 
         if (storedPermissions) {
@@ -114,12 +114,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [initializeAuth]);
 
   const login = (newToken: string, loggedInUser: User, loggedInRole: UserRole) => {
+    const normalizedRole = loggedInRole.replace(/_/g, ' ') as UserRole;
+    const userWithNormalizedRole = { ...loggedInUser, role: normalizedRole };
+
     localStorage.setItem('authToken', newToken);
-    localStorage.setItem('user', JSON.stringify(loggedInUser));
-    localStorage.setItem('role', loggedInRole);
+    localStorage.setItem('user', JSON.stringify(userWithNormalizedRole));
     setToken(newToken);
-    setUser(loggedInUser);
-    setRole(loggedInRole);
+    setUser(userWithNormalizedRole);
+    setRole(normalizedRole);
   };
 
   const logout = () => {
@@ -218,3 +220,5 @@ export function useAuth() {
   }
   return context;
 }
+
+    
