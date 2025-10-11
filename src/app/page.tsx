@@ -15,7 +15,10 @@ export default function HomePage() {
       if (user) {
         if (role === 'Vendor') {
           router.push('/vendor/dashboard');
-        } else {
+        } else if (role === 'Committee_A_Member' || role === 'Committee_B_Member') {
+          router.push('/dashboard');
+        }
+        else {
           router.push('/dashboard');
         }
       } else {
