@@ -62,6 +62,7 @@ import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 const quoteFormSchema = z.object({
   notes: z.string().optional(),
