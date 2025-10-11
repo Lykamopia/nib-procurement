@@ -36,9 +36,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [rolePermissions, setRolePermissions] = useState<Record<UserRole, string[]>>(defaultRolePermissions);
   const [rfqSenderSetting, setRfqSenderSetting] = useState<RfqSenderSetting>({ type: 'all' });
 
+  // This function correctly handles all role name formats.
   const normalizeRole = (roleName: string): UserRole => {
-    // This handles "Procurement_Officer" -> "Procurement Officer"
-    // and "Committee_A_Member" -> "Committee A Member"
     return roleName.replace(/_/g, ' ') as UserRole;
   }
 
@@ -47,6 +46,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const response = await fetch('/api/users');
         if (response.ok) {
             const usersData = await response.json();
+            // The API now sends normalized roles, but we'll normalize again for safety.
             const usersWithAssignments = usersData.map((u: any) => ({
                 ...u,
                 role: normalizeRole(u.role),
@@ -132,6 +132,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           
           if(response.ok) {
               const result = await response.json();
+              // The role from the API response will be normalized inside the login function.
               login(result.token, result.user, result.user.role);
               window.location.href = '/';
           } else {
@@ -163,7 +164,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       switchUser,
       updateRolePermissions,
       updateRfqSenderSetting
-  }), [user, token, role, loading, allUsers, rolePermissions, rfqSenderSetting]);
+  }), [user, token, role, loading, allUsers, rolePermissions, rfqSenderSetting, login, logout, switchUser, updateRolePermissions, updateRfqSenderSetting]);
 
 
   return (

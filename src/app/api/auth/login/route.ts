@@ -26,13 +26,14 @@ export async function POST(request: Request) {
         if (user && user.password && await bcrypt.compare(password, user.password)) {
             const { password: _, ...userWithoutPassword } = user;
             
+            // The user role from the database (e.g., "Committee_A_Member") is sent as is.
+            // The frontend's AuthContext will be responsible for normalization.
             const finalUser = {
                 ...userWithoutPassword,
-                role: user.role.replace(/_/g, ' ') as UserRole,
+                role: user.role, // Send the raw role from DB
                 department: user.department?.name
             };
 
-            // Create a more robust mock token
             const userString = JSON.stringify(finalUser);
             const base64User = Buffer.from(userString).toString('base64');
             const mockToken = `mock-token-for-${base64User}__TS__${Date.now()}`;
@@ -40,7 +41,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ 
                 user: finalUser, 
                 token: mockToken, 
-                role: user.role.replace(/_/g, ' ') as UserRole 
+                role: finalUser.role // Send raw role
             });
         }
         
@@ -51,5 +52,3 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'An internal server error occurred' }, { status: 500 });
     }
 }
-
-    
