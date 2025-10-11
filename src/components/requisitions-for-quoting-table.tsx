@@ -34,7 +34,7 @@ export function RequisitionsForQuotingTable() {
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const router = useRouter();
-  const { user, allUsers, role } = useAuth();
+  const { user, role } = useAuth();
 
 
   useEffect(() => {
@@ -42,15 +42,14 @@ export function RequisitionsForQuotingTable() {
         if (!user || !role) return;
         try {
             setLoading(true);
-            let response;
+            let url = '/api/requisitions';
             if (role === 'Committee_A_Member') {
-                response = await fetch('/api/requisitions?status=Pending_Committee_A_Recommendation');
+                url = '/api/requisitions?status=Pending_Committee_A_Recommendation';
             } else if (role === 'Committee_B_Member') {
-                response = await fetch('/api/requisitions?status=Pending_Committee_B_Review');
-            } else {
-                 response = await fetch('/api/requisitions');
+                url = '/api/requisitions?status=Pending_Committee_B_Review';
             }
             
+            const response = await fetch(url);
             if (!response.ok) {
                 throw new Error('Failed to fetch requisitions');
             }
@@ -229,3 +228,4 @@ export function RequisitionsForQuotingTable() {
   );
 }
 
+    
