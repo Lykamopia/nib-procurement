@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -92,7 +91,9 @@ export default function AppLayout({
   // Page-level access check
   useEffect(() => {
     if (!loading && role) {
+      // Vendor has a separate layout, so they should be redirected if they land here.
       if (role === 'Vendor') {
+          router.push('/vendor/dashboard');
           return;
       }
 
@@ -100,29 +101,23 @@ export default function AppLayout({
       const allowedPaths = rolePermissions[role] || [];
       
       const isAllowed = allowedPaths.includes(currentPath) || 
-                        allowedPaths.some(p => currentPath.startsWith(p) && p !== '/');
+                        // Allow access to dynamic routes like /requisitions/[id]
+                        allowedPaths.some(p => p.includes('[') && currentPath.startsWith(p.split('/[')[0]));
 
       if (!isAllowed) {
+        // If the user is on a forbidden page, redirect them to a default valid page.
+        // This prevents the logout loop.
         const defaultPath = allowedPaths.includes('/dashboard') ? '/dashboard' : allowedPaths[0];
         if(defaultPath) {
           router.push(defaultPath);
         } else {
-           router.push('/login');
+           // If a user has NO valid pages, then they should be logged out.
+           logout();
         }
       }
     }
-  }, [pathname, loading, role, router, rolePermissions]);
+  }, [pathname, loading, role, router, rolePermissions, logout]);
 
-  const pageTitle = useMemo(() => {
-     const currentNavItem = navItems.find(item => {
-      if (item.path.includes('[')) {
-        const basePath = item.path.split('/[')[0];
-        return pathname.startsWith(basePath);
-      }
-      return pathname === item.path;
-    });
-    return currentNavItem?.label || 'Nib InternationalBank';
-  }, [pathname]);
 
   if (loading || !user || !role) {
     return (
@@ -159,7 +154,6 @@ export default function AppLayout({
           </SidebarMenu>
         </SidebarContent>
         <SidebarFooter>
-            {process.env.NODE_ENV === 'development' && <RoleSwitcher />}
           <div className="p-2">
             <Button variant="ghost" className="w-full justify-start" onClick={logout}>
                 <LogOut className="mr-2 h-4 w-4" />
@@ -175,6 +169,7 @@ export default function AppLayout({
             <Breadcrumbs />
           </div>
           <div className="flex items-center gap-4">
+             {process.env.NODE_ENV === 'development' && <RoleSwitcher />}
             <ThemeSwitcher />
             <span className="text-sm text-muted-foreground">{user.name}</span>
             <Avatar>

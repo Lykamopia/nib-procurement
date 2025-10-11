@@ -22,8 +22,10 @@ export async function POST(request: Request) {
         if (!user) {
             return NextResponse.json({ error: 'User not found' }, { status: 404 });
         }
+        
+        const passwordMatch = user.password && await bcrypt.compare(password, user.password);
 
-        if (user && user.password && await bcrypt.compare(password, user.password)) {
+        if (passwordMatch) {
             const { password: _, ...userWithoutPassword } = user;
             
             const finalUser = {
@@ -44,12 +46,10 @@ export async function POST(request: Request) {
             });
         }
         
-        return NextResponse.json({ error: 'Invalid password' }, { status: 401 });
+        return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
 
     } catch (error) {
         console.error('Login error:', error);
         return NextResponse.json({ error: 'An internal server error occurred' }, { status: 500 });
     }
 }
-
-    

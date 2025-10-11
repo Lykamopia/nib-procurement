@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { Loader2 } from 'lucide-react';
+import { rolePermissions } from '@/lib/roles';
 
 export default function HomePage() {
   const { user, loading, role } = useAuth();
@@ -12,15 +13,21 @@ export default function HomePage() {
 
   useEffect(() => {
     if (!loading) {
-      if (user) {
+      if (user && role) {
+        // Determine the default path based on role permissions
+        const allowedPaths = rolePermissions[role] || [];
+        let defaultPath = '/login'; // Fallback to login
+
         if (role === 'Vendor') {
-          router.push('/vendor/dashboard');
-        } else if (role === 'Committee_A_Member' || role === 'Committee_B_Member') {
-          router.push('/dashboard');
+          defaultPath = '/vendor/dashboard';
+        } else if (allowedPaths.includes('/dashboard')) {
+          defaultPath = '/dashboard';
+        } else if (allowedPaths.length > 0) {
+          defaultPath = allowedPaths[0]; // Go to the first allowed page
         }
-        else {
-          router.push('/dashboard');
-        }
+        
+        router.push(defaultPath);
+
       } else {
         router.push('/login');
       }
