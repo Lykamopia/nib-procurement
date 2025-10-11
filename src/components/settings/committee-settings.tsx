@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, Save, Users, Search, UserX, UserCheck } from 'lucide-react';
 import { User, UserRole, Department } from '@/lib/types';
 import { Input } from '../ui/input';
+import { Label } from '../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { ScrollArea } from '../ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
@@ -157,3 +158,5 @@ export function CommitteeSettings() {
         </div>
     );
 }
+
+    
