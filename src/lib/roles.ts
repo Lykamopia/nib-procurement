@@ -95,12 +95,13 @@ export const rolePermissions: Record<UserRole, string[]> = {
   'Committee_A_Member': [
     '/dashboard',
     '/quotations',
-    '/records'
+    '/records',
   ],
   'Committee_B_Member': [
     '/dashboard',
     '/quotations',
-    '/records'
+    '/records',
   ],
 };
+
 
