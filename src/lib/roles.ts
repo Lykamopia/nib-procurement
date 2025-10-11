@@ -103,5 +103,3 @@ export const rolePermissions: Record<UserRole, string[]> = {
     '/records',
   ],
 };
-
-    

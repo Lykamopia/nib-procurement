@@ -69,7 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.error("Failed to fetch all users", error);
         return [];
     }
-  }, []); // The dependency array is intentionally left empty to prevent re-fetching on every render.
+  }, []);
 
   const initializeAuth = useCallback(async () => {
     setLoading(true);
@@ -87,7 +87,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             
             setUser(fullUser);
             setToken(storedToken);
-            setRole(fullUser.role.replace(/_/g, ' ') as UserRole);
+            let normalizedRole = fullUser.role.replace(/_/g, ' ');
+            if (normalizedRole === 'Committee A Member') normalizedRole = 'Committee A Member';
+            if (normalizedRole === 'Committee B Member') normalizedRole = 'Committee B Member';
+
+            setRole(normalizedRole as UserRole);
         }
 
         if (storedPermissions) {
@@ -114,14 +118,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [initializeAuth]);
 
   const login = (newToken: string, loggedInUser: User, loggedInRole: UserRole) => {
-    const normalizedRole = loggedInRole.replace(/_/g, ' ') as UserRole;
-    const userWithNormalizedRole = { ...loggedInUser, role: normalizedRole };
+    let normalizedRole = loggedInRole.replace(/_/g, ' ');
+    if (normalizedRole === 'Committee A Member') normalizedRole = 'Committee A Member';
+    if (normalizedRole === 'Committee B Member') normalizedRole = 'Committee B Member';
+    const userWithNormalizedRole = { ...loggedInUser, role: normalizedRole as UserRole };
 
     localStorage.setItem('authToken', newToken);
     localStorage.setItem('user', JSON.stringify(userWithNormalizedRole));
     setToken(newToken);
     setUser(userWithNormalizedRole);
-    setRole(normalizedRole);
+    setRole(normalizedRole as UserRole);
   };
 
   const logout = () => {
@@ -220,5 +226,3 @@ export function useAuth() {
   }
   return context;
 }
-
-    
