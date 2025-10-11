@@ -15,6 +15,7 @@ interface AuthContextType {
   token: string | null;
   role: UserRole | null;
   allUsers: User[];
+  isInitialized: boolean;
   rolePermissions: Record<UserRole, string[]>;
   rfqSenderSetting: RfqSenderSetting;
   login: (token: string, user: User, role: UserRole) => void;
@@ -23,6 +24,7 @@ interface AuthContextType {
   switchUser: (userId: string) => void;
   updateRolePermissions: (newPermissions: Record<UserRole, string[]>) => void;
   updateRfqSenderSetting: (newSetting: RfqSenderSetting) => void;
+  fetchAllUsers: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -33,6 +35,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [role, setRole] = useState<UserRole | null>(null);
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isInitialized, setIsInitialized] = useState(false);
   const [rolePermissions, setRolePermissions] = useState<Record<UserRole, string[]>>(defaultRolePermissions);
   const [rfqSenderSetting, setRfqSenderSetting] = useState<RfqSenderSetting>({ type: 'all' });
 
@@ -57,9 +60,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const initializeAuth = useCallback(async () => {
-    setLoading(true);
-    const users = await fetchAllUsers();
     try {
+        const users = await fetchAllUsers();
         const storedUserJSON = localStorage.getItem('user');
         const storedToken = localStorage.getItem('authToken');
         const storedPermissions = localStorage.getItem('rolePermissions');
@@ -86,6 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.error("Failed to initialize auth from localStorage", error);
         localStorage.clear();
     }
+    setIsInitialized(true);
     setLoading(false);
   }, [fetchAllUsers]);
 
@@ -93,13 +96,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     initializeAuth();
   }, [initializeAuth]);
 
-  const login = (newToken: string, loggedInUser: User, loggedInRole: UserRole) => {
+  const login = async (newToken: string, loggedInUser: User, loggedInRole: UserRole) => {
     localStorage.setItem('authToken', newToken);
     localStorage.setItem('user', JSON.stringify(loggedInUser));
     localStorage.setItem('role', loggedInRole);
     setToken(newToken);
     setUser(loggedInUser);
     setRole(loggedInRole);
+    await fetchAllUsers(); // Refresh user list on login
   };
 
   const logout = () => {
@@ -115,18 +119,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const switchUser = async (userId: string) => {
       const targetUser = allUsers.find(u => u.id === userId);
       if (targetUser) {
-          const response = await fetch('/api/auth/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: targetUser.email, password: 'password123' }),
-          });
-          
-          if(response.ok) {
-              const result = await response.json();
-              login(result.token, result.user, result.role);
-              window.location.href = '/';
-          } else {
-              console.error("Failed to switch user.")
+          try {
+            const response = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: targetUser.email, password: 'password123' }),
+            });
+            
+            if(response.ok) {
+                const result = await response.json();
+                await login(result.token, result.user, result.role);
+                window.location.href = '/';
+            } else {
+                console.error("Failed to switch user.")
+            }
+          } catch(e) {
+            console.error("Error switching user", e);
           }
       }
   };
@@ -146,6 +154,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       token,
       role,
       allUsers,
+      isInitialized,
       rolePermissions,
       rfqSenderSetting,
       login,
@@ -153,8 +162,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loading,
       switchUser,
       updateRolePermissions,
-      updateRfqSenderSetting
-  }), [user, token, role, loading, allUsers, rolePermissions, rfqSenderSetting]);
+      updateRfqSenderSetting,
+      fetchAllUsers,
+  }), [user, token, role, loading, allUsers, isInitialized, rolePermissions, rfqSenderSetting, fetchAllUsers]);
 
 
   return (

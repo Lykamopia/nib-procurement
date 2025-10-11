@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -85,10 +84,10 @@ export default function AppLayout({
   }, [user, handleLogout]);
 
   useEffect(() => {
-    if (!loading && isInitialized && !user) {
+    if (isInitialized && !user) {
       router.push('/login');
     }
-  }, [user, loading, isInitialized, router]);
+  }, [user, isInitialized, router]);
   
   // Page-level access check
   useEffect(() => {
