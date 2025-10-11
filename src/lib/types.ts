@@ -1,5 +1,4 @@
 
-
 export type UserRole =
   | 'Requester'
   | 'Approver'
@@ -9,7 +8,9 @@ export type UserRole =
   | 'Receiving'
   | 'Vendor'
   | 'Committee Member'
-  | 'Committee';
+  | 'Committee'
+  | 'Committee A Member'
+  | 'Committee B Member';
 
 export type CommitteeAssignment = {
   requisitionId: string;
@@ -49,7 +50,11 @@ export type RequisitionStatus =
   | 'PO Created'
   | 'Fulfilled'
   | 'Closed'
-  | 'Pending Managerial Approval';
+  | 'Pending Managerial Approval'
+  | 'Pending Committee A Review'
+  | 'Pending Committee B Review'
+  | 'Pending Final Approval'
+  | 'Approved Awaiting Notification';
 
 export type Urgency = 'Low' | 'Medium' | 'High' | 'Critical';
 
@@ -235,7 +240,7 @@ export type Quotation = {
     createdAt: Date;
     status: QuotationStatus;
     notes?: string;
-    rank?: 1 | 2 | 3;
+    rank?: number;
     answers?: QuoteAnswer[];
     scores?: CommitteeScoreSet[];
     finalAverageScore?: number;
@@ -358,3 +363,5 @@ export type DocumentRecord = {
     transactionId: string;
     auditTrail?: AuditLog[];
 }
+
+    
