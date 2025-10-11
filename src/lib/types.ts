@@ -9,7 +9,9 @@ export type UserRole =
   | 'Receiving'
   | 'Vendor'
   | 'Committee Member'
-  | 'Committee';
+  | 'Committee'
+  | 'Committee_A_Member'
+  | 'Committee_B_Member';
 
 export type CommitteeAssignment = {
   requisitionId: string;
@@ -49,7 +51,9 @@ export type RequisitionStatus =
   | 'PO Created'
   | 'Fulfilled'
   | 'Closed'
-  | 'Pending Managerial Approval';
+  | 'Pending Managerial Approval'
+  | 'Pending_Committee_B_Review'
+  | 'Pending_Committee_A_Recommendation';
 
 export type Urgency = 'Low' | 'Medium' | 'High' | 'Critical';
 

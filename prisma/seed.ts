@@ -46,18 +46,20 @@ async function main() {
   const allRoles = [
       { name: 'Requester', description: 'Can create purchase requisitions.' },
       { name: 'Approver', description: 'Can approve or reject requisitions.' },
-      { name: 'Procurement Officer', description: 'Manages the RFQ and PO process.' },
+      { name: 'Procurement_Officer', description: 'Manages the RFQ and PO process.' },
       { name: 'Finance', description: 'Manages invoices and payments.' },
       { name: 'Admin', description: 'System administrator with all permissions.' },
       { name: 'Receiving', description: 'Manages goods receipt notes.' },
       { name: 'Vendor', description: 'External supplier of goods/services.' },
-      { name: 'Committee Member', description: 'Scores and evaluates vendor quotations.' },
+      { name: 'Committee_Member', description: 'Scores and evaluates vendor quotations.' },
+      { name: 'Committee_A_Member', description: 'Reviews high-value procurements.' },
+      { name: 'Committee_B_Member', description: 'Reviews mid-value procurements.' },
       { name: 'Committee', description: 'Manages evaluation committees.' },
   ];
 
   // Seed Roles
   for (const role of allRoles) {
-      await prisma.role.create({ data: role });
+      await prisma.role.create({ data: { name: role.name.replace(/ /g, '_'), description: role.description } });
   }
   console.log('Seeded roles.');
 

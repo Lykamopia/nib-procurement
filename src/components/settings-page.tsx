@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import {
@@ -14,6 +15,7 @@ import { RoleManagementEditor } from './role-management-editor';
 import { DepartmentManagementEditor } from './department-management-editor';
 import { UserManagementEditor } from './user-management-editor';
 import { RfqSettings } from './settings/rfq-settings';
+import { CommitteeSettings } from './settings/committee-settings';
 
 
 export function SettingsPage() {
@@ -21,6 +23,7 @@ export function SettingsPage() {
     <Tabs defaultValue="permissions" className="space-y-4">
       <TabsList>
         <TabsTrigger value="general">General</TabsTrigger>
+        <TabsTrigger value="committees">Committees</TabsTrigger>
         <TabsTrigger value="permissions">Role Permissions</TabsTrigger>
         <TabsTrigger value="roles">Role Management</TabsTrigger>
         <TabsTrigger value="users">User Management</TabsTrigger>
@@ -29,6 +32,9 @@ export function SettingsPage() {
       </TabsList>
       <TabsContent value="general">
         <RfqSettings />
+      </TabsContent>
+      <TabsContent value="committees">
+        <CommitteeSettings />
       </TabsContent>
       <TabsContent value="permissions">
         <RolePermissionsEditor />

@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { createContext, useContext, useState, ReactNode, useEffect, useMemo, useCallback } from 'react';
@@ -10,6 +11,11 @@ export interface RfqSenderSetting {
   userId?: string | null;
 }
 
+export interface CommitteeConfig {
+    A: { min: number, max: number },
+    B: { min: number, max: number },
+}
+
 interface AuthContextType {
   user: User | null;
   token: string | null;
@@ -17,12 +23,15 @@ interface AuthContextType {
   allUsers: User[];
   rolePermissions: Record<UserRole, string[]>;
   rfqSenderSetting: RfqSenderSetting;
+  committeeConfig: CommitteeConfig,
   login: (token: string, user: User, role: UserRole) => void;
   logout: () => void;
   loading: boolean;
   switchUser: (userId: string) => void;
   updateRolePermissions: (newPermissions: Record<UserRole, string[]>) => void;
   updateRfqSenderSetting: (newSetting: RfqSenderSetting) => void;
+  updateUserRole: (userId: string, newRole: UserRole) => void;
+  updateCommitteeConfig: (newConfig: CommitteeConfig) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -35,6 +44,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [rolePermissions, setRolePermissions] = useState<Record<UserRole, string[]>>(defaultRolePermissions);
   const [rfqSenderSetting, setRfqSenderSetting] = useState<RfqSenderSetting>({ type: 'all' });
+  const [committeeConfig, setCommitteeConfig] = useState<CommitteeConfig>({
+      A: { min: 200001, max: Infinity },
+      B: { min: 10000, max: 200000 },
+  });
 
 
   const fetchAllUsers = useCallback(async () => {
@@ -64,6 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const storedToken = localStorage.getItem('authToken');
         const storedPermissions = localStorage.getItem('rolePermissions');
         const storedRfqSetting = localStorage.getItem('rfqSenderSetting');
+        const storedCommitteeConfig = localStorage.getItem('committeeConfig');
         
         if (storedUserJSON && storedToken) {
             const storedUser = JSON.parse(storedUserJSON);
@@ -80,6 +94,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (storedRfqSetting) {
             setRfqSenderSetting(JSON.parse(storedRfqSetting));
+        }
+        
+        if (storedCommitteeConfig) {
+            setCommitteeConfig(JSON.parse(storedCommitteeConfig));
         }
 
     } catch (error) {
@@ -141,6 +159,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setRfqSenderSetting(newSetting);
   }
 
+  const updateUserRole = async (userId: string, newRole: UserRole) => {
+    const userToUpdate = allUsers.find(u => u.id === userId);
+    if (!userToUpdate) return;
+    
+    try {
+        const response = await fetch('/api/users', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...userToUpdate, role: newRole, actorUserId: user?.id })
+        });
+        if (!response.ok) throw new Error("Failed to update role");
+        await fetchAllUsers(); // re-fetch all users to get the updated list
+    } catch (e) {
+        console.error(e);
+        toast({variant: 'destructive', title: "Error", description: "Failed to update user role."})
+    }
+  }
+
+  const updateCommitteeConfig = (newConfig: CommitteeConfig) => {
+      localStorage.setItem('committeeConfig', JSON.stringify(newConfig));
+      setCommitteeConfig(newConfig);
+  }
+
   const authContextValue = useMemo(() => ({
       user,
       token,
@@ -148,13 +189,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       allUsers,
       rolePermissions,
       rfqSenderSetting,
+      committeeConfig,
       login,
       logout,
       loading,
       switchUser,
       updateRolePermissions,
-      updateRfqSenderSetting
-  }), [user, token, role, loading, allUsers, rolePermissions, rfqSenderSetting]);
+      updateRfqSenderSetting,
+      updateUserRole,
+      updateCommitteeConfig,
+  }), [user, token, role, loading, allUsers, rolePermissions, rfqSenderSetting, committeeConfig, fetchAllUsers]);
 
 
   return (

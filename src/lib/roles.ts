@@ -1,4 +1,5 @@
 
+
 import { UserRole } from './types';
 import {
   LayoutDashboard,
@@ -44,7 +45,7 @@ export const navItems: NavItem[] = [
 
 export const rolePermissions: Record<UserRole, string[]> = {
   Admin: navItems.map(item => item.path), // Admin has access to all pages
-  'Procurement Officer': [
+  'Procurement_Officer': [
     '/dashboard',
     '/new-requisition',
     '/requisitions',
@@ -87,9 +88,19 @@ export const rolePermissions: Record<UserRole, string[]> = {
     '/records',
   ],
   Vendor: [], // Vendor has a separate layout, no access to the main app layout
-  'Committee Member': [
+  'Committee_Member': [
     '/dashboard',
     '/quotations',
     '/records'
+  ],
+  'Committee_A_Member': [
+    '/dashboard',
+    '/quotations', // or a new review page
+    '/records',
+  ],
+  'Committee_B_Member': [
+      '/dashboard',
+      '/quotations', // or a new review page
+      '/records',
   ],
 };
