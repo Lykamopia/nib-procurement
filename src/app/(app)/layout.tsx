@@ -91,38 +91,37 @@ export default function AppLayout({
   
   // Page-level access check
   useEffect(() => {
-    if (!loading && role) {
-      if (role === 'Vendor') {
-          return;
-      }
+    if (loading || !role) return;
 
-      const currentPath = pathname.split('?')[0];
-      const allowedPaths = rolePermissions[role] || [];
-      
-      const isAllowed = allowedPaths.includes(currentPath) || 
-                        allowedPaths.some(p => currentPath.startsWith(p) && p !== '/');
-
-      if (!isAllowed) {
-        const defaultPath = allowedPaths.includes('/dashboard') ? '/dashboard' : allowedPaths[0];
-        if(defaultPath) {
-          router.push(defaultPath);
-        } else {
-           router.push('/login');
-        }
-      }
+    const allowedPaths = rolePermissions[role] || [];
+    if (allowedPaths.length === 0) {
+        logout();
+        return;
     }
-  }, [pathname, loading, role, router, rolePermissions]);
 
-  const pageTitle = useMemo(() => {
-     const currentNavItem = navItems.find(item => {
-      if (item.path.includes('[')) {
-        const basePath = item.path.split('/[')[0];
-        return pathname.startsWith(basePath);
-      }
-      return pathname === item.path;
+    const currentPath = pathname.split('?')[0];
+
+    // Check if current path is allowed. This handles dynamic routes by checking the base path.
+    const isAllowed = allowedPaths.some(p => {
+        if (p.includes('[')) { // It's a dynamic route
+            const basePath = p.split('/[')[0];
+            return currentPath.startsWith(basePath);
+        }
+        return currentPath === p;
     });
-    return currentNavItem?.label || 'Nib InternationalBank';
-  }, [pathname]);
+
+    if (!isAllowed) {
+        // If not allowed, redirect to the first allowed path, which is considered the default.
+        const defaultPath = allowedPaths[0];
+        if (defaultPath) {
+            router.push(defaultPath);
+        } else {
+            // If for some reason there's no default path, logout.
+            logout();
+        }
+    }
+  }, [pathname, loading, role, router, rolePermissions, logout]);
+
 
   if (loading || !user || !role) {
     return (

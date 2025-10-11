@@ -36,6 +36,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [rolePermissions, setRolePermissions] = useState<Record<UserRole, string[]>>(defaultRolePermissions);
   const [rfqSenderSetting, setRfqSenderSetting] = useState<RfqSenderSetting>({ type: 'all' });
 
+  const normalizeRole = (roleName: string): UserRole => {
+      return roleName.replace(/_/g, ' ') as UserRole;
+  }
 
   const fetchAllUsers = useCallback(async () => {
     try {
@@ -71,7 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             
             setUser(fullUser);
             setToken(storedToken);
-            setRole(fullUser.role);
+            setRole(normalizeRole(fullUser.role));
         }
 
         if (storedPermissions) {
@@ -96,10 +99,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = (newToken: string, loggedInUser: User, loggedInRole: UserRole) => {
     localStorage.setItem('authToken', newToken);
     localStorage.setItem('user', JSON.stringify(loggedInUser));
-    localStorage.setItem('role', loggedInRole);
+    localStorage.setItem('role', loggedInRole); // Store the raw role
     setToken(newToken);
     setUser(loggedInUser);
-    setRole(loggedInRole);
+    setRole(normalizeRole(loggedInRole)); // Set the normalized role in state
   };
 
   const logout = () => {
@@ -123,7 +126,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           
           if(response.ok) {
               const result = await response.json();
-              login(result.token, result.user, result.role);
+              login(result.token, result.user, result.user.role);
               window.location.href = '/';
           } else {
               console.error("Failed to switch user.")
