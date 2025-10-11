@@ -90,12 +90,12 @@ export const rolePermissions: Record<UserRole, string[]> = {
     '/records',
   ],
   Vendor: [],
-  'Committee A Member': [ // Reviewers
+  'Committee A Member': [
     '/reviews',
-    '/records'
+    '/records',
   ],
-  'Committee B Member': [ // Reviewers
+  'Committee B Member': [
     '/reviews',
-    '/records'
+    '/records',
   ],
 };
