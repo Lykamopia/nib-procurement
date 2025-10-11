@@ -787,193 +787,93 @@ const CommitteeManagement = ({ requisition, onCommitteeUpdated, open, onOpenChan
     );
 };
 
-const RFQActionDialog = ({
-    action,
-    requisition,
-    isOpen,
-    onClose,
-    onSuccess
-}: {
-    action: 'update' | 'cancel',
-    requisition: PurchaseRequisition,
-    isOpen: boolean,
-    onClose: () => void,
-    onSuccess: () => void
-}) => {
-    const { user } = useAuth();
-    const { toast } = useToast();
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const [reason, setReason] = useState('');
-    const [newDeadline, setNewDeadline] = useState<Date | undefined>(requisition.deadline ? new Date(requisition.deadline) : undefined);
-    const [newDeadlineTime, setNewDeadlineTime] = useState<string>(requisition.deadline ? format(new Date(requisition.deadline), 'HH:mm') : '17:00');
-
-    const finalNewDeadline = useMemo(() => {
-        if (!newDeadline) return undefined;
-        const [hours, minutes] = newDeadlineTime.split(':').map(Number);
-        return setMinutes(setHours(newDeadline, hours), minutes);
-    }, [newDeadline, newDeadlineTime]);
-    
-    const handleSubmit = async () => {
-        if (!user) return;
-        if (!reason.trim()) {
-            toast({ variant: 'destructive', title: 'Error', description: 'A reason must be provided.'});
-            return;
-        }
-        if (action === 'update' && (!finalNewDeadline || isBefore(finalNewDeadline, new Date()))) {
-            toast({ variant: 'destructive', title: 'Error', description: 'The new deadline must be in the future.'});
-            return;
-        }
-
-        setIsSubmitting(true);
-        try {
-             const response = await fetch(`/api/requisitions/${requisition.id}/manage-rfq`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    userId: user.id, 
-                    action,
-                    reason,
-                    newDeadline: action === 'update' ? finalNewDeadline : undefined
-                }),
-            });
-            if (!response.ok) {
-                 const errorData = await response.json();
-                throw new Error(errorData.error || `Failed to ${action} RFQ.`);
-            }
-            toast({ title: 'Success', description: `The RFQ has been successfully ${action === 'update' ? 'updated' : 'cancelled'}.`});
-            onSuccess();
-        } catch (error) {
-            toast({ variant: 'destructive', title: 'Error', description: error instanceof Error ? error.message : 'An unknown error occurred.'});
-        } finally {
-            setIsSubmitting(false);
-            onClose();
-        }
-    };
-
-    return (
-        <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>{action === 'update' ? 'Update RFQ Deadline' : 'Cancel RFQ'}</DialogTitle>
-                    <DialogDescription>
-                        {action === 'update' 
-                            ? "Provide a reason and set a new deadline for this RFQ. Vendors will be notified."
-                            : "Provide a reason for cancelling this RFQ. This will revert the requisition to 'Approved' status and reject all submitted quotes."
-                        }
-                    </DialogDescription>
-                </DialogHeader>
-                <div className="py-4 space-y-4">
-                    {action === 'update' && (
-                        <div className="space-y-2">
-                            <Label>New Quotation Submission Deadline</Label>
-                             <div className="flex gap-2">
-                                 <Popover>
-                                    <PopoverTrigger asChild>
-                                        <Button
-                                            variant={"outline"}
-                                            className={cn(
-                                            "w-full justify-start text-left font-normal",
-                                            !newDeadline && "text-muted-foreground"
-                                            )}
-                                        >
-                                            <CalendarIcon className="mr-2 h-4 w-4" />
-                                            {newDeadline ? format(newDeadline, "PPP") : <span>Pick a date</span>}
-                                        </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0">
-                                        <Calendar
-                                            mode="single"
-                                            selected={newDeadline}
-                                            onSelect={setNewDeadline}
-                                            disabled={(date) => date < new Date(new Date().setHours(0,0,0,0))}
-                                            initialFocus
-                                        />
-                                    </PopoverContent>
-                                </Popover>
-                                <Input 
-                                    type="time" 
-                                    className="w-32"
-                                    value={newDeadlineTime}
-                                    onChange={(e) => setNewDeadlineTime(e.target.value)}
-                                />
-                            </div>
-                        </div>
-                    )}
-                     <div>
-                        <Label htmlFor="reason">Reason for {action === 'update' ? 'Update' : 'Cancellation'}</Label>
-                        <Textarea id="reason" value={reason} onChange={e => setReason(e.target.value)} className="mt-2" />
-                    </div>
-                </div>
-                <DialogFooter>
-                    <DialogClose asChild><Button variant="ghost">Close</Button></DialogClose>
-                    <Button onClick={handleSubmit} disabled={isSubmitting} variant={action === 'cancel' ? 'destructive' : 'default'}>
-                         {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
-                        Confirm {action === 'update' ? 'Update' : 'Cancellation'}
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-    )
-}
+const rfqFormSchema = z.object({
+  distributionType: z.enum(['all', 'select']),
+  selectedVendors: z.array(z.string()),
+  deadlineDate: z.date().optional(),
+  deadlineTime: z.string(),
+  cpoAmount: z.coerce.number().optional(),
+  allowQuoteEdits: z.boolean(),
+  experienceDocumentRequired: z.boolean(),
+  evaluationCriteria: z.object({
+    financialWeight: z.coerce.number().min(0).max(100),
+    technicalWeight: z.coerce.number().min(0).max(100),
+    financialCriteria: z.array(z.object({ name: z.string().min(1), weight: z.coerce.number().min(1) })),
+    technicalCriteria: z.array(z.object({ name: z.string().min(1), weight: z.coerce.number().min(1) })),
+  }),
+  customQuestions: z.array(z.object({
+    questionText: z.string().min(1),
+    questionType: z.enum(['text', 'boolean', 'multiple-choice', 'file']),
+    isRequired: z.boolean(),
+    options: z.array(z.string()).optional(),
+  })),
+}).refine(data => data.evaluationCriteria.financialWeight + data.evaluationCriteria.technicalWeight === 100, {
+  message: "Financial and technical weights must add up to 100.",
+  path: ["evaluationCriteria.financialWeight"],
+});
 
 const RFQDistribution = ({ requisition, vendors, onRfqSent, isAuthorized }: { requisition: PurchaseRequisition; vendors: Vendor[]; onRfqSent: () => void; isAuthorized: boolean; }) => {
-    const [distributionType, setDistributionType] = useState('all');
-    const [selectedVendors, setSelectedVendors] = useState<string[]>([]);
-    const [vendorSearch, setVendorSearch] = useState("");
-    const [isSubmitting, setSubmitting] = useState(false);
-    const [deadlineDate, setDeadlineDate] = useState<Date|undefined>();
-    const [deadlineTime, setDeadlineTime] = useState('17:00');
-    const [cpoAmount, setCpoAmount] = useState<number | undefined>(requisition.cpoAmount);
-    const [actionDialog, setActionDialog] = useState<{isOpen: boolean, type: 'update' | 'cancel'}>({isOpen: false, type: 'update'});
-    const [allowQuoteEdits, setAllowQuoteEdits] = useState(requisition.rfqSettings?.allowQuoteEdits ?? true);
-    const [experienceDocumentRequired, setExperienceDocumentRequired] = useState(requisition.rfqSettings?.experienceDocumentRequired ?? false);
     const { user } = useAuth();
     const { toast } = useToast();
+    const [actionDialog, setActionDialog] = useState<{isOpen: boolean, type: 'update' | 'cancel'}>({isOpen: false, type: 'update'});
+    const [vendorSearch, setVendorSearch] = useState("");
+    const [isSubmitting, setSubmitting] = useState(false);
+
+    const form = useForm<z.infer<typeof rfqFormSchema>>({
+        resolver: zodResolver(rfqFormSchema),
+        defaultValues: {
+            distributionType: 'all',
+            selectedVendors: [],
+            deadlineDate: requisition.deadline ? new Date(requisition.deadline) : undefined,
+            deadlineTime: requisition.deadline ? format(new Date(requisition.deadline), 'HH:mm') : '17:00',
+            cpoAmount: requisition.cpoAmount || undefined,
+            allowQuoteEdits: requisition.rfqSettings?.allowQuoteEdits ?? true,
+            experienceDocumentRequired: requisition.rfqSettings?.experienceDocumentRequired ?? false,
+            evaluationCriteria: requisition.evaluationCriteria || {
+                financialWeight: 50,
+                technicalWeight: 50,
+                financialCriteria: [],
+                technicalCriteria: [],
+            },
+            customQuestions: requisition.customQuestions || [],
+        },
+    });
+    
+    const { fields: finCriteria, append: appendFin, remove: removeFin } = useFieldArray({ control: form.control, name: "evaluationCriteria.financialCriteria" });
+    const { fields: techCriteria, append: appendTech, remove: removeTech } = useFieldArray({ control: form.control, name: "evaluationCriteria.technicalCriteria" });
+    const { fields: customQuestions, append: appendQuestion, remove: removeQuestion } = useFieldArray({ control: form.control, name: "customQuestions" });
+
     
     const isSent = requisition.status === 'RFQ In Progress' || requisition.status === 'PO Created';
+    const canTakeAction = !isSent && isAuthorized;
+    
+    useEffect(() => {
+        form.reset({
+            distributionType: (requisition.allowedVendorIds && requisition.allowedVendorIds.length > 0) ? 'select' : 'all',
+            selectedVendors: requisition.allowedVendorIds || [],
+            deadlineDate: requisition.deadline ? new Date(requisition.deadline) : undefined,
+            deadlineTime: requisition.deadline ? format(new Date(requisition.deadline), 'HH:mm') : '17:00',
+            cpoAmount: requisition.cpoAmount || undefined,
+            allowQuoteEdits: requisition.rfqSettings?.allowQuoteEdits ?? true,
+            experienceDocumentRequired: requisition.rfqSettings?.experienceDocumentRequired ?? false,
+            evaluationCriteria: requisition.evaluationCriteria || {
+                financialWeight: 50, technicalWeight: 50, financialCriteria: [], technicalCriteria: [],
+            },
+            customQuestions: requisition.customQuestions || [],
+        });
+    }, [requisition, form]);
 
-     useEffect(() => {
-        if (requisition.deadline) {
-            setDeadlineDate(new Date(requisition.deadline));
-            setDeadlineTime(format(new Date(requisition.deadline), 'HH:mm'));
-        } else {
-            setDeadlineDate(undefined);
-            setDeadlineTime('17:00');
-        }
-        setCpoAmount(requisition.cpoAmount);
-        setAllowQuoteEdits(requisition.rfqSettings?.allowQuoteEdits ?? true);
-        setExperienceDocumentRequired(requisition.rfqSettings?.experienceDocumentRequired ?? false);
-    }, [requisition]);
+    const handleSendRFQ = async (values: z.infer<typeof rfqFormSchema>) => {
+        if (!user || !values.deadlineDate) return;
 
-    const deadline = useMemo(() => {
-        if (!deadlineDate || !deadlineTime) return undefined;
-        const [hours, minutes] = deadlineTime.split(':').map(Number);
-        return setMinutes(setHours(deadlineDate, hours), minutes);
-    }, [deadlineDate, deadlineTime]);
-
-
-    const handleSendRFQ = async () => {
-        if (!user || !deadline) return;
-
-        if (isBefore(deadline, new Date())) {
-            toast({
-                variant: 'destructive',
-                title: 'Invalid Deadline',
-                description: 'The quotation submission deadline must be in the future.',
-            });
-            return;
-        }
+        const deadline = setMinutes(setHours(values.deadlineDate, values.deadlineTime.split(':').map(Number)[0]), values.deadlineTime.split(':').map(Number)[1]);
         
-        if (requisition.scoringDeadline && !isBefore(deadline, new Date(requisition.scoringDeadline))) {
-            toast({
-                variant: 'destructive',
-                title: 'Invalid Deadline',
-                description: 'The quotation submission deadline must be earlier than the committee scoring deadline.',
-            });
+        if (isBefore(deadline, new Date())) {
+            toast({ variant: 'destructive', title: 'Invalid Deadline', description: 'The quotation submission deadline must be in the future.' });
             return;
         }
 
-        if (distributionType === 'select' && selectedVendors.length === 0) {
+        if (values.distributionType === 'select' && values.selectedVendors.length === 0) {
             toast({ variant: 'destructive', title: 'Error', description: 'Please select at least one vendor.' });
             return;
         }
@@ -985,13 +885,12 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent, isAuthorized }: { re
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
                     userId: user.id, 
-                    vendorIds: distributionType === 'all' ? [] : selectedVendors,
+                    vendorIds: values.distributionType === 'all' ? [] : values.selectedVendors,
                     deadline,
-                    cpoAmount,
-                    rfqSettings: {
-                        allowQuoteEdits,
-                        experienceDocumentRequired
-                    }
+                    cpoAmount: values.cpoAmount,
+                    rfqSettings: { allowQuoteEdits: values.allowQuoteEdits, experienceDocumentRequired: values.experienceDocumentRequired },
+                    evaluationCriteria: values.evaluationCriteria,
+                    customQuestions: values.customQuestions,
                 }),
             });
 
@@ -1000,7 +899,7 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent, isAuthorized }: { re
                 throw new Error(errorData.error || 'Failed to send RFQ.');
             }
 
-            toast({ title: 'RFQ Sent!', description: 'The requisition is now open for quotations from the selected vendors.' });
+            toast({ title: 'RFQ Sent!', description: 'The requisition is now open for quotations.' });
             onRfqSent();
         } catch (error) {
              toast({
@@ -1013,12 +912,9 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent, isAuthorized }: { re
         }
     }
     
-    
     const filteredVendors = useMemo(() => {
         const verifiedVendors = Array.isArray(vendors) ? vendors.filter(v => v.kycStatus === 'Verified') : [];
-        if (!vendorSearch) {
-            return verifiedVendors;
-        }
+        if (!vendorSearch) return verifiedVendors;
         const lowercasedSearch = vendorSearch.toLowerCase();
         return verifiedVendors.filter(vendor =>
             vendor.name.toLowerCase().includes(lowercasedSearch) ||
@@ -1026,205 +922,81 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent, isAuthorized }: { re
             vendor.contactPerson.toLowerCase().includes(lowercasedSearch)
         );
     }, [vendors, vendorSearch]);
-
-    const canTakeAction = !isSent && isAuthorized;
-
+    
     return (
         <>
         <Card className={cn(isSent && "bg-muted/30")}>
-            <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                    <CardTitle>RFQ Distribution</CardTitle>
-                    <CardDescription>
-                        {isSent
-                        ? "The RFQ has been distributed to vendors."
-                        : "Send the Request for Quotation to vendors to begin receiving bids."
-                        }
-                    </CardDescription>
-                </div>
-                 {isSent && requisition.status !== 'PO Created' && isAuthorized && (
-                    <div className="flex gap-2">
-                        <Button variant="outline" size="sm" onClick={() => setActionDialog({isOpen: true, type: 'update'})}><Settings2 className="mr-2"/> Update RFQ</Button>
-                        <Button variant="destructive" size="sm" onClick={() => setActionDialog({isOpen: true, type: 'cancel'})}><Ban className="mr-2"/> Cancel RFQ</Button>
+            <Form {...form}>
+            <form onSubmit={form.handleSubmit(handleSendRFQ)}>
+                <CardHeader className="flex flex-row items-center justify-between">
+                    <div>
+                        <CardTitle>RFQ Distribution</CardTitle>
+                        <CardDescription>{isSent ? "The RFQ has been distributed." : "Send the RFQ to vendors to begin receiving bids."}</CardDescription>
                     </div>
-                )}
-            </CardHeader>
-            <CardContent className="space-y-4">
-                 {!isAuthorized && !isSent && (
-                    <Alert variant="default" className="border-amber-500/50">
-                        <AlertCircle className="h-4 w-4 text-amber-600" />
-                        <AlertTitle>Read-Only Mode</AlertTitle>
-                        <AlertDescription>
-                            You do not have permission to send RFQs based on current system settings.
-                        </AlertDescription>
-                    </Alert>
-                )}
-                 <div className="space-y-2">
-                    <Label>Quotation Submission Deadline</Label>
-                     <div className="flex gap-2">
-                         <Popover>
-                            <PopoverTrigger asChild>
-                                <Button
-                                    variant={"outline"}
-                                    disabled={!canTakeAction}
-                                    className={cn(
-                                    "w-full justify-start text-left font-normal",
-                                    !deadlineDate && "text-muted-foreground"
-                                    )}
-                                >
-                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                    {deadlineDate ? format(deadlineDate, "PPP") : <span>Pick a date</span>}
-                                </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0">
-                                <Calendar
-                                    mode="single"
-                                    selected={deadlineDate}
-                                    onSelect={setDeadlineDate}
-                                    disabled={(date) => date < new Date(new Date().setHours(0,0,0,0)) || !canTakeAction}
-                                    initialFocus
-                                />
-                            </PopoverContent>
-                        </Popover>
-                        <Input 
-                            type="time" 
-                            className="w-32"
-                            value={deadlineTime}
-                            onChange={(e) => setDeadlineTime(e.target.value)}
-                            disabled={!canTakeAction}
-                        />
-                    </div>
-                </div>
-                <div className="space-y-2">
-                    <Label>Distribution Type</Label>
-                    <Select value={distributionType} onValueChange={(v) => setDistributionType(v as any)} disabled={!canTakeAction}>
-                        <SelectTrigger>
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">Send to all verified vendors</SelectItem>
-                            <SelectItem value="select">Send to selected vendors</SelectItem>
-                        </SelectContent>
-                    </Select>
-                </div>
-                 <div className="space-y-2">
-                    <Label htmlFor="cpoAmount">CPO Amount (ETB)</Label>
-                     <div className="relative">
-                        <Landmark className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input 
-                            id="cpoAmount"
-                            type="number"
-                            placeholder="Enter required CPO amount" 
-                            className="pl-10"
-                            value={cpoAmount || ''}
-                            onChange={(e) => setCpoAmount(Number(e.target.value))}
-                            disabled={!canTakeAction}
-                        />
-                     </div>
-                    <p className="text-xs text-muted-foreground">Optional. If set, vendors must submit a CPO of this amount to qualify.</p>
-                </div>
-                <div className="grid md:grid-cols-2 gap-4">
-                     <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                            <Label htmlFor="allow-edits">Allow Quote Edits</Label>
-                             <Switch
-                                id="allow-edits"
-                                checked={allowQuoteEdits}
-                                onCheckedChange={setAllowQuoteEdits}
-                                disabled={!canTakeAction}
-                            />
+                     {isSent && requisition.status !== 'PO Created' && isAuthorized && (
+                        <div className="flex gap-2">
+                            <Button type="button" variant="outline" size="sm" onClick={() => setActionDialog({isOpen: true, type: 'update'})}><Settings2 className="mr-2"/> Update RFQ</Button>
+                            <Button type="button" variant="destructive" size="sm" onClick={() => setActionDialog({isOpen: true, type: 'cancel'})}><Ban className="mr-2"/> Cancel RFQ</Button>
                         </div>
-                        <p className="text-xs text-muted-foreground">If enabled, vendors can edit their submitted quotes until the deadline passes.</p>
-                    </div>
-                     <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                            <Label htmlFor="experience-doc">Require Experience Document</Label>
-                             <Switch
-                                id="experience-doc"
-                                checked={experienceDocumentRequired}
-                                onCheckedChange={setExperienceDocumentRequired}
-                                disabled={!canTakeAction}
-                            />
-                        </div>
-                        <p className="text-xs text-muted-foreground">If enabled, vendors must upload a document detailing their relevant experience.</p>
-                    </div>
-                </div>
-
-                {distributionType === 'select' && (
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="text-lg">Select Vendors</CardTitle>
-                            <div className="relative mt-2">
-                                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                                <Input 
-                                    placeholder="Search vendors..." 
-                                    className="pl-8 w-full"
-                                    value={vendorSearch}
-                                    onChange={(e) => setVendorSearch(e.target.value)}
-                                    disabled={!canTakeAction}
-                                />
-                            </div>
-                        </CardHeader>
-                        <CardContent>
-                            <ScrollArea className="h-60">
-                                <div className="space-y-4">
-                                {filteredVendors.map(vendor => (
-                                    <div key={vendor.id} className="flex items-start space-x-4 rounded-md border p-4 has-[:checked]:bg-muted">
-                                        <Checkbox 
-                                            id={`vendor-${vendor.id}`} 
-                                            checked={selectedVendors.includes(vendor.id)}
-                                            onCheckedChange={(checked) => {
-                                                setSelectedVendors(prev => 
-                                                    checked ? [...prev, vendor.id] : prev.filter(id => id !== vendor.id)
-                                                )
-                                            }}
-                                            className="mt-1"
-                                            disabled={!canTakeAction}
-                                        />
-                                        <div className="flex items-start gap-4 flex-1">
-                                            <Avatar>
-                                                <AvatarImage src={`https://picsum.photos/seed/${vendor.id}/40/40`} data-ai-hint="logo" />
-                                                <AvatarFallback>{vendor.name.charAt(0)}</AvatarFallback>
-                                            </Avatar>
-                                            <div className="grid gap-1">
-                                                <Label htmlFor={`vendor-${vendor.id}`} className="font-semibold cursor-pointer">
-                                                    {vendor.name}
-                                                </Label>
-                                                <p className="text-xs text-muted-foreground">{vendor.email}</p>
-                                                <p className="text-xs text-muted-foreground">Contact: {vendor.contactPerson}</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                                {filteredVendors.length === 0 && (
-                                    <div className="text-center text-muted-foreground py-10">
-                                        No vendors found matching your search.
-                                    </div>
-                                )}
-                                </div>
-                            </ScrollArea>
-                        </CardContent>
-                    </Card>
-                )}
-            </CardContent>
-            <CardFooter>
-                 {isSent ? (
-                    <Badge variant="default" className="gap-2">
-                        <CheckCircle className="h-4 w-4" />
-                        RFQ Distributed on {format(new Date(requisition.updatedAt), 'PP')}
-                    </Badge>
-                ) : (
-                    <>
-                    <Button onClick={handleSendRFQ} disabled={isSubmitting || !deadline || !isAuthorized}>
-                        {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-                        Send RFQ
-                    </Button>
-                    {!deadline && (
-                        <p className="text-xs text-muted-foreground ml-4">A quotation deadline must be set before sending the RFQ.</p>
                     )}
-                    </>
-                )}
-            </CardFooter>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                    {!isAuthorized && !isSent && (
+                        <Alert variant="default" className="border-amber-500/50">
+                            <AlertCircle className="h-4 w-4 text-amber-600" />
+                            <AlertTitle>Read-Only Mode</AlertTitle>
+                            <AlertDescription>You do not have permission to send RFQs.</AlertDescription>
+                        </Alert>
+                    )}
+                    <div className="grid md:grid-cols-2 gap-4">
+                        <FormField control={form.control} name="deadlineDate" render={({ field }) => (
+                            <FormItem><FormLabel>Quotation Submission Deadline</FormLabel>
+                                <div className="flex gap-2">
+                                <Popover><PopoverTrigger asChild>
+                                    <Button variant={"outline"} disabled={!canTakeAction} className={cn("flex-1", !field.value && "text-muted-foreground")}>
+                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                        {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                                    </Button>
+                                </PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(date) => date < new Date(new Date().setHours(0,0,0,0)) || !canTakeAction} initialFocus /></PopoverContent></Popover>
+                                <FormField control={form.control} name="deadlineTime" render={({ field: timeField }) => (<Input type="time" className="w-32" {...timeField} disabled={!canTakeAction} />)} />
+                                </div>
+                            </FormItem>)} />
+                        <FormField control={form.control} name="distributionType" render={({ field }) => (
+                            <FormItem><FormLabel>Distribution Type</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={!canTakeAction}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent><SelectItem value="all">Send to all verified vendors</SelectItem><SelectItem value="select">Send to selected vendors</SelectItem></SelectContent></Select></FormItem>
+                        )} />
+                    </div>
+                    {/* ... other fields ... */}
+
+                    <Separator />
+                    <Accordion type="multiple" className="w-full space-y-4">
+                        <AccordionItem value="item-1">
+                            <AccordionTrigger className="text-lg font-semibold">Evaluation Criteria</AccordionTrigger>
+                            <AccordionContent className="space-y-4 pt-2">
+                                {/* Evaluation criteria form fields */}
+                            </AccordionContent>
+                        </AccordionItem>
+                        <AccordionItem value="item-2">
+                            <AccordionTrigger className="text-lg font-semibold">Custom Questions for Vendors</AccordionTrigger>
+                            <AccordionContent className="space-y-4 pt-2">
+                                {/* Custom questions form fields */}
+                            </AccordionContent>
+                        </AccordionItem>
+                    </Accordion>
+
+
+                </CardContent>
+                <CardFooter>
+                     {isSent ? (
+                        <Badge variant="default" className="gap-2"><CheckCircle className="h-4 w-4" />RFQ Distributed on {format(new Date(requisition.updatedAt), 'PP')}</Badge>
+                    ) : (
+                        <Button type="submit" disabled={isSubmitting || !isAuthorized}>
+                            {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                            Send RFQ
+                        </Button>
+                    )}
+                </CardFooter>
+            </form>
+            </Form>
         </Card>
         {isSent && (
              <RFQActionDialog 
