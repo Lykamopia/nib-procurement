@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { NextResponse } from 'next/server';
@@ -14,7 +13,7 @@ export async function POST(
   try {
     const { id } = params;
     const body = await request.json();
-    const { userId, vendorIds, deadline, cpoAmount, rfqSettings } = body;
+    const { userId, vendorIds, deadline, cpoAmount, rfqSettings, evaluationCriteria, customQuestions } = body;
 
     const requisition = await prisma.purchaseRequisition.findUnique({ where: { id }});
     if (!requisition) {
@@ -39,6 +38,15 @@ export async function POST(
         });
         finalVendorIds = verifiedVendors.map(v => v.id);
     }
+    
+    // First, clear any existing criteria and questions to prevent duplication
+    const existingCriteria = await prisma.evaluationCriteria.findUnique({ where: { requisitionId: id } });
+    if (existingCriteria) {
+        await prisma.financialCriterion.deleteMany({ where: { evaluationCriteriaId: existingCriteria.id } });
+        await prisma.technicalCriterion.deleteMany({ where: { evaluationCriteriaId: existingCriteria.id } });
+        await prisma.evaluationCriteria.delete({ where: { id: existingCriteria.id } });
+    }
+    await prisma.customQuestion.deleteMany({ where: { requisitionId: id } });
 
 
     const updatedRequisition = await prisma.purchaseRequisition.update({
@@ -49,6 +57,26 @@ export async function POST(
             deadline: deadline ? new Date(deadline) : undefined,
             cpoAmount: cpoAmount,
             rfqSettings: rfqSettings || {},
+            evaluationCriteria: {
+                create: {
+                    financialWeight: evaluationCriteria.financialWeight,
+                    technicalWeight: evaluationCriteria.technicalWeight,
+                    financialCriteria: {
+                        create: evaluationCriteria.financialCriteria.map((c:any) => ({ name: c.name, weight: c.weight }))
+                    },
+                    technicalCriteria: {
+                        create: evaluationCriteria.technicalCriteria.map((c:any) => ({ name: c.name, weight: c.weight }))
+                    }
+                }
+            },
+            customQuestions: {
+                 create: customQuestions?.map((q: any) => ({
+                    questionText: q.questionText,
+                    questionType: q.questionType,
+                    isRequired: q.isRequired,
+                    options: q.options || [],
+                }))
+            }
         }
     });
 
@@ -106,4 +134,3 @@ export async function POST(
     return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
   }
 }
-

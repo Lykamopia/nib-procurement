@@ -129,28 +129,8 @@ export async function POST(request: Request) {
                     description: item.description || ''
                 }))
             },
-            customQuestions: {
-                create: body.customQuestions?.map((q: any) => ({
-                    questionText: q.questionText,
-                    questionType: q.questionType,
-                    isRequired: q.isRequired,
-                    options: q.options || [],
-                }))
-            },
-            evaluationCriteria: {
-                create: {
-                    financialWeight: body.evaluationCriteria.financialWeight,
-                    technicalWeight: body.evaluationCriteria.technicalWeight,
-                    financialCriteria: {
-                        create: body.evaluationCriteria.financialCriteria.map((c:any) => ({ name: c.name, weight: c.weight }))
-                    },
-                    technicalCriteria: {
-                        create: body.evaluationCriteria.technicalCriteria.map((c:any) => ({ name: c.name, weight: c.weight }))
-                    }
-                }
-            }
         },
-        include: { items: true, customQuestions: true, evaluationCriteria: true }
+        include: { items: true }
     });
 
     // Set the transactionId to be its own ID after creation
@@ -238,38 +218,6 @@ export async function PATCH(
                     description: item.description || ''
                 })),
             },
-            // Same for questions and criteria
-            customQuestions: {
-                deleteMany: {},
-                create: updateData.customQuestions?.map((q: any) => ({
-                    questionText: q.questionText,
-                    questionType: q.questionType,
-                    isRequired: q.isRequired,
-                    options: q.options || [],
-                })),
-            },
-        };
-        // Handle evaluation criteria update by deleting old and creating new
-         const oldCriteria = await prisma.evaluationCriteria.findUnique({
-            where: { requisitionId: id },
-         });
-         if (oldCriteria) {
-             await prisma.financialCriterion.deleteMany({ where: { evaluationCriteriaId: oldCriteria.id } });
-             await prisma.technicalCriterion.deleteMany({ where: { evaluationCriteriaId: oldCriteria.id } });
-             await prisma.evaluationCriteria.delete({ where: { id: oldCriteria.id } });
-         }
-
-         dataToUpdate.evaluationCriteria = {
-            create: {
-                financialWeight: updateData.evaluationCriteria.financialWeight,
-                technicalWeight: updateData.evaluationCriteria.technicalWeight,
-                financialCriteria: {
-                    create: updateData.evaluationCriteria.financialCriteria.map((c:any) => ({ name: c.name, weight: c.weight }))
-                },
-                technicalCriteria: {
-                    create: updateData.evaluationCriteria.technicalCriteria.map((c:any) => ({ name: c.name, weight: c.weight }))
-                }
-            }
         };
         
         if (status === 'Pending Approval') {
@@ -414,5 +362,3 @@ export async function DELETE(
     return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
   }
 }
-
-    
