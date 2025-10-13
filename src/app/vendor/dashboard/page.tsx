@@ -52,9 +52,13 @@ export default function VendorDashboardPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
+    const vendorId = user?.vendorId;
 
     useEffect(() => {
-        if (!token || !user?.vendorId) return;
+        if (!token || !vendorId) {
+             setLoading(false);
+             return;
+        }
 
         const fetchAllData = async () => {
             setLoading(true);
@@ -64,13 +68,14 @@ export default function VendorDashboardPage() {
                 const vendorRes = await fetch(`/api/vendors`);
                 if(!vendorRes.ok) throw new Error('Could not fetch vendor details.');
                 const allVendors: Vendor[] = await vendorRes.json();
-                const currentVendor = allVendors.find(v => v.id === user.vendorId);
+                const currentVendor = allVendors.find(v => v.id === vendorId);
                 setVendor(currentVendor || null);
 
                 // If vendor is not verified, don't fetch requisitions
                 if (currentVendor?.kycStatus !== 'Verified') {
                     setOpenRequisitions([]);
                     setAwardedRequisitions([]);
+                    setLoading(false);
                     return;
                 }
 
@@ -95,13 +100,13 @@ export default function VendorDashboardPage() {
 
                 allRequisitions.forEach(req => {
                     const vendorQuote = req.quotations?.find(
-                        (q: Quotation) => q.vendorId === user.vendorId
+                        (q: Quotation) => q.vendorId === vendorId
                     );
 
                     if (vendorQuote) {
                         if (awardStatuses.includes(vendorQuote.status)) {
                             vendorAwards.push(req);
-                        } else if (vendorQuote.status === 'Submitted') {
+                        } else {
                             vendorSubmissions.push(req);
                         }
                     }
@@ -110,7 +115,7 @@ export default function VendorDashboardPage() {
                         (!req.deadline || !isPast(new Date(req.deadline)))
                     ) {
                         const isPublic = !req.allowedVendorIds || req.allowedVendorIds.length === 0;
-                        const isPrivateAndAllowed = req.allowedVendorIds && req.allowedVendorIds.includes(user.vendorId!);
+                        const isPrivateAndAllowed = req.allowedVendorIds && req.allowedVendorIds.includes(vendorId);
 
                         if (isPublic || isPrivateAndAllowed) {
                            availableForQuoting.push(req);
@@ -130,7 +135,7 @@ export default function VendorDashboardPage() {
         };
 
         fetchAllData();
-    }, [token, user]);
+    }, [token, vendorId]);
 
     const getRequisitionCardStatus = (req: PurchaseRequisition): RequisitionCardStatus => {
         if (!user?.vendorId) return 'Action Required';
@@ -321,5 +326,3 @@ export default function VendorDashboardPage() {
         </div>
     )
 }
-
-    

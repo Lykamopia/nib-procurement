@@ -165,8 +165,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   
   const { toast } = useToast();
 
+  const memoizedUser = useMemo(() => user, [user]);
+
   const authContextValue = useMemo(() => ({
-      user,
+      user: memoizedUser,
       token,
       role,
       allUsers,
@@ -178,7 +180,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       switchUser,
       updateRolePermissions,
       updateRfqSenderSetting
-  }), [user, token, role, loading, allUsers, rolePermissions, rfqSenderSetting]);
+  }), [memoizedUser, token, role, loading, allUsers, rolePermissions, rfqSenderSetting]);
 
 
   return (
