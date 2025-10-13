@@ -39,32 +39,36 @@ export function RequisitionsForQuotingTable() {
 
   useEffect(() => {
     const fetchRequisitions = async () => {
+        if (!user) return;
         try {
             setLoading(true);
-            let response = await fetch('/api/requisitions');
-            if (!response.ok) {
-                throw new Error('Failed to fetch requisitions');
-            }
-            let data: PurchaseRequisition[] = await response.json();
+            let apiUrl = '/api/requisitions';
             
-             // For Committee Members, only show requisitions they are assigned to.
-            if (role === 'Committee Member' && user) {
-                data = data.filter(r => 
-                    (r.financialCommitteeMemberIds?.includes(user.id)) ||
-                    (r.technicalCommitteeMemberIds?.includes(user.id))
-                );
-            }
-            
-            // For POs, show requisitions that are approved or in the quotation/award lifecycle
-            if (role === 'Procurement Officer' || role === 'Committee') {
+            // For Committee Members, only show requisitions they are assigned to.
+            if (role === 'Committee Member') {
+                const assignedReqs = allUsers.find(u => u.id === user.id)?.committeeAssignments?.map(a => a.requisitionId) || [];
+                // This filtering is client side, for a large scale app this would be a specific API endpoint.
+                const response = await fetch(apiUrl);
+                 if (!response.ok) {
+                    throw new Error('Failed to fetch requisitions');
+                }
+                let data: PurchaseRequisition[] = await response.json();
+                data = data.filter(r => assignedReqs.includes(r.id));
+                setRequisitions(data);
+
+            } else if (role === 'Procurement Officer' || role === 'Committee') {
+                 // For POs, show requisitions that are approved or in the quotation/award lifecycle
                  const relevantStatuses = ['Approved', 'RFQ In Progress', 'PO Created', 'Fulfilled', 'Closed', 'Pending Managerial Approval', 'Pending Committee B Review', 'Pending Committee A Recommendation'];
-                 data = data.filter(r => {
-                    const normalizedStatus = r.status.replace(/_/g, ' ');
-                    return relevantStatuses.includes(normalizedStatus);
-                 });
+                 apiUrl = `/api/requisitions?status=${relevantStatuses.join(',')}`;
+                 const response = await fetch(apiUrl);
+                 if (!response.ok) {
+                    throw new Error('Failed to fetch requisitions');
+                }
+                const data: PurchaseRequisition[] = await response.json();
+                setRequisitions(data);
             }
 
-            setRequisitions(data);
+
         } catch (e) {
             setError(e instanceof Error ? e.message : 'An unknown error occurred');
         } finally {
@@ -74,7 +78,7 @@ export function RequisitionsForQuotingTable() {
     if (user) {
         fetchRequisitions();
     }
-  }, [user, role]);
+  }, [user, role, allUsers]);
   
   const totalPages = Math.ceil(requisitions.length / PAGE_SIZE);
   const paginatedData = useMemo(() => {
@@ -193,7 +197,7 @@ export function RequisitionsForQuotingTable() {
         </div>
          <div className="flex items-center justify-between mt-4">
           <div className="text-sm text-muted-foreground">
-            Page {currentPage} of {totalPages} ({requisitions.length} total requisitions)
+            Page {currentPage} of {totalPages || 1} ({requisitions.length} total requisitions)
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="icon" onClick={() => setCurrentPage(1)} disabled={currentPage === 1}><ChevronsLeft /></Button>

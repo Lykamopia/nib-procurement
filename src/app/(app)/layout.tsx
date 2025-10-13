@@ -91,7 +91,7 @@ export default function AppLayout({
   
   // Page-level access check
   useEffect(() => {
-    if (!loading && role && role !== 'Vendor') {
+    if (!loading && role) {
       const currentPath = pathname.split('?')[0];
       const allowedPaths = rolePermissions[role] || [];
       
