@@ -99,23 +99,16 @@ export default function AppLayout({
       const currentPath = pathname.split('?')[0];
       const allowedPaths = rolePermissions[role] || [];
       
-      const isAllowed = allowedPaths.includes(currentPath);
+      const isAllowed = allowedPaths.includes(currentPath) || 
+                        allowedPaths.some(p => p.includes('[') && currentPath.startsWith(p.split('/[')[0]));
+
 
       if (!isAllowed) {
-        // More robust check for dynamic routes like /requisitions/[id]/edit
-        const isDynamicRouteAllowed = allowedPaths.some(p => {
-          if (!p.includes('[')) return false;
-          const basePath = p.split('/[')[0];
-          return currentPath.startsWith(basePath);
-        });
-
-        if (!isDynamicRouteAllowed) {
-          const defaultPath = allowedPaths.includes('/dashboard') ? '/dashboard' : allowedPaths[0];
-          if(defaultPath) {
-            router.push(defaultPath);
-          } else {
-             router.push('/login');
-          }
+        const defaultPath = allowedPaths.includes('/dashboard') ? '/dashboard' : allowedPaths[0];
+        if(defaultPath) {
+          router.push(defaultPath);
+        } else {
+           router.push('/login');
         }
       }
     }
