@@ -78,12 +78,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const response = await fetch('/api/users');
         if (response.ok) {
             const usersData = await response.json();
-            const usersWithAssignments = usersData.map((u: any) => ({
-                ...u,
-                committeeAssignments: u.committeeAssignments || [],
-            }));
-            setAllUsers(usersWithAssignments);
-            return usersWithAssignments;
+            setAllUsers(usersData);
+            return usersData;
         }
         return [];
     } catch (error) {
@@ -102,6 +98,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (storedToken) {
               const decoded = jwtDecode<{ exp: number, iat: number } & User>(storedToken);
               if (decoded && decoded.exp * 1000 > Date.now()) {
+                  // Attempt to find the full, most up-to-date user object from the fetched list
+                  // This ensures we have relations like 'department' populated correctly
                   const fullUser = users.find((u: User) => u.id === decoded.id) || decoded;
                   setUser(fullUser);
                   setToken(storedToken);
@@ -146,6 +144,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const switchUser = async (userId: string) => {
       const targetUser = allUsers.find(u => u.id === userId);
       if (targetUser) {
+          // Use a dummy password as the backend validates it.
           const response = await fetch('/api/auth/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -186,6 +185,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await fetchAllUsers(); // re-fetch all users to get the updated list
     } catch (e) {
         console.error(e);
+        // In a real app, you'd use a toast notification here
         // toast({variant: 'destructive', title: "Error", description: "Failed to update user role."})
     }
   }

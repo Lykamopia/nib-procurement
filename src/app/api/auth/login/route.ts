@@ -16,7 +16,6 @@ export async function POST(request: Request) {
             include: {
                 vendor: true,
                 department: true,
-                committeeAssignments: true,
             }
         });
 

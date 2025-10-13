@@ -50,27 +50,15 @@ export async function verifyJwt(token: string) {
 
 
 export async function getUserByToken(token: string): Promise<{ user: User, role: UserRole } | null> {
-    const jwtSecret = process.env.JWT_SECRET;
-    if (!jwtSecret) {
-        console.error('JWT_SECRET is not defined in environment variables.');
-        return null;
-    }
-    
     try {
-        const decoded = jwt.verify(token, jwtSecret) as JwtPayload;
-
-        const user: User = {
-            id: decoded.id,
-            name: decoded.name,
-            email: decoded.email,
-            role: decoded.role,
-            vendorId: decoded.vendorId,
-            department: decoded.department,
-        };
-
-        return { user, role: user.role };
+        const decoded = decodeJwt<User>(token);
+        if (!decoded) {
+            return null;
+        }
+        
+        return { user: decoded, role: decoded.role };
     } catch(e) {
-        console.error("Failed to verify token:", e);
+        console.error("Failed to decode token:", e);
         return null;
     }
 }

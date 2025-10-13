@@ -8,7 +8,6 @@ import bcrypt from 'bcryptjs';
 export async function GET() {
   try {
     const users = await prisma.user.findMany({
-        where: { role: { not: 'Vendor' } },
         include: { 
             department: true,
             committeeAssignments: true, // Ensure assignments are fetched
