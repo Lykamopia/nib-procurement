@@ -170,10 +170,13 @@ async function main() {
   }
   console.log('Seeded vendors and their users.');
 
+  // Store created requisitions to get their dynamic IDs
+  const createdRequisitions: { [key: string]: any } = {};
+
   // Seed Requisitions
   for (const requisition of seedData.requisitions) {
       const { 
-          id, // Exclude id from reqData
+          id: originalId, // Capture the original hardcoded ID
           items, 
           customQuestions, 
           evaluationCriteria, 
@@ -209,6 +212,9 @@ async function main() {
               } : undefined,
           }
       });
+      
+      // Store the created requisition with its new ID, using the original ID as the key
+      createdRequisitions[originalId] = createdRequisition;
 
       if (items) {
           for (const item of items) {
@@ -242,6 +248,14 @@ async function main() {
 
    for (const quote of seedData.quotations) {
        const { items, answers, scores, requisitionId, vendorId, ...quoteData } = quote;
+       
+       // Use the dynamically created requisition ID
+       const dynamicRequisition = createdRequisitions[requisitionId];
+       if (!dynamicRequisition) {
+           console.warn(`Skipping quote ${quote.id} because its requisition ${requisitionId} was not found in the created list.`);
+           continue;
+       }
+
        const createdQuote = await prisma.quotation.create({
            data: {
                ...quoteData,
@@ -249,7 +263,7 @@ async function main() {
                deliveryDate: new Date(quoteData.deliveryDate),
                createdAt: new Date(quoteData.createdAt),
                vendor: { connect: { id: vendorId } },
-               requisition: { connect: { id: requisitionId } },
+               requisition: { connect: { id: dynamicRequisition.id } },
            }
        });
 
@@ -269,13 +283,19 @@ async function main() {
 
     for (const po of seedData.purchaseOrders) {
         const { items, receipts, invoices, vendor, ...poData } = po;
+        const dynamicRequisition = createdRequisitions[po.requisitionId];
+        if (!dynamicRequisition) {
+           console.warn(`Skipping PO ${po.id} because its requisition ${po.requisitionId} was not found in the created list.`);
+           continue;
+        }
+
         await prisma.purchaseOrder.create({
             data: {
                 ...poData,
                 status: poData.status.replace(/_/g, '_') as any,
                 createdAt: new Date(poData.createdAt),
                 vendorId: vendor.id,
-                requisitionId: po.requisitionId,
+                requisitionId: dynamicRequisition.id,
                 items: {
                     create: items.map(item => ({
                         id: item.id,
@@ -312,7 +332,7 @@ async function main() {
     console.log('Seeded invoices.');
 
     for (const grn of seedData.goodsReceipts) {
-        const { items, ...grnData } = grn;
+        const { items, ...grnData }. = grn;
         const createdGrn = await prisma.goodsReceiptNote.create({
             data: { 
                 ...grnData, 
@@ -361,3 +381,5 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
+
+    
