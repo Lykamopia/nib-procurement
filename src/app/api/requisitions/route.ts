@@ -203,7 +203,6 @@ export async function POST(request: Request) {
     const newRequisition = await prisma.purchaseRequisition.create({
         data: {
             requester: { connect: { id: user.id } },
-            requesterName: user.name,
             department: { connect: { id: department.id } },
             title: body.title,
             urgency: body.urgency,
