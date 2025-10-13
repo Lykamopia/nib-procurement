@@ -88,7 +88,7 @@ export async function GET(request: Request) {
   const statusParam = searchParams.get('status');
   const forVendor = searchParams.get('forVendor');
   const approverId = searchParams.get('approverId');
-  const forReview = searchParams.get('forReview'); // New parameter for the reviews page
+  const forReview = searchParams.get('forReview');
 
   const authHeader = request.headers.get('Authorization');
   const token = authHeader?.split(' ')[1];
@@ -100,7 +100,6 @@ export async function GET(request: Request) {
   try {
     const whereClause: any = {};
     
-    // Handle the new 'forReview' case for committee members
     if (forReview === 'true' && userPayload) {
         const { role } = userPayload;
         if (role === 'Committee_A_Member') {
@@ -110,7 +109,6 @@ export async function GET(request: Request) {
         } else if (role === 'Admin') {
             whereClause.status = { in: ['Pending_Committee_A_Recommendation', 'Pending_Committee_B_Review'] };
         } else {
-             // If a non-committee member hits this, return nothing.
             return NextResponse.json([]);
         }
     } else if (statusParam) {
@@ -154,7 +152,7 @@ export async function GET(request: Request) {
             include: {
                 vendor: true
             }
-        }, // Include quotations to check vendor status
+        },
       },
       orderBy: {
         createdAt: 'desc',
