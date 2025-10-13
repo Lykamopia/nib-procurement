@@ -96,9 +96,9 @@ export default function AppLayout({
       const allowedPaths = rolePermissions[role] || [];
       
       const isAllowed = allowedPaths.includes(currentPath) || 
-                        allowedPaths.some(p => p.includes('[') && currentPath.startsWith(p.split('/[')[0]));
+                        allowedPaths.some(p => p !== '/' && currentPath.startsWith(p) && p.includes('[') === currentPath.includes('['));
 
-      if (!isAllowed) {
+      if (!isAllowed && allowedPaths.length > 0) {
         console.log(`Redirecting: User with role ${role} not allowed to access ${currentPath}. Allowed:`, allowedPaths);
         const defaultPath = allowedPaths.includes('/dashboard') ? '/dashboard' : allowedPaths[0];
         if(defaultPath) {
@@ -144,7 +144,7 @@ export default function AppLayout({
                 <SidebarMenuItem key={item.path}>
                     <Link href={item.path}>
                         <SidebarMenuButton
-                        isActive={pathname.startsWith(item.path)}
+                        isActive={item.path === '/' ? pathname === '/' : pathname.startsWith(item.path)}
                         tooltip={item.label}
                         >
                         <item.icon />
