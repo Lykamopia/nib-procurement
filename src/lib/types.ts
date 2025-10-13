@@ -13,7 +13,8 @@ export type UserRole =
   | 'President'
   | 'VP Resources'
   | 'Director Supply Chain'
-  | 'Director HRM';
+  | 'Director HRM'
+  | 'Procurement Manager';
 
 export type CommitteeAssignment = {
   requisitionId: string;

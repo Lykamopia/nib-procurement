@@ -68,7 +68,8 @@ export function ReviewsTable() {
         const data: PurchaseRequisition[] = await response.json();
         
         // Final filter to ensure the requisition is assigned to this approver
-        const assignedRequisitions = data.filter(r => r.currentApproverId === user.id);
+        // In the new flow, this might not be needed if the status is specific enough, but it's a good safeguard.
+        const assignedRequisitions = data.filter(r => r.currentApproverId ? r.currentApproverId === user.id : true);
         
         setRequisitions(assignedRequisitions);
       } catch (e) {

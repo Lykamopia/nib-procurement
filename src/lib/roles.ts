@@ -102,9 +102,10 @@ export const rolePermissions: Record<UserRole, string[]> = {
     '/dashboard',
     '/quotations'
   ],
-   // Hierarchical Approvers - they might only need to see the approvals page
+   // Hierarchical Approvers
   'President': ['/approvals', '/records', '/dashboard'],
   'VP Resources': ['/approvals', '/records', '/dashboard'],
   'Director Supply Chain': ['/approvals', '/records', '/dashboard'],
   'Director HRM': ['/approvals', '/records', '/dashboard'],
+  'Procurement Manager': ['/approvals', '/records', '/dashboard'],
 };

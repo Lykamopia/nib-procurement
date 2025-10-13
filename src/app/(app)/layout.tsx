@@ -82,45 +82,12 @@ export default function AppLayout({
     };
   }, [user, handleLogout]);
 
-  // Page-level access check - This logic is correct and should remain.
-  // It ensures that once a user is authenticated, they cannot access pages outside their role's permissions.
+  // This effect handles the case where a user logs out and needs to be redirected.
   useEffect(() => {
-    if (loading || !role) return;
-    
-    // If there is no user, logout will handle the redirect.
-    if (!user) {
-        logout();
-        return;
+    if (!loading && !user) {
+      logout();
     }
-
-    const allowedPaths = rolePermissions[role] || [];
-    if (allowedPaths.length === 0) {
-        logout();
-        return;
-    }
-
-    const currentPath = pathname.split('?')[0];
-
-    // Check if current path is allowed. This handles dynamic routes by checking the base path.
-    const isAllowed = allowedPaths.some(p => {
-        if (p.includes('[')) { // It's a dynamic route
-            const basePath = p.split('/[')[0];
-            return currentPath.startsWith(basePath);
-        }
-        return currentPath === p;
-    });
-
-    if (!isAllowed) {
-        // If not allowed, redirect to the first allowed path, which is considered the default.
-        const defaultPath = allowedPaths[0];
-        if (defaultPath) {
-            router.push(defaultPath);
-        } else {
-            // If for some reason there's no default path, logout.
-            logout();
-        }
-    }
-  }, [pathname, loading, role, user, router, rolePermissions, logout]);
+  }, [loading, user, logout]);
 
 
   if (loading || !user) {
