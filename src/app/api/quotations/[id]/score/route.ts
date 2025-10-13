@@ -54,22 +54,18 @@ export async function POST(
         return NextResponse.json({ error: 'Associated requisition or its evaluation criteria not found.' }, { status: 404 });
     }
     
-    const existingScoreSet = await prisma.committeeScoreSet.findFirst({
+    // Use upsert to create or find the score set for this user and quote
+    const scoreSet = await prisma.committeeScoreSet.upsert({
         where: {
-            quotationId: quoteId,
-            scorerId: userId
-        }
-    });
-
-    if (existingScoreSet) {
-        return NextResponse.json({ error: 'You have already scored this quotation.' }, { status: 409 });
-    }
-    
-    let totalWeightedScore = 0;
-    const totalItems = scores.itemScores.length;
-
-    const createdScoreSet = await prisma.committeeScoreSet.create({
-        data: {
+            quotationId_scorerId: {
+                quotationId: quoteId,
+                scorerId: userId,
+            }
+        },
+        update: {
+            committeeComment: scores.committeeComment,
+        },
+        create: {
             quotation: { connect: { id: quoteId } },
             scorer: { connect: { id: user.id } },
             scorerName: user.name,
@@ -78,13 +74,16 @@ export async function POST(
         }
     });
 
+    let totalWeightedScore = 0;
+    const totalItems = scores.itemScores.length;
+
     for (const itemScore of scores.itemScores) {
          const finalItemScore = calculateFinalItemScore(itemScore, requisition.evaluationCriteria);
          totalWeightedScore += finalItemScore;
 
          await prisma.itemScore.create({
             data: {
-                scoreSet: { connect: { id: createdScoreSet.id } },
+                scoreSet: { connect: { id: scoreSet.id } },
                 quoteItem: { connect: { id: itemScore.quoteItemId } },
                 finalScore: finalItemScore,
                 financialScores: {
@@ -105,15 +104,19 @@ export async function POST(
         });
     }
 
-    const finalAverageScoreForQuote = totalItems > 0 ? totalWeightedScore / totalItems : 0;
+    const finalAverageScoreForThisScorer = totalItems > 0 ? totalWeightedScore / totalItems : 0;
     
     await prisma.committeeScoreSet.update({
-        where: { id: createdScoreSet.id },
-        data: { finalScore: finalAverageScoreForQuote }
+        where: { id: scoreSet.id },
+        data: { finalScore: finalAverageScoreForThisScorer }
     });
     
+    // Recalculate the overall average score for the quotation across all scorers
     const allScoreSetsForQuote = await prisma.committeeScoreSet.findMany({ where: { quotationId: quoteId } });
-    const overallAverage = allScoreSetsForQuote.reduce((acc, s) => acc + s.finalScore, 0) / allScoreSetsForQuote.length;
+    const overallAverage = allScoreSetsForQuote.length > 0 
+        ? allScoreSetsForQuote.reduce((acc, s) => acc + s.finalScore, 0) / allScoreSetsForQuote.length
+        : 0;
+
     await prisma.quotation.update({ where: { id: quoteId }, data: { finalAverageScore: overallAverage } });
 
 
@@ -124,14 +127,18 @@ export async function POST(
             action: 'SCORE_QUOTE',
             entity: 'Quotation',
             entityId: quoteId,
-            details: `Submitted scores for quote from ${quoteToUpdate.vendorName}. Final Score: ${finalAverageScoreForQuote.toFixed(2)}.`,
+            details: `Submitted scores for quote from ${quoteToUpdate.vendorName}. Final Score: ${finalAverageScoreForThisScorer.toFixed(2)}.`,
         }
     });
 
-    return NextResponse.json(createdScoreSet);
+    return NextResponse.json(scoreSet);
   } catch (error) {
     console.error('Failed to submit scores:', error);
     if (error instanceof Error) {
+        // Check for unique constraint violation
+        if ((error as any).code === 'P2002') {
+             return NextResponse.json({ error: 'A unique constraint violation occurred. This might be due to a duplicate score entry.'}, { status: 409 });
+        }
         return NextResponse.json({ error: 'Failed to process request', details: error.message }, { status: 500 });
     }
     return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
