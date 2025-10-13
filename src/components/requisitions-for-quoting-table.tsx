@@ -57,7 +57,7 @@ export function RequisitionsForQuotingTable() {
             
             // For POs, show requisitions that are approved or in the quotation/award lifecycle
             if (role === 'Procurement Officer' || role === 'Committee') {
-                 const relevantStatuses = ['Approved', 'RFQ In Progress', 'PO Created', 'Fulfilled', 'Closed', 'Pending Managerial Approval'];
+                 const relevantStatuses = ['Approved', 'RFQ In Progress', 'PO Created', 'Fulfilled', 'Closed', 'Pending Managerial Approval', 'Pending Committee B Review', 'Pending Committee A Recommendation'];
                  data = data.filter(r => {
                     const normalizedStatus = r.status.replace(/_/g, ' ');
                     return relevantStatuses.includes(normalizedStatus);
@@ -93,8 +93,11 @@ export function RequisitionsForQuotingTable() {
     const isAwarded = req.quotations?.some(q => q.status === 'Awarded');
     const isAccepted = req.quotations?.some(q => q.status === 'Accepted');
 
-    if (req.status === 'Pending Managerial Approval') {
+    if (req.status === 'Pending_Managerial_Approval') {
         return <Badge variant="destructive">Pending Managerial Approval</Badge>;
+    }
+     if (req.status === 'Pending_Committee_B_Review' || req.status === 'Pending_Committee_A_Recommendation') {
+        return <Badge variant="destructive">Pending Committee Review</Badge>;
     }
     if (req.status === 'PO Created' || isAccepted) {
         return <Badge variant="default">PO Created</Badge>;
@@ -108,7 +111,7 @@ export function RequisitionsForQuotingTable() {
     if (deadlinePassed && !req.committeeName) {
         return <Badge variant="destructive">Needs Committee</Badge>;
     }
-    if (req.status === 'RFQ In Progress' && !deadlinePassed) {
+    if (req.status === 'RFQ_In_Progress' && !deadlinePassed) {
         return <Badge variant="outline">Accepting Quotes</Badge>;
     }
     if (req.status === 'Approved') {
