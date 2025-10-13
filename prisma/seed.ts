@@ -8,8 +8,6 @@ const prisma = new PrismaClient();
 async function main() {
   console.log(`Clearing existing data...`);
   // Manually order deletion to respect foreign key constraints
-  await prisma.requisitionFinancialCommittee.deleteMany({});
-  await prisma.requisitionTechnicalCommittee.deleteMany({});
   await prisma.auditLog.deleteMany({});
   await prisma.receiptItem.deleteMany({});
   await prisma.goodsReceiptNote.deleteMany({});
@@ -31,8 +29,15 @@ async function main() {
   await prisma.requisitionItem.deleteMany({});
   await prisma.committeeAssignment.deleteMany({});
   await prisma.committeeRecommendation.deleteMany({});
+  await prisma.approval.deleteMany({});
+  await prisma.review.deleteMany({});
   await prisma.contract.deleteMany({});
+  
+  await prisma.requisitionFinancialCommittee.deleteMany({});
+  await prisma.requisitionTechnicalCommittee.deleteMany({});
+  
   await prisma.purchaseRequisition.deleteMany({});
+  
   await prisma.kYC_Document.deleteMany({});
   
   // Break user-manager and department-head cycles before deleting users/departments
@@ -90,13 +95,14 @@ async function main() {
   for (const user of seedData.users.filter(u => u.role !== 'Vendor')) {
     const { committeeAssignments, department, vendorId, password, managerId, ...userData } = user;
     const hashedPassword = await bcrypt.hash(password || 'password123', 10);
+    const roleName = userData.role.replace(/ /g, '_');
 
     await prisma.user.create({
       data: {
           ...userData,
           password: hashedPassword,
-          role: userData.role.replace(/ /g, '_') as any,
-          departmentId: user.departmentId,
+          role: { connect: { name: roleName } },
+          department: user.departmentId ? { connect: { id: user.departmentId } } : undefined,
       },
     });
   }
@@ -142,7 +148,7 @@ async function main() {
               email: vendorUser.email,
               password: hashedPassword,
               approvalLimit: vendorUser.approvalLimit,
-              role: vendorUser.role.replace(/ /g, '_') as any,
+              role: { connect: { name: vendorUser.role.replace(/ /g, '_') } },
           }
       });
       
@@ -150,7 +156,7 @@ async function main() {
       data: {
           ...vendorData,
           kycStatus: vendorData.kycStatus.replace(/ /g, '_') as any,
-          userId: createdUser.id,
+          user: { connect: { id: createdUser.id } },
       },
     });
 
@@ -193,24 +199,19 @@ async function main() {
               requester: { connect: { id: requesterId } },
               approver: approverId ? { connect: { id: approverId } } : undefined,
               currentApprover: currentApproverId ? { connect: { id: currentApproverId } } : undefined,
-              department: { connect: { id: departmentId! } },
+              department: departmentId ? { connect: { id: departmentId } } : undefined,
               deadline: reqData.deadline ? new Date(reqData.deadline) : undefined,
               scoringDeadline: reqData.scoringDeadline ? new Date(reqData.scoringDeadline) : undefined,
               awardResponseDeadline: reqData.awardResponseDeadline ? new Date(reqData.awardResponseDeadline) : undefined,
+              financialCommitteeMembers: financialCommitteeMemberIds ? {
+                create: financialCommitteeMemberIds.map(id => ({ userId: id }))
+              } : undefined,
+              technicalCommitteeMembers: technicalCommitteeMemberIds ? {
+                create: technicalCommitteeMemberIds.map(id => ({ userId: id }))
+              } : undefined,
           }
       });
 
-      if (financialCommitteeMemberIds) {
-        await prisma.requisitionFinancialCommittee.createMany({
-            data: financialCommitteeMemberIds.map(id => ({ requisitionId: createdRequisition.id, userId: id }))
-        });
-      }
-      if (technicalCommitteeMemberIds) {
-        await prisma.requisitionTechnicalCommittee.createMany({
-            data: technicalCommitteeMemberIds.map(id => ({ requisitionId: createdRequisition.id, userId: id }))
-        });
-      }
-      
       if (items) {
           for (const item of items) {
               await prisma.requisitionItem.create({
@@ -315,13 +316,23 @@ async function main() {
     for (const grn of seedData.goodsReceipts) {
         const { items, ...grnData } = grn;
         const createdGrn = await prisma.goodsReceiptNote.create({
-            data: { ...grnData, receivedDate: new Date(grnData.receivedDate), }
+            data: { 
+                ...grnData, 
+                receivedDate: new Date(grnData.receivedDate),
+                receivedBy: { connect: { id: grnData.receivedById } }
+            }
         });
 
         if (items) {
             for (const item of items) {
                 await prisma.receiptItem.create({
-                    data: { ...item, condition: item.condition.replace(/ /g, '_') as any, goodsReceiptNoteId: createdGrn.id, }
+                    data: { 
+                        quantityReceived: item.quantityReceived,
+                        condition: item.condition.replace(/ /g, '_') as any, 
+                        notes: item.notes,
+                        goodsReceiptNoteId: createdGrn.id,
+                        poItemId: item.poItemId,
+                    }
                 })
             }
         }
@@ -352,3 +363,5 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
+
+    
