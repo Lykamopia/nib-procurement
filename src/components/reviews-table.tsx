@@ -65,7 +65,7 @@ export function ReviewsTable() {
   const [actionType, setActionType] = useState<'approve' | 'reject' | null>(null);
 
   const fetchRequisitions = async () => {
-    if (!user) return;
+    if (!user || !token) return;
     try {
       setLoading(true);
       
