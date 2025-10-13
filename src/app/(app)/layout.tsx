@@ -91,19 +91,15 @@ export default function AppLayout({
   
   // Page-level access check
   useEffect(() => {
-    if (!loading && role) {
-      if (role === 'Vendor') {
-          return;
-      }
-
+    if (!loading && role && role !== 'Vendor') {
       const currentPath = pathname.split('?')[0];
       const allowedPaths = rolePermissions[role] || [];
       
       const isAllowed = allowedPaths.includes(currentPath) || 
                         allowedPaths.some(p => p.includes('[') && currentPath.startsWith(p.split('/[')[0]));
 
-
       if (!isAllowed) {
+        console.log(`Redirecting: User with role ${role} not allowed to access ${currentPath}. Allowed:`, allowedPaths);
         const defaultPath = allowedPaths.includes('/dashboard') ? '/dashboard' : allowedPaths[0];
         if(defaultPath) {
           router.push(defaultPath);
