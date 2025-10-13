@@ -1,11 +1,10 @@
 
-
 'use client';
 
 import React, { createContext, useContext, useState, ReactNode, useEffect, useMemo, useCallback } from 'react';
 import { User, UserRole } from '@/lib/types';
 import { rolePermissions as defaultRolePermissions } from '@/lib/roles';
-import { jwtDecode } from 'jwt-decode';
+import jwt from 'jwt-decode';
 
 export interface RfqSenderSetting {
   type: 'all' | 'specific';
@@ -77,7 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const storedToken = localStorage.getItem('authToken');
         
         if (storedToken) {
-            const decoded: { exp: number, iat: number } & User = jwtDecode(storedToken);
+            const decoded: { exp: number, iat: number } & User = jwt(storedToken);
             if (decoded.exp * 1000 > Date.now()) {
                 const fullUser = users.find((u: User) => u.id === decoded.id) || decoded;
                 setUser(fullUser);
@@ -168,7 +167,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await fetchAllUsers(); // re-fetch all users to get the updated list
     } catch (e) {
         console.error(e);
-        toast({variant: 'destructive', title: "Error", description: "Failed to update user role."})
+        // toast({variant: 'destructive', title: "Error", description: "Failed to update user role."})
     }
   }
 
