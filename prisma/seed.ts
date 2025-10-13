@@ -191,7 +191,6 @@ async function main() {
       const createdRequisition = await prisma.purchaseRequisition.create({
           data: {
               ...reqData,
-              requesterName: seedData.users.find(u => u.id === requesterId)?.name || 'Unknown',
               status: reqData.status.replace(/ /g, '_') as any,
               urgency: reqData.urgency || 'Low',
               requester: { connect: { id: requesterId } },
@@ -361,5 +360,3 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
-
-    
