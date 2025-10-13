@@ -47,6 +47,7 @@ export default function VendorDashboardPage() {
     const router = useRouter();
     const [openRequisitions, setOpenRequisitions] = useState<PurchaseRequisition[]>([]);
     const [awardedRequisitions, setAwardedRequisitions] = useState<PurchaseRequisition[]>([]);
+    const [submittedRequisitions, setSubmittedRequisitions] = useState<PurchaseRequisition[]>([]);
     const [vendor, setVendor] = useState<Vendor | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -88,6 +89,7 @@ export default function VendorDashboardPage() {
 
                 const vendorAwards: PurchaseRequisition[] = [];
                 const availableForQuoting: PurchaseRequisition[] = [];
+                const vendorSubmissions: PurchaseRequisition[] = [];
                 
                 const awardStatuses: Array<QuotationStatus> = ['Awarded', 'Partially_Awarded', 'Accepted', 'Invoice_Submitted'];
 
@@ -96,13 +98,16 @@ export default function VendorDashboardPage() {
                         (q: Quotation) => q.vendorId === user.vendorId
                     );
 
-                    if (vendorQuote && awardStatuses.includes(vendorQuote.status)) {
-                        vendorAwards.push(req);
+                    if (vendorQuote) {
+                        if (awardStatuses.includes(vendorQuote.status)) {
+                            vendorAwards.push(req);
+                        } else if (vendorQuote.status === 'Submitted') {
+                            vendorSubmissions.push(req);
+                        }
                     }
                     else if (
                         req.status === 'RFQ In Progress' &&
-                        (!req.deadline || !isPast(new Date(req.deadline))) &&
-                        !vendorQuote
+                        (!req.deadline || !isPast(new Date(req.deadline)))
                     ) {
                         const isPublic = !req.allowedVendorIds || req.allowedVendorIds.length === 0;
                         const isPrivateAndAllowed = req.allowedVendorIds && req.allowedVendorIds.includes(user.vendorId!);
@@ -114,6 +119,7 @@ export default function VendorDashboardPage() {
                 });
 
                 setAwardedRequisitions(vendorAwards.sort((a,b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()));
+                setSubmittedRequisitions(vendorSubmissions);
                 setOpenRequisitions(availableForQuoting);
 
             } catch (err) {
@@ -147,12 +153,12 @@ export default function VendorDashboardPage() {
         return 'Action Required';
     }
 
-
-    const totalPages = Math.ceil(openRequisitions.length / PAGE_SIZE);
+    const displayedRequisitions = [...openRequisitions, ...submittedRequisitions];
+    const totalPages = Math.ceil(displayedRequisitions.length / PAGE_SIZE);
     const paginatedData = useMemo(() => {
         const startIndex = (currentPage - 1) * PAGE_SIZE;
-        return openRequisitions.slice(startIndex, startIndex + PAGE_SIZE);
-    }, [openRequisitions, currentPage]);
+        return displayedRequisitions.slice(startIndex, startIndex + PAGE_SIZE);
+    }, [displayedRequisitions, currentPage]);
 
 
     return (
@@ -315,3 +321,5 @@ export default function VendorDashboardPage() {
         </div>
     )
 }
+
+    

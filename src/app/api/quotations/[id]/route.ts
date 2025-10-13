@@ -59,9 +59,9 @@ export async function PATCH(
     const quoteId = params.id;
     try {
         const body = await request.json();
-        const { userId, items, notes, answers, cpoDocumentUrl } = body;
+        const { userId, items, notes, answers, cpoDocumentUrl, experienceDocumentUrl } = body;
 
-        const user = users.find(u => u.id === userId);
+        const user = await prisma.user.findUnique({ where: { id: userId } });
         if (!user) {
             return NextResponse.json({ error: 'User not found' }, { status: 404 });
         }
@@ -78,7 +78,7 @@ export async function PATCH(
         const isAwardProcessStarted = await prisma.quotation.count({
             where: {
                 requisitionId: quote.requisitionId,
-                status: { in: ['Awarded', 'Standby', 'Accepted', 'Declined', 'Failed'] }
+                status: { in: ['Awarded', 'Standby', 'Accepted', 'Declined', 'Failed', 'Partially_Awarded'] }
             }
         }) > 0;
 
@@ -95,35 +95,41 @@ export async function PATCH(
             }
         });
 
-        // Delete old items and answers, then create new ones
-        await prisma.quoteItem.deleteMany({ where: { quotationId: quoteId } });
-        await prisma.quoteAnswer.deleteMany({ where: { quotationId: quoteId } });
+        // Transaction to ensure atomicity
+        const updatedQuote = await prisma.$transaction(async (tx) => {
+            // Delete old items and answers
+            await tx.quoteItem.deleteMany({ where: { quotationId: quoteId } });
+            await tx.quoteAnswer.deleteMany({ where: { quotationId: quoteId } });
 
-        const updatedQuote = await prisma.quotation.update({
-            where: { id: quoteId },
-            data: {
-                totalPrice,
-                deliveryDate: addDays(new Date(), maxLeadTime),
-                notes,
-                cpoDocumentUrl,
-                items: {
-                    create: items.map((item: any) => ({
-                        requisitionItemId: item.requisitionItemId,
-                        name: item.name,
-                        quantity: item.quantity,
-                        unitPrice: Number(item.unitPrice),
-                        leadTimeDays: Number(item.leadTimeDays),
-                        brandDetails: item.brandDetails,
-                    }))
-                },
-                answers: {
-                     create: answers?.map((ans: any) => ({
-                        questionId: ans.questionId,
-                        answer: ans.answer,
-                    }))
+            // Update quote with new data
+            return await tx.quotation.update({
+                where: { id: quoteId },
+                data: {
+                    totalPrice,
+                    deliveryDate: addDays(new Date(), maxLeadTime),
+                    notes,
+                    cpoDocumentUrl,
+                    experienceDocumentUrl,
+                    items: {
+                        create: items.map((item: any) => ({
+                            requisitionItemId: item.requisitionItemId,
+                            name: item.name,
+                            quantity: item.quantity,
+                            unitPrice: Number(item.unitPrice),
+                            leadTimeDays: Number(item.leadTimeDays),
+                            brandDetails: item.brandDetails,
+                        }))
+                    },
+                    answers: {
+                         create: answers?.map((ans: any) => ({
+                            questionId: ans.questionId,
+                            answer: ans.answer,
+                        }))
+                    }
                 }
-            }
+            });
         });
+
 
         await prisma.auditLog.create({
             data: {
@@ -146,3 +152,5 @@ export async function PATCH(
         return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
     }
 }
+
+    

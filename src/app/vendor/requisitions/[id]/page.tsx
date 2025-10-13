@@ -31,6 +31,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 const quoteFormSchema = z.object({
   notes: z.string().optional(),
   items: z.array(z.object({
+    id: z.string().optional(),
     requisitionItemId: z.string(),
     name: z.string().min(1, "Item name cannot be empty."),
     quantity: z.number(),
@@ -44,14 +45,7 @@ const quoteFormSchema = z.object({
   })).optional(),
   cpoDocumentUrl: z.string().optional(),
   experienceDocumentUrl: z.string().optional(),
-}).refine(
-    (data, ctx) => {
-        // This is a placeholder for the actual requisition data
-        // In a real app, you'd pass the requisition data to the validation context
-        // For now, we'll make cpoDocumentUrl optional and handle the logic in the component
-        return true;
-    }
-);
+});
 
 
 const invoiceFormSchema = z.object({
@@ -191,6 +185,7 @@ function QuoteSubmissionForm({ requisition, quote, onQuoteSubmitted }: { requisi
         } : {
             notes: "",
             items: requisition.items.map(item => ({
+                id: undefined,
                 requisitionItemId: item.id,
                 name: item.name,
                 quantity: item.quantity,
@@ -405,7 +400,7 @@ function QuoteSubmissionForm({ requisition, quote, onQuoteSubmitted }: { requisi
                                              const overallIndex = fields.findIndex(f => f.id === field.id);
                                              const isAlternative = field.name !== originalItem.name;
                                              return (
-                                                 <Card key={field.id} className="p-4 relative bg-background">
+                                                <Card key={field.id} className="p-4 relative bg-background">
                                                     <div className="flex justify-between items-start">
                                                         <FormField
                                                             control={form.control}
@@ -608,7 +603,6 @@ export default function VendorRequisitionPage() {
             return submittedQuote?.items || [];
         }
         
-        // For partial awards, filter the quote items to only those present in the requisition's awarded list
         if (submittedQuote.status === 'Partially_Awarded' || submittedQuote.status === 'Accepted' || submittedQuote.status === 'Awarded') {
              const awardedIds = new Set(requisition.awardedQuoteItemIds);
             return submittedQuote.items.filter(item => awardedIds.has(item.id));
@@ -985,3 +979,5 @@ export default function VendorRequisitionPage() {
         </div>
     )
 }
+
+    
