@@ -18,7 +18,7 @@ import {
   CardDescription,
 } from './ui/card';
 import { Button } from './ui/button';
-import { PurchaseRequisition, Urgency } from '@/lib/types';
+import { PurchaseRequisition } from '@/lib/types';
 import { format } from 'date-fns';
 import {
   Check,
@@ -65,7 +65,10 @@ export function ReviewsTable() {
   const [actionType, setActionType] = useState<'approve' | 'reject' | null>(null);
 
   const fetchRequisitions = async () => {
-    if (!user || !token) return;
+    if (!user || !token) {
+      setLoading(false);
+      return;
+    };
     try {
       setLoading(true);
       
@@ -88,12 +91,8 @@ export function ReviewsTable() {
   };
 
   useEffect(() => {
-    if (user && token) {
-        fetchRequisitions();
-    } else if (!user) {
-        setLoading(false);
-    }
-  }, [user, role, token]);
+    fetchRequisitions();
+  }, [user, token]);
 
   const handleAction = (req: PurchaseRequisition, type: 'approve' | 'reject') => {
     setSelectedRequisition(req);
