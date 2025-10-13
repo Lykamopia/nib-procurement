@@ -81,7 +81,7 @@ async function main() {
       data: {
           ...userData,
           password: hashedPassword,
-          role: { connect: { name: userData.role } }, // Connect to role
+          role: userData.role.replace(/ /g, '_'), // Pass role as a string
           departmentId: user.departmentId,
       },
     });
@@ -131,7 +131,7 @@ async function main() {
               email: vendorUser.email,
               password: hashedPassword,
               approvalLimit: vendorUser.approvalLimit,
-              role: { connect: { name: vendorUser.role } }, // Connect to role
+              role: vendorUser.role.replace(/ /g, '_'), // Pass role as a string
           }
       });
       
@@ -218,6 +218,7 @@ async function main() {
               await prisma.customQuestion.create({
                   data: {
                       ...question,
+                      questionType: question.questionType.replace(/-/g, '_') as any,
                       options: question.options || [],
                       requisitionId: createdRequisition.id,
                   }
