@@ -7,6 +7,9 @@ const prisma = new PrismaClient();
 
 async function main() {
   console.log(`Clearing existing data...`);
+  // Manually order deletion to respect foreign key constraints
+  await prisma.requisitionFinancialCommittee.deleteMany({});
+  await prisma.requisitionTechnicalCommittee.deleteMany({});
   await prisma.auditLog.deleteMany({});
   await prisma.receiptItem.deleteMany({});
   await prisma.goodsReceiptNote.deleteMany({});
@@ -32,10 +35,14 @@ async function main() {
   await prisma.purchaseRequisition.deleteMany({});
   await prisma.kYC_Document.deleteMany({});
   
-  // Manually manage order of user/vendor deletion to avoid foreign key issues
+  // Break user-manager and department-head cycles before deleting users/departments
   await prisma.user.updateMany({ data: { managerId: null } });
   await prisma.department.updateMany({data: { headId: null }});
+  
+  // Now delete vendors, which might have user relations
   await prisma.vendor.deleteMany({});
+
+  // Now delete users and departments
   await prisma.user.deleteMany({});
   await prisma.department.deleteMany({});
   await prisma.role.deleteMany({});
@@ -44,23 +51,29 @@ async function main() {
   console.log(`Start seeding ...`);
 
   const seedData = getInitialData();
+  
   const allRoles = [
       { name: 'Requester', description: 'Can create purchase requisitions.' },
-      { name: 'Approver', description: 'Can approve or reject requisitions.' },
+      { name: 'Approver', description: 'Can approve or reject requisitions based on limits.' },
       { name: 'Procurement_Officer', description: 'Manages the RFQ and PO process.' },
       { name: 'Finance', description: 'Manages invoices and payments.' },
       { name: 'Admin', description: 'System administrator with all permissions.' },
       { name: 'Receiving', description: 'Manages goods receipt notes.' },
       { name: 'Vendor', description: 'External supplier of goods/services.' },
       { name: 'Committee_Member', description: 'Scores and evaluates vendor quotations.' },
-      { name: 'Committee', description: 'Manages evaluation committees.' },
       { name: 'Committee_A_Member', description: 'Reviews high-value awards.' },
       { name: 'Committee_B_Member', description: 'Reviews mid-value awards.' },
+      { name: 'President', description: 'Top-level approver.' },
+      { name: 'VP_Resources', description: 'High-level approver.' },
+      { name: 'Director_Supply_Chain', description: 'Mid-level approver.' },
+      { name: 'Director_HRM', description: 'Low-level approver.' },
+      { name: 'Procurement_Manager', description: 'Low-level approver.' },
+      { name: 'Committee', description: 'Manages evaluation committees.' },
   ];
 
   // Seed Roles
   for (const role of allRoles) {
-      await prisma.role.create({ data: { ...role, name: role.name.replace(/ /g, '_') } });
+      await prisma.role.create({ data: { name: role.name, description: role.description } });
   }
   console.log('Seeded roles.');
 
@@ -73,7 +86,7 @@ async function main() {
   }
   console.log('Seeded departments.');
 
-  // Seed non-vendor users first
+  // Seed non-vendor users
   for (const user of seedData.users.filter(u => u.role !== 'Vendor')) {
     const { committeeAssignments, department, vendorId, password, managerId, ...userData } = user;
     const hashedPassword = await bcrypt.hash(password || 'password123', 10);
@@ -82,25 +95,23 @@ async function main() {
       data: {
           ...userData,
           password: hashedPassword,
-          role: userData.role.replace(/ /g, '_') as any, // Assign role as a string
+          role: userData.role.replace(/ /g, '_') as any,
           departmentId: user.departmentId,
       },
     });
   }
   console.log('Seeded non-vendor users.');
   
-  // Second pass to link managers
+  // Link managers to users
   for (const user of seedData.users.filter(u => u.role !== 'Vendor' && u.managerId)) {
       await prisma.user.update({
           where: { id: user.id },
-          data: {
-              manager: { connect: { id: user.managerId } }
-          }
+          data: { manager: { connect: { id: user.managerId } } }
       });
   }
   console.log('Linked managers to users.');
   
-  // Third pass to link department heads
+  // Link department heads
   for (const dept of seedData.departments) {
     if (dept.headId) {
       await prisma.department.update({
@@ -114,7 +125,7 @@ async function main() {
 
   // Seed Vendors and their associated users
   for (const vendor of seedData.vendors) {
-      const { kycDocuments, userId, ...vendorData } = vendor; // Destructure userId out
+      const { kycDocuments, userId, ...vendorData } = vendor;
       const vendorUser = seedData.users.find(u => u.id === userId);
 
       if (!vendorUser) {
@@ -124,7 +135,6 @@ async function main() {
       
       const hashedPassword = await bcrypt.hash(vendorUser.password || 'password123', 10);
       
-      // Create user for the vendor first
       const createdUser = await prisma.user.create({
           data: {
               id: vendorUser.id,
@@ -132,17 +142,15 @@ async function main() {
               email: vendorUser.email,
               password: hashedPassword,
               approvalLimit: vendorUser.approvalLimit,
-              role: vendorUser.role.replace(/ /g, '_') as any, // Assign role as a string
+              role: vendorUser.role.replace(/ /g, '_') as any,
           }
       });
       
-    // Then create the vendor and link it to the user
     const createdVendor = await prisma.vendor.create({
       data: {
           ...vendorData,
           kycStatus: vendorData.kycStatus.replace(/ /g, '_') as any,
-          userId: createdUser.id, // Provide the scalar userId directly
-          user: { connect: { id: createdUser.id } }
+          userId: createdUser.id,
       },
     });
 
@@ -170,11 +178,10 @@ async function main() {
           requesterId,
           approverId,
           currentApproverId,
-          financialCommitteeMemberIds,
-          technicalCommitteeMemberIds,
           department,
           departmentId,
-          committeeMemberIds, // old field, remove it
+          financialCommitteeMemberIds,
+          technicalCommitteeMemberIds,
           ...reqData 
       } = requisition;
 
@@ -186,61 +193,54 @@ async function main() {
               requester: { connect: { id: requesterId } },
               approver: approverId ? { connect: { id: approverId } } : undefined,
               currentApprover: currentApproverId ? { connect: { id: currentApproverId } } : undefined,
-              department: departmentId ? { connect: { id: departmentId } } : undefined,
-              financialCommitteeMembers: financialCommitteeMemberIds ? { connect: financialCommitteeMemberIds.map(id => ({ id })) } : undefined,
-              technicalCommitteeMembers: technicalCommitteeMemberIds ? { connect: technicalCommitteeMemberIds.map(id => ({ id })) } : undefined,
+              department: { connect: { id: departmentId! } },
               deadline: reqData.deadline ? new Date(reqData.deadline) : undefined,
               scoringDeadline: reqData.scoringDeadline ? new Date(reqData.scoringDeadline) : undefined,
               awardResponseDeadline: reqData.awardResponseDeadline ? new Date(reqData.awardResponseDeadline) : undefined,
           }
       });
+
+      if (financialCommitteeMemberIds) {
+        await prisma.requisitionFinancialCommittee.createMany({
+            data: financialCommitteeMemberIds.map(id => ({ requisitionId: createdRequisition.id, userId: id }))
+        });
+      }
+      if (technicalCommitteeMemberIds) {
+        await prisma.requisitionTechnicalCommittee.createMany({
+            data: technicalCommitteeMemberIds.map(id => ({ requisitionId: createdRequisition.id, userId: id }))
+        });
+      }
       
-      // Seed RequisitionItems
       if (items) {
           for (const item of items) {
               await prisma.requisitionItem.create({
-                  data: {
-                      ...item,
-                      unitPrice: item.unitPrice || 0,
-                      requisitionId: createdRequisition.id
-                  }
+                  data: { ...item, unitPrice: item.unitPrice || 0, requisitionId: createdRequisition.id }
               });
           }
       }
 
-      // Seed CustomQuestions
       if (customQuestions) {
           for (const question of customQuestions) {
               await prisma.customQuestion.create({
-                  data: {
-                      ...question,
-                      options: question.options || [],
-                      requisitionId: createdRequisition.id,
-                  }
+                  data: { ...question, options: question.options || [], requisitionId: createdRequisition.id, }
               });
           }
       }
 
-      // Seed EvaluationCriteria
       if (evaluationCriteria) {
           await prisma.evaluationCriteria.create({
               data: {
                   requisitionId: createdRequisition.id,
                   financialWeight: evaluationCriteria.financialWeight,
                   technicalWeight: evaluationCriteria.technicalWeight,
-                  financialCriteria: {
-                      create: evaluationCriteria.financialCriteria
-                  },
-                  technicalCriteria: {
-                      create: evaluationCriteria.technicalCriteria
-                  }
+                  financialCriteria: { create: evaluationCriteria.financialCriteria },
+                  technicalCriteria: { create: evaluationCriteria.technicalCriteria }
               }
           })
       }
   }
-  console.log('Seeded requisitions and related items/questions/criteria.');
+  console.log('Seeded requisitions and related data.');
 
-   // Seed Quotations
    for (const quote of seedData.quotations) {
        const { items, answers, scores, requisitionId, vendorId, ...quoteData } = quote;
        const createdQuote = await prisma.quotation.create({
@@ -256,32 +256,21 @@ async function main() {
 
        if (items) {
            for (const item of items) {
-               await prisma.quoteItem.create({
-                   data: {
-                       ...item,
-                       quotationId: createdQuote.id
-                   }
-               })
+               await prisma.quoteItem.create({ data: { ...item, quotationId: createdQuote.id } })
            }
        }
 
        if (answers) {
            for (const answer of answers) {
-               await prisma.quoteAnswer.create({
-                   data: {
-                       ...answer,
-                       quotationId: createdQuote.id
-                   }
-               })
+               await prisma.quoteAnswer.create({ data: { ...answer, quotationId: createdQuote.id } })
            }
        }
    }
-   console.log('Seeded quotations and related items/answers.');
+   console.log('Seeded quotations and related data.');
 
-   // Seed Purchase Orders
     for (const po of seedData.purchaseOrders) {
         const { items, receipts, invoices, vendor, ...poData } = po;
-        const createdPO = await prisma.purchaseOrder.create({
+        await prisma.purchaseOrder.create({
             data: {
                 ...poData,
                 status: poData.status.replace(/ /g, '_') as any,
@@ -296,15 +285,14 @@ async function main() {
                         unitPrice: item.unitPrice,
                         totalPrice: item.totalPrice,
                         receivedQuantity: item.receivedQuantity,
-                        requisitionItem: { connect: { id: item.requisitionItemId } }
+                        requisitionItemId: item.requisitionItemId
                     })),
                 },
             }
         });
     }
-    console.log('Seeded purchase orders and related items.');
+    console.log('Seeded purchase orders.');
     
-    // Seed Invoices
     for (const invoice of seedData.invoices) {
         const { items, ...invoiceData } = invoice;
         const createdInvoice = await prisma.invoice.create({
@@ -318,57 +306,40 @@ async function main() {
 
         if (items) {
             for (const item of items) {
-                await prisma.invoiceItem.create({
-                    data: {
-                        ...item,
-                        invoiceId: createdInvoice.id,
-                    }
-                })
+                await prisma.invoiceItem.create({ data: { ...item, invoiceId: createdInvoice.id, } })
             }
         }
     }
-    console.log('Seeded invoices and related items.');
+    console.log('Seeded invoices.');
 
-    // Seed Goods Receipt Notes
     for (const grn of seedData.goodsReceipts) {
         const { items, ...grnData } = grn;
         const createdGrn = await prisma.goodsReceiptNote.create({
-            data: {
-                ...grnData,
-                receivedDate: new Date(grnData.receivedDate),
-            }
+            data: { ...grnData, receivedDate: new Date(grnData.receivedDate), }
         });
 
         if (items) {
             for (const item of items) {
                 await prisma.receiptItem.create({
-                    data: {
-                        ...item,
-                        condition: item.condition.replace(/ /g, '_') as any,
-                        goodsReceiptNoteId: createdGrn.id,
-                    }
+                    data: { ...item, condition: item.condition.replace(/ /g, '_') as any, goodsReceiptNoteId: createdGrn.id, }
                 })
             }
         }
     }
-    console.log('Seeded goods receipts and related items.');
+    console.log('Seeded goods receipts.');
 
-
-  // Seed Audit Logs
   for (const log of seedData.auditLogs) {
     const userForLog = seedData.users.find(u => u.name === log.user);
-    // Exclude user and role from logData as they are not direct fields on the model
     const { user, role, ...logData } = log;
     await prisma.auditLog.create({
       data: {
           ...logData,
           timestamp: new Date(log.timestamp),
-          user: userForLog ? { connect: { id: userForLog.id } } : undefined
+          userId: userForLog ? userForLog.id : undefined
       },
     });
   }
   console.log('Seeded audit logs.');
-
 
   console.log(`Seeding finished.`);
 }
