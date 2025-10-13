@@ -54,7 +54,7 @@ export function ReviewsTable() {
   const [requisitions, setRequisitions] = useState<PurchaseRequisition[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { user, role } = useAuth();
+  const { user, role, token } = useAuth();
   const { toast } = useToast();
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -68,22 +68,12 @@ export function ReviewsTable() {
     if (!user) return;
     try {
       setLoading(true);
-      const params = new URLSearchParams();
       
-      // Committee members see requisitions pending their specific committee review
-      if (role === 'Committee_A_Member') {
-          params.append('status', 'Pending Committee A Recommendation');
-      } else if (role === 'Committee_B_Member') {
-          params.append('status', 'Pending Committee B Review');
-      } else if (role === 'Admin') {
-          // Admin can see all committee reviews
-          params.append('status', 'Pending Committee A Recommendation,Pending Committee B Review');
-      } else {
-        setRequisitions([]);
-        return;
-      }
-      
-      const response = await fetch(`/api/requisitions?${params.toString()}`);
+      const response = await fetch(`/api/requisitions?forReview=true`, {
+        headers: {
+            'Authorization': `Bearer ${token}`
+        }
+      });
 
       if (!response.ok) {
         throw new Error('Failed to fetch requisitions for review');
@@ -98,12 +88,12 @@ export function ReviewsTable() {
   };
 
   useEffect(() => {
-    if (user) {
+    if (user && token) {
         fetchRequisitions();
-    } else {
+    } else if (!user) {
         setLoading(false);
     }
-  }, [user, role]);
+  }, [user, role, token]);
 
   const handleAction = (req: PurchaseRequisition, type: 'approve' | 'reject') => {
     setSelectedRequisition(req);
@@ -284,3 +274,5 @@ export function ReviewsTable() {
     </>
   );
 }
+
+    

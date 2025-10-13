@@ -88,21 +88,37 @@ export async function GET(request: Request) {
   const statusParam = searchParams.get('status');
   const forVendor = searchParams.get('forVendor');
   const approverId = searchParams.get('approverId');
+  const forReview = searchParams.get('forReview'); // New parameter for the reviews page
+
+  const authHeader = request.headers.get('Authorization');
+  const token = authHeader?.split(' ')[1];
+  let userPayload: { user: User, role: UserRole } | null = null;
+  if(token) {
+    userPayload = await getUserByToken(token);
+  }
 
   try {
     const whereClause: any = {};
-    if (statusParam) {
+    
+    // Handle the new 'forReview' case for committee members
+    if (forReview === 'true' && userPayload) {
+        const { role } = userPayload;
+        if (role === 'Committee_A_Member') {
+            whereClause.status = 'Pending_Committee_A_Recommendation';
+        } else if (role === 'Committee_B_Member') {
+            whereClause.status = 'Pending_Committee_B_Review';
+        } else if (role === 'Admin') {
+            whereClause.status = { in: ['Pending_Committee_A_Recommendation', 'Pending_Committee_B_Review'] };
+        } else {
+             // If a non-committee member hits this, return nothing.
+            return NextResponse.json([]);
+        }
+    } else if (statusParam) {
         const statuses = statusParam.split(',').map(s => s.trim().replace(/ /g, '_'));
         whereClause.status = { in: statuses };
     }
 
     if (forVendor === 'true') {
-        const authHeader = request.headers.get('Authorization');
-        const token = authHeader?.split(' ')[1];
-        if (!token) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
-        const userPayload = await getUserByToken(token);
         if (!userPayload || !userPayload.user.vendorId) {
              return NextResponse.json({ error: 'Unauthorized: No valid vendor found for this user.' }, { status: 403 });
         }
@@ -462,8 +478,10 @@ export async function DELETE(
   } catch (error) {
      console.error('Failed to delete requisition:', error);
      if (error instanceof Error) {
-        return NextResponse.json({ error: 'Failed to process request', details: error.message }, { status: 500 });
+        return NextResponse.json({ error: 'Failed to process request', details: error.message }, { status: 400 });
     }
     return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
   }
 }
+
+    
