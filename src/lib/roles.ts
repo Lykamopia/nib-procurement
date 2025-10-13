@@ -1,5 +1,4 @@
 
-
 import { UserRole } from './types';
 import {
   LayoutDashboard,
@@ -17,6 +16,7 @@ import {
   History,
   Settings,
   Wallet,
+  ClipboardCheck,
 } from 'lucide-react';
 import { ComponentType } from 'react';
 
@@ -31,6 +31,7 @@ export const navItems: NavItem[] = [
   { path: '/new-requisition', label: 'New Requisition', icon: FilePlus },
   { path: '/requisitions', label: 'Requisitions', icon: FileText },
   { path: '/approvals', label: 'Approvals', icon: GanttChartSquare },
+  { path: '/reviews', label: 'Reviews', icon: ClipboardCheck },
   { path: '/vendors', label: 'Vendors', icon: Building2 },
   { path: '/vendor-verification', label: 'Vendor Verification', icon: ShieldCheck },
   { path: '/quotations', label: 'Quotations', icon: FileBadge },
@@ -95,12 +96,14 @@ export const rolePermissions: Record<UserRole, string[]> = {
   ],
   'Committee_A_Member': [
     '/dashboard',
-    '/quotations', // or a new review page
+    '/reviews',
+    '/quotations',
     '/records',
   ],
   'Committee_B_Member': [
       '/dashboard',
-      '/quotations', // or a new review page
+      '/reviews',
+      '/quotations',
       '/records',
   ],
 };

@@ -45,15 +45,16 @@ import { Textarea } from './ui/textarea';
 import { Label } from './ui/label';
 import { RequisitionDetailsDialog } from './requisition-details-dialog';
 import { Badge } from './ui/badge';
+import Link from 'next/link';
 
 
 const PAGE_SIZE = 10;
 
-export function ApprovalsTable() {
+export function ReviewsTable() {
   const [requisitions, setRequisitions] = useState<PurchaseRequisition[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { user } = useAuth();
+  const { user, role } = useAuth();
   const { toast } = useToast();
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -67,11 +68,25 @@ export function ApprovalsTable() {
     if (!user) return;
     try {
       setLoading(true);
-      let apiUrl = `/api/requisitions?status=Pending_Approval&approverId=${user.id}`;
+      const params = new URLSearchParams();
       
-      const response = await fetch(apiUrl);
+      // Committee members see requisitions pending their specific committee review
+      if (role === 'Committee_A_Member') {
+          params.append('status', 'Pending Committee A Recommendation');
+      } else if (role === 'Committee_B_Member') {
+          params.append('status', 'Pending Committee B Review');
+      } else if (role === 'Admin') {
+          // Admin can see all committee reviews
+          params.append('status', 'Pending Committee A Recommendation,Pending Committee B Review');
+      } else {
+        setRequisitions([]);
+        return;
+      }
+      
+      const response = await fetch(`/api/requisitions?${params.toString()}`);
+
       if (!response.ok) {
-        throw new Error('Failed to fetch requisitions for approval');
+        throw new Error('Failed to fetch requisitions for review');
       }
       const data: PurchaseRequisition[] = await response.json();
       setRequisitions(data);
@@ -88,7 +103,7 @@ export function ApprovalsTable() {
     } else {
         setLoading(false);
     }
-  }, [user]);
+  }, [user, role]);
 
   const handleAction = (req: PurchaseRequisition, type: 'approve' | 'reject') => {
     setSelectedRequisition(req);
@@ -104,7 +119,7 @@ export function ApprovalsTable() {
   const submitAction = async () => {
     if (!selectedRequisition || !actionType || !user) return;
     
-    const isManagerialApproval = selectedRequisition.status === 'Pending_Managerial_Approval';
+    const isCommitteeApproval = selectedRequisition.status.includes('Committee');
 
     try {
       const response = await fetch(`/api/requisitions`, {
@@ -115,13 +130,13 @@ export function ApprovalsTable() {
             status: actionType === 'approve' ? 'Approved' : 'Rejected', 
             userId: user.id, 
             comment,
-            isManagerialApproval,
+            isCommitteeApproval,
         }),
       });
       if (!response.ok) throw new Error(`Failed to ${actionType} requisition`);
       toast({
         title: "Success",
-        description: `Requisition ${selectedRequisition.id} has been ${actionType === 'approve' ? 'approved' : 'rejected'}.`,
+        description: `Requisition award for ${selectedRequisition.id} has been ${actionType === 'approve' ? 'approved' : 'rejected'}.`,
       });
       fetchRequisitions(); // Re-fetch data to update the table
     } catch (error) {
@@ -144,18 +159,6 @@ export function ApprovalsTable() {
     return requisitions.slice(startIndex, startIndex + PAGE_SIZE);
   }, [requisitions, currentPage]);
 
-  const getUrgencyVariant = (urgency: Urgency) => {
-    switch (urgency) {
-      case 'High':
-      case 'Critical':
-        return 'destructive';
-      case 'Medium':
-        return 'secondary';
-      default:
-        return 'outline';
-    }
-  }
-
 
   if (loading) return <div className="flex h-64 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   if (error) return <div className="text-destructive">Error: {error}</div>;
@@ -164,9 +167,9 @@ export function ApprovalsTable() {
     <>
     <Card>
       <CardHeader>
-        <CardTitle>Pending Approvals</CardTitle>
+        <CardTitle>Award Recommendations for Review</CardTitle>
         <CardDescription>
-          Review and act on items waiting for your approval.
+          Review and act on high-value award recommendations that require your committee's approval.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -177,9 +180,8 @@ export function ApprovalsTable() {
                 <TableHead className="w-10">#</TableHead>
                 <TableHead>Req. ID</TableHead>
                 <TableHead>Title</TableHead>
-                <TableHead>Requester</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Urgency</TableHead>
+                <TableHead>Award Value</TableHead>
+                <TableHead>Status</TableHead>
                 <TableHead>Created At</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
@@ -191,21 +193,18 @@ export function ApprovalsTable() {
                       <TableCell className="text-muted-foreground">{index + 1}</TableCell>
                       <TableCell className="font-medium text-primary">{req.id}</TableCell>
                       <TableCell>{req.title}</TableCell>
-                      <TableCell>{req.requesterName}</TableCell>
-                      <TableCell>
-                          <Badge variant="secondary">Requisition Approval</Badge>
-                      </TableCell>
-                       <TableCell>
-                        <Badge variant={getUrgencyVariant(req.urgency)}>{req.urgency}</Badge>
-                      </TableCell>
+                      <TableCell className="font-semibold">{req.totalPrice.toLocaleString()} ETB</TableCell>
+                      <TableCell><Badge variant="destructive">{req.status}</Badge></TableCell>
                       <TableCell>{format(new Date(req.createdAt), 'PP')}</TableCell>
                       <TableCell>
                       <div className="flex gap-2">
-                          <Button variant="outline" size="sm" onClick={() => handleShowDetails(req)}>
-                              <Eye className="mr-2 h-4 w-4" /> View Details
-                          </Button>
-                          <Button variant="default" size="sm" onClick={() => handleAction(req, 'approve')}>
-                              <Check className="mr-2 h-4 w-4" /> Approve
+                            <Button variant="outline" size="sm" asChild>
+                                <Link href={`/quotations/${req.id}`}>
+                                    <Eye className="mr-2 h-4 w-4" /> Review Bids
+                                </Link>
+                            </Button>
+                            <Button variant="default" size="sm" onClick={() => handleAction(req, 'approve')}>
+                              <Check className="mr-2 h-4 w-4" /> Approve & Recommend
                           </Button>
                           <Button variant="destructive" size="sm" onClick={() => handleAction(req, 'reject')}>
                               <X className="mr-2 h-4 w-4" /> Reject
@@ -216,12 +215,12 @@ export function ApprovalsTable() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={8} className="h-48 text-center">
+                  <TableCell colSpan={7} className="h-48 text-center">
                     <div className="flex flex-col items-center gap-4">
                       <Inbox className="h-16 w-16 text-muted-foreground/50" />
                       <div className="space-y-1">
-                        <p className="font-semibold">All caught up!</p>
-                        <p className="text-muted-foreground">No items are currently pending your approval.</p>
+                        <p className="font-semibold">All Caught Up!</p>
+                        <p className="text-muted-foreground">No award recommendations are currently pending your review.</p>
                       </div>
                     </div>
                   </TableCell>
@@ -236,41 +235,11 @@ export function ApprovalsTable() {
                     Showing {Math.min(1 + (currentPage - 1) * PAGE_SIZE, requisitions.length)} to {Math.min(currentPage * PAGE_SIZE, requisitions.length)} of {requisitions.length} requisitions.
                 </div>
                 <div className="flex items-center gap-2">
-                    <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => setCurrentPage(1)}
-                    disabled={currentPage === 1}
-                    >
-                    <ChevronsLeft className="h-4 w-4" />
-                    </Button>
-                    <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => setCurrentPage(p => p - 1)}
-                    disabled={currentPage === 1}
-                    >
-                    <ChevronLeft className="h-4 w-4" />
-                    </Button>
-                    <span className="text-sm">
-                    Page {currentPage > 0 ? currentPage : 1} of {totalPages > 0 ? totalPages : 1}
-                    </span>
-                    <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => setCurrentPage(p => p + 1)}
-                    disabled={currentPage === totalPages}
-                    >
-                    <ChevronRight className="h-4 w-4" />
-                    </Button>
-                    <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => setCurrentPage(totalPages)}
-                    disabled={currentPage === totalPages}
-                    >
-                    <ChevronsRight className="h-4 w-4" />
-                    </Button>
+                    <Button variant="outline" size="icon" onClick={() => setCurrentPage(1)} disabled={currentPage === 1}><ChevronsLeft className="h-4 w-4" /></Button>
+                    <Button variant="outline" size="icon" onClick={() => setCurrentPage(p => p - 1)} disabled={currentPage === 1}><ChevronLeft className="h-4 w-4" /></Button>
+                    <span className="text-sm">Page {currentPage > 0 ? currentPage : 1} of {totalPages > 0 ? totalPages : 1}</span>
+                    <Button variant="outline" size="icon" onClick={() => setCurrentPage(p => p + 1)} disabled={currentPage === totalPages}><ChevronRight className="h-4 w-4" /></Button>
+                    <Button variant="outline" size="icon" onClick={() => setCurrentPage(totalPages)} disabled={currentPage === totalPages}><ChevronsRight className="h-4 w-4" /></Button>
                 </div>
             </div>
         )}
@@ -279,10 +248,10 @@ export function ApprovalsTable() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {actionType === 'approve' ? 'Approve' : 'Reject'} Item: {selectedRequisition?.id}
+              {actionType === 'approve' ? 'Approve Recommendation' : 'Reject Recommendation'} for {selectedRequisition?.id}
             </DialogTitle>
             <DialogDescription>
-                You are about to {actionType} this item. Please provide a comment for this action.
+                You are about to {actionType} this award recommendation. Please provide a comment for this action.
             </DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-4">
@@ -298,10 +267,7 @@ export function ApprovalsTable() {
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setActionDialogOpen(false)}>Cancel</Button>
-            <Button 
-                onClick={submitAction} 
-                variant={actionType === 'approve' ? 'default' : 'destructive'}
-            >
+            <Button onClick={submitAction} variant={actionType === 'approve' ? 'default' : 'destructive'}>
                 Submit {actionType === 'approve' ? 'Approval' : 'Rejection'}
             </Button>
           </DialogFooter>

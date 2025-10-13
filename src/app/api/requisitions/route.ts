@@ -85,14 +85,15 @@ export async function finalizeAndNotifyVendors(requisitionId: string, awardRespo
 export async function GET(request: Request) {
   console.log('GET /api/requisitions - Fetching requisitions from DB.');
   const { searchParams } = new URL(request.url);
-  const status = searchParams.get('status');
+  const statusParam = searchParams.get('status');
   const forVendor = searchParams.get('forVendor');
   const approverId = searchParams.get('approverId');
 
   try {
     const whereClause: any = {};
-    if (status) {
-        whereClause.status = status.replace(/ /g, '_');
+    if (statusParam) {
+        const statuses = statusParam.split(',').map(s => s.trim().replace(/ /g, '_'));
+        whereClause.status = { in: statuses };
     }
 
     if (forVendor === 'true') {
@@ -113,16 +114,8 @@ export async function GET(request: Request) {
         ];
     }
     
-    // Add logic for approval queue for a specific user OR for committees
     if (approverId) {
         whereClause.currentApproverId = approverId;
-    } else {
-        const userPayload = await getUserByToken(request.headers.get('Authorization')?.split(' ')[1] || '');
-        if (userPayload?.role === 'Committee_A_Member') {
-            whereClause.status = 'Pending_Committee_A_Recommendation';
-        } else if (userPayload?.role === 'Committee_B_Member') {
-            whereClause.status = 'Pending_Committee_B_Review';
-        }
     }
 
 
@@ -409,7 +402,7 @@ export async function PATCH(
   } catch (error) {
     console.error('Failed to update requisition:', error);
     if (error instanceof Error) {
-        return NextResponse.json({ error: 'Failed to process request', details: error.message }, { status: 500 });
+        return NextResponse.json({ error: 'Failed to process request', details: error.message }, { status: 400 });
     }
     return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
   }
