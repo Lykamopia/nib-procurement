@@ -51,6 +51,11 @@ export async function GET(request: Request) {
         customQuestions: true,
         department: true,
         requester: true,
+        approvals: {
+          include: {
+            approver: true
+          }
+        },
         evaluationCriteria: {
             include: {
                 financialCriteria: true,
@@ -77,6 +82,10 @@ export async function GET(request: Request) {
         requesterName: req.requester.name,
         financialCommitteeMemberIds: req.financialCommitteeMembers.map(m => m.id),
         technicalCommitteeMemberIds: req.technicalCommitteeMembers.map(m => m.id),
+        // Simplified for client-side display
+        approverComment: req.approvals[req.approvals.length -1]?.comment,
+        approverName: req.approvals[req.approvals.length -1]?.approver.name,
+
     }));
 
     return NextResponse.json(formattedRequisitions);
@@ -225,8 +234,10 @@ export async function PATCH(
             totalPrice: totalPrice,
             // When editing, it always goes back to Pending Approval if a status is provided
             status: status ? status.replace(/ /g, '_') : requisition.status,
-            approver: { disconnect: true },
-            approverComment: null,
+            currentApproverId: null,
+            approvals: {
+                deleteMany: {}, // Clear past approvals on edit
+            },
             // We need to delete old items and create new ones
             items: {
                 deleteMany: {},
@@ -281,7 +292,8 @@ export async function PATCH(
         }
 
     } else if (status) { // This handles normal status changes (approve, reject, submit)
-        dataToUpdate.status = status.replace(/ /g, '_');
+        const newStatusDB = status.replace(/ /g, '_');
+        dataToUpdate.status = newStatusDB;
         
         if (status === 'Pending Approval') {
             const department = await prisma.department.findUnique({ where: { id: requisition.departmentId! } });
@@ -292,41 +304,42 @@ export async function PATCH(
             }
             auditAction = 'SUBMIT_FOR_APPROVAL';
             auditDetails = `Draft requisition ${id} was submitted for approval.`;
-        } else if (status === 'Approved') {
-            dataToUpdate.approver = { connect: { id: userId } };
-            dataToUpdate.approverComment = comment;
-            dataToUpdate.currentApprover = { disconnect: true };
-            
-            // Check if approval limit is exceeded
-            if (user.approvalLimit !== null && requisition.totalPrice > user.approvalLimit) {
-                 if (!user.managerId) {
-                    return NextResponse.json({ error: `Approval amount exceeds your limit of ${user.approvalLimit} and you have no manager to escalate to.` }, { status: 403 });
-                }
-                dataToUpdate.status = 'Pending_Final_Approval'; // Or a more specific status
-                dataToUpdate.currentApprover = { connect: { id: user.managerId } };
-                auditAction = 'ESCALATE_APPROVAL';
-                auditDetails = `Requisition ${id} approved, but amount exceeds limit. Escalated to next level for final approval.`;
-            } else {
-                auditAction = 'APPROVE_REQUISITION';
-                auditDetails = `Requisition ${id} was approved with comment: "${comment}".`;
-                // Logic to start RFQ process or finalize award
-                if(requisition.status === 'Pending_Final_Approval') {
-                     const { tallyAndAwardScores } = await import('./[id]/finalize-scores/route');
-                     await tallyAndAwardScores(id, user);
-                     auditDetails += ' Final award process initiated.';
-                }
-            }
-            
-        } else if (status === 'Rejected') {
-            dataToUpdate.approver = { connect: { id: userId } };
-            dataToUpdate.approverComment = comment;
-            dataToUpdate.currentApprover = { disconnect: true };
-             auditAction = 'REJECT_REQUISITION';
-             auditDetails = `Requisition ${id} was rejected with comment: "${comment}".`;
-        } else {
-            // Other status changes
-        }
+        } else if (status === 'Approved' || status === 'Rejected') {
 
+            await prisma.approval.create({
+              data: {
+                requisitionId: id,
+                approverId: userId,
+                status: newStatusDB,
+                comment: comment,
+              },
+            });
+
+            dataToUpdate.currentApprover = { disconnect: true };
+            
+            if (status === 'Approved') {
+                if (user.approvalLimit !== null && requisition.totalPrice > user.approvalLimit) {
+                    if (!user.managerId) {
+                        return NextResponse.json({ error: `Approval amount exceeds your limit of ${user.approvalLimit} and you have no manager to escalate to.` }, { status: 403 });
+                    }
+                    dataToUpdate.status = 'Pending_Final_Approval'; // Or a more specific status
+                    dataToUpdate.currentApprover = { connect: { id: user.managerId } };
+                    auditAction = 'ESCALATE_APPROVAL';
+                    auditDetails = `Requisition ${id} approved, but amount exceeds limit. Escalated to next level for final approval.`;
+                } else {
+                    auditAction = 'APPROVE_REQUISITION';
+                    auditDetails = `Requisition ${id} was approved with comment: "${comment}".`;
+                    if(requisition.status === 'Pending_Final_Approval') {
+                        const { tallyAndAwardScores } = await import('./[id]/finalize-scores/route');
+                        await tallyAndAwardScores(id, user);
+                        auditDetails += ' Final award process initiated.';
+                    }
+                }
+            } else { // Rejected
+                 auditAction = 'REJECT_REQUISITION';
+                 auditDetails = `Requisition ${id} was rejected with comment: "${comment}".`;
+            }
+        }
     } else {
         return NextResponse.json({ error: 'No valid update action specified.' }, { status: 400 });
     }
