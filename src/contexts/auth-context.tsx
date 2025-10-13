@@ -4,7 +4,30 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect, useMemo, useCallback } from 'react';
 import { User, UserRole } from '@/lib/types';
 import { rolePermissions as defaultRolePermissions } from '@/lib/roles';
-import jwt from 'jwt-decode';
+
+// Custom JWT decoding function to avoid dependency issues
+function jwtDecode<T>(token: string): T | null {
+  try {
+    const base64Url = token.split('.')[1];
+    if (!base64Url) return null;
+
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split('')
+        .map(function (c) {
+          return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+        })
+        .join('')
+    );
+
+    return JSON.parse(jsonPayload) as T;
+  } catch (error) {
+    console.error("Failed to decode JWT:", error);
+    return null;
+  }
+}
+
 
 export interface RfqSenderSetting {
   type: 'all' | 'specific';
@@ -76,8 +99,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const storedToken = localStorage.getItem('authToken');
         
         if (storedToken) {
-            const decoded: { exp: number, iat: number } & User = jwt(storedToken);
-            if (decoded.exp * 1000 > Date.now()) {
+            const decoded = jwtDecode<{ exp: number, iat: number } & User>(storedToken);
+            if (decoded && decoded.exp * 1000 > Date.now()) {
                 const fullUser = users.find((u: User) => u.id === decoded.id) || decoded;
                 setUser(fullUser);
                 setToken(storedToken);
