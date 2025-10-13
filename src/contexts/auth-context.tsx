@@ -50,8 +50,10 @@ const getStoredToken = (): string | null => {
 }
 
 // This function correctly handles all role name formats.
-const normalizeRole = (roleName?: string): UserRole => {
-    if (!roleName) return 'Requester'; // Fallback role
+const normalizeRole = (roleOrRoleName: any): UserRole => {
+    if (!roleOrRoleName) return 'Requester'; // Fallback role
+    const roleName = typeof roleOrRoleName === 'string' ? roleOrRoleName : roleOrRoleName.name;
+    if (!roleName) return 'Requester';
     return roleName.replace(/_/g, ' ') as UserRole;
 }
 
@@ -69,7 +71,7 @@ const getInitialUser = (): User | null => {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(getInitialUser);
   const [token, setToken] = useState<string | null>(() => getStoredToken());
-  const [role, setRole] = useState<UserRole | null>(() => user?.role || null);
+  const [role, setRole] = useState<UserRole | null>(() => user ? normalizeRole(user.role) : null);
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [rolePermissions, setRolePermissions] = useState<Record<UserRole, string[]>>(() => getStoredItem('rolePermissions', defaultRolePermissions));
@@ -97,6 +99,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const initialize = async () => {
         setLoading(true);
         await fetchAllUsers();
+        const storedUser = getInitialUser();
+        if (storedUser) {
+            setUser(storedUser);
+            setRole(normalizeRole(storedUser.role));
+            setToken(getStoredToken());
+        }
         setLoading(false);
     }
     initialize();

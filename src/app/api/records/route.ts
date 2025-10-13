@@ -102,11 +102,11 @@ export async function GET() {
              allRecords.push({
                 id: c.id,
                 type: 'Contract',
-                title: `Contract for: ${c.requisition.title}`,
+                title: `Contract for: ${c.requisition?.title || 'N/A'}`,
                 status: c.status ? c.status.replace(/_/g, ' ') : 'N/A',
                 date: c.createdAt,
                 amount: 0,
-                user: c.vendor.name,
+                user: c.vendor?.name || 'N/A',
                 transactionId: c.requisitionId, // Use requisitionId as transactionId
             });
         });
@@ -123,7 +123,7 @@ export async function GET() {
                 }
                 auditLogMap.get(log.transactionId)?.push({
                     ...log,
-                    role: log.user?.role?.name.replace(/_/g, ' ') || 'System',
+                    role: log.user?.role?.name?.replace(/_/g, ' ') || 'System',
                     user: log.user?.name || 'System'
                 });
             }

@@ -198,7 +198,6 @@ async function main() {
               status: reqData.status.replace(/ /g, '_') as any,
               urgency: reqData.urgency || 'Low',
               requester: { connect: { id: requesterId } },
-              approver: approverId ? { connect: { id: approverId } } : undefined,
               currentApprover: currentApproverId ? { connect: { id: currentApproverId } } : undefined,
               department: departmentId ? { connect: { id: departmentId } } : undefined,
               deadline: reqData.deadline ? new Date(reqData.deadline) : undefined,
