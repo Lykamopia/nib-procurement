@@ -5,7 +5,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { sendEmail } from '@/services/email-service';
-import { Vendor, Quotation, QuoteItem, User } from '@/lib/types';
+import { User } from '@/lib/types';
 import { differenceInMinutes } from 'date-fns';
 
 
@@ -78,7 +78,10 @@ export async function tallyAndAwardScores(
     // Update the requisition status to reflect the next step in the workflow
     await prisma.purchaseRequisition.update({
         where: { id: requisitionId },
-        data: { status: nextStatus as any }
+        data: { 
+            status: nextStatus as any,
+            totalPrice: totalAwardValue // Update requisition total price to winning bid's value
+        }
     });
     
     // Log the routing decision
@@ -97,9 +100,6 @@ export async function tallyAndAwardScores(
 
     // If the award is below committee thresholds, we can proceed to notify the vendor.
     if (nextStatus === 'Approved') {
-        // This is now handled in the PATCH /api/requisitions route after approval.
-        // For simplicity, we assume if it doesn't need committee review, it's auto-approved.
-        // A more complex workflow might have another layer.
         const { finalizeAndNotifyVendors } = await import('@/app/api/requisitions/route');
         await finalizeAndNotifyVendors(requisitionId);
         return { success: true, message: "Award value is within limits. Vendor has been notified.", escalated: false };
@@ -123,7 +123,7 @@ export async function POST(
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    if (user.role !== 'Procurement_Officer' && user.role !== 'Admin') {
+    if (user.role !== 'Procurement_Officer' && user.role !== 'Admin' && user.role !== 'Committee') {
         return NextResponse.json({ error: 'Unauthorized to finalize awards.' }, { status: 403 });
     }
     
