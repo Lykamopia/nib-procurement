@@ -8,21 +8,31 @@ import bcrypt from 'bcryptjs';
 export async function GET() {
   try {
     const users = await prisma.user.findMany({
-        where: { role: { not: 'Vendor' } },
+        where: { 
+            role: { 
+                name: { 
+                    not: 'Vendor' 
+                } 
+            } 
+        },
         include: { 
             department: true,
             committeeAssignments: true, // Ensure assignments are fetched
+            role: true, // Include the role object itself
         }
     });
     const formattedUsers = users.map(u => ({
         ...u,
-        role: u.role.replace(/_/g, ' '),
+        role: u.role.name.replace(/_/g, ' '),
         department: u.department?.name || 'N/A'
     }));
     return NextResponse.json(formattedUsers);
   } catch (error) {
     console.error("Failed to fetch users:", error);
-    return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 });
+    if (error instanceof Error) {
+        return NextResponse.json({ error: 'Failed to fetch users', details: error.message }, { status: 500 });
+    }
+    return NextResponse.json({ error: 'An unknown error occurred while fetching users' }, { status: 500 });
   }
 }
 
@@ -52,7 +62,7 @@ export async function POST(request: Request) {
             name,
             email,
             password: hashedPassword,
-            role: role.replace(/ /g, '_'),
+            role: { connect: { name: role.replace(/ /g, '_') } },
             department: { connect: { id: departmentId } },
             approvalLimit,
             manager: managerId && managerId !== 'null' ? { connect: { id: managerId } } : undefined,
@@ -94,7 +104,7 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: 'User ID and all fields are required' }, { status: 400 });
     }
     
-    const oldUser = await prisma.user.findUnique({ where: { id } });
+    const oldUser = await prisma.user.findUnique({ where: { id }, include: { role: true } });
     if (!oldUser) {
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
@@ -102,7 +112,7 @@ export async function PATCH(request: Request) {
     const updateData: any = {
         name,
         email,
-        role: role.replace(/ /g, '_'),
+        role: { connect: { name: role.replace(/ /g, '_') } },
         department: { connect: { id: departmentId } },
         approvalLimit: approvalLimit,
     };
@@ -129,7 +139,7 @@ export async function PATCH(request: Request) {
             action: 'UPDATE_USER',
             entity: 'User',
             entityId: id,
-            details: `Updated user "${oldUser.name}". Name: ${oldUser.name} -> ${name}. Role: ${oldUser.role.replace(/_/g, ' ')} -> ${role}.`,
+            details: `Updated user "${oldUser.name}". Name: ${oldUser.name} -> ${name}. Role: ${oldUser.role.name.replace(/_/g, ' ')} -> ${role}.`,
         }
     });
 
@@ -157,12 +167,12 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
     }
     
-    const userToDelete = await prisma.user.findUnique({ where: { id } });
+    const userToDelete = await prisma.user.findUnique({ where: { id }, include: { role: true } });
     if (!userToDelete) {
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    if (userToDelete.role === 'Admin') {
+    if (userToDelete.role.name === 'Admin') {
         return NextResponse.json({ error: 'Cannot delete an Admin user.' }, { status: 403 });
     }
     
