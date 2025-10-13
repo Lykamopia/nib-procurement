@@ -1,30 +1,31 @@
 
 
-import type { User, UserRole, Vendor } from './types';
-import { prisma } from './prisma';
-import bcrypt from 'bcryptjs';
-
-type VendorDetails = {
-    contactPerson: string;
-    address: string;
-    phone: string;
-    licensePath: string;
-    taxIdPath: string;
-}
+import type { User, UserRole } from './types';
+import jwt, { JwtPayload } from 'jsonwebtoken';
 
 export async function getUserByToken(token: string): Promise<{ user: User, role: UserRole } | null> {
-    if (!token.startsWith('mock-token-for-')) {
+    const jwtSecret = process.env.JWT_SECRET;
+    if (!jwtSecret) {
+        console.error('JWT_SECRET is not defined in environment variables.');
         return null;
     }
     
     try {
-        const userStr = Buffer.from(token.split('__TS__')[0].replace('mock-token-for-', ''), 'base64').toString('utf-8');
-        const user = JSON.parse(userStr);
+        const decoded = jwt.verify(token, jwtSecret) as JwtPayload;
+
+        // The decoded object is the payload you signed
+        const user: User = {
+            id: decoded.id,
+            name: decoded.name,
+            email: decoded.email,
+            role: decoded.role,
+            vendorId: decoded.vendorId,
+            department: decoded.department,
+        };
+
         return { user, role: user.role };
     } catch(e) {
-        console.error("Failed to parse token:", e);
+        console.error("Failed to verify token:", e);
         return null;
     }
 }
-
-    

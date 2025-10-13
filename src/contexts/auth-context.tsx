@@ -5,6 +5,7 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect, useMemo, useCallback } from 'react';
 import { User, UserRole } from '@/lib/types';
 import { rolePermissions as defaultRolePermissions } from '@/lib/roles';
+import { jwtDecode } from 'jwt-decode';
 
 export interface RfqSenderSetting {
   type: 'all' | 'specific';
@@ -73,32 +74,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     const users = await fetchAllUsers();
     try {
-        const storedUserJSON = localStorage.getItem('user');
         const storedToken = localStorage.getItem('authToken');
+        
+        if (storedToken) {
+            const decoded: { exp: number, iat: number } & User = jwtDecode(storedToken);
+            if (decoded.exp * 1000 > Date.now()) {
+                const fullUser = users.find((u: User) => u.id === decoded.id) || decoded;
+                setUser(fullUser);
+                setToken(storedToken);
+                setRole(fullUser.role);
+            } else {
+                localStorage.removeItem('authToken');
+            }
+        }
+        
         const storedPermissions = localStorage.getItem('rolePermissions');
         const storedRfqSetting = localStorage.getItem('rfqSenderSetting');
         const storedCommitteeConfig = localStorage.getItem('committeeConfig');
         
-        if (storedUserJSON && storedToken) {
-            const storedUser = JSON.parse(storedUserJSON);
-            const fullUser = users.find((u: User) => u.id === storedUser.id) || storedUser;
-            
-            setUser(fullUser);
-            setToken(storedToken);
-            setRole(fullUser.role);
-        }
-
-        if (storedPermissions) {
-            setRolePermissions(JSON.parse(storedPermissions));
-        }
-
-        if (storedRfqSetting) {
-            setRfqSenderSetting(JSON.parse(storedRfqSetting));
-        }
-        
-        if (storedCommitteeConfig) {
-            setCommitteeConfig(JSON.parse(storedCommitteeConfig));
-        }
+        if (storedPermissions) setRolePermissions(JSON.parse(storedPermissions));
+        if (storedRfqSetting) setRfqSenderSetting(JSON.parse(storedRfqSetting));
+        if (storedCommitteeConfig) setCommitteeConfig(JSON.parse(storedCommitteeConfig));
 
     } catch (error) {
         console.error("Failed to initialize auth from localStorage", error);
@@ -113,8 +109,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = (newToken: string, loggedInUser: User, loggedInRole: UserRole) => {
     localStorage.setItem('authToken', newToken);
-    localStorage.setItem('user', JSON.stringify(loggedInUser));
-    localStorage.setItem('role', loggedInRole);
+    // User info is now in the token, no need to store it separately.
+    localStorage.removeItem('user');
+    localStorage.removeItem('role');
     setToken(newToken);
     setUser(loggedInUser);
     setRole(loggedInRole);
@@ -122,8 +119,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = () => {
     localStorage.removeItem('authToken');
-    localStorage.removeItem('user');
-    localStorage.removeItem('role');
     setToken(null);
     setUser(null);
     setRole(null);

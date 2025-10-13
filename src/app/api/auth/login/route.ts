@@ -4,6 +4,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 import type { User, UserRole } from '@/lib/types';
 
 export async function POST(request: Request) {
@@ -32,15 +33,28 @@ export async function POST(request: Request) {
                 department: user.department?.name
             };
 
-            // Create a more robust mock token
-            const userString = JSON.stringify(finalUser);
-            const base64User = Buffer.from(userString).toString('base64');
-            const mockToken = `mock-token-for-${base64User}__TS__${Date.now()}`;
+            const jwtSecret = process.env.JWT_SECRET;
+            if (!jwtSecret) {
+                throw new Error('JWT_SECRET is not defined in environment variables.');
+            }
 
+            const token = jwt.sign(
+                { 
+                    id: finalUser.id, 
+                    name: finalUser.name,
+                    email: finalUser.email,
+                    role: finalUser.role,
+                    vendorId: finalUser.vendorId,
+                    department: finalUser.department,
+                }, 
+                jwtSecret, 
+                { expiresIn: '1d' } // Token expires in 1 day
+            );
+            
             return NextResponse.json({ 
                 user: finalUser, 
-                token: mockToken, 
-                role: user.role.replace(/_/g, ' ') as UserRole 
+                token, 
+                role: finalUser.role
             });
         }
         
@@ -51,5 +65,3 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'An internal server error occurred' }, { status: 500 });
     }
 }
-
-    

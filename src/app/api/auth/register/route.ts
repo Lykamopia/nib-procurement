@@ -3,6 +3,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 import type { User, UserRole } from '@/lib/types';
 
 export async function POST(request: Request) {
@@ -24,9 +25,10 @@ export async function POST(request: Request) {
                 role: 'Vendor', // All registrations are for Vendors
             }
         });
-
+        
+        let newVendor;
         if (role === 'Vendor' && vendorDetails) {
-            const newVendor = await prisma.vendor.create({
+            newVendor = await prisma.vendor.create({
                 data: {
                     name: name,
                     contactPerson: vendorDetails.contactPerson,
@@ -49,13 +51,35 @@ export async function POST(request: Request) {
             });
         }
         
-        const mockToken = `mock-token-for-${newUser.id}__ROLE__${newUser.role}__TS__${Date.now()}`;
+        const jwtSecret = process.env.JWT_SECRET;
+        if (!jwtSecret) {
+            throw new Error('JWT_SECRET is not defined in environment variables.');
+        }
+
         const { password: _, ...userWithoutPassword } = newUser;
+        
+        const finalUser = {
+            ...userWithoutPassword,
+            vendorId: newVendor?.id,
+            role: userWithoutPassword.role as UserRole
+        }
+        
+        const token = jwt.sign(
+            { 
+                id: finalUser.id, 
+                name: finalUser.name,
+                email: finalUser.email,
+                role: finalUser.role,
+                vendorId: finalUser.vendorId,
+            }, 
+            jwtSecret, 
+            { expiresIn: '1d' }
+        );
 
         return NextResponse.json({ 
-            user: userWithoutPassword, 
-            token: mockToken, 
-            role: newUser.role 
+            user: finalUser, 
+            token: token, 
+            role: finalUser.role 
         }, { status: 201 });
 
     } catch (error) {
