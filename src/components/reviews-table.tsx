@@ -94,9 +94,9 @@ export function ReviewsTable() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Awaiting Your Review</CardTitle>
+        <CardTitle>High-Value Award Review</CardTitle>
         <CardDescription>
-          The following high-value awards are pending your review and recommendation.
+          The following awards have been automatically flagged for your review based on their total value. Your recommendation is required before the award is sent to the vendor.
         </CardDescription>
       </CardHeader>
       <CardContent>
