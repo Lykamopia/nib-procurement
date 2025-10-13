@@ -4,6 +4,7 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect, useMemo, useCallback } from 'react';
 import { User, UserRole } from '@/lib/types';
 import { rolePermissions as defaultRolePermissions } from '@/lib/roles';
+import { useToast } from '@/hooks/use-toast';
 
 export interface RfqSenderSetting {
   type: 'all' | 'specific';
