@@ -3,7 +3,8 @@
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { users } from '@/lib/data-store';
+import { User } from '@/lib/types';
+
 
 type RFQAction = 'update' | 'cancel';
 
@@ -21,8 +22,9 @@ export async function POST(
       newDeadline?: string;
     };
 
-    const user = users.find(u => u.id === userId);
-    if (!user || user.role !== 'Procurement Officer') {
+    const user: User | null = await prisma.user.findUnique({ where: { id: userId } });
+
+    if (!user || (user.role !== 'Procurement_Officer' && user.role !== 'Admin')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
