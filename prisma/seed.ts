@@ -12,6 +12,7 @@ async function main() {
   await prisma.goodsReceiptNote.deleteMany({});
   await prisma.invoiceItem.deleteMany({});
   await prisma.invoice.deleteMany({});
+  await prisma.review.deleteMany({});
   await prisma.pOItem.deleteMany({});
   await prisma.purchaseOrder.deleteMany({});
   await prisma.quoteAnswer.deleteMany({});
@@ -140,7 +141,6 @@ async function main() {
       data: {
           ...vendorData,
           kycStatus: vendorData.kycStatus.replace(/ /g, '_') as any,
-          userId: createdUser.id, // Provide the scalar field
           user: { connect: { id: createdUser.id } }
       },
     });
