@@ -173,6 +173,7 @@ async function main() {
   // Seed Requisitions
   for (const requisition of seedData.requisitions) {
       const { 
+          id, // Exclude id from reqData
           items, 
           customQuestions, 
           evaluationCriteria, 
@@ -244,7 +245,7 @@ async function main() {
        const createdQuote = await prisma.quotation.create({
            data: {
                ...quoteData,
-               status: quoteData.status.replace(/ /g, '_') as any,
+               status: quoteData.status.replace(/_/g, '_') as any,
                deliveryDate: new Date(quoteData.deliveryDate),
                createdAt: new Date(quoteData.createdAt),
                vendor: { connect: { id: vendorId } },
@@ -271,7 +272,7 @@ async function main() {
         await prisma.purchaseOrder.create({
             data: {
                 ...poData,
-                status: poData.status.replace(/ /g, '_') as any,
+                status: poData.status.replace(/_/g, '_') as any,
                 createdAt: new Date(poData.createdAt),
                 vendorId: vendor.id,
                 requisitionId: po.requisitionId,
@@ -296,7 +297,7 @@ async function main() {
         const createdInvoice = await prisma.invoice.create({
             data: {
                 ...invoiceData,
-                status: invoiceData.status.replace(/ /g, '_') as any,
+                status: invoiceData.status.replace(/_/g, '_') as any,
                 invoiceDate: new Date(invoiceData.invoiceDate),
                 paymentDate: invoiceData.paymentDate ? new Date(invoiceData.paymentDate) : undefined,
             }
@@ -360,3 +361,5 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
+
+    
