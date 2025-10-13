@@ -55,10 +55,21 @@ const normalizeRole = (roleName?: string): UserRole => {
     return roleName.replace(/_/g, ' ') as UserRole;
 }
 
+const getInitialUser = (): User | null => {
+    const storedUser = getStoredItem<User | null>('user', null);
+    if (storedUser) {
+        return {
+            ...storedUser,
+            role: normalizeRole(storedUser.role),
+        };
+    }
+    return null;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(() => getStoredItem('user', null));
+  const [user, setUser] = useState<User | null>(getInitialUser);
   const [token, setToken] = useState<string | null>(() => getStoredToken());
-  const [role, setRole] = useState<UserRole | null>(() => normalizeRole(getStoredItem<User | null>('user', null)?.role));
+  const [role, setRole] = useState<UserRole | null>(() => user?.role || null);
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [rolePermissions, setRolePermissions] = useState<Record<UserRole, string[]>>(() => getStoredItem('rolePermissions', defaultRolePermissions));

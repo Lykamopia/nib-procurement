@@ -6,6 +6,11 @@ import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 import type { User, UserRole } from '@/lib/types';
 
+// Helper function to normalize role names
+const normalizeRole = (roleName: string): UserRole => {
+    return roleName.replace(/_/g, ' ') as UserRole;
+}
+
 export async function POST(request: Request) {
     try {
         const { email, password } = await request.json();
@@ -13,6 +18,7 @@ export async function POST(request: Request) {
         const user = await prisma.user.findUnique({
             where: { email },
             include: {
+                role: true, // Include the full role object
                 vendor: true,
                 department: true,
                 committeeAssignments: true,
@@ -26,11 +32,11 @@ export async function POST(request: Request) {
         if (user && user.password && await bcrypt.compare(password, user.password)) {
             const { password: _, ...userWithoutPassword } = user;
             
-            // The user role from the database (e.g., "Committee_A_Member") is sent as is.
-            // The frontend's AuthContext will be responsible for normalization.
+            const normalizedRole = normalizeRole(user.role.name);
+
             const finalUser = {
                 ...userWithoutPassword,
-                role: user.role, // Send the raw role from DB
+                role: normalizedRole, // Send normalized role
                 department: user.department?.name
             };
 
@@ -41,7 +47,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ 
                 user: finalUser, 
                 token: mockToken, 
-                role: finalUser.role // Send raw role
+                role: finalUser.role // Send normalized role
             });
         }
         
