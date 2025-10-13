@@ -81,7 +81,7 @@ async function main() {
       data: {
           ...userData,
           password: hashedPassword,
-          role: userData.role, // Assign role as a string
+          role: { connect: { name: userData.role } }, // Connect to role
           departmentId: user.departmentId,
       },
     });
@@ -131,7 +131,7 @@ async function main() {
               email: vendorUser.email,
               password: hashedPassword,
               approvalLimit: vendorUser.approvalLimit,
-              role: vendorUser.role, // Assign role as a string
+              role: { connect: { name: vendorUser.role } }, // Connect to role
           }
       });
       
@@ -140,6 +140,7 @@ async function main() {
       data: {
           ...vendorData,
           kycStatus: vendorData.kycStatus.replace(/ /g, '_') as any,
+          userId: createdUser.id, // Provide the scalar field
           user: { connect: { id: createdUser.id } }
       },
     });
@@ -189,7 +190,7 @@ async function main() {
               requester: { connect: { id: requesterId } },
               approver: approverId ? { connect: { id: approverId } } : undefined,
               currentApprover: currentApproverId ? { connect: { id: currentApproverId } } : undefined,
-              department: departmentId ? { connect: { id: departmentId } } : undefined,
+              department: { connect: { id: departmentId } },
               financialCommitteeMembers: financialCommitteeMemberIds ? { connect: financialCommitteeMemberIds.map(id => ({ id })) } : undefined,
               technicalCommitteeMembers: technicalCommitteeMemberIds ? { connect: technicalCommitteeMemberIds.map(id => ({ id })) } : undefined,
               deadline: reqData.deadline ? new Date(reqData.deadline) : undefined,
