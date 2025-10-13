@@ -48,6 +48,7 @@
     "firebase": "^11.9.1",
     "html2canvas": "^1.4.1",
     "jsonwebtoken": "^9.0.2",
+    "jwt-decode": "^4.0.0",
     "jspdf": "^2.5.1",
     "localtunnel": "^2.0.2",
     "lucide-react": "^0.475.0",
