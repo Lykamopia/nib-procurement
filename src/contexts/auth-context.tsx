@@ -27,14 +27,37 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Helper to safely get item from localStorage
+const getStoredItem = <T>(key: string, defaultValue: T): T => {
+  if (typeof window === 'undefined') {
+    return defaultValue;
+  }
+  try {
+    const item = localStorage.getItem(key);
+    return item ? JSON.parse(item) : defaultValue;
+  } catch (error) {
+    console.error(`Error reading from localStorage key “${key}”:`, error);
+    return defaultValue;
+  }
+};
+
+const getStoredToken = (): string | null => {
+    if (typeof window === 'undefined') {
+        return null;
+    }
+    return localStorage.getItem('authToken');
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(null);
-  const [role, setRole] = useState<UserRole | null>(null);
+  // Initialize state synchronously from localStorage
+  const [user, setUser] = useState<User | null>(() => getStoredItem('user', null));
+  const [token, setToken] = useState<string | null>(() => getStoredToken());
+  const [role, setRole] = useState<UserRole | null>(() => getStoredItem('role', null));
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
-  const [rolePermissions, setRolePermissions] = useState<Record<UserRole, string[]>>(defaultRolePermissions);
-  const [rfqSenderSetting, setRfqSenderSetting] = useState<RfqSenderSetting>({ type: 'all' });
+  const [rolePermissions, setRolePermissions] = useState<Record<UserRole, string[]>>(() => getStoredItem('rolePermissions', defaultRolePermissions));
+  const [rfqSenderSetting, setRfqSenderSetting] = useState<RfqSenderSetting>(() => getStoredItem('rfqSenderSetting', { type: 'all' }));
+
 
   // This function correctly handles all role name formats.
   const normalizeRole = (roleName: string): UserRole => {
@@ -46,64 +69,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const response = await fetch('/api/users');
         if (response.ok) {
             const usersData = await response.json();
-            // The API now sends normalized roles, but we'll normalize again for safety.
             const usersWithAssignments = usersData.map((u: any) => ({
                 ...u,
                 role: normalizeRole(u.role),
                 committeeAssignments: u.committeeAssignments || [],
             }));
             setAllUsers(usersWithAssignments);
-            return usersWithAssignments;
         }
-        return [];
     } catch (error) {
         console.error("Failed to fetch all users", error);
-        return [];
     }
   }, []);
 
-  const initializeAuth = useCallback(async () => {
-    setLoading(true);
-    const users = await fetchAllUsers();
-    try {
-        const storedUserJSON = localStorage.getItem('user');
-        const storedToken = localStorage.getItem('authToken');
-        const storedPermissions = localStorage.getItem('rolePermissions');
-        const storedRfqSetting = localStorage.getItem('rfqSenderSetting');
-        
-        if (storedUserJSON && storedToken) {
-            const storedUser = JSON.parse(storedUserJSON);
-            const fullUser = users.find((u: User) => u.id === storedUser.id) || storedUser;
-            
-            setUser(fullUser);
-            setToken(storedToken);
-            setRole(normalizeRole(fullUser.role));
-        }
-
-        if (storedPermissions) {
-            setRolePermissions(JSON.parse(storedPermissions));
-        }
-
-        if (storedRfqSetting) {
-            setRfqSenderSetting(JSON.parse(storedRfqSetting));
-        }
-
-    } catch (error) {
-        console.error("Failed to initialize auth from localStorage", error);
-        localStorage.clear();
-    }
-    setLoading(false);
-  }, [fetchAllUsers]);
-
   useEffect(() => {
-    initializeAuth();
-  }, [initializeAuth]);
+    const initialize = async () => {
+        setLoading(true);
+        await fetchAllUsers();
+        setLoading(false);
+    }
+    initialize();
+  }, [fetchAllUsers]);
 
   const login = (newToken: string, loggedInUser: User, loggedInRole: UserRole) => {
     const normalizedRole = normalizeRole(loggedInUser.role);
     localStorage.setItem('authToken', newToken);
     localStorage.setItem('user', JSON.stringify({ ...loggedInUser, role: normalizedRole }));
-    localStorage.setItem('role', normalizedRole);
+    localStorage.setItem('role', JSON.stringify(normalizedRole));
     setToken(newToken);
     setUser({ ...loggedInUser, role: normalizedRole });
     setRole(normalizedRole);
@@ -122,8 +113,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const switchUser = async (userId: string) => {
       const targetUser = allUsers.find(u => u.id === userId);
       if (targetUser) {
-          // The role in `allUsers` is already normalized, so we need the raw version for login
-          const rawRole = targetUser.role.replace(/ /g, '_');
           const response = await fetch('/api/auth/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -132,7 +121,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           
           if(response.ok) {
               const result = await response.json();
-              // The role from the API response will be normalized inside the login function.
               login(result.token, result.user, result.user.role);
               window.location.href = '/';
           } else {
@@ -164,7 +152,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       switchUser,
       updateRolePermissions,
       updateRfqSenderSetting
-  }), [user, token, role, loading, allUsers, rolePermissions, rfqSenderSetting, login, logout, switchUser, updateRolePermissions, updateRfqSenderSetting]);
+  }), [user, token, role, loading, allUsers, rolePermissions, rfqSenderSetting]);
 
 
   return (
