@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { NextResponse } from 'next/server';
@@ -26,8 +25,10 @@ export async function POST(
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    if (requisition.status !== 'Approved') {
-        return NextResponse.json({ error: 'Requisition must be approved before sending RFQ.' }, { status: 400 });
+    // Corrected Logic: Allow RFQ if it's in any valid pre-RFQ state.
+    const validStatusesForRfq: string[] = ['Approved', 'Pending Final Approval', 'Approved Awaiting Notification'];
+    if (!validStatusesForRfq.includes(requisition.status)) {
+        return NextResponse.json({ error: `Requisition must be in an approved state before sending RFQ. Current status: ${requisition.status}` }, { status: 400 });
     }
     
     let finalVendorIds = vendorIds;
@@ -106,4 +107,3 @@ export async function POST(
     return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
   }
 }
-
