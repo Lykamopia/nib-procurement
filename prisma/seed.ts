@@ -30,11 +30,7 @@ async function main() {
   await prisma.committeeAssignment.deleteMany({});
   await prisma.committeeRecommendation.deleteMany({});
   await prisma.approval.deleteMany({});
-  await prisma.review.deleteMany({});
   await prisma.contract.deleteMany({});
-  
-  await prisma.requisitionFinancialCommittee.deleteMany({});
-  await prisma.requisitionTechnicalCommittee.deleteMany({});
   
   await prisma.purchaseRequisition.deleteMany({});
   
@@ -204,10 +200,10 @@ async function main() {
               scoringDeadline: reqData.scoringDeadline ? new Date(reqData.scoringDeadline) : undefined,
               awardResponseDeadline: reqData.awardResponseDeadline ? new Date(reqData.awardResponseDeadline) : undefined,
               financialCommitteeMembers: financialCommitteeMemberIds ? {
-                create: financialCommitteeMemberIds.map(id => ({ userId: id }))
+                connect: financialCommitteeMemberIds.map(id => ({ id }))
               } : undefined,
               technicalCommitteeMembers: technicalCommitteeMemberIds ? {
-                create: technicalCommitteeMemberIds.map(id => ({ userId: id }))
+                connect: technicalCommitteeMemberIds.map(id => ({ id }))
               } : undefined,
           }
       });
