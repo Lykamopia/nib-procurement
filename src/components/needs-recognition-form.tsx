@@ -80,7 +80,7 @@ const formSchema = z.object({
     z.object({
       id: z.string().optional(),
       questionText: z.string().min(5, 'Question must be at least 5 characters.'),
-      questionType: z.enum(['text', 'boolean', 'multiple-choice', 'file']),
+      questionType: z.enum(['text', 'boolean', 'multiple_choice', 'file']),
       isRequired: z.boolean(),
       options: z.array(z.object({ value: z.string().min(1, "Option cannot be empty.") })).optional(),
       requisitionItemId: z.string().optional(),
@@ -537,7 +537,7 @@ export function NeedsRecognitionForm({ existingRequisition, onSuccess }: NeedsRe
                                     <SelectContent>
                                       <SelectItem value="text">Open-ended Text</SelectItem>
                                       <SelectItem value="boolean">True/False</SelectItem>
-                                      <SelectItem value="multiple-choice">Multiple Choice</SelectItem>
+                                      <SelectItem value="multiple_choice">Multiple Choice</SelectItem>
                                       <SelectItem value="file">File Upload</SelectItem>
                                     </SelectContent>
                                   </Select>
@@ -586,7 +586,7 @@ export function NeedsRecognitionForm({ existingRequisition, onSuccess }: NeedsRe
                                 )}
                               />
                         </div>
-                         {questionType === 'multiple-choice' && (
+                         {questionType === 'multiple_choice' && (
                           <div className="pl-4 space-y-2">
                             <FormLabel>Multiple Choice Options</FormLabel>
                             <QuestionOptions index={index} />

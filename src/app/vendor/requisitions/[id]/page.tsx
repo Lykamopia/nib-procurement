@@ -405,7 +405,7 @@ function QuoteSubmissionForm({ requisition, quote, onQuoteSubmitted }: { requisi
                                              const overallIndex = fields.findIndex(f => f.id === field.id);
                                              const isAlternative = field.name !== originalItem.name;
                                              return (
-                                                 <Card key={field.id} className="p-4 relative bg-background">
+                                                <Card key={field.id} className="p-4 relative bg-background">
                                                     <div className="flex justify-between items-start">
                                                         <FormField
                                                             control={form.control}
@@ -514,7 +514,7 @@ function QuoteSubmissionForm({ requisition, quote, onQuoteSubmitted }: { requisi
                                                             </RadioGroup>
                                                           </FormControl>
                                                         )}
-                                                        {question.questionType === 'multiple-choice' && (
+                                                        {question.questionType === 'multiple_choice' && (
                                                            <FormControl>
                                                                 <Select onValueChange={field.onChange} defaultValue={field.value}>
                                                                     <SelectTrigger>
@@ -958,7 +958,7 @@ export default function VendorRequisitionPage() {
                                             <div key={`${q.id}-${i}`}>
                                                 <p className="font-medium">{q.questionText}</p>
                                                 {q.questionType === 'boolean' && <p className="text-muted-foreground text-xs italic">Please answer with True/False.</p>}
-                                                {q.questionType === 'multiple-choice' && (
+                                                {q.questionType === 'multiple_choice' && (
                                                     <p className="text-muted-foreground text-xs italic">
                                                         Please choose from: {q.options?.join(', ')}
                                                     </p>
