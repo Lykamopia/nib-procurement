@@ -541,7 +541,7 @@ const CommitteeManagement = ({ requisition, onCommitteeUpdated, open, onOpenChan
         }
     }
     
-    const committeeMembers = allUsers.filter(u => u.role === 'Committee Member');
+    const committeeMembers = allUsers.filter(u => u.role === 'Committee_Member');
     const assignedFinancialMembers = allUsers.filter(u => requisition.financialCommitteeMemberIds?.includes(u.id));
     const assignedTechnicalMembers = allUsers.filter(u => requisition.technicalCommitteeMemberIds?.includes(u.id));
     const allAssignedMemberIds = [...(requisition.financialCommitteeMemberIds || []), ...(requisition.technicalCommitteeMemberIds || [])];
@@ -1654,6 +1654,14 @@ const ScoringProgressTracker = ({
     const overdueMembers = scoringStatus.filter(s => s.isOverdue);
     const allHaveScored = scoringStatus.every(s => s.hasSubmittedFinalScores);
 
+    const getButtonState = () => {
+        if (isAwarded) return { text: "Award Process Complete", disabled: true };
+        if (isFinalizing) return { text: "Finalizing...", disabled: true };
+        if (!allHaveScored) return { text: "Waiting for Scores...", disabled: true };
+        return { text: "Finalize Scores and Award", disabled: false };
+    }
+    const buttonState = getButtonState();
+
 
     return (
         <Card className="mt-6">
@@ -1701,9 +1709,9 @@ const ScoringProgressTracker = ({
             <CardFooter>
                  <Dialog open={isAwardCenterOpen} onOpenChange={setAwardCenterOpen}>
                     <DialogTrigger asChild>
-                         <Button disabled={!allHaveScored || isFinalizing || isAwarded}>
+                         <Button disabled={buttonState.disabled}>
                             {isFinalizing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            Finalize Scores and Award
+                            {buttonState.text}
                         </Button>
                     </DialogTrigger>
                     <AwardCenterDialog 
@@ -2277,7 +2285,7 @@ const CommitteeActions = ({
         }
     };
 
-    if (user.role !== 'Committee Member') {
+    if (user.role !== 'Committee_Member') {
         return null;
     }
 
@@ -2798,7 +2806,7 @@ export default function QuotationDetailsPage() {
             />
         )}
         
-        {user.role === 'Committee Member' && currentStep === 'award' && (
+        {user.role === 'Committee_Member' && currentStep === 'award' && (
              <CommitteeActions 
                 user={user}
                 requisition={requisition}
@@ -2807,7 +2815,7 @@ export default function QuotationDetailsPage() {
              />
         )}
         
-        {isAccepted && requisition.status !== 'PO Created' && role !== 'Committee Member' && (
+        {isAccepted && requisition.status !== 'PO Created' && role !== 'Committee_Member' && (
             <ContractManagement requisition={requisition} onContractFinalized={handleContractFinalized} />
         )}
          {requisition && (
@@ -2837,3 +2845,4 @@ export default function QuotationDetailsPage() {
     
 
     
+
