@@ -268,6 +268,10 @@ export function Dashboard({ setActiveView }: DashboardProps) {
         );
       case 'Procurement Officer':
         return <ProcurementOfficerDashboard setActiveView={setActiveView} />;
+      case 'Vendor':
+        // This is the fix: redirect to the correct vendor dashboard.
+        router.push('/vendor/dashboard');
+        return <div className="flex justify-center items-center h-96"><Loader2 className="h-8 w-8 animate-spin" /></div>;
       default:
         return <p>No dashboard available for this role.</p>;
     }
