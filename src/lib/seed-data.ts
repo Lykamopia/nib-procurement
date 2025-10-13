@@ -1,5 +1,4 @@
 
-
 import type { PurchaseRequisition, AuditLog, Vendor, Quotation, PurchaseOrder, GoodsReceiptNote, Invoice, User, Department } from './types';
 
 export interface AppData {
@@ -233,6 +232,8 @@ const seedData: AppData = {
         { id: '10', name: 'George', email: 'george@example.com', password: 'password123', role: 'Committee_Member', departmentId: 'DEPT-3', department: 'IT', approvalLimit: 0 },
         { id: '11', name: 'Hannah', email: 'hannah@example.com', password: 'password123', role: 'Committee', departmentId: 'DEPT-2', department: 'Operations', approvalLimit: 0 },
         { id: '12', name: 'Diana', email: 'diana@example.com', password: 'password123', role: 'Admin', departmentId: 'DEPT-2', department: 'Operations', approvalLimit: 1000000 },
+        { id: '13', name: 'Irene', email: 'irene@example.com', password: 'password123', role: 'Committee_A_Member', departmentId: 'DEPT-5', department: 'Finance', approvalLimit: 0 },
+        { id: '14', name: 'Jack', email: 'jack@example.com', password: 'password123', role: 'Committee_B_Member', departmentId: 'DEPT-4', department: 'Marketing', approvalLimit: 0 },
     ],
     departments: [
         { id: 'DEPT-1', name: 'Design', description: 'Handles all creative and design tasks.', headId: '1' },
