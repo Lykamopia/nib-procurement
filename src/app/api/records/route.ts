@@ -19,13 +19,13 @@ const createNameFinder = (users: User[], vendors: Vendor[]) => {
 export async function GET() {
     try {
         const [requisitions, quotations, purchaseOrders, goodsReceipts, invoices, contracts, auditLogs, users, vendors] = await Promise.all([
-            prisma.purchaseRequisition.findMany({ include: { department: true } }),
+            prisma.purchaseRequisition.findMany({ include: { department: true, requester: true } }),
             prisma.quotation.findMany(),
             prisma.purchaseOrder.findMany({ include: { vendor: true } }),
             prisma.goodsReceiptNote.findMany({ include: { receivedBy: true } }),
             prisma.invoice.findMany(),
             prisma.contract.findMany({ include: { requisition: { select: { title: true }}, vendor: { select: { name: true }}}}),
-            prisma.auditLog.findMany({ include: { user: true }, orderBy: { timestamp: 'desc' } }),
+            prisma.auditLog.findMany({ include: { user: { include: { role: true } } }, orderBy: { timestamp: 'desc' } }),
             prisma.user.findMany(),
             prisma.vendor.findMany(),
         ]);
@@ -38,10 +38,10 @@ export async function GET() {
                 id: r.id,
                 type: 'Requisition',
                 title: r.title,
-                status: r.status.replace(/_/g, ' '),
+                status: r.status ? r.status.replace(/_/g, ' ') : 'N/A',
                 date: r.createdAt,
                 amount: r.totalPrice,
-                user: r.requesterName || 'N/A',
+                user: r.requester?.name || 'N/A',
                 transactionId: r.transactionId,
             });
         });
@@ -51,7 +51,7 @@ export async function GET() {
                 id: q.id,
                 type: 'Quotation',
                 title: `Quote from ${q.vendorName}`,
-                status: q.status.replace(/_/g, ' '),
+                status: q.status ? q.status.replace(/_/g, ' ') : 'N/A',
                 date: q.createdAt,
                 amount: q.totalPrice,
                 user: q.vendorName,
@@ -64,7 +64,7 @@ export async function GET() {
                 id: po.id,
                 type: 'Purchase Order',
                 title: po.requisitionTitle,
-                status: po.status.replace(/_/g, ' '),
+                status: po.status ? po.status.replace(/_/g, ' ') : 'N/A',
                 date: po.createdAt,
                 amount: po.totalAmount,
                 user: po.vendor.name,
@@ -90,7 +90,7 @@ export async function GET() {
                 id: inv.id,
                 type: 'Invoice',
                 title: `Invoice for PO ${inv.purchaseOrderId}`,
-                status: inv.status.replace(/_/g, ' '),
+                status: inv.status ? inv.status.replace(/_/g, ' ') : 'N/A',
                 date: inv.invoiceDate,
                 amount: inv.totalAmount,
                 user: getName(inv.vendorId, 'vendor'),
@@ -103,7 +103,7 @@ export async function GET() {
                 id: c.id,
                 type: 'Contract',
                 title: `Contract for: ${c.requisition.title}`,
-                status: c.status.replace(/_/g, ' '),
+                status: c.status ? c.status.replace(/_/g, ' ') : 'N/A',
                 date: c.createdAt,
                 amount: 0,
                 user: c.vendor.name,
@@ -123,7 +123,7 @@ export async function GET() {
                 }
                 auditLogMap.get(log.transactionId)?.push({
                     ...log,
-                    role: log.user?.role.replace(/_/g, ' ') || 'System',
+                    role: log.user?.role?.name.replace(/_/g, ' ') || 'System',
                     user: log.user?.name || 'System'
                 });
             }
