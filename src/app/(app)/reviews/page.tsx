@@ -16,8 +16,8 @@ import {
   CardHeader,
   CardTitle,
   CardDescription,
-} from './ui/card';
-import { Button } from './ui/button';
+} from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { PurchaseRequisition } from '@/lib/types';
 import { format } from 'date-fns';
 import {
@@ -28,7 +28,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/hooks/use-toast';
-import { Badge } from './ui/badge';
+import { Badge } from '@/components/ui/badge';
 import { useRouter } from 'next/navigation';
 
 export default function ReviewsPage() {

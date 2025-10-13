@@ -93,10 +93,14 @@ export const rolePermissions: Record<UserRole, string[]> = {
   'Committee A Member': [
     '/reviews',
     '/records',
+    '/dashboard',
+    '/quotations'
   ],
   'Committee B Member': [
     '/reviews',
     '/records',
+    '/dashboard',
+    '/quotations'
   ],
    // Hierarchical Approvers - they might only need to see the approvals page
   'President': ['/approvals', '/records', '/dashboard'],
