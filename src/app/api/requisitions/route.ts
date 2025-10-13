@@ -2,10 +2,85 @@
 'use server';
 
 import { NextResponse } from 'next/server';
-import type { PurchaseRequisition } from '@/lib/types';
+import type { PurchaseRequisition, User, UserRole, Vendor } from '@/lib/types';
 import { prisma } from '@/lib/prisma';
 import { getUserByToken } from '@/lib/auth';
 import { headers } from 'next/headers';
+import { sendEmail } from '@/services/email-service';
+import { differenceInMinutes } from 'date-fns';
+
+// This function is exported so it can be called from the finalize-scores route
+export async function finalizeAndNotifyVendors(requisitionId: string, awardResponseDeadline?: Date) {
+    const allQuotesForReq = await prisma.quotation.findMany({
+        where: { requisitionId },
+        include: { items: true }
+    });
+
+    const sortedByScore = allQuotesForReq.sort((a, b) => (b.finalAverageScore || 0) - (a.finalAverageScore || 0));
+
+    if (sortedByScore.length === 0) {
+        throw new Error("No quotes available to award.");
+    }
+    
+    const winner = sortedByScore[0];
+    const awardedVendorIds = [winner.vendorId]; // For now, only single winner
+    
+    const awardedQuoteItemIds = winner.items.map(item => item.id);
+
+    await prisma.quotation.updateMany({
+        where: { requisitionId: requisitionId },
+        data: { status: 'Rejected', rank: null }
+    });
+    
+    await prisma.quotation.update({
+        where: { id: winner.id },
+        data: { status: 'Awarded', rank: 1 }
+    });
+
+    const standbyCandidates = sortedByScore.slice(1, 3);
+    for (let i = 0; i < standbyCandidates.length; i++) {
+        await prisma.quotation.update({
+            where: { id: standbyCandidates[i].id },
+            data: { status: 'Standby', rank: (i + 2) as 2 | 3 }
+        });
+    }
+
+    const awardResponseDurationMinutes = awardResponseDeadline
+        ? differenceInMinutes(awardResponseDeadline, new Date())
+        : undefined;
+
+    await prisma.purchaseRequisition.update({
+      where: { id: requisitionId },
+      data: {
+        status: 'RFQ_In_Progress',
+        awardResponseDeadline: awardResponseDeadline,
+        awardResponseDurationMinutes,
+        awardedQuoteItemIds: awardedQuoteItemIds,
+        currentApproverId: null,
+      }
+    });
+
+    const requisition = await prisma.purchaseRequisition.findUnique({where: { id: requisitionId }, include: {items: true}});
+    const vendor = await prisma.vendor.findUnique({ where: { id: winner.vendorId }});
+
+    if (vendor && requisition) {
+        const emailHtml = `
+            <h1>Congratulations, ${vendor.name}!</h1>
+            <p>You have been awarded the contract for requisition <strong>${requisition.title}</strong>.</p>
+            <p>Please log in to the vendor portal to review the award and respond.</p>
+            <a href="${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:9002'}/vendor/dashboard">Go to Vendor Portal</a>
+            <p>Thank you,</p>
+            <p>Nib InternationalBank Procurement</p>
+        `;
+
+        await sendEmail({
+            to: vendor.email,
+            subject: `Contract Awarded: ${requisition.title}`,
+            html: emailHtml
+        });
+    }
+}
+
 
 export async function GET(request: Request) {
   console.log('GET /api/requisitions - Fetching requisitions from DB.');
@@ -38,9 +113,16 @@ export async function GET(request: Request) {
         ];
     }
     
-    // Add logic for approval queue for a specific user
+    // Add logic for approval queue for a specific user OR for committees
     if (approverId) {
         whereClause.currentApproverId = approverId;
+    } else {
+        const userPayload = await getUserByToken(request.headers.get('Authorization')?.split(' ')[1] || '');
+        if (userPayload?.role === 'Committee_A_Member') {
+            whereClause.status = 'Pending_Committee_A_Recommendation';
+        } else if (userPayload?.role === 'Committee_B_Member') {
+            whereClause.status = 'Pending_Committee_B_Review';
+        }
     }
 
 
@@ -132,7 +214,7 @@ export async function POST(request: Request) {
             customQuestions: {
                 create: body.customQuestions?.map((q: any) => ({
                     questionText: q.questionText,
-                    questionType: q.questionType,
+                    questionType: q.questionType.replace(/-/g, '_'),
                     isRequired: q.isRequired,
                     options: q.options || [],
                 }))
@@ -191,7 +273,9 @@ export async function PATCH(
   console.log('PATCH /api/requisitions - Updating requisition status or content in DB.');
   try {
     const body = await request.json();
-    const { id, status, userId, comment, isManagerialApproval, ...updateData } = body;
+    const { id, status, userId, comment, isManagerialApproval, isCommitteeApproval } = body;
+    const updateData = body;
+
 
     const user = await prisma.user.findUnique({where: {id: userId}});
     if (!user) {
@@ -224,11 +308,9 @@ export async function PATCH(
             urgency: updateData.urgency,
             department: { connect: { name: updateData.department } },
             totalPrice: totalPrice,
-            // When editing, it always goes back to Pending Approval if a status is provided
             status: status ? status.replace(/ /g, '_') : requisition.status,
             approver: { disconnect: true },
             approverComment: null,
-            // We need to delete old items and create new ones
             items: {
                 deleteMany: {},
                 create: updateData.items.map((item: any) => ({
@@ -238,21 +320,17 @@ export async function PATCH(
                     description: item.description || ''
                 })),
             },
-            // Same for questions and criteria
             customQuestions: {
                 deleteMany: {},
                 create: updateData.customQuestions?.map((q: any) => ({
                     questionText: q.questionText,
-                    questionType: q.questionType,
+                    questionType: q.questionType.replace(/-/g, '_'),
                     isRequired: q.isRequired,
                     options: q.options || [],
                 })),
             },
         };
-        // Handle evaluation criteria update by deleting old and creating new
-         const oldCriteria = await prisma.evaluationCriteria.findUnique({
-            where: { requisitionId: id },
-         });
+         const oldCriteria = await prisma.evaluationCriteria.findUnique({ where: { requisitionId: id } });
          if (oldCriteria) {
              await prisma.financialCriterion.deleteMany({ where: { evaluationCriteriaId: oldCriteria.id } });
              await prisma.technicalCriterion.deleteMany({ where: { evaluationCriteriaId: oldCriteria.id } });
@@ -263,20 +341,14 @@ export async function PATCH(
             create: {
                 financialWeight: updateData.evaluationCriteria.financialWeight,
                 technicalWeight: updateData.evaluationCriteria.technicalWeight,
-                financialCriteria: {
-                    create: updateData.evaluationCriteria.financialCriteria.map((c:any) => ({ name: c.name, weight: c.weight }))
-                },
-                technicalCriteria: {
-                    create: updateData.evaluationCriteria.technicalCriteria.map((c:any) => ({ name: c.name, weight: c.weight }))
-                }
+                financialCriteria: { create: updateData.evaluationCriteria.financialCriteria.map((c:any) => ({ name: c.name, weight: c.weight })) },
+                technicalCriteria: { create: updateData.evaluationCriteria.technicalCriteria.map((c:any) => ({ name: c.name, weight: c.weight })) }
             }
         };
         
         if (status === 'Pending Approval') {
             const department = await prisma.department.findUnique({ where: { id: requisition.departmentId! } });
-            if (department?.headId) {
-                dataToUpdate.currentApprover = { connect: { id: department.headId } };
-            }
+            if (department?.headId) { dataToUpdate.currentApprover = { connect: { id: department.headId } }; }
             auditAction = 'SUBMIT_FOR_APPROVAL';
             auditDetails = `Requisition ${id} ("${updateData.title}") was edited and submitted for approval.`;
         }
@@ -286,11 +358,8 @@ export async function PATCH(
         
         if (status === 'Pending Approval') {
             const department = await prisma.department.findUnique({ where: { id: requisition.departmentId! } });
-            if (department?.headId) {
-                dataToUpdate.currentApprover = { connect: { id: department.headId } };
-            } else {
-                 return NextResponse.json({ error: 'No department head assigned to approve this requisition.' }, { status: 400 });
-            }
+            if (department?.headId) { dataToUpdate.currentApprover = { connect: { id: department.headId } };
+            } else { return NextResponse.json({ error: 'No department head assigned to approve this requisition.' }, { status: 400 }); }
             auditAction = 'SUBMIT_FOR_APPROVAL';
             auditDetails = `Draft requisition ${id} was submitted for approval.`;
         } else if (status === 'Approved') {
@@ -298,16 +367,10 @@ export async function PATCH(
             dataToUpdate.approverComment = comment;
             dataToUpdate.currentApprover = { disconnect: true };
             
-            if (isManagerialApproval) {
-                // If it's a managerial approval, this means the award process can continue.
-                // The finalize-scores endpoint already handles this. Here we just confirm the approval.
-                auditAction = 'APPROVE_AWARD';
-                auditDetails = `Managerially approved award for requisition ${id}. Notifying vendors.`;
-                 // We will re-run the finalize logic to send emails and update statuses
-                 // This is a simplification; a more robust system might use a state machine or queue
-                 const { tallyAndAwardScores } = await import('./[id]/finalize-scores/route');
-                 await tallyAndAwardScores(id, requisition.awardResponseDeadline || undefined, user);
-
+            if (isManagerialApproval || isCommitteeApproval) {
+                 auditAction = isManagerialApproval ? 'APPROVE_AWARD' : 'COMMITTEE_APPROVE_AWARD';
+                 auditDetails = `${isManagerialApproval ? 'Managerially' : 'Committee'} approved award for requisition ${id}. Notifying vendors.`;
+                 await finalizeAndNotifyVendors(id, requisition.awardResponseDeadline || undefined);
             } else {
                 auditAction = 'APPROVE_REQUISITION';
                 auditDetails = `Requisition ${id} was approved with comment: "${comment}".`;
@@ -319,8 +382,6 @@ export async function PATCH(
             dataToUpdate.currentApprover = { disconnect: true };
              auditAction = 'REJECT_REQUISITION';
              auditDetails = `Requisition ${id} was rejected with comment: "${comment}".`;
-        } else {
-            // Other status changes
         }
 
     } else {
@@ -348,7 +409,7 @@ export async function PATCH(
   } catch (error) {
     console.error('Failed to update requisition:', error);
     if (error instanceof Error) {
-        return NextResponse.json({ error: 'Failed to process request', details: error.message }, { status: 400 });
+        return NextResponse.json({ error: 'Failed to process request', details: error.message }, { status: 500 });
     }
     return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
   }
@@ -380,7 +441,6 @@ export async function DELETE(
       return NextResponse.json({ error: `Cannot delete a requisition with status "${requisition.status}".` }, { status: 403 });
     }
     
-    // Need to perform cascading deletes manually if not handled by the database schema
     await prisma.requisitionItem.deleteMany({ where: { requisitionId: id } });
     await prisma.customQuestion.deleteMany({ where: { requisitionId: id } });
     
@@ -414,5 +474,3 @@ export async function DELETE(
     return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
   }
 }
-
-    

@@ -68,8 +68,24 @@ export function ApprovalsTable() {
     if (!user) return;
     try {
       setLoading(true);
-      // Fetch all requisitions assigned to the current user for approval
-      const response = await fetch(`/api/requisitions?approverId=${user.id}`);
+      let apiUrl = `/api/requisitions?`;
+      const params = new URLSearchParams();
+      
+      // Regular approvers get items assigned to their person
+      if (user.approvalLimit) {
+        params.append('approverId', user.id);
+      }
+      
+      // Committee members see requisitions pending committee review
+      if (user.role === 'Committee_A_Member') {
+          params.append('status', 'Pending_Committee_A_Recommendation');
+      } else if (user.role === 'Committee_B_Member') {
+          params.append('status', 'Pending_Committee_B_Review');
+      }
+
+      apiUrl += params.toString();
+
+      const response = await fetch(apiUrl);
       if (!response.ok) {
         throw new Error('Failed to fetch requisitions for approval');
       }
@@ -83,7 +99,7 @@ export function ApprovalsTable() {
   };
 
   useEffect(() => {
-    if (user?.role === 'Approver' || user?.approvalLimit) {
+    if (user) {
         fetchRequisitions();
     } else {
         setLoading(false);
@@ -104,9 +120,7 @@ export function ApprovalsTable() {
   const submitAction = async () => {
     if (!selectedRequisition || !actionType || !user) return;
     
-    // Determine the correct new status based on context
-    let newStatus = actionType === 'approve' ? 'Approved' : 'Rejected';
-
+    const isCommitteeApproval = selectedRequisition.status === 'Pending_Committee_A_Recommendation' || selectedRequisition.status === 'Pending_Committee_B_Review';
 
     try {
       const response = await fetch(`/api/requisitions`, {
@@ -114,10 +128,11 @@ export function ApprovalsTable() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
             id: selectedRequisition.id, 
-            status: newStatus, 
+            status: 'Approved', 
             userId: user.id, 
             comment,
-            isManagerialApproval: selectedRequisition.status === 'Pending Managerial Approval'
+            isManagerialApproval: selectedRequisition.status === 'Pending_Managerial_Approval',
+            isCommitteeApproval,
         }),
       });
       if (!response.ok) throw new Error(`Failed to ${actionType} requisition`);
@@ -195,7 +210,7 @@ export function ApprovalsTable() {
                       <TableCell>{req.title}</TableCell>
                       <TableCell>{req.requesterName}</TableCell>
                       <TableCell>
-                          {req.status === 'Pending Managerial Approval' ? (
+                          {req.status === 'Pending Managerial Approval' || req.status.includes('Committee') ? (
                               <Badge variant="destructive">Award Approval</Badge>
                           ) : (
                               <Badge variant="secondary">Requisition Approval</Badge>

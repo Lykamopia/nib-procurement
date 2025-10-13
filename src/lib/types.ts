@@ -65,7 +65,7 @@ export type RequisitionItem = {
   unitPrice: number;
 };
 
-export type QuestionType = 'text' | 'boolean' | 'multiple-choice' | 'file';
+export type QuestionType = 'text' | 'boolean' | 'multiple_choice' | 'file';
 
 export type CustomQuestion = {
   id: string;
