@@ -7,12 +7,12 @@ const prisma = new PrismaClient();
 
 async function main() {
   console.log(`Clearing existing data...`);
+  await prisma.review.deleteMany({});
   await prisma.auditLog.deleteMany({});
   await prisma.receiptItem.deleteMany({});
   await prisma.goodsReceiptNote.deleteMany({});
   await prisma.invoiceItem.deleteMany({});
   await prisma.invoice.deleteMany({});
-  await prisma.review.deleteMany({});
   await prisma.pOItem.deleteMany({});
   await prisma.purchaseOrder.deleteMany({});
   await prisma.quoteAnswer.deleteMany({});
@@ -172,6 +172,7 @@ async function main() {
           evaluationCriteria, 
           quotations, 
           requesterId,
+          requesterName,
           approverId,
           currentApproverId,
           financialCommitteeMemberIds,
@@ -301,7 +302,7 @@ async function main() {
                         unitPrice: item.unitPrice,
                         totalPrice: item.totalPrice,
                         receivedQuantity: item.receivedQuantity,
-                        requisitionItem: { connect: { id: item.requisitionItemId } }
+                        requisitionItemId: item.requisitionItemId
                     })),
                 },
             }
