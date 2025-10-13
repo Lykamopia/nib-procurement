@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -83,15 +82,16 @@ export default function AppLayout({
     };
   }, [user, handleLogout]);
 
-  useEffect(() => {
-    if (!loading && !user) {
-      router.push('/login');
-    }
-  }, [user, loading, router]);
-  
-  // Page-level access check
+  // Page-level access check - This logic is correct and should remain.
+  // It ensures that once a user is authenticated, they cannot access pages outside their role's permissions.
   useEffect(() => {
     if (loading || !role) return;
+    
+    // If there is no user, logout will handle the redirect.
+    if (!user) {
+        logout();
+        return;
+    }
 
     const allowedPaths = rolePermissions[role] || [];
     if (allowedPaths.length === 0) {
@@ -120,10 +120,10 @@ export default function AppLayout({
             logout();
         }
     }
-  }, [pathname, loading, role, router, rolePermissions, logout]);
+  }, [pathname, loading, role, user, router, rolePermissions, logout]);
 
 
-  if (loading || !user || !role) {
+  if (loading || !user) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />

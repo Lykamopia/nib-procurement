@@ -32,23 +32,23 @@ export default function VendorLayout({
   const { user, logout, loading, role } = useAuth();
   const router = useRouter();
 
-  React.useEffect(() => {
-    if (!loading) {
-        if (!user) {
-            router.push('/login');
-        } else if (role !== 'Vendor') {
-            router.push('/dashboard'); // Redirect non-vendors away
-        }
-    }
-  }, [user, loading, role, router]);
-
-
   if (loading || !user) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
+  }
+
+  // If the user is somehow in this layout without being a vendor, redirect them.
+  // This is a secondary safeguard. The primary redirect happens in page.tsx.
+  if (!user.vendorId) {
+      router.push('/');
+      return (
+        <div className="flex h-screen w-full items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      );
   }
 
   return (

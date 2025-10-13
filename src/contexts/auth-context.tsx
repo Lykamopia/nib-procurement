@@ -17,7 +17,7 @@ interface AuthContextType {
   allUsers: User[];
   rolePermissions: Record<UserRole, string[]>;
   rfqSenderSetting: RfqSenderSetting;
-  login: (token: string, user: User, role: UserRole) => void;
+  login: (token: string, user: User) => void;
   logout: () => void;
   loading: boolean;
   switchUser: (userId: string) => void;
@@ -28,7 +28,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Helper to safely get item from localStorage
-const getStoredItem = <T>(key: string, defaultValue: T): T => {
+const getStoredItem = <T,>(key: string, defaultValue: T): T => {
   if (typeof window === 'undefined') {
     return defaultValue;
   }
@@ -48,21 +48,21 @@ const getStoredToken = (): string | null => {
     return localStorage.getItem('authToken');
 }
 
+// This function correctly handles all role name formats.
+const normalizeRole = (roleName?: string): UserRole => {
+    if (!roleName) return 'Requester'; // Fallback role
+    return roleName.replace(/_/g, ' ') as UserRole;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  // Initialize state synchronously from localStorage
   const [user, setUser] = useState<User | null>(() => getStoredItem('user', null));
   const [token, setToken] = useState<string | null>(() => getStoredToken());
-  const [role, setRole] = useState<UserRole | null>(() => getStoredItem('role', null));
+  const [role, setRole] = useState<UserRole | null>(() => normalizeRole(getStoredItem<User | null>('user', null)?.role));
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [rolePermissions, setRolePermissions] = useState<Record<UserRole, string[]>>(() => getStoredItem('rolePermissions', defaultRolePermissions));
   const [rfqSenderSetting, setRfqSenderSetting] = useState<RfqSenderSetting>(() => getStoredItem('rfqSenderSetting', { type: 'all' }));
 
-
-  // This function correctly handles all role name formats.
-  const normalizeRole = (roleName: string): UserRole => {
-    return roleName.replace(/_/g, ' ') as UserRole;
-  }
 
   const fetchAllUsers = useCallback(async () => {
     try {
@@ -90,11 +90,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     initialize();
   }, [fetchAllUsers]);
 
-  const login = (newToken: string, loggedInUser: User, loggedInRole: UserRole) => {
+  const login = (newToken: string, loggedInUser: User) => {
     const normalizedRole = normalizeRole(loggedInUser.role);
     localStorage.setItem('authToken', newToken);
     localStorage.setItem('user', JSON.stringify({ ...loggedInUser, role: normalizedRole }));
-    localStorage.setItem('role', JSON.stringify(normalizedRole));
     setToken(newToken);
     setUser({ ...loggedInUser, role: normalizedRole });
     setRole(normalizedRole);
@@ -103,7 +102,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     localStorage.removeItem('authToken');
     localStorage.removeItem('user');
-    localStorage.removeItem('role');
     setToken(null);
     setUser(null);
     setRole(null);
@@ -113,18 +111,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const switchUser = async (userId: string) => {
       const targetUser = allUsers.find(u => u.id === userId);
       if (targetUser) {
-          const response = await fetch('/api/auth/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: targetUser.email, password: 'password123' }),
-          });
-          
-          if(response.ok) {
-              const result = await response.json();
-              login(result.token, result.user, result.user.role);
-              window.location.href = '/';
-          } else {
-              console.error("Failed to switch user.")
+          try {
+              const response = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: targetUser.email, password: 'password123' }), // Assumes a default password for testing
+              });
+              
+              if(response.ok) {
+                  const result = await response.json();
+                  login(result.token, result.user);
+                  window.location.href = '/';
+              } else {
+                  console.error("Failed to switch user via API login.");
+                  toast({ variant: "destructive", title: "Switch Failed", description: "Could not log in as the selected user."})
+              }
+          } catch (e) {
+              console.error("Error during user switch:", e);
+              toast({ variant: "destructive", title: "Error", description: "An error occurred while trying to switch users."})
           }
       }
   };
@@ -138,6 +142,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.setItem('rfqSenderSetting', JSON.stringify(newSetting));
       setRfqSenderSetting(newSetting);
   }
+  
+  const { toast } = useToast();
 
   const authContextValue = useMemo(() => ({
       user,
