@@ -18,11 +18,8 @@ export default function HomePage() {
         const allowedPaths = rolePermissions[role] || [];
         const defaultPath = allowedPaths[0] || '/login';
 
-        if (role === 'Vendor') {
-          router.push('/vendor/dashboard');
-        } else {
-          router.push(defaultPath);
-        }
+        router.push(defaultPath);
+        
       } else {
         router.push('/login');
       }
