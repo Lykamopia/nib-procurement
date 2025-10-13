@@ -89,7 +89,7 @@ async function main() {
 
   // Seed non-vendor users
   for (const user of seedData.users.filter(u => u.role !== 'Vendor')) {
-    const { committeeAssignments, department, vendorId, password, managerId, departmentId, ...userData } = user;
+    const { committeeAssignments, department, vendorId, password, managerId, ...userData } = user;
     const hashedPassword = await bcrypt.hash(password || 'password123', 10);
     const roleName = userData.role.replace(/ /g, '_');
 
@@ -180,16 +180,18 @@ async function main() {
           requesterId,
           approverId,
           currentApproverId,
-          department,
           departmentId,
           financialCommitteeMemberIds,
           technicalCommitteeMemberIds,
+          requesterName, // Exclude this
+          department, // Exclude this
           ...reqData 
       } = requisition;
 
       const createdRequisition = await prisma.purchaseRequisition.create({
           data: {
               ...reqData,
+              requesterName: seedData.users.find(u => u.id === requesterId)?.name || 'Unknown',
               status: reqData.status.replace(/ /g, '_') as any,
               urgency: reqData.urgency || 'Low',
               requester: { connect: { id: requesterId } },
@@ -359,5 +361,3 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
-
-    
