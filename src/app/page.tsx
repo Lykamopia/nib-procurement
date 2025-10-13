@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect } from 'react';
@@ -24,13 +25,11 @@ export default function HomePage() {
       router.push('/vendor/dashboard');
     } else {
       const allowedPaths = rolePermissions[role] || [];
-      // Determine the correct default path: prefer dashboard, otherwise take the first available path.
       const defaultPath = allowedPaths.includes('/dashboard') ? '/dashboard' : allowedPaths[0];
 
       if (defaultPath) {
         router.push(defaultPath);
       } else {
-        // If a user has no allowed pages, redirect to login as a fallback.
         console.error(`User role ${role} has no default path defined. Logging out.`);
         router.push('/login');
       }

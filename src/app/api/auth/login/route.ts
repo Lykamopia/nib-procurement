@@ -27,10 +27,10 @@ export async function POST(request: Request) {
         if (user && user.password && await bcrypt.compare(password, user.password)) {
             const { password: _, ...userWithoutPassword } = user;
             
-            const finalUser = {
+            const finalUser: User = {
                 ...userWithoutPassword,
                 role: user.role.replace(/_/g, ' ') as UserRole,
-                department: user.department?.name
+                department: user.department?.name,
             };
 
             const jwtSecret = process.env.JWT_SECRET;
@@ -62,6 +62,9 @@ export async function POST(request: Request) {
 
     } catch (error) {
         console.error('Login error:', error);
+        if (error instanceof Error) {
+            return NextResponse.json({ error: 'An internal server error occurred', details: error.message }, { status: 500 });
+        }
         return NextResponse.json({ error: 'An internal server error occurred' }, { status: 500 });
     }
 }
