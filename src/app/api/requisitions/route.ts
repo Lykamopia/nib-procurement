@@ -377,6 +377,20 @@ export async function PATCH(
             if (isManagerialApproval || isCommitteeApproval) {
                  auditAction = isManagerialApproval ? 'APPROVE_AWARD' : 'COMMITTEE_APPROVE_AWARD';
                  auditDetails = `${isManagerialApproval ? 'Managerially' : 'Committee'} approved award for requisition ${id}. Notifying vendors.`;
+                 
+                 // Create Review Record
+                 if (isCommitteeApproval) {
+                     await prisma.review.create({
+                         data: {
+                             requisitionId: id,
+                             reviewerId: userId,
+                             committeeType: user.role === 'Committee_A_Member' ? 'Committee A' : 'Committee B',
+                             decision: 'Approved',
+                             comment: comment
+                         }
+                     })
+                 }
+                 
                  await finalizeAndNotifyVendors(id, requisition.awardResponseDeadline || undefined);
             } else {
                 auditAction = 'APPROVE_REQUISITION';
@@ -389,6 +403,18 @@ export async function PATCH(
             dataToUpdate.currentApprover = { disconnect: true };
              auditAction = 'REJECT_REQUISITION';
              auditDetails = `Requisition ${id} was rejected with comment: "${comment}".`;
+
+             if (isCommitteeApproval) {
+                 await prisma.review.create({
+                     data: {
+                         requisitionId: id,
+                         reviewerId: userId,
+                         committeeType: user.role === 'Committee_A_Member' ? 'Committee A' : 'Committee B',
+                         decision: 'Rejected',
+                         comment: comment
+                     }
+                 })
+             }
         }
 
     } else {
