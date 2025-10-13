@@ -332,7 +332,7 @@ async function main() {
     console.log('Seeded invoices.');
 
     for (const grn of seedData.goodsReceipts) {
-        const { items, ...grnData }. = grn;
+        const { items, ...grnData } = grn;
         const createdGrn = await prisma.goodsReceiptNote.create({
             data: { 
                 ...grnData, 
@@ -381,5 +381,3 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
-
-    
