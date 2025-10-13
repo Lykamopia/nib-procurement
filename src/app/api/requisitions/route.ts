@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { NextResponse } from 'next/server';
@@ -191,7 +192,7 @@ export async function PATCH(
   console.log('PATCH /api/requisitions - Updating requisition status or content in DB.');
   try {
     const body = await request.json();
-    const { id, status, userId, comment, isManagerialApproval, ...updateData } = body;
+    const { id, status, userId, comment, ...updateData } = body;
 
     const user = await prisma.user.findUnique({where: {id: userId}});
     if (!user) {
@@ -298,19 +299,24 @@ export async function PATCH(
             dataToUpdate.approverComment = comment;
             dataToUpdate.currentApprover = { disconnect: true };
             
-            if (isManagerialApproval) {
-                // If it's a managerial approval, this means the award process can continue.
-                // The finalize-scores endpoint already handles this. Here we just confirm the approval.
-                auditAction = 'APPROVE_AWARD';
-                auditDetails = `Managerially approved award for requisition ${id}. Notifying vendors.`;
-                 // We will re-run the finalize logic to send emails and update statuses
-                 // This is a simplification; a more robust system might use a state machine or queue
-                 const { tallyAndAwardScores } = await import('./[id]/finalize-scores/route');
-                 await tallyAndAwardScores(id, requisition.awardResponseDeadline || undefined, user);
-
+            // Check if approval limit is exceeded
+            if (user.approvalLimit !== null && requisition.totalPrice > user.approvalLimit) {
+                 if (!user.managerId) {
+                    return NextResponse.json({ error: `Approval amount exceeds your limit of ${user.approvalLimit} and you have no manager to escalate to.` }, { status: 403 });
+                }
+                dataToUpdate.status = 'Pending_Final_Approval'; // Or a more specific status
+                dataToUpdate.currentApprover = { connect: { id: user.managerId } };
+                auditAction = 'ESCALATE_APPROVAL';
+                auditDetails = `Requisition ${id} approved, but amount exceeds limit. Escalated to next level for final approval.`;
             } else {
                 auditAction = 'APPROVE_REQUISITION';
                 auditDetails = `Requisition ${id} was approved with comment: "${comment}".`;
+                // Logic to start RFQ process or finalize award
+                if(requisition.status === 'Pending_Final_Approval') {
+                     const { tallyAndAwardScores } = await import('./[id]/finalize-scores/route');
+                     await tallyAndAwardScores(id, user);
+                     auditDetails += ' Final award process initiated.';
+                }
             }
             
         } else if (status === 'Rejected') {

@@ -9,7 +9,11 @@ export type UserRole =
   | 'Vendor'
   | 'Committee Member' // Evaluators like Fiona and George
   | 'Committee A Member' // Reviewers
-  | 'Committee B Member'; // Reviewers
+  | 'Committee B Member' // Reviewers
+  | 'President'
+  | 'VP Resources'
+  | 'Director Supply Chain'
+  | 'Director HRM';
 
 export type CommitteeAssignment = {
   requisitionId: string;

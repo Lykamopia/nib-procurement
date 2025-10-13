@@ -132,7 +132,7 @@ export async function POST(
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    if (user.role !== 'Procurement_Officer' && user.role !== 'Admin') {
+    if (user.role !== 'Procurement Officer' && user.role !== 'Admin') {
         return NextResponse.json({ error: 'Unauthorized to finalize awards.' }, { status: 403 });
     }
     
