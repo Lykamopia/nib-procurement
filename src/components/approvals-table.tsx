@@ -104,7 +104,7 @@ export function ApprovalsTable() {
   const submitAction = async () => {
     if (!selectedRequisition || !actionType || !user) return;
     
-    const isManagerialApproval = selectedRequisition.status === 'Pending_Managerial_Approval';
+    const isManagerialApproval = selectedRequisition.status === 'Pending Managerial Approval';
 
     try {
       const response = await fetch(`/api/requisitions`, {
@@ -121,7 +121,7 @@ export function ApprovalsTable() {
       if (!response.ok) throw new Error(`Failed to ${actionType} requisition`);
       toast({
         title: "Success",
-        description: `Requisition ${selectedRequisition.id} has been ${actionType === 'approve' ? 'approved' : 'rejected'}.`,
+        description: `Requisition ${selectedRequisition.id} has been ${actionType === 'approve' ? 'processed' : 'rejected'}.`,
       });
       fetchRequisitions(); // Re-fetch data to update the table
     } catch (error) {

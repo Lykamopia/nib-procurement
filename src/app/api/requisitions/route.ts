@@ -267,7 +267,7 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error('Failed to create requisition:', error);
     if (error instanceof Error) {
-        return NextResponse.json({ error: 'Failed to process requisition', details: error.message }, { status: 500 });
+        return NextResponse.json({ error: 'Failed to process requisition', details: error.message }, { status: 400 });
     }
     return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
   }
@@ -361,24 +361,45 @@ export async function PATCH(
         }
 
     } else if (status) { // This handles normal status changes (approve, reject, submit)
-        dataToUpdate.status = status.replace(/ /g, '_');
-        
         if (status === 'Pending Approval') {
             const department = await prisma.department.findUnique({ where: { id: requisition.departmentId! } });
             if (department?.headId) { dataToUpdate.currentApprover = { connect: { id: department.headId } };
             } else { return NextResponse.json({ error: 'No department head assigned to approve this requisition.' }, { status: 400 }); }
             auditAction = 'SUBMIT_FOR_APPROVAL';
             auditDetails = `Draft requisition ${id} was submitted for approval.`;
+            dataToUpdate.status = 'Pending_Approval';
         } else if (status === 'Approved') {
+            const isDepartmentalApproval = requisition.status === 'Pending_Approval';
+            
             dataToUpdate.approver = { connect: { id: userId } };
             dataToUpdate.approverComment = comment;
             dataToUpdate.currentApprover = { disconnect: true };
-            
-            if (isManagerialApproval || isCommitteeApproval) {
+
+            if (isDepartmentalApproval) {
+                // After departmental approval, route to committee based on price
+                const committeeA_Min = 200001; // Example threshold
+                const committeeB_Min = 10000;  // Example threshold
+
+                if (requisition.totalPrice >= committeeA_Min) {
+                    dataToUpdate.status = 'Pending_Committee_A_Recommendation';
+                    auditAction = 'ROUTE_TO_COMMITTEE_A';
+                    auditDetails = `Requisition approved by department; routed to Committee A for review. Comment: "${comment}".`;
+                } else if (requisition.totalPrice >= committeeB_Min) {
+                    dataToUpdate.status = 'Pending_Committee_B_Review';
+                    auditAction = 'ROUTE_TO_COMMITTEE_B';
+                    auditDetails = `Requisition approved by department; routed to Committee B for review. Comment: "${comment}".`;
+                } else {
+                    // Price is below committee thresholds, goes to final approval
+                    dataToUpdate.status = 'Approved';
+                    auditAction = 'APPROVE_REQUISITION';
+                    auditDetails = `Requisition ${id} was approved with comment: "${comment}".`;
+                }
+
+            } else if (isManagerialApproval || isCommitteeApproval) {
                  auditAction = isManagerialApproval ? 'APPROVE_AWARD' : 'COMMITTEE_APPROVE_AWARD';
                  auditDetails = `${isManagerialApproval ? 'Managerially' : 'Committee'} approved award for requisition ${id}. Notifying vendors.`;
+                 dataToUpdate.status = 'Approved'; // Final approval status
                  
-                 // Create Review Record
                  if (isCommitteeApproval) {
                      await prisma.review.create({
                          data: {
@@ -390,9 +411,9 @@ export async function PATCH(
                          }
                      })
                  }
-                 
                  await finalizeAndNotifyVendors(id, requisition.awardResponseDeadline || undefined);
             } else {
+                dataToUpdate.status = 'Approved';
                 auditAction = 'APPROVE_REQUISITION';
                 auditDetails = `Requisition ${id} was approved with comment: "${comment}".`;
             }
@@ -401,6 +422,7 @@ export async function PATCH(
             dataToUpdate.approver = { connect: { id: userId } };
             dataToUpdate.approverComment = comment;
             dataToUpdate.currentApprover = { disconnect: true };
+            dataToUpdate.status = 'Rejected';
              auditAction = 'REJECT_REQUISITION';
              auditDetails = `Requisition ${id} was rejected with comment: "${comment}".`;
 
