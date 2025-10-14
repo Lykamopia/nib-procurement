@@ -7,6 +7,7 @@ const prisma = new PrismaClient();
 
 async function main() {
   console.log(`Clearing existing data...`);
+  // Manually manage order of deletion to avoid foreign key constraint violations
   await prisma.auditLog.deleteMany({});
   await prisma.receiptItem.deleteMany({});
   await prisma.goodsReceiptNote.deleteMany({});
@@ -24,6 +25,7 @@ async function main() {
   await prisma.requisitionItem.deleteMany({});
   await prisma.committeeAssignment.deleteMany({});
   await prisma.contract.deleteMany({});
+  await prisma.review.deleteMany({});
   await prisma.purchaseRequisition.deleteMany({});
   await prisma.kYC_Document.deleteMany({});
   
@@ -382,3 +384,5 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
+
+    
