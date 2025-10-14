@@ -179,7 +179,7 @@ async function main() {
           technicalCommitteeMemberIds,
           department,
           departmentId,
-          committeeMemberIds, // old field, remove it
+          // committeeMemberIds, // old field, remove it
           ...reqData 
       } = requisition;
 
