@@ -188,6 +188,7 @@ async function main() {
               ...reqData,
               status: reqData.status.replace(/ /g, '_') as any,
               urgency: reqData.urgency || 'Low',
+              approverComment: reqData.approverComment,
               requester: { connect: { id: requesterId } },
               approver: approverId ? { connect: { id: approverId } } : undefined,
               currentApprover: currentApproverId ? { connect: { id: currentApproverId } } : undefined,
