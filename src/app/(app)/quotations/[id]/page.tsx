@@ -1843,7 +1843,7 @@ const CumulativeScoringReportDialog = ({ requisition, quotations, isOpen, onClos
                                                         <div className="flex items-center gap-3">
                                                             <Avatar className="h-8 w-8">
                                                                 <AvatarImage src={`https://picsum.photos/seed/${scoreSet.scorerId}/32/32`} />
-                                                                <AvatarFallback>{scoreSet.scorerName.charAt(0)}</AvatarFallback>
+                                                                <AvatarFallback>{scoreSet.scorerName?.charAt(0)}</AvatarFallback>
                                                             </Avatar>
                                                             <span className="font-semibold print:text-black">{scoreSet.scorerName}</span>
                                                         </div>

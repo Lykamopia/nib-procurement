@@ -73,7 +73,6 @@ export async function POST(
         create: {
             quotation: { connect: { id: quoteId } },
             scorer: { connect: { id: user.id } },
-            scorerName: user.name,
             committeeComment: scores.committeeComment,
             finalScore: 0, // Will be updated later
         }
