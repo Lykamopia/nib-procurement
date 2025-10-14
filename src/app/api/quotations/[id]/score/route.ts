@@ -9,16 +9,15 @@ import { EvaluationCriterion, ItemScore } from '@/lib/types';
 function calculateFinalItemScore(itemScore: any, criteria: any): number {
     let totalScore = 0;
     
-    const allCriteria: EvaluationCriterion[] = [
-        ...criteria.financialCriteria,
-        ...criteria.technicalCriteria
+    const allCriteria: {id: string, weight: number}[] = [
+        ...criteria.financialCriteria.map((c: any) => ({...c, type: 'FINANCIAL'})),
+        ...criteria.technicalCriteria.map((c: any) => ({...c, type: 'TECHNICAL'}))
     ];
-
+    
     itemScore.scores.forEach((s: any) => {
         const criterion = allCriteria.find(c => c.id === s.criterionId);
         if (criterion) {
-            const isFinancial = criteria.financialCriteria.some((c: any) => c.id === criterion.id);
-            const overallWeight = isFinancial ? criteria.financialWeight : criteria.technicalWeight;
+            const overallWeight = criterion.type === 'FINANCIAL' ? criteria.financialWeight : criteria.technicalWeight;
             totalScore += s.score * (criterion.weight / 100) * (overallWeight / 100);
         }
     });
@@ -68,11 +67,13 @@ export async function POST(
         create: {
             quotation: { connect: { id: quoteId } },
             scorer: { connect: { id: user.id } },
-            scorerName: user.name,
             committeeComment: scores.committeeComment,
             finalScore: 0, // Will be updated later
         }
     });
+
+    // Delete previous scores for this set to avoid duplicates on resubmission
+    await prisma.itemScore.deleteMany({ where: { scoreSetId: scoreSet.id }});
 
     let totalWeightedScore = 0;
     const totalItems = scores.itemScores.length;
@@ -84,7 +85,7 @@ export async function POST(
          await prisma.itemScore.create({
             data: {
                 scoreSet: { connect: { id: scoreSet.id } },
-                quoteItem: { connect: { id: itemScore.quoteItemId } },
+                quoteItemId: itemScore.quoteItemId,
                 finalScore: finalItemScore,
                 scores: {
                     create: itemScore.scores.map((s: any) => ({
@@ -116,7 +117,6 @@ export async function POST(
 
     await prisma.auditLog.create({
         data: {
-            timestamp: new Date(),
             user: { connect: { id: user.id } },
             action: 'SCORE_QUOTE',
             entity: 'Quotation',
