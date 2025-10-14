@@ -26,8 +26,7 @@ export async function GET(request: Request) {
           include: {
             itemScores: {
               include: {
-                financialScores: true,
-                technicalScores: true,
+                scores: true,
               },
             },
           },
