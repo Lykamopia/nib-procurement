@@ -10,7 +10,7 @@ import { headers } from 'next/headers';
 import { sendEmail } from '@/services/email-service';
 import { differenceInMinutes } from 'date-fns';
 
-// This function is exported so it can be called from the finalize-scores route
+// This function is exported so it can be called from other routes
 export async function finalizeAndNotifyVendors(requisitionId: string, awardResponseDeadline?: Date) {
     const allQuotesForReq = await prisma.quotation.findMany({
         where: { requisitionId },
@@ -24,12 +24,9 @@ export async function finalizeAndNotifyVendors(requisitionId: string, awardRespo
     }
     
     const winner = sortedByScore[0];
-    const awardedVendorIds = [winner.vendorId]; // For now, only single winner
     
-    const awardedQuoteItemIds = winner.items.map(item => item.id);
-
     await prisma.quotation.updateMany({
-        where: { requisitionId: requisitionId },
+        where: { requisitionId: requisitionId, NOT: { id: winner.id } },
         data: { status: 'Rejected', rank: null }
     });
     
@@ -53,15 +50,15 @@ export async function finalizeAndNotifyVendors(requisitionId: string, awardRespo
     await prisma.purchaseRequisition.update({
       where: { id: requisitionId },
       data: {
-        status: 'RFQ_In_Progress',
+        status: 'RFQ_In_Progress', // Stays in this status until vendor accepts
         awardResponseDeadline: awardResponseDeadline,
         awardResponseDurationMinutes,
-        awardedQuoteItemIds: awardedQuoteItemIds,
-        currentApproverId: null,
+        awardedQuoteItemIds: winner.items.map(item => item.id), // Store IDs of awarded items from the winning quote
+        currentApproverId: null, // Clear current approver
       }
     });
 
-    const requisition = await prisma.purchaseRequisition.findUnique({where: { id: requisitionId }, include: {items: true}});
+    const requisition = await prisma.purchaseRequisition.findUnique({where: { id: requisitionId }});
     const vendor = await prisma.vendor.findUnique({ where: { id: winner.vendorId }});
 
     if (vendor && requisition) {
@@ -69,6 +66,7 @@ export async function finalizeAndNotifyVendors(requisitionId: string, awardRespo
             <h1>Congratulations, ${vendor.name}!</h1>
             <p>You have been awarded the contract for requisition <strong>${requisition.title}</strong>.</p>
             <p>Please log in to the vendor portal to review the award and respond.</p>
+            ${awardResponseDeadline ? `<p><strong>This award must be accepted by ${format(awardResponseDeadline, 'PPpp')}.</strong></p>` : ''}
             <a href="${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:9002'}/vendor/dashboard">Go to Vendor Portal</a>
             <p>Thank you,</p>
             <p>Nib InternationalBank Procurement</p>
@@ -107,7 +105,7 @@ export async function GET(request: Request) {
             whereClause.status = 'Pending_Committee_A_Recommendation';
         } else if (role === 'Committee_B_Member') {
             whereClause.status = 'Pending_Committee_B_Review';
-        } else if (role === 'Admin') {
+        } else if (role === 'Admin' || role === 'Procurement_Officer') {
             whereClause.status = { in: ['Pending_Committee_A_Recommendation', 'Pending_Committee_B_Review'] };
         } else {
             return NextResponse.json([]);
@@ -376,41 +374,25 @@ export async function PATCH(
             dataToUpdate.currentApprover = { disconnect: true };
 
             if (isDepartmentalApproval) {
-                // After departmental approval, route to committee based on price
-                const committeeA_Min = 200001; // Example threshold
-                const committeeB_Min = 10000;  // Example threshold
-
-                if (requisition.totalPrice >= committeeA_Min) {
-                    dataToUpdate.status = 'Pending_Committee_A_Recommendation';
-                    auditAction = 'ROUTE_TO_COMMITTEE_A';
-                    auditDetails = `Requisition approved by department; routed to Committee A for review. Comment: "${comment}".`;
-                } else if (requisition.totalPrice >= committeeB_Min) {
-                    dataToUpdate.status = 'Pending_Committee_B_Review';
-                    auditAction = 'ROUTE_TO_COMMITTEE_B';
-                    auditDetails = `Requisition approved by department; routed to Committee B for review. Comment: "${comment}".`;
-                } else {
-                    // Price is below committee thresholds, goes to final approval
-                    dataToUpdate.status = 'Approved';
-                    auditAction = 'APPROVE_REQUISITION';
-                    auditDetails = `Requisition ${id} was approved with comment: "${comment}".`;
-                }
-
-            } else if (isManagerialApproval || isCommitteeApproval) {
-                 auditAction = isManagerialApproval ? 'APPROVE_AWARD' : 'COMMITTEE_APPROVE_AWARD';
-                 auditDetails = `${isManagerialApproval ? 'Managerially' : 'Committee'} approved award for requisition ${id}. Notifying vendors.`;
-                 dataToUpdate.status = 'Approved'; // Final approval status
+                // After departmental approval, goes to 'Approved' to await RFQ
+                dataToUpdate.status = 'Approved';
+                auditAction = 'APPROVE_REQUISITION';
+                auditDetails = `Requisition ${id} was approved by department with comment: "${comment}". Ready for RFQ.`;
+            } else if (isCommitteeApproval) {
+                 auditAction = 'COMMITTEE_APPROVE_AWARD';
+                 auditDetails = `Committee approved award for requisition ${id}. Notifying vendors.`;
+                 dataToUpdate.status = 'Approved'; // Final approval status before vendor notification
                  
-                 if (isCommitteeApproval) {
-                     await prisma.review.create({
-                         data: {
-                             requisitionId: id,
-                             reviewerId: userId,
-                             committeeType: user.role === 'Committee_A_Member' ? 'Committee A' : 'Committee B',
-                             decision: 'Approved',
-                             comment: comment
-                         }
-                     })
-                 }
+                 await prisma.review.create({
+                     data: {
+                         requisitionId: id,
+                         reviewerId: userId,
+                         committeeType: user.role === 'Committee_A_Member' ? 'Committee A' : 'Committee B',
+                         decision: 'Approved',
+                         comment: comment
+                     }
+                 })
+                 // The actual notification is triggered on the frontend now after this approval is confirmed
                  await finalizeAndNotifyVendors(id, requisition.awardResponseDeadline || undefined);
             } else {
                 dataToUpdate.status = 'Approved';
@@ -524,7 +506,7 @@ export async function DELETE(
   } catch (error) {
      console.error('Failed to delete requisition:', error);
      if (error instanceof Error) {
-        return NextResponse.json({ error: 'Failed to process request', details: error.message }, { status: 500 });
+        return NextResponse.json({ error: 'Failed to process request', details: error.message }, { status: 400 });
     }
     return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
   }

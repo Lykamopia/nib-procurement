@@ -212,8 +212,7 @@ export type Score = {
 export type ItemScore = {
     id: string;
     quoteItemId: string;
-    financialScores: Score[];
-    technicalScores: Score[];
+    scores: Score[];
     finalScore: number;
 }
 

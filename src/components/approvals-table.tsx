@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -67,7 +68,7 @@ export function ApprovalsTable() {
     if (!user) return;
     try {
       setLoading(true);
-      let apiUrl = `/api/requisitions?status=Pending_Approval&approverId=${user.id}`;
+      let apiUrl = `/api/requisitions?status=Pending Approval&approverId=${user.id}`;
       
       const response = await fetch(apiUrl);
       if (!response.ok) {
@@ -104,7 +105,7 @@ export function ApprovalsTable() {
   const submitAction = async () => {
     if (!selectedRequisition || !actionType || !user) return;
     
-    const isManagerialApproval = selectedRequisition.status === 'Pending Managerial Approval';
+    const isManagerialApproval = false; // This screen is only for departmental approvals
 
     try {
       const response = await fetch(`/api/requisitions`, {

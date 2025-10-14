@@ -59,6 +59,7 @@ export const rolePermissions: Record<UserRole, string[]> = {
     '/records',
     '/audit-log',
     '/settings',
+    '/reviews', // Add reviews to PO
   ],
   'Committee': [
     '/dashboard',
