@@ -75,7 +75,6 @@ const seedData: AppData = {
         {
             id: `REQ-1672531200`,
             requesterId: '1',
-            requesterName: 'Alice',
             title: 'New Laptops for Design Team',
             department: 'Design',
             departmentId: 'DEPT-1',
@@ -86,6 +85,7 @@ const seedData: AppData = {
             totalPrice: 0,
             justification: 'Current laptops are over 5 years old and struggling with new design software.',
             status: 'Approved',
+            urgency: 'Low',
             createdAt: new Date('2023-10-01T10:00:00Z'),
             updatedAt: new Date('2023-10-05T11:30:00Z'),
             approverComment: 'Urgent need, proceed.',
@@ -96,7 +96,6 @@ const seedData: AppData = {
         {
             id: `REQ-1672617600`,
             requesterId: '2',
-            requesterName: 'Bob',
             title: 'Office Supplies Replenishment',
             department: 'Operations',
             departmentId: 'DEPT-2',
@@ -107,6 +106,7 @@ const seedData: AppData = {
             totalPrice: 0,
             justification: 'Standard quarterly replenishment of office supplies.',
             status: 'Pending Approval',
+            urgency: 'Low',
             createdAt: new Date('2023-10-02T14:00:00Z'),
             updatedAt: new Date('2023-10-02T14:00:00Z'),
             quotations: [],
@@ -114,7 +114,6 @@ const seedData: AppData = {
         {
             id: `REQ-1672704000`,
             requesterId: '3',
-            requesterName: 'Charlie',
             title: 'Software License Renewals',
             department: 'IT',
             departmentId: 'DEPT-3',
@@ -124,6 +123,7 @@ const seedData: AppData = {
             totalPrice: 0,
             justification: 'Annual renewal for critical project management software.',
             status: 'PO Created',
+            urgency: 'Medium',
             purchaseOrderId: 'PO-SEED-001',
             createdAt: new Date('2023-09-15T09:20:00Z'),
             updatedAt: new Date('2023-09-25T16:00:00Z'),
@@ -246,5 +246,3 @@ const seedData: AppData = {
         { id: 'DEPT-6', name: 'Human Resources', description: 'Manages employee relations and hiring.', headId: null },
     ]
 };
-
-    
