@@ -105,7 +105,7 @@ async function main() {
     if (dept.headId) {
       await prisma.department.update({
         where: { id: dept.id },
-        data: { head: { connect: { id: dept.id } } }
+        data: { head: { connect: { id: dept.headId } } }
       });
     }
   }
