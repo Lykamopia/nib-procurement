@@ -90,7 +90,8 @@ const seedData: AppData = {
             updatedAt: new Date('2023-10-05T11:30:00Z'),
             approverComment: 'Urgent need, proceed.',
             quotations: [],
-            committeeMemberIds: ['9', '10'],
+            financialCommitteeMemberIds: ['9'],
+            technicalCommitteeMemberIds: ['10'],
         },
         {
             id: `REQ-1672617600`,
@@ -245,3 +246,5 @@ const seedData: AppData = {
         { id: 'DEPT-6', name: 'Human Resources', description: 'Manages employee relations and hiring.', headId: null },
     ]
 };
+
+    
