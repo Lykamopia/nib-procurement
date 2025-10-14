@@ -103,7 +103,7 @@ async function main() {
     if (dept.headId) {
       await prisma.department.update({
         where: { id: dept.id },
-        data: { head: { connect: { id: dept.headId } } }
+        data: { head: { connect: { id: dept.id } } }
       });
     }
   }
@@ -362,13 +362,17 @@ async function main() {
   // Seed Audit Logs
   for (const log of seedData.auditLogs) {
     const userForLog = seedData.users.find(u => u.name === log.user);
+    if (!userForLog) {
+      console.warn(`Skipping audit log for user '${log.user}' because user was not found.`);
+      continue;
+    }
     // Exclude user and role from logData as they are not direct fields on the model
     const { user, role, ...logData } = log;
     await prisma.auditLog.create({
       data: {
           ...logData,
           timestamp: new Date(log.timestamp),
-          user: userForLog ? { connect: { id: userForLog.id } } : undefined
+          user: { connect: { id: userForLog.id } }
       },
     });
   }
@@ -386,5 +390,3 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
-
-    

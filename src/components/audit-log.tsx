@@ -69,10 +69,10 @@ export function AuditLog() {
       .filter(log => {
         const lowerSearch = searchTerm.toLowerCase();
         return (
-          log.user.toLowerCase().includes(lowerSearch) ||
-          log.entity.toLowerCase().includes(lowerSearch) ||
-          log.entityId.toLowerCase().includes(lowerSearch) ||
-          log.details.toLowerCase().includes(lowerSearch)
+          (log.user && log.user.toLowerCase().includes(lowerSearch)) ||
+          (log.entity && log.entity.toLowerCase().includes(lowerSearch)) ||
+          (log.entityId && log.entityId.toLowerCase().includes(lowerSearch)) ||
+          (log.details && log.details.toLowerCase().includes(lowerSearch))
         );
       })
       .filter(log => filters.role === 'all' || log.role === filters.role)
@@ -110,7 +110,7 @@ export function AuditLog() {
     return 'outline';
   };
   
-   if (role !== 'Procurement Officer') {
+   if (role !== 'Procurement Officer' && role !== 'Admin') {
     return (
         <Card>
             <CardHeader>
