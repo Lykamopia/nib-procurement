@@ -6,15 +6,21 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { EvaluationCriterion, ItemScore } from '@/lib/types';
 
-function calculateFinalItemScore(itemScore: any, criteria: any): number {
+function calculateFinalItemScore(itemScore: any, criteria: any): { finalScore: number, allScores: any[] } {
     let totalScore = 0;
     
-    const allCriteria: {id: string, weight: number}[] = [
+    // Combine financial and technical scores into one array for easier processing
+    const allScores = [
+        ...(itemScore.financialScores || []).map((s: any) => ({...s, type: 'FINANCIAL'})),
+        ...(itemScore.technicalScores || []).map((s: any) => ({...s, type: 'TECHNICAL'}))
+    ];
+
+    const allCriteria: {id: string, weight: number, type: 'FINANCIAL' | 'TECHNICAL'}[] = [
         ...criteria.financialCriteria.map((c: any) => ({...c, type: 'FINANCIAL'})),
         ...criteria.technicalCriteria.map((c: any) => ({...c, type: 'TECHNICAL'}))
     ];
     
-    itemScore.scores.forEach((s: any) => {
+    allScores.forEach((s: any) => {
         const criterion = allCriteria.find(c => c.id === s.criterionId);
         if (criterion) {
             const overallWeight = criterion.type === 'FINANCIAL' ? criteria.financialWeight : criteria.technicalWeight;
@@ -22,7 +28,7 @@ function calculateFinalItemScore(itemScore: any, criteria: any): number {
         }
     });
 
-    return totalScore;
+    return { finalScore: totalScore, allScores: allScores.map(s => ({...s, type: undefined})) }; // Return score and combined list
 }
 
 
@@ -79,16 +85,16 @@ export async function POST(
     const totalItems = scores.itemScores.length;
 
     for (const itemScore of scores.itemScores) {
-         const finalItemScore = calculateFinalItemScore(itemScore, requisition.evaluationCriteria);
-         totalWeightedScore += finalItemScore;
+         const { finalScore, allScores } = calculateFinalItemScore(itemScore, requisition.evaluationCriteria);
+         totalWeightedScore += finalScore;
 
          await prisma.itemScore.create({
             data: {
                 scoreSet: { connect: { id: scoreSet.id } },
                 quoteItemId: itemScore.quoteItemId,
-                finalScore: finalItemScore,
+                finalScore: finalScore,
                 scores: {
-                    create: itemScore.scores.map((s: any) => ({
+                    create: allScores.map((s: any) => ({
                         criterionId: s.criterionId,
                         score: s.score,
                         comment: s.comment,
