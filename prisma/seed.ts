@@ -174,6 +174,7 @@ async function main() {
           requesterId,
           requesterName,
           approverId,
+          approverComment,
           currentApproverId,
           financialCommitteeMemberIds,
           technicalCommitteeMemberIds,
