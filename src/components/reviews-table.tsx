@@ -63,6 +63,7 @@ export function ReviewsTable() {
   const [isActionDialogOpen, setActionDialogOpen] = useState(false);
   const [isDetailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [actionType, setActionType] = useState<'approve' | 'reject' | null>(null);
+  const [activeActionId, setActiveActionId] = useState<string | null>(null);
 
   const fetchRequisitions = async () => {
     if (!user || !token) {
@@ -108,6 +109,7 @@ export function ReviewsTable() {
   const submitAction = async () => {
     if (!selectedRequisition || !actionType || !user) return;
     
+    setActiveActionId(selectedRequisition.id);
     const isCommitteeApproval = selectedRequisition.status.includes('Committee');
 
     try {
@@ -135,6 +137,7 @@ export function ReviewsTable() {
         description: error instanceof Error ? error.message : "An unknown error occurred.",
       });
     } finally {
+        setActiveActionId(null);
         setActionDialogOpen(false);
         setComment('');
         setSelectedRequisition(null);
@@ -148,9 +151,15 @@ export function ReviewsTable() {
     return requisitions.slice(startIndex, startIndex + PAGE_SIZE);
   }, [requisitions, currentPage]);
 
+  const getCommitteeType = (status: string) => {
+    if (status.includes('Committee_A')) return 'Committee A';
+    if (status.includes('Committee_B')) return 'Committee B';
+    return 'N/A';
+  }
+
 
   if (loading) return <div className="flex h-64 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
-  if (error) return <div className="text-destructive">Error: {error}</div>;
+  if (error) return <div className="text-destructive text-center p-8">{error}</div>;
 
   return (
     <>
@@ -170,38 +179,46 @@ export function ReviewsTable() {
                 <TableHead>Req. ID</TableHead>
                 <TableHead>Title</TableHead>
                 <TableHead>Award Value</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead>Committee</TableHead>
                 <TableHead>Created At</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {paginatedRequisitions.length > 0 ? (
-                paginatedRequisitions.map((req, index) => (
-                  <TableRow key={req.id}>
-                      <TableCell className="text-muted-foreground">{index + 1}</TableCell>
-                      <TableCell className="font-medium text-primary">{req.id}</TableCell>
-                      <TableCell>{req.title}</TableCell>
-                      <TableCell className="font-semibold">{req.totalPrice.toLocaleString()} ETB</TableCell>
-                      <TableCell><Badge variant="destructive">{req.status}</Badge></TableCell>
-                      <TableCell>{format(new Date(req.createdAt), 'PP')}</TableCell>
-                      <TableCell>
-                      <div className="flex gap-2">
-                            <Button variant="outline" size="sm" asChild>
-                                <Link href={`/quotations/${req.id}`}>
-                                    <Eye className="mr-2 h-4 w-4" /> Review Bids
-                                </Link>
+                paginatedRequisitions.map((req, index) => {
+                  const isLoadingAction = activeActionId === req.id;
+                  return (
+                    <TableRow key={req.id}>
+                        <TableCell className="text-muted-foreground">{index + 1}</TableCell>
+                        <TableCell className="font-medium text-primary">{req.id}</TableCell>
+                        <TableCell>{req.title}</TableCell>
+                        <TableCell className="font-semibold">{req.totalPrice.toLocaleString()} ETB</TableCell>
+                        <TableCell><Badge variant="secondary">{getCommitteeType(req.status)}</Badge></TableCell>
+                        <TableCell>{format(new Date(req.createdAt), 'PP')}</TableCell>
+                        <TableCell>
+                        <div className="flex gap-2">
+                              <Button variant="outline" size="sm" onClick={() => handleShowDetails(req)}>
+                                  <Eye className="mr-2 h-4 w-4" /> Details
+                              </Button>
+                              <Button variant="outline" size="sm" asChild>
+                                  <Link href={`/quotations/${req.id}`}>
+                                      <Eye className="mr-2 h-4 w-4" /> Review Bids
+                                  </Link>
+                              </Button>
+                              <Button variant="default" size="sm" onClick={() => handleAction(req, 'approve')} disabled={isLoadingAction}>
+                                {isLoadingAction && actionType === 'approve' ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Check className="mr-2 h-4 w-4" />} 
+                                Approve & Recommend
                             </Button>
-                            <Button variant="default" size="sm" onClick={() => handleAction(req, 'approve')}>
-                              <Check className="mr-2 h-4 w-4" /> Approve & Recommend
-                          </Button>
-                          <Button variant="destructive" size="sm" onClick={() => handleAction(req, 'reject')}>
-                              <X className="mr-2 h-4 w-4" /> Reject
-                          </Button>
-                      </div>
-                      </TableCell>
-                  </TableRow>
-                ))
+                            <Button variant="destructive" size="sm" onClick={() => handleAction(req, 'reject')} disabled={isLoadingAction}>
+                                {isLoadingAction && actionType === 'reject' ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <X className="mr-2 h-4 w-4" />} 
+                                Reject
+                            </Button>
+                        </div>
+                        </TableCell>
+                    </TableRow>
+                  )
+                })
               ) : (
                 <TableRow>
                   <TableCell colSpan={7} className="h-48 text-center">
@@ -245,12 +262,12 @@ export function ReviewsTable() {
           </DialogHeader>
           <div className="py-4 space-y-4">
             <div className="grid gap-2">
-              <Label htmlFor="comment">Comment</Label>
+              <Label htmlFor="comment">Comment (Required)</Label>
               <Textarea 
                 id="comment" 
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
-                placeholder="Type your comment here..."
+                placeholder="Type your justification here..."
               />
             </div>
           </div>
