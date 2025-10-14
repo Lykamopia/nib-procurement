@@ -1354,11 +1354,11 @@ const ScoringDialog = ({
                 return {
                     quoteItemId: item.id,
                     financialScores: requisition.evaluationCriteria?.financialCriteria.map(c => {
-                        const existing = existingItemScore?.financialScores.find(s => s.criterionId === c.id);
+                        const existing = existingItemScore?.scores.find(s => s.criterionId === c.id);
                         return { criterionId: c.id, score: existing?.score || 0, comment: existing?.comment || "" };
                     }) || [],
                     technicalScores: requisition.evaluationCriteria?.technicalCriteria.map(c => {
-                        const existing = existingItemScore?.technicalScores.find(s => s.criterionId === c.id);
+                        const existing = existingItemScore?.scores.find(s => s.criterionId === c.id);
                         return { criterionId: c.id, score: existing?.score || 0, comment: existing?.comment || "" };
                     }) || [],
                 }
@@ -1856,8 +1856,8 @@ const CumulativeScoringReportDialog = ({ requisition, quotations, isOpen, onClos
                                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 print:grid-cols-2">
                                                         <div>
                                                             <h4 className="font-semibold text-sm mb-2 print:text-gray-800">Financial Evaluation ({requisition.evaluationCriteria?.financialWeight}%)</h4>
-                                                            {scoreSet.itemScores?.flatMap(is => is.financialScores.map(s => (
-                                                                <div key={s.criterionId} className="text-xs p-2 bg-muted/50 print:bg-gray-50 rounded-md mb-2">
+                                                            {scoreSet.itemScores?.flatMap(is => is.scores.filter(s => s.type === 'FINANCIAL').map(s => (
+                                                                <div key={s.id} className="text-xs p-2 bg-muted/50 print:bg-gray-50 rounded-md mb-2">
                                                                     <div className="flex justify-between items-center font-medium">
                                                                         <p>{getCriterionName(s.criterionId, requisition.evaluationCriteria?.financialCriteria)}</p>
                                                                         <p className="font-bold">{s.score}/100</p>
@@ -1868,8 +1868,8 @@ const CumulativeScoringReportDialog = ({ requisition, quotations, isOpen, onClos
                                                         </div>
                                                         <div>
                                                             <h4 className="font-semibold text-sm mb-2 print:text-gray-800">Technical Evaluation ({requisition.evaluationCriteria?.technicalWeight}%)</h4>
-                                                            {scoreSet.itemScores?.flatMap(is => is.technicalScores.map(s => (
-                                                                <div key={s.criterionId} className="text-xs p-2 bg-muted/50 print:bg-gray-50 rounded-md mb-2">
+                                                            {scoreSet.itemScores?.flatMap(is => is.scores.filter(s => s.type === 'TECHNICAL').map(s => (
+                                                                <div key={s.id} className="text-xs p-2 bg-muted/50 print:bg-gray-50 rounded-md mb-2">
                                                                     <div className="flex justify-between items-center font-medium">
                                                                         <p>{getCriterionName(s.criterionId, requisition.evaluationCriteria?.technicalCriteria)}</p>
                                                                         <p className="font-bold">{s.score}/100</p>
