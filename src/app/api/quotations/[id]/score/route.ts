@@ -7,23 +7,23 @@ import { prisma } from '@/lib/prisma';
 import { EvaluationCriterion, ItemScore } from '@/lib/types';
 
 function calculateFinalItemScore(itemScore: any, criteria: any): number {
-    let totalFinancialScore = 0;
-    let totalTechnicalScore = 0;
+    let totalScore = 0;
+    
+    const allCriteria: EvaluationCriterion[] = [
+        ...criteria.financialCriteria,
+        ...criteria.technicalCriteria
+    ];
 
-    criteria.financialCriteria.forEach((c: EvaluationCriterion) => {
-        const score = itemScore.financialScores.find((s: any) => s.criterionId === c.id)?.score || 0;
-        totalFinancialScore += score * (c.weight / 100);
+    itemScore.scores.forEach((s: any) => {
+        const criterion = allCriteria.find(c => c.id === s.criterionId);
+        if (criterion) {
+            const isFinancial = criteria.financialCriteria.some((c: any) => c.id === criterion.id);
+            const overallWeight = isFinancial ? criteria.financialWeight : criteria.technicalWeight;
+            totalScore += s.score * (criterion.weight / 100) * (overallWeight / 100);
+        }
     });
 
-    criteria.technicalCriteria.forEach((c: EvaluationCriterion) => {
-        const score = itemScore.technicalScores.find((s: any) => s.criterionId === c.id)?.score || 0;
-        totalTechnicalScore += score * (c.weight / 100);
-    });
-
-    const finalScore = (totalFinancialScore * (criteria.financialWeight / 100)) + 
-                       (totalTechnicalScore * (criteria.technicalWeight / 100));
-
-    return finalScore;
+    return totalScore;
 }
 
 
@@ -86,18 +86,12 @@ export async function POST(
                 scoreSet: { connect: { id: scoreSet.id } },
                 quoteItem: { connect: { id: itemScore.quoteItemId } },
                 finalScore: finalItemScore,
-                financialScores: {
-                    create: itemScore.financialScores.map((s: any) => ({
+                scores: {
+                    create: itemScore.scores.map((s: any) => ({
                         criterionId: s.criterionId,
                         score: s.score,
-                        comment: s.comment
-                    }))
-                },
-                technicalScores: {
-                    create: itemScore.technicalScores.map((s: any) => ({
-                        criterionId: s.criterionId,
-                        score: s.score,
-                        comment: s.comment
+                        comment: s.comment,
+                        type: requisition.evaluationCriteria?.financialCriteria.some(c => c.id === s.criterionId) ? 'FINANCIAL' : 'TECHNICAL'
                     }))
                 }
             }

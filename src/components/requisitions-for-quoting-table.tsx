@@ -58,7 +58,7 @@ export function RequisitionsForQuotingTable() {
 
             } else if (role === 'Procurement Officer' || role === 'Committee') {
                  // For POs, show requisitions that are approved or in the quotation/award lifecycle
-                 const relevantStatuses = ['Approved', 'RFQ_In_Progress', 'PO_Created', 'Fulfilled', 'Closed', 'Pending_Managerial_Approval', 'Pending_Committee_B_Review', 'Pending_Committee_A_Recommendation'];
+                 const relevantStatuses = ['Approved', 'RFQ_In_Progress', 'PO_Created', 'Fulfilled', 'Closed', 'Pending_Committee_B_Review', 'Pending_Committee_A_Recommendation'];
                  apiUrl = `/api/requisitions?status=${relevantStatuses.join(',')}`;
                  const response = await fetch(apiUrl);
                  if (!response.ok) {
@@ -97,9 +97,6 @@ export function RequisitionsForQuotingTable() {
     const isAwarded = req.quotations?.some(q => q.status === 'Awarded');
     const isAccepted = req.quotations?.some(q => q.status === 'Accepted');
 
-    if (req.status === 'Pending_Managerial_Approval') {
-        return <Badge variant="destructive">Pending Managerial Approval</Badge>;
-    }
      if (req.status === 'Pending_Committee_B_Review' || req.status === 'Pending_Committee_A_Recommendation') {
         return <Badge variant="destructive">Pending Committee Review</Badge>;
     }
