@@ -7,7 +7,6 @@ const prisma = new PrismaClient();
 
 async function main() {
   console.log(`Clearing existing data...`);
-  await prisma.review.deleteMany({});
   await prisma.auditLog.deleteMany({});
   await prisma.receiptItem.deleteMany({});
   await prisma.goodsReceiptNote.deleteMany({});
@@ -16,8 +15,6 @@ async function main() {
   await prisma.pOItem.deleteMany({});
   await prisma.purchaseOrder.deleteMany({});
   await prisma.quoteAnswer.deleteMany({});
-  await prisma.financialScore.deleteMany({});
-  await prisma.technicalScore.deleteMany({});
   await prisma.itemScore.deleteMany({});
   await prisma.committeeScoreSet.deleteMany({});
   await prisma.quoteItem.deleteMany({});
