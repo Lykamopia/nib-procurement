@@ -5,6 +5,8 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getUserByToken } from '@/lib/auth';
 
+export const dynamic = 'force-dynamic'; // Add this line
+
 export async function GET(request: Request) {
   try {
     const authHeader = request.headers.get('Authorization');
@@ -13,7 +15,7 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     const userPayload = await getUserByToken(token);
-    if (!userPayload || (userPayload.role !== 'Admin' && userPayload.role !== 'Procurement_Officer')) {
+    if (!userPayload || (userPayload.role !== 'Admin' && userPayload.role !== 'Procurement_Officer' && userPayload.role !== 'Committee_A_Member' && userPayload.role !== 'Committee_B_Member')) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
