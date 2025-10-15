@@ -2960,7 +2960,7 @@ export default function QuotationDetailsPage() {
         )}
          {requisition && (
             <RequisitionDetailsDialog 
-                reuisition={requisition} 
+                requisition={requisition} 
                 isOpen={isDetailsOpen} 
                 onClose={() => setIsDetailsOpen(false)} 
             />
