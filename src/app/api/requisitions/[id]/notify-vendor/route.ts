@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { NextResponse } from 'next/server';
@@ -14,7 +15,7 @@ export async function POST(
   const requisitionId = params.id;
   try {
     const body = await request.json();
-    const { userId } = body;
+    const { userId, awardResponseDeadline } = body;
 
     const user: User | null = await prisma.user.findUnique({ where: { id: userId } });
     if (!user || user.role !== 'Procurement_Officer') {
@@ -49,16 +50,18 @@ export async function POST(
         const updatedRequisition = await tx.purchaseRequisition.update({
             where: { id: requisitionId },
             data: {
-                status: 'RFQ_In_Progress'
+                status: 'RFQ_In_Progress',
+                awardResponseDeadline: awardResponseDeadline ? new Date(awardResponseDeadline) : requisition.awardResponseDeadline,
             }
         });
 
         if (winningQuote.vendor && requisition) {
+            const finalDeadline = awardResponseDeadline ? new Date(awardResponseDeadline) : requisition.awardResponseDeadline;
             const emailHtml = `
                 <h1>Congratulations, ${winningQuote.vendor.name}!</h1>
                 <p>You have been awarded the contract for requisition <strong>${requisition.title}</strong>.</p>
                 <p>Please log in to the vendor portal to review the award and respond.</p>
-                ${requisition.awardResponseDeadline ? `<p><strong>This award must be accepted by ${format(new Date(requisition.awardResponseDeadline), 'PPpp')}.</strong></p>` : ''}
+                ${finalDeadline ? `<p><strong>This award must be accepted by ${format(finalDeadline, 'PPpp')}.</strong></p>` : ''}
                 <a href="${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:9002'}/vendor/dashboard">Go to Vendor Portal</a>
                 <p>Thank you,</p>
                 <p>Nib InternationalBank Procurement</p>

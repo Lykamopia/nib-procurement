@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
@@ -1619,7 +1620,6 @@ const ScoringProgressTracker = ({
             
             let submissionDate: Date | null = null;
             if (hasSubmittedFinalScores) {
-                // To get the submission date, we can look at the latest score's submission time from that user for this requisition's quotes.
                 const latestScore = quotations
                     .flatMap(q => q.scores || [])
                     .filter(s => s.scorerId === member.id)
@@ -1627,10 +1627,6 @@ const ScoringProgressTracker = ({
                 
                 if (latestScore) {
                     submissionDate = new Date(latestScore.submittedAt);
-                } else {
-                    // Fallback if scores are not loaded but submission flag is true (edge case)
-                    // We could perhaps look at the audit log here in a real-world complex system.
-                    // For now, let's assume if the flag is true, a score exists.
                 }
             }
 
@@ -1842,7 +1838,7 @@ const CumulativeScoringReportDialog = ({ requisition, quotations, isOpen, onClos
                                                         <div className="flex items-center gap-3">
                                                             <Avatar className="h-8 w-8">
                                                                 <AvatarImage src={`https://picsum.photos/seed/${scoreSet.scorerId}/32/32`} />
-                                                                <AvatarFallback>{scoreSet.scorer?.name.charAt(0) || 'U'}</AvatarFallback>
+                                                                <AvatarFallback>{scoreSet.scorer?.name?.charAt(0) || 'U'}</AvatarFallback>
                                                             </Avatar>
                                                             <span className="font-semibold print:text-black">{scoreSet.scorer?.name || 'Unknown User'}</span>
                                                         </div>
@@ -2330,6 +2326,73 @@ const CommitteeActions = ({
     );
 };
 
+const NotifyVendorDialog = ({
+    isOpen,
+    onClose,
+    onConfirm,
+}: {
+    isOpen: boolean;
+    onClose: () => void;
+    onConfirm: (deadline?: Date) => void;
+}) => {
+    const [deadlineDate, setDeadlineDate] = useState<Date | undefined>();
+    const [deadlineTime, setDeadlineTime] = useState('17:00');
+
+    const finalDeadline = useMemo(() => {
+        if (!deadlineDate) return undefined;
+        const [hours, minutes] = deadlineTime.split(':').map(Number);
+        return setMinutes(setHours(deadlineDate, hours), minutes);
+    }, [deadlineDate, deadlineTime]);
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onClose}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Notify Vendor and Set Deadline</DialogTitle>
+                    <DialogDescription>
+                        Confirm to send the award notification. You can optionally set a new response deadline for the vendor.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="py-4 space-y-2">
+                    <Label>Vendor Response Deadline (Optional)</Label>
+                    <div className="flex gap-2">
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button
+                                    variant={"outline"}
+                                    className={cn("w-full justify-start text-left font-normal", !deadlineDate && "text-muted-foreground")}
+                                >
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {deadlineDate ? format(deadlineDate, "PPP") : <span>Set a new deadline</span>}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0">
+                                <Calendar
+                                    mode="single"
+                                    selected={deadlineDate}
+                                    onSelect={setDeadlineDate}
+                                    disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                                    initialFocus
+                                />
+                            </PopoverContent>
+                        </Popover>
+                        <Input
+                            type="time"
+                            className="w-32"
+                            value={deadlineTime}
+                            onChange={(e) => setDeadlineTime(e.target.value)}
+                        />
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button variant="ghost" onClick={onClose}>Cancel</Button>
+                    <Button onClick={() => onConfirm(finalDeadline)}>Confirm & Notify</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+};
+
 
 export default function QuotationDetailsPage() {
   const router = useRouter();
@@ -2347,6 +2410,7 @@ export default function QuotationDetailsPage() {
   const [isScoringFormOpen, setScoringFormOpen] = useState(false);
   const [isFinalizing, setIsFinalizing] = useState(false);
   const [isNotifying, setIsNotifying] = useState(false);
+  const [isNotifyDialogOpen, setIsNotifyDialogOpen] = useState(false);
   const [selectedQuoteForScoring, setSelectedQuoteForScoring] = useState<Quotation | null>(null);
   const [hidePricesForScoring, setHidePricesForScoring] = useState(false);
   const [lastPOCreated, setLastPOCreated] = useState<PurchaseOrder | null>(null);
@@ -2550,14 +2614,14 @@ export default function QuotationDetailsPage() {
     }
   }
 
-  const handleNotifyVendor = async () => {
+  const handleNotifyVendor = async (deadline?: Date) => {
     if (!user || !requisition) return;
     setIsNotifying(true);
     try {
       const response = await fetch(`/api/requisitions/${requisition.id}/notify-vendor`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id })
+        body: JSON.stringify({ userId: user.id, awardResponseDeadline: deadline })
       });
 
       if (!response.ok) {
@@ -2872,10 +2936,22 @@ export default function QuotationDetailsPage() {
                     <CardDescription>The award has passed committee review. You may now notify the winning vendor.</CardDescription>
                 </CardHeader>
                 <CardFooter>
-                    <Button onClick={handleNotifyVendor} disabled={isNotifying}>
-                        {isNotifying && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Send Award Notification
-                    </Button>
+                     <Dialog open={isNotifyDialogOpen} onOpenChange={setIsNotifyDialogOpen}>
+                        <DialogTrigger asChild>
+                            <Button disabled={isNotifying}>
+                                {isNotifying && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                Send Award Notification
+                            </Button>
+                        </DialogTrigger>
+                        <NotifyVendorDialog
+                            isOpen={isNotifyDialogOpen}
+                            onClose={() => setIsNotifyDialogOpen(false)}
+                            onConfirm={(deadline) => {
+                                handleNotifyVendor(deadline);
+                                setIsNotifyDialogOpen(false);
+                            }}
+                        />
+                    </Dialog>
                 </CardFooter>
             </Card>
         )}
