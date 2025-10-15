@@ -90,57 +90,50 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const initializeAuth = async () => {
-      console.log("AUTH_CONTEXT: Initializing authentication state...");
-      setLoading(true);
+      // 1. Always fetch the most up-to-date user list first.
       const users = await fetchAllUsers();
-      console.log(`AUTH_CONTEXT: Fetched ${users.length} total users.`);
-      try {
-          const storedToken = localStorage.getItem('authToken');
-          console.log(`AUTH_CONTEXT: Found token in localStorage: ${!!storedToken}`);
-          
-          if (storedToken) {
-              const decoded = jwtDecode<{ exp: number, iat: number, id: string } & User>(storedToken);
-              console.log("AUTH_CONTEXT: Decoded token payload:", decoded);
 
-              if (decoded && decoded.exp * 1000 > Date.now()) {
-                  const fullUser = users.find((u: User) => u.id === decoded.id);
-                  console.log("AUTH_CONTEXT: Found full user object from allUsers list:", fullUser);
+      // 2. Now, check for a token in localStorage.
+      const storedToken = localStorage.getItem('authToken');
+      if (storedToken) {
+        const decoded = jwtDecode<{ exp: number; id: string } & User>(storedToken);
 
-                  if (fullUser) {
-                    console.log("AUTH_CONTEXT: Setting user state with full user object:", {user: fullUser.name, role: fullUser.role});
-                    setUser(fullUser);
-                    setToken(storedToken);
-                    setRole(fullUser.role);
-                  } else {
-                    console.warn("AUTH_CONTEXT: User from token not found in database. Logging out.");
-                    localStorage.removeItem('authToken');
-                  }
-              } else {
-                  console.log("AUTH_CONTEXT: Token is expired. Clearing localStorage.");
-                  localStorage.removeItem('authToken');
-              }
+        // 3. Check if token is valid and not expired
+        if (decoded && decoded.exp * 1000 > Date.now()) {
+          // 4. Find the full, fresh user object from the fetched list
+          const fullUser = users.find((u: User) => u.id === decoded.id);
+
+          // 5. Only if the user exists in the database, set the auth state
+          if (fullUser) {
+            setUser(fullUser);
+            setToken(storedToken);
+            setRole(fullUser.role);
+          } else {
+            // User in token doesn't exist in DB, force logout
+            localStorage.removeItem('authToken');
           }
-          
-          const storedPermissions = localStorage.getItem('rolePermissions');
-          const storedRfqSetting = localStorage.getItem('rfqSenderSetting');
-          const storedCommitteeConfig = localStorage.getItem('committeeConfig');
-          
-          if (storedPermissions) setRolePermissions(JSON.parse(storedPermissions));
-          if (storedRfqSetting) setRfqSenderSetting(JSON.parse(storedRfqSetting));
-          if (storedCommitteeConfig) setCommitteeConfig(JSON.parse(storedCommitteeConfig));
-
-      } catch (error) {
-          console.error("AUTH_CONTEXT: Failed to initialize auth from localStorage", error);
-          localStorage.clear();
+        } else {
+          // Token is expired or invalid
+          localStorage.removeItem('authToken');
+        }
       }
+
+      // Load other settings from localStorage
+      const storedPermissions = localStorage.getItem('rolePermissions');
+      const storedRfqSetting = localStorage.getItem('rfqSenderSetting');
+      const storedCommitteeConfig = localStorage.getItem('committeeConfig');
+      if (storedPermissions) setRolePermissions(JSON.parse(storedPermissions));
+      if (storedRfqSetting) setRfqSenderSetting(JSON.parse(storedRfqSetting));
+      if (storedCommitteeConfig) setCommitteeConfig(JSON.parse(storedCommitteeConfig));
+      
+      // 6. Finally, set loading to false.
       setLoading(false);
-      console.log("AUTH_CONTEXT: Initialization complete.");
     };
+
     initializeAuth();
   }, [fetchAllUsers]);
 
   const login = (newToken: string, loggedInUser: User, loggedInRole: UserRole) => {
-    console.log("AUTH_CONTEXT: login() called. Setting token and user state:", {user: loggedInUser.name, role: loggedInRole});
     localStorage.setItem('authToken', newToken);
     setToken(newToken);
     setUser(loggedInUser);
@@ -148,7 +141,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
-    console.log("AUTH_CONTEXT: logout() called. Clearing user state and localStorage.");
     localStorage.removeItem('authToken');
     setToken(null);
     setUser(null);

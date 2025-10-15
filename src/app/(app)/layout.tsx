@@ -83,50 +83,36 @@ export default function AppLayout({
   }, [user, handleLogout]);
 
   useEffect(() => {
-    if (!loading && !user) {
-      console.log("APP_LAYOUT: Not loading and no user. Redirecting to /login.");
-      router.push('/login');
+    // This effect handles authorization and redirection.
+    // It will ONLY run when the authentication state is no longer loading.
+    if (loading) {
+      return; // Do nothing while auth state is being determined.
     }
-  }, [user, loading, router]);
-  
-  // Page-level access check
-  useEffect(() => {
-    if (!loading && role) {
-      const currentPath = pathname.split('?')[0];
-      const allowedPaths = rolePermissions[role] || [];
-      
-      const isAllowed = allowedPaths.includes(currentPath);
 
-      console.log(`APP_LAYOUT (Access Check):
-        - User: ${user?.name}
-        - Role: ${role}
-        - Path: ${currentPath}
-        - Is Allowed? ${isAllowed}
-        - Allowed Paths:`, allowedPaths);
+    if (!user || !role) {
+      // If auth is resolved and there's no user, redirect to login.
+      router.push('/login');
+      return;
+    }
+    
+    // Page-level access check
+    const currentPath = pathname.split('?')[0];
+    const allowedPaths = rolePermissions[role] || [];
+    const isAllowed = allowedPaths.includes(currentPath);
 
-      if (!isAllowed && allowedPaths.length > 0 && currentPath !== '/') {
-        console.warn(`APP_LAYOUT: Redirecting! User with role ${role} not allowed to access ${currentPath}.`);
+    if (!isAllowed && currentPath !== '/') {
+        // If user is not allowed to see the current page, redirect them.
         const defaultPath = allowedPaths.includes('/dashboard') ? '/dashboard' : allowedPaths[0];
         if(defaultPath) {
           router.push(defaultPath);
         } else {
-           console.error("APP_LAYOUT: No default path found for role. Redirecting to login.");
-           router.push('/login');
+           // If no default path is found, it's a configuration issue.
+           // Logging out is a safe fallback.
+           logout();
         }
-      }
     }
-  }, [pathname, loading, role, router, rolePermissions, user]);
+  }, [pathname, loading, user, role, router, rolePermissions, logout]);
 
-  const pageTitle = useMemo(() => {
-     const currentNavItem = navItems.find(item => {
-      if (item.path.includes('[')) {
-        const basePath = item.path.split('/[')[0];
-        return pathname.startsWith(basePath);
-      }
-      return pathname === item.path;
-    });
-    return currentNavItem?.label || 'Nib InternationalBank';
-  }, [pathname]);
 
   if (loading || !user || !role) {
     return (

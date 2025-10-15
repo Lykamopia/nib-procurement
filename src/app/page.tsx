@@ -11,21 +11,16 @@ export default function HomePage() {
   const router = useRouter();
 
   useEffect(() => {
-    console.log("HOME_PAGE: useEffect triggered.", { loading, user: user?.name, role });
-
     if (loading) {
-      console.log("HOME_PAGE: Still loading auth state, waiting...");
       return; // Wait until authentication state is fully loaded
     }
 
     if (!user || !role) {
-      console.log("HOME_PAGE: No user or role found. Redirecting to /login.");
       router.push('/login');
       return;
     }
 
     if (role === 'Vendor') {
-      console.log("HOME_PAGE: User is a Vendor. Redirecting to /vendor/dashboard.");
       router.push('/vendor/dashboard');
       return;
     } 
@@ -34,14 +29,10 @@ export default function HomePage() {
     const allowedPaths = permissions[role] || [];
     const defaultPath = allowedPaths.includes('/dashboard') ? '/dashboard' : allowedPaths[0];
 
-    console.log(`HOME_PAGE: Determining redirect for role ${role}.`);
-    console.log("HOME_PAGE: Allowed paths:", allowedPaths);
-    console.log("HOME_PAGE: Determined default path:", defaultPath);
-
     if (defaultPath) {
       router.push(defaultPath);
     } else {
-      console.error(`HOME_PAGE: User role ${role} has no default path defined. Logging out as a fallback.`);
+      console.error(`User role ${role} has no default path defined. Logging out as a fallback.`);
       router.push('/login');
     }
     
