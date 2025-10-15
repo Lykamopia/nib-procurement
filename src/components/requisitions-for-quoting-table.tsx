@@ -42,32 +42,26 @@ export function RequisitionsForQuotingTable() {
         if (!user) return;
         try {
             setLoading(true);
-            let apiUrl = '/api/requisitions';
             
-            // For Committee Members, only show requisitions they are assigned to.
+            // Fetch all requisitions that have passed the initial draft/pending approval stages.
+            const allStatusesResponse = await fetch(`/api/requisitions`);
+            if (!allStatusesResponse.ok) {
+                throw new Error('Failed to fetch requisitions');
+            }
+            let allRequisitions: PurchaseRequisition[] = await allStatusesResponse.json();
+
+            let relevantRequisitions: PurchaseRequisition[] = [];
+
             if (role === 'Committee Member') {
                 const assignedReqs = allUsers.find(u => u.id === user.id)?.committeeAssignments?.map(a => a.requisitionId) || [];
-                // This filtering is client side, for a large scale app this would be a specific API endpoint.
-                const response = await fetch(apiUrl);
-                 if (!response.ok) {
-                    throw new Error('Failed to fetch requisitions');
-                }
-                let data: PurchaseRequisition[] = await response.json();
-                data = data.filter(r => assignedReqs.includes(r.id));
-                setRequisitions(data);
-
+                relevantRequisitions = allRequisitions.filter(r => assignedReqs.includes(r.id));
             } else if (role === 'Procurement Officer' || role === 'Committee') {
-                 // For POs, show requisitions that are approved or in the quotation/award lifecycle
-                 const relevantStatuses = ['Approved', 'RFQ_In_Progress', 'PO_Created', 'Fulfilled', 'Closed', 'Pending_Committee_B_Review', 'Pending_Committee_A_Recommendation'];
-                 apiUrl = `/api/requisitions?status=${relevantStatuses.join(',')}`;
-                 const response = await fetch(apiUrl);
-                 if (!response.ok) {
-                    throw new Error('Failed to fetch requisitions');
-                }
-                const data: PurchaseRequisition[] = await response.json();
-                setRequisitions(data);
+                // Show all requisitions that are approved or beyond.
+                const excludedStatuses = ['Draft', 'Pending Approval', 'Rejected'];
+                relevantRequisitions = allRequisitions.filter(r => !excludedStatuses.includes(r.status));
             }
 
+            setRequisitions(relevantRequisitions);
 
         } catch (e) {
             setError(e instanceof Error ? e.message : 'An unknown error occurred');
@@ -93,33 +87,33 @@ export function RequisitionsForQuotingTable() {
 
   const getStatusBadge = (req: PurchaseRequisition) => {
     const deadlinePassed = req.deadline ? isPast(new Date(req.deadline)) : false;
-    const scoringDeadlinePassed = req.scoringDeadline ? isPast(new Date(req.scoringDeadline)) : false;
     const isAwarded = req.quotations?.some(q => q.status === 'Awarded');
-    const isAccepted = req.quotations?.some(q => q.status === 'Accepted');
+    const isAccepted = req.quotations?.some(q => q.status === 'Accepted' || q.status === 'Partially_Awarded');
+    const isPartiallyAwarded = req.quotations?.some(q => q.status === 'Partially_Awarded');
+    
+    // Convert status from underscore to space for easier matching
+    const status = req.status.replace(/_/g, ' ');
 
-     if (req.status === 'Pending_Committee_B_Review' || req.status === 'Pending_Committee_A_Recommendation') {
-        return <Badge variant="destructive">Pending Committee Review</Badge>;
+    if (status.startsWith('Pending')) {
+        return <Badge variant="destructive">{status}</Badge>;
     }
-    if (req.status === 'PO Created' || isAccepted) {
+    if (isAccepted || status === 'PO Created') {
         return <Badge variant="default">PO Created</Badge>;
     }
-    if (isAwarded) {
+     if (isAwarded || isPartiallyAwarded) {
         return <Badge variant="secondary">Vendor Awarded</Badge>;
     }
-    if (deadlinePassed && !scoringDeadlinePassed && req.committeeName) {
-         return <Badge variant="secondary">Scoring in Progress</Badge>;
-    }
-    if (deadlinePassed && !req.committeeName) {
-        return <Badge variant="destructive">Needs Committee</Badge>;
-    }
-    if (req.status === 'RFQ In Progress' && !deadlinePassed) {
+    if (status === 'RFQ In Progress' && !deadlinePassed) {
         return <Badge variant="outline">Accepting Quotes</Badge>;
     }
-    if (req.status === 'Approved') {
-        return <Badge variant="default" className="bg-blue-500 text-white">Ready for RFQ</Badge>;
+     if (status === 'RFQ In Progress' && deadlinePassed) {
+        return <Badge variant="secondary">Scoring in Progress</Badge>;
+    }
+    if (status === 'Approved') {
+        return <Badge variant="default" className="bg-blue-500 hover:bg-blue-600 text-white">Ready for RFQ</Badge>;
     }
     
-    return <Badge variant="outline">{req.status}</Badge>;
+    return <Badge variant="outline">{status}</Badge>;
   }
 
   if (loading) return <div className="flex h-64 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
@@ -128,11 +122,11 @@ export function RequisitionsForQuotingTable() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Requisitions in Quotation</CardTitle>
+        <CardTitle>Quotation Management</CardTitle>
         <CardDescription>
           {role === 'Committee Member' 
             ? 'Requisitions assigned to you for scoring.'
-            : 'Manage requisitions that are in the quotation, scoring, and award process.'
+            : 'Manage the entire quotation lifecycle, from sending RFQs to finalizing awards.'
           }
         </CardDescription>
       </CardHeader>
