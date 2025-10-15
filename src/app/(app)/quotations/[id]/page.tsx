@@ -2,7 +2,7 @@
 
 'use client';
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   Card,
@@ -2611,36 +2611,33 @@ export default function QuotationDetailsPage() {
       if (!requisition) return 'rfq';
   
       const status = requisition.status.replace(/_/g, ' ');
+      const deadlinePassed = requisition.deadline ? isPast(new Date(requisition.deadline)) : false;
+      const isAnyQuoteAwarded = quotations.some(q => q.status === 'Awarded');
+      const isAnyQuoteAccepted = quotations.some(q => q.status === 'Accepted' || q.status === 'Partially_Awarded');
       
       if (status === 'Approved') {
-          return 'rfq';
+        return 'rfq';
       }
-      
+
       if (status === 'RFQ In Progress') {
-          const deadlinePassed = requisition.deadline ? isPast(new Date(requisition.deadline)) : false;
-          if (deadlinePassed) {
-              return 'committee';
-          }
-          return 'rfq';
-      }
-  
-      if (status.startsWith('Pending') || status === 'RFQ In Progress') {
-          const isAnyQuoteAwarded = quotations.some(q => q.status === 'Awarded');
-          if (isAnyQuoteAwarded) return 'award';
-          
-          const deadlinePassed = requisition.deadline ? isPast(new Date(requisition.deadline)) : false;
-          if (deadlinePassed) return 'committee';
+        if (deadlinePassed) {
+            return 'committee';
+        }
+        return 'rfq';
       }
       
-      if (status === 'PO Created' || status === 'Closed' || status === 'Fulfilled') {
+      if (isAnyQuoteAccepted || status === 'PO Created' || status === 'Closed' || status === 'Fulfilled') {
           return 'completed';
       }
       
-      const isAnyQuoteAccepted = quotations.some(q => q.status === 'Accepted' || q.status === 'Partially_Awarded');
-      if (isAnyQuoteAccepted) {
-          return 'finalize';
+      if (isAnyQuoteAwarded) {
+          return 'award';
       }
-  
+      
+      if (status.startsWith('Pending')) {
+          return 'award';
+      }
+      
       return 'award';
   };
   
