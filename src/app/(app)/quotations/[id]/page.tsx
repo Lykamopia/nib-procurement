@@ -2472,20 +2472,39 @@ export default function QuotationDetailsPage() {
   }
   
    const handleFinalizeScores = async (awardStrategy: 'all' | 'item', awards: any, awardResponseDeadline?: Date) => {
-        if (!user || !requisition) return;
+        if (!user || !requisition || !quotations) return;
         
+        // Calculate totalAwardValue
+        let totalAwardValue = 0;
+        const awardedQuoteItems: { [itemId: string]: { price: number, quantity: number } } = {};
+
+        quotations.forEach(q => {
+            q.items.forEach(i => {
+                awardedQuoteItems[i.id] = { price: i.unitPrice, quantity: i.quantity };
+            });
+        });
+
+        Object.values(awards).forEach((award: any) => {
+            award.items.forEach((item: any) => {
+                const quoteItem = awardedQuoteItems[item.quoteItemId];
+                if (quoteItem) {
+                    totalAwardValue += quoteItem.price * quoteItem.quantity;
+                }
+            });
+        });
+
         setIsFinalizing(true);
         try {
              const response = await fetch(`/api/requisitions/${requisition.id}/finalize-scores`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId: user.id, awardResponseDeadline, awardStrategy, awards }),
+                body: JSON.stringify({ userId: user.id, awards, awardStrategy, awardResponseDeadline, totalAwardValue }),
             });
             if (!response.ok) {
                 const errorData = await response.json();
                 throw new Error(errorData.error || 'Failed to finalize scores.');
             }
-            toast({ title: 'Success', description: 'Scores have been finalized and awards distributed.' });
+            toast({ title: 'Success', description: 'Scores have been finalized and awards are being routed for final review.' });
             fetchRequisitionAndQuotes();
         } catch(error) {
              toast({
