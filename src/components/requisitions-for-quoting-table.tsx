@@ -55,7 +55,6 @@ export function RequisitionsForQuotingTable() {
                 relevantRequisitions = allRequisitions.filter(r => assignedReqs.includes(r.id));
             } else if (role === 'ProcurementOfficer' || role === 'Committee' || role === 'Admin') {
                 const postApprovalStatuses = [
-                    'Approved',
                     'RFQ_In_Progress',
                     'PO_Created',
                     'Fulfilled',
@@ -70,14 +69,21 @@ export function RequisitionsForQuotingTable() {
                 ];
                 
                 relevantRequisitions = allRequisitions.filter(r => {
-                    if (r.status === 'Approved') {
-                        // Check who can send the RFQ
+                    const status = r.status.replace(/ /g, '_');
+                    
+                    // Always include post-approval requisitions
+                    if (postApprovalStatuses.includes(status)) {
+                        return true;
+                    }
+
+                    // For "Approved" status, check who can send the RFQ
+                    if (status === 'Approved') {
                         const canSendAll = rfqSenderSetting.type === 'all' && (role === 'ProcurementOfficer' || role === 'Admin');
                         const canSendSpecific = rfqSenderSetting.type === 'specific' && rfqSenderSetting.userId === user.id;
                         return canSendAll || canSendSpecific;
                     }
-                    // For all other post-approval statuses, any PO or Admin can see them.
-                    return postApprovalStatuses.includes(r.status);
+
+                    return false;
                 });
             }
 
@@ -111,7 +117,7 @@ export function RequisitionsForQuotingTable() {
     const isAccepted = req.quotations?.some(q => q.status === 'Accepted' || q.status === 'Partially_Awarded');
     const isPartiallyAwarded = req.quotations?.some(q => q.status === 'Partially_Awarded');
     
-    const status = req.status;
+    const status = req.status.replace(/ /g, '_');
 
     if (status === 'Approved') {
         return <Badge variant="default" className="bg-blue-500 hover:bg-blue-600 text-white">Ready for RFQ</Badge>;

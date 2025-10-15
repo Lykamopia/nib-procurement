@@ -2432,7 +2432,6 @@ export default function QuotationDetailsPage() {
 
   const fetchRequisitionAndQuotes = useCallback(async () => {
       if (!id) return;
-      // Keep loading true until all data is fetched
       setLoading(true);
       setLastPOCreated(null);
       try {
@@ -2612,11 +2611,14 @@ export default function QuotationDetailsPage() {
   
       const status = requisition.status.replace(/_/g, ' ');
       const deadlinePassed = requisition.deadline ? isPast(new Date(requisition.deadline)) : false;
-      const isAnyQuoteAwarded = quotations.some(q => q.status === 'Awarded');
-      const isAnyQuoteAccepted = quotations.some(q => q.status === 'Accepted' || q.status === 'Partially_Awarded');
       
       if (status === 'Approved') {
         return 'rfq';
+      }
+
+      const isAnyQuoteAccepted = quotations.some(q => q.status === 'Accepted' || q.status === 'Partially_Awarded');
+      if (isAnyQuoteAccepted || status === 'PO Created' || status === 'Closed' || status === 'Fulfilled') {
+          return 'completed';
       }
 
       if (status === 'RFQ In Progress') {
@@ -2625,11 +2627,8 @@ export default function QuotationDetailsPage() {
         }
         return 'rfq';
       }
-      
-      if (isAnyQuoteAccepted || status === 'PO Created' || status === 'Closed' || status === 'Fulfilled') {
-          return 'completed';
-      }
-      
+
+      const isAnyQuoteAwarded = quotations.some(q => q.status === 'Awarded');
       if (isAnyQuoteAwarded) {
           return 'award';
       }
