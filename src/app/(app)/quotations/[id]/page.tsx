@@ -1693,7 +1693,7 @@ const ScoringProgressTracker = ({
                             <div className="flex items-center gap-2 mt-2 sm:mt-0 w-full sm:w-auto">
                                 {member.hasSubmittedFinalScores && member.submittedAt ? (
                                     <div className="text-right flex-1">
-                                        <Badge variant="default" className="bg-green-600"><Check className="mr-1 h-3 w-3" /> Submitted</Badge>
+                                        <Badge variant="default" className="bg-green-600 hover:bg-green-700"><Check className="mr-1 h-3 w-3" /> Submitted</Badge>
                                         <p className="text-xs text-muted-foreground mt-1">
                                             {formatDistanceToNow(new Date(member.submittedAt), { addSuffix: true })}
                                         </p>
@@ -2430,8 +2430,9 @@ export default function QuotationDetailsPage() {
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isReportOpen, setReportOpen] = useState(false);
 
-  const fetchRequisitionAndQuotes = async () => {
+  const fetchRequisitionAndQuotes = useCallback(async () => {
       if (!id) return;
+      // Keep loading true until all data is fetched
       setLoading(true);
       setLastPOCreated(null);
       try {
@@ -2444,28 +2445,27 @@ export default function QuotationDetailsPage() {
           const venData = await venResponse.json();
           const quoData = await quoResponse.json();
 
-          if (currentReq) {
+          if (reqResponse.ok) {
               setRequisition(currentReq);
-              setQuotations(quoData);
           } else {
-              toast({ variant: 'destructive', title: 'Error', description: 'Requisition not found.' });
+              toast({ variant: 'destructive', title: 'Error', description: currentReq.error || 'Requisition not found.' });
           }
-          
           setVendors(venData || []);
+          setQuotations(quoData || []);
 
       } catch (error) {
-          toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch data.' });
+          toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch page data.' });
       } finally {
           setLoading(false);
       }
-  };
+  }, [id, toast]);
 
 
   useEffect(() => {
-    if (id && user) { // ensure user is loaded
+    if (id && user) {
         fetchRequisitionAndQuotes();
     }
-  }, [id, user]);
+  }, [id, user, fetchRequisitionAndQuotes]);
 
   const handleRfqSent = () => {
     fetchRequisitionAndQuotes();
@@ -2606,24 +2606,14 @@ export default function QuotationDetailsPage() {
       setSelectedQuoteForScoring(null);
       fetchRequisitionAndQuotes();
   }
-
+  
   const getCurrentStep = (): 'rfq' | 'committee' | 'award' | 'finalize' | 'completed' => {
       if (!requisition) return 'rfq';
-      
-      const status = requisition.status.replace(/_/g, ' ');
   
+      const status = requisition.status.replace(/_/g, ' ');
+      
       if (status === 'Approved') {
           return 'rfq';
-      }
-  
-      const isAwarded = quotations.some(q => ['Awarded', 'Accepted', 'Declined', 'Failed', 'Partially Awarded'].includes(q.status.replace(/_/g, ' ')));
-      const isAccepted = quotations.some(q => ['Accepted', 'Partially Awarded'].includes(q.status.replace(/_/g, ' ')));
-  
-      if (isAccepted || status === 'PO Created' || status === 'Closed') {
-          return 'completed';
-      }
-      if (status.startsWith('Pending') || isAwarded) {
-          return 'award';
       }
       
       if (status === 'RFQ In Progress') {
@@ -2634,7 +2624,24 @@ export default function QuotationDetailsPage() {
           return 'rfq';
       }
   
-      return 'rfq';
+      if (status.startsWith('Pending') || status === 'RFQ In Progress') {
+          const isAnyQuoteAwarded = quotations.some(q => q.status === 'Awarded');
+          if (isAnyQuoteAwarded) return 'award';
+          
+          const deadlinePassed = requisition.deadline ? isPast(new Date(requisition.deadline)) : false;
+          if (deadlinePassed) return 'committee';
+      }
+      
+      if (status === 'PO Created' || status === 'Closed' || status === 'Fulfilled') {
+          return 'completed';
+      }
+      
+      const isAnyQuoteAccepted = quotations.some(q => q.status === 'Accepted' || q.status === 'Partially_Awarded');
+      if (isAnyQuoteAccepted) {
+          return 'finalize';
+      }
+  
+      return 'award';
   };
   
   const isAwarded = useMemo(() => quotations.some(q => ['Awarded', 'Accepted', 'Declined', 'Failed', 'Partially_Awarded'].includes(q.status)), [quotations]);
@@ -2680,7 +2687,6 @@ export default function QuotationDetailsPage() {
     }
     return false;
   }, [user, rfqSenderSetting]);
-
 
   if (loading || !user || !requisition) {
      return <div className="flex items-center justify-center p-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
