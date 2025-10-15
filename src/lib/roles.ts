@@ -48,7 +48,7 @@ export const navItems: NavItem[] = [
 
 export const rolePermissions: Record<UserRole, string[]> = {
   Admin: navItems.map(item => item.path), // Admin has access to all pages
-  'Procurement_Officer': [
+  ProcurementOfficer: [
     '/dashboard',
     '/new-requisition',
     '/requisitions',
@@ -64,7 +64,7 @@ export const rolePermissions: Record<UserRole, string[]> = {
     '/reviews',
     '/approving',
   ],
-  'Committee': [
+  Committee: [
     '/dashboard',
     '/quotations',
     '/records',
@@ -93,25 +93,25 @@ export const rolePermissions: Record<UserRole, string[]> = {
     '/records',
   ],
   Vendor: [], // Vendor has a separate layout, no access to the main app layout
-  'Committee_Member': [
+  CommitteeMember: [
     '/dashboard',
     '/quotations',
     '/records'
   ],
-  'Committee_A_Member': [
+  CommitteeAMember: [
       '/dashboard',
       '/reviews',
       '/quotations',
       '/records',
   ],
-  'Committee_B_Member': [
+  CommitteeBMember: [
       '/dashboard',
       '/reviews',
       '/quotations',
       '/records',
   ],
-  'Manager_Procurement_Division': ['/dashboard', '/approving', '/records'],
-  'Director_Supply_Chain_and_Property_Management': ['/dashboard', '/approving', '/records'],
-  'VP_Resources_and_Facilities': ['/dashboard', '/approving', '/records'],
-  'President': ['/dashboard', '/approving', '/records'],
+  ManagerProcurementDivision: ['/dashboard', '/approving', '/records'],
+  DirectorSupplyChainandPropertyManagement: ['/dashboard', '/approving', '/records'],
+  VPResourcesandFacilities: ['/dashboard', '/approving', '/records'],
+  President: ['/dashboard', '/approving', '/records'],
 };

@@ -28,7 +28,7 @@ export async function POST(request: Request) {
             
             const finalUser: User = {
                 ...userWithoutPassword,
-                role: user.role.replace(/_/g, ' ') as UserRole,
+                role: user.role as UserRole, // Role is already standardized
                 department: user.department?.name,
             };
 
