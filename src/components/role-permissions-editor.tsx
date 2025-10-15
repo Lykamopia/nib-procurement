@@ -76,7 +76,7 @@ export function RolePermissionsEditor() {
         {editableRoles.map(role => (
           <Card key={role}>
             <CardHeader>
-              <CardTitle className="text-lg">{role}</CardTitle>
+              <CardTitle className="text-lg">{role.replace(/_/g, ' ')}</CardTitle>
             </CardHeader>
             <CardContent className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
               {navItems.map(item => (
