@@ -43,7 +43,6 @@ export function RequisitionsForQuotingTable() {
         try {
             setLoading(true);
             
-            // Fetch all requisitions that have passed the initial draft/pending approval stages.
             const allStatusesResponse = await fetch(`/api/requisitions`);
             if (!allStatusesResponse.ok) {
                 throw new Error('Failed to fetch requisitions');
@@ -52,13 +51,13 @@ export function RequisitionsForQuotingTable() {
 
             let relevantRequisitions: PurchaseRequisition[] = [];
 
-            if (role === 'Committee Member') {
+            if (role === 'CommitteeMember') {
                 const assignedReqs = allUsers.find(u => u.id === user.id)?.committeeAssignments?.map(a => a.requisitionId) || [];
                 relevantRequisitions = allRequisitions.filter(r => assignedReqs.includes(r.id));
-            } else if (role === 'Procurement Officer' || role === 'Committee') {
+            } else if (role === 'ProcurementOfficer' || role === 'Committee') {
                 // Show all requisitions that are approved or beyond.
-                const excludedStatuses = ['Draft', 'Pending Approval', 'Rejected'];
-                relevantRequisitions = allRequisitions.filter(r => !excludedStatuses.includes(r.status));
+                const excludedStatuses = ['Draft', 'Pending_Approval', 'Rejected'];
+                relevantRequisitions = allRequisitions.filter(r => !excludedStatuses.includes(r.status.replace(/ /g, '_')));
             }
 
             setRequisitions(relevantRequisitions);
@@ -124,7 +123,7 @@ export function RequisitionsForQuotingTable() {
       <CardHeader>
         <CardTitle>Quotation Management</CardTitle>
         <CardDescription>
-          {role === 'Committee Member' 
+          {role === 'CommitteeMember' 
             ? 'Requisitions assigned to you for scoring.'
             : 'Manage the entire quotation lifecycle, from sending RFQs to finalizing awards.'
           }
@@ -160,7 +159,7 @@ export function RequisitionsForQuotingTable() {
                     </TableCell>
                     <TableCell className="text-right">
                        <Button variant="outline" size="sm">
-                          {role === 'Committee Member' ? 'View & Score' : 'Manage'} <ArrowRight className="ml-2 h-4 w-4" />
+                          {role === 'CommitteeMember' ? 'View & Score' : 'Manage'} <ArrowRight className="ml-2 h-4 w-4" />
                        </Button>
                     </TableCell>
                   </TableRow>
@@ -173,7 +172,7 @@ export function RequisitionsForQuotingTable() {
                       <div className="space-y-1">
                         <p className="font-semibold">No Requisitions Found</p>
                         <p className="text-muted-foreground">
-                            {role === 'Committee Member'
+                            {role === 'CommitteeMember'
                                 ? 'There are no requisitions currently assigned to you for scoring.'
                                 : 'There are no requisitions currently in the RFQ process.'
                             }
