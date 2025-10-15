@@ -2,7 +2,7 @@
 
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   Card,
@@ -1095,7 +1095,7 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent, isAuthorized }: { re
                         />
                     </div>
                 </div>
-                <div className="space-y-2">
+                 <div className="space-y-2">
                     <Label>Distribution Type</Label>
                     <Select value={distributionType} onValueChange={(v) => setDistributionType(v as any)} disabled={!canTakeAction}>
                         <SelectTrigger>
@@ -2420,6 +2420,7 @@ export default function QuotationDetailsPage() {
   
   const fetchRequisitionAndQuotes = useCallback(async () => {
     if (!id) return;
+    // Keep loading true until all data is fetched
     setLoading(true);
     setLastPOCreated(null);
     try {
@@ -2442,6 +2443,7 @@ export default function QuotationDetailsPage() {
     } catch (error) {
         toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch data.' });
     } finally {
+        // Set loading to false only after all fetches are complete
         setLoading(false);
     }
   }, [id, toast]);
@@ -2475,8 +2477,12 @@ export default function QuotationDetailsPage() {
         ...(requisition.financialCommitteeMemberIds || []),
         ...(requisition.technicalCommitteeMemberIds || [])
     ];
-    if (allMemberIds.length === 0) return false;
-    return allUsers.filter(u => allMemberIds.includes(u.id)).every(member => {
+    if (allMemberIds.length === 0) return false; // If no committee, scoring can't be complete.
+    
+    const uniqueMemberIds = [...new Set(allMemberIds)];
+
+    return uniqueMemberIds.every(memberId => {
+        const member = allUsers.find(u => u.id === memberId);
         return member?.committeeAssignments?.some(a => a.requisitionId === requisition.id && a.scoresSubmitted) || false;
     });
   }, [requisition, quotations, allUsers]);
@@ -2635,18 +2641,35 @@ export default function QuotationDetailsPage() {
   }
 
   const getCurrentStep = (): 'rfq' | 'committee' | 'award' | 'finalize' | 'completed' => {
-    if (!requisition) return 'rfq';
+    if (!requisition) return 'rfq'; // Default state before data loads
     
-    const status = requisition.status;
-    const deadlinePassed = requisition.deadline ? isPast(new Date(requisition.deadline)) : false;
+    const status = requisition.status as RequisitionStatus;
 
-    if (status === 'Approved') return 'rfq';
-    if (status === 'RFQ_In_Progress' && deadlinePassed) return 'committee';
-    if (status === 'RFQ_In_Progress' && !deadlinePassed) return 'rfq'; // Still in quoting phase
-    if (status.startsWith('Pending_') || isAwarded) return 'award';
-    if (status === 'PO_Created' || status === 'Closed' || isAccepted) return 'completed';
+    if (status === 'Approved') {
+        return 'rfq';
+    }
+    
+    if (status === 'RFQ_In_Progress' && !isDeadlinePassed) {
+        return 'rfq';
+    }
+    
+    if (status === 'RFQ_In_Progress' && isDeadlinePassed && !isScoringComplete) {
+        return 'committee';
+    }
+    
+    if ((status === 'RFQ_In_Progress' && isScoringComplete) || isAwarded) {
+        return 'award';
+    }
+    
+    if (isAccepted || status === 'PO_Created' || status === 'Closed' || status === 'Fulfilled') {
+        return 'completed';
+    }
 
-    return 'rfq'; // Fallback for any other state
+    if (status.startsWith('Pending_')) {
+        return 'award';
+    }
+
+    return 'rfq'; // Fallback
   };
   
   const formatEvaluationCriteria = (criteria?: EvaluationCriteria) => {
@@ -2914,7 +2937,7 @@ export default function QuotationDetailsPage() {
                             }}
                         />
                     </Dialog>
-                </DialogFooter>
+                </CardFooter>
             </Card>
         )}
         
