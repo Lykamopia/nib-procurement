@@ -9,6 +9,8 @@ async function main() {
   console.log(`Clearing existing data...`);
   // Manually manage order of deletion to avoid foreign key constraint violations
   await prisma.score.deleteMany({});
+  await prisma.itemScore.deleteMany({});
+  await prisma.committeeScoreSet.deleteMany({});
   await prisma.auditLog.deleteMany({});
   await prisma.receiptItem.deleteMany({});
   await prisma.goodsReceiptNote.deleteMany({});
@@ -18,8 +20,6 @@ async function main() {
   await prisma.purchaseOrder.deleteMany({});
   await prisma.quoteAnswer.deleteMany({});
   await prisma.quoteItem.deleteMany({});
-  await prisma.itemScore.deleteMany({});
-  await prisma.committeeScoreSet.deleteMany({});
   await prisma.quotation.deleteMany({});
   await prisma.technicalCriterion.deleteMany({});
   await prisma.financialCriterion.deleteMany({});
@@ -394,3 +394,5 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
+
+    
