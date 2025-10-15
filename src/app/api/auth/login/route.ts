@@ -33,7 +33,7 @@ export async function POST(request: Request) {
             
             const finalUser: User = {
                 ...userWithoutPassword,
-                role: user.role as UserRole,
+                role: user.role as UserRole, // Cast to ensure type correctness
                 department: user.department?.name,
             };
             console.log("LOGIN API: Password validated. Preparing token for user:", finalUser);

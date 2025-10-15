@@ -94,8 +94,8 @@ export function UserManagementEditor() {
   const selectedRole = form.watch('role');
   const currentApprovalLimit = form.watch('approvalLimit');
   
-  const managerRoles: UserRole[] = ['Approver', 'Procurement Officer', 'Admin', 'Finance', 'Manager_Procurement_Division', 'Director_Supply_Chain_and_Property_Management', 'VP_Resources_and_Facilities', 'President'];
-  const approvalRoles: UserRole[] = ['Approver', 'Procurement Officer', 'Admin', 'Finance', 'Committee Member', 'Manager_Procurement_Division', 'Director_Supply_Chain_and_Property_Management', 'VP_Resources_and_Facilities', 'President'];
+  const managerRoles: UserRole[] = ['Approver', 'Procurement_Officer', 'Admin', 'Finance', 'Manager_Procurement_Division', 'Director_Supply_Chain_and_Property_Management', 'VP_Resources_and_Facilities', 'President'];
+  const approvalRoles: UserRole[] = ['Approver', 'Procurement_Officer', 'Admin', 'Finance', 'Committee_Member', 'Manager_Procurement_Division', 'Director_Supply_Chain_and_Property_Management', 'VP_Resources_and_Facilities', 'President'];
   const showApprovalFields = approvalRoles.includes(selectedRole as UserRole);
 
   const potentialManagers = users.filter(
