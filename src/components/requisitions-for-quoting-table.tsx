@@ -34,7 +34,7 @@ export function RequisitionsForQuotingTable() {
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const router = useRouter();
-  const { user, allUsers, role } = useAuth();
+  const { user, allUsers, role, rfqSenderSetting } = useAuth();
 
 
   useEffect(() => {
@@ -43,7 +43,6 @@ export function RequisitionsForQuotingTable() {
         try {
             setLoading(true);
             
-            // Fetch all requisitions that have passed the initial draft/pending approval stages.
             const allStatusesResponse = await fetch(`/api/requisitions`);
             if (!allStatusesResponse.ok) {
                 throw new Error('Failed to fetch requisitions');
@@ -52,13 +51,24 @@ export function RequisitionsForQuotingTable() {
 
             let relevantRequisitions: PurchaseRequisition[] = [];
 
-            if (role === 'Committee Member') {
+            if (role === 'CommitteeMember') {
                 const assignedReqs = allUsers.find(u => u.id === user.id)?.committeeAssignments?.map(a => a.requisitionId) || [];
-                relevantRequisitions = allRequisitions.filter(r => assignedReqs.includes(r.id));
-            } else if (role === 'Procurement Officer' || role === 'Committee') {
-                // Show all requisitions that are approved or beyond.
+                relevantRequisitions = allRequisitions.filter(r => assignedReqs.includes(r.id) && r.status !== 'Approved');
+            } else if (role === 'ProcurementOfficer' || role === 'Committee' || role === 'Admin') {
+                const isAuthorizedRfqSender = 
+                    (rfqSenderSetting.type === 'all' && (role === 'ProcurementOfficer' || role === 'Admin')) ||
+                    (rfqSenderSetting.type === 'specific' && user.id === rfqSenderSetting.userId);
+                
                 const excludedStatuses = ['Draft', 'Pending Approval', 'Rejected'];
-                relevantRequisitions = allRequisitions.filter(r => !excludedStatuses.includes(r.status));
+
+                relevantRequisitions = allRequisitions.filter(r => {
+                    // If the requisition is 'Approved', only show it to the authorized RFQ sender.
+                    if (r.status === 'Approved') {
+                        return isAuthorizedRfqSender;
+                    }
+                    // For all other statuses, show them if they are not in the excluded list.
+                    return !excludedStatuses.includes(r.status);
+                });
             }
 
             setRequisitions(relevantRequisitions);
@@ -72,7 +82,7 @@ export function RequisitionsForQuotingTable() {
     if (user) {
         fetchRequisitions();
     }
-  }, [user, role, allUsers]);
+  }, [user, role, allUsers, rfqSenderSetting]);
   
   const totalPages = Math.ceil(requisitions.length / PAGE_SIZE);
   const paginatedData = useMemo(() => {
@@ -86,31 +96,28 @@ export function RequisitionsForQuotingTable() {
   }
 
   const getStatusBadge = (req: PurchaseRequisition) => {
-    const deadlinePassed = req.deadline ? isPast(new Date(req.deadline)) : false;
-    const isAwarded = req.quotations?.some(q => q.status === 'Awarded');
-    const isAccepted = req.quotations?.some(q => q.status === 'Accepted' || q.status === 'Partially_Awarded');
-    const isPartiallyAwarded = req.quotations?.some(q => q.status === 'Partially_Awarded');
-    
-    // Convert status from underscore to space for easier matching
     const status = req.status.replace(/_/g, ' ');
-
+    const deadlinePassed = req.deadline ? isPast(new Date(req.deadline)) : false;
+    const isAwarded = req.quotations?.some(q => q.status === 'Awarded' || q.status === 'Partially_Awarded');
+    const isAccepted = req.quotations?.some(q => q.status === 'Accepted');
+    
+    if (status === 'Approved') {
+        return <Badge variant="default" className="bg-blue-500 hover:bg-blue-600 text-white">Ready for RFQ</Badge>;
+    }
     if (status.startsWith('Pending')) {
         return <Badge variant="destructive">{status}</Badge>;
     }
     if (isAccepted || status === 'PO Created') {
         return <Badge variant="default">PO Created</Badge>;
     }
-     if (isAwarded || isPartiallyAwarded) {
+    if (isAwarded) {
         return <Badge variant="secondary">Vendor Awarded</Badge>;
     }
     if (status === 'RFQ In Progress' && !deadlinePassed) {
         return <Badge variant="outline">Accepting Quotes</Badge>;
     }
-     if (status === 'RFQ In Progress' && deadlinePassed) {
+    if (status === 'RFQ In Progress' && deadlinePassed) {
         return <Badge variant="secondary">Scoring in Progress</Badge>;
-    }
-    if (status === 'Approved') {
-        return <Badge variant="default" className="bg-blue-500 hover:bg-blue-600 text-white">Ready for RFQ</Badge>;
     }
     
     return <Badge variant="outline">{status}</Badge>;
@@ -124,7 +131,7 @@ export function RequisitionsForQuotingTable() {
       <CardHeader>
         <CardTitle>Quotation Management</CardTitle>
         <CardDescription>
-          {role === 'Committee Member' 
+          {role === 'CommitteeMember' 
             ? 'Requisitions assigned to you for scoring.'
             : 'Manage the entire quotation lifecycle, from sending RFQs to finalizing awards.'
           }
@@ -160,7 +167,7 @@ export function RequisitionsForQuotingTable() {
                     </TableCell>
                     <TableCell className="text-right">
                        <Button variant="outline" size="sm">
-                          {role === 'Committee Member' ? 'View & Score' : 'Manage'} <ArrowRight className="ml-2 h-4 w-4" />
+                          {role === 'CommitteeMember' ? 'View & Score' : 'Manage'} <ArrowRight className="ml-2 h-4 w-4" />
                        </Button>
                     </TableCell>
                   </TableRow>
@@ -173,9 +180,9 @@ export function RequisitionsForQuotingTable() {
                       <div className="space-y-1">
                         <p className="font-semibold">No Requisitions Found</p>
                         <p className="text-muted-foreground">
-                            {role === 'Committee Member'
+                            {role === 'CommitteeMember'
                                 ? 'There are no requisitions currently assigned to you for scoring.'
-                                : 'There are no requisitions currently in the RFQ process.'
+                                : 'There are no requisitions requiring your action at this time.'
                             }
                         </p>
                       </div>
