@@ -69,15 +69,13 @@ export function RequisitionsForQuotingTable() {
                 ];
                 
                 relevantRequisitions = allRequisitions.filter(r => {
-                    const status = r.status.replace(/ /g, '_');
-                    
-                    // Always include post-approval requisitions
-                    if (postApprovalStatuses.includes(status)) {
+                    // Always include requisitions that are already in the RFQ or later stages.
+                    if (postApprovalStatuses.includes(r.status)) {
                         return true;
                     }
 
                     // For "Approved" status, check who can send the RFQ
-                    if (status === 'Approved') {
+                    if (r.status === 'Approved') {
                         const canSendAll = rfqSenderSetting.type === 'all' && (role === 'ProcurementOfficer' || role === 'Admin');
                         const canSendSpecific = rfqSenderSetting.type === 'specific' && rfqSenderSetting.userId === user.id;
                         return canSendAll || canSendSpecific;
@@ -117,7 +115,7 @@ export function RequisitionsForQuotingTable() {
     const isAccepted = req.quotations?.some(q => q.status === 'Accepted' || q.status === 'Partially_Awarded');
     const isPartiallyAwarded = req.quotations?.some(q => q.status === 'Partially_Awarded');
     
-    const status = req.status.replace(/ /g, '_');
+    const status = req.status; // Use the direct status from data
 
     if (status === 'Approved') {
         return <Badge variant="default" className="bg-blue-500 hover:bg-blue-600 text-white">Ready for RFQ</Badge>;

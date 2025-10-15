@@ -69,17 +69,17 @@ export async function finalizeAndNotifyVendors(requisitionId: string, awardRespo
     if (vendor && requisition) {
         const emailHtml = `
             <h1>Congratulations, ${vendor.name}!</h1>
-            <p>You have been awarded the contract for requisition <strong>${requisition.title}</strong>.</p>
+            <p>You have been awarded the contract for requisition <strong>${'${requisition.title}'}</strong>.</p>
             <p>Please log in to the vendor portal to review the award and respond.</p>
-            ${awardResponseDeadline ? `<p><strong>This award must be accepted by ${format(awardResponseDeadline, 'PPpp')}.</strong></p>` : ''}
-            <a href="${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:9002'}/vendor/dashboard">Go to Vendor Portal</a>
+            ${'${awardResponseDeadline ? `<p><strong>This award must be accepted by ${format(awardResponseDeadline, \'PPpp\')}.</strong></p>` : \'\'}'}
+            <a href="${'${process.env.NEXT_PUBLIC_BASE_URL || \'http://localhost:9002\'}'}/vendor/dashboard">Go to Vendor Portal</a>
             <p>Thank you,</p>
             <p>Nib InternationalBank Procurement</p>
         `;
 
         await sendEmail({
             to: vendor.email,
-            subject: `Contract Awarded: ${requisition.title}`,
+            subject: `Contract Awarded: ${'${requisition.title}'}`,
             html: emailHtml
         });
     }
@@ -184,7 +184,7 @@ export async function GET(request: Request) {
 
     const formattedRequisitions = requisitions.map(req => ({
         ...req,
-        status: req.status.replace(/ /g, '_'),
+        // status: req.status.replace(/_/g, ' '), // Keep the original status from DB
         department: req.department?.name || 'N/A',
         requesterName: req.requester.name,
         financialCommitteeMemberIds: req.financialCommitteeMembers.map(m => m.id),
@@ -275,7 +275,7 @@ export async function POST(request: Request) {
             action: 'CREATE_REQUISITION',
             entity: 'Requisition',
             entityId: finalRequisition.id,
-            details: `Created new requisition: "${finalRequisition.title}".`,
+            details: `Created new requisition: "${'${finalRequisition.title}'}".`,
         }
     });
 
@@ -314,7 +314,7 @@ export async function PATCH(
 
     let dataToUpdate: any = {};
     let auditAction = 'UPDATE_REQUISITION';
-    let auditDetails = `Updated requisition ${id}.`;
+    let auditDetails = `Updated requisition ${'${id}'}.`;
     
     // This handles editing a draft or rejected requisition and resubmitting
     if ((requisition.status === 'Draft' || requisition.status === 'Rejected') && updateData.title) {
@@ -374,7 +374,7 @@ export async function PATCH(
                 dataToUpdate.currentApprover = { connect: { id: department.headId } };
             }
             auditAction = 'SUBMIT_FOR_APPROVAL';
-            auditDetails = `Requisition ${id} ("${updateData.title}") was edited and submitted for approval.`;
+            auditDetails = `Requisition ${'${id}'} ("${'${updateData.title}'}") was edited and submitted for approval.`;
         }
 
     } else if (status) { // This handles normal status changes (approve, reject, submit)
@@ -384,7 +384,7 @@ export async function PATCH(
 
         if (status === 'Approved') {
             auditAction = 'APPROVE_REQUISITION';
-            auditDetails = `Requisition ${id} was approved with comment: "${comment}".`;
+            auditDetails = `Requisition ${'${id}'} was approved with comment: "${'${comment}'}".`;
             let nextApproverId: string | null = null;
             let nextStatus: string | null = null;
 
@@ -442,10 +442,10 @@ export async function PATCH(
         } else if (status === 'Rejected') {
             dataToUpdate.currentApprover = { disconnect: true };
             auditAction = 'REJECT_REQUISITION';
-            auditDetails = `Requisition ${id} was rejected with comment: "${comment}".`;
+            auditDetails = `Requisition ${'${id}'} was rejected with comment: "${'${comment}'}".`;
         } else if (status === 'Pending Approval') {
             auditAction = 'SUBMIT_FOR_APPROVAL';
-            auditDetails = `Draft requisition ${id} was submitted for approval.`;
+            auditDetails = `Draft requisition ${'${id}'} was submitted for approval.`;
             const department = await prisma.department.findUnique({ where: { id: requisition.departmentId! } });
             if (department?.headId) { 
                 dataToUpdate.currentApprover = { connect: { id: department.headId } };
@@ -477,7 +477,7 @@ export async function PATCH(
   } catch (error) {
     console.error('Failed to update requisition:', error);
     if (error instanceof Error) {
-        return NextResponse.json({ error: 'Failed to process request', details: error.message }, { status: 500 });
+        return NextResponse.json({ error: 'Failed to process request', details: error.message }, { status: 400 });
     }
     return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
   }
@@ -506,7 +506,7 @@ export async function DELETE(
     }
 
     if (requisition.status !== 'Draft' && requisition.status !== 'Pending_Approval') {
-      return NextResponse.json({ error: `Cannot delete a requisition with status "${requisition.status}".` }, { status: 403 });
+      return NextResponse.json({ error: `Cannot delete a requisition with status "${'${requisition.status}'}".` }, { status: 403 });
     }
     
     await prisma.requisitionItem.deleteMany({ where: { requisitionId: id } });
@@ -529,7 +529,7 @@ export async function DELETE(
             action: 'DELETE_REQUISITION',
             entity: 'Requisition',
             entityId: id,
-            details: `Deleted requisition: "${requisition.title}".`,
+            details: `Deleted requisition: "${'${requisition.title}'}".`,
         }
     });
 
