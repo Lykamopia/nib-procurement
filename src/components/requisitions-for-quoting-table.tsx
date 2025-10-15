@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -34,7 +33,7 @@ export function RequisitionsForQuotingTable() {
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const router = useRouter();
-  const { user, allUsers, role } = useAuth();
+  const { user, allUsers, role, rfqSenderSetting } = useAuth();
 
 
   useEffect(() => {
@@ -54,9 +53,32 @@ export function RequisitionsForQuotingTable() {
             if (role === 'CommitteeMember') {
                 const assignedReqs = allUsers.find(u => u.id === user.id)?.committeeAssignments?.map(a => a.requisitionId) || [];
                 relevantRequisitions = allRequisitions.filter(r => assignedReqs.includes(r.id));
-            } else if (role === 'ProcurementOfficer' || role === 'Committee') {
-                const excludedStatuses = ['Draft', 'Pending_Approval', 'Rejected'];
-                relevantRequisitions = allRequisitions.filter(r => !excludedStatuses.includes(r.status));
+            } else if (role === 'ProcurementOfficer' || role === 'Committee' || role === 'Admin') {
+                const postApprovalStatuses = [
+                    'Approved',
+                    'RFQ_In_Progress',
+                    'PO_Created',
+                    'Fulfilled',
+                    'Closed',
+                    'Pending_Committee_B_Review',
+                    'Pending_Committee_A_Recommendation',
+                    'Pending_Managerial_Approval',
+                    'Pending_Managerial_Review',
+                    'Pending_Director_Approval',
+                    'Pending_VP_Approval',
+                    'Pending_President_Approval'
+                ];
+                
+                relevantRequisitions = allRequisitions.filter(r => {
+                    if (r.status === 'Approved') {
+                        // Check who can send the RFQ
+                        const canSendAll = rfqSenderSetting.type === 'all' && (role === 'ProcurementOfficer' || role === 'Admin');
+                        const canSendSpecific = rfqSenderSetting.type === 'specific' && rfqSenderSetting.userId === user.id;
+                        return canSendAll || canSendSpecific;
+                    }
+                    // For all other post-approval statuses, any PO or Admin can see them.
+                    return postApprovalStatuses.includes(r.status);
+                });
             }
 
             setRequisitions(relevantRequisitions);
@@ -70,7 +92,7 @@ export function RequisitionsForQuotingTable() {
     if (user) {
         fetchRequisitions();
     }
-  }, [user, role, allUsers]);
+  }, [user, role, allUsers, rfqSenderSetting]);
   
   const totalPages = Math.ceil(requisitions.length / PAGE_SIZE);
   const paginatedData = useMemo(() => {
@@ -172,7 +194,7 @@ export function RequisitionsForQuotingTable() {
                         <p className="text-muted-foreground">
                             {role === 'CommitteeMember'
                                 ? 'There are no requisitions currently assigned to you for scoring.'
-                                : 'There are no requisitions currently in the RFQ process.'
+                                : 'There are no requisitions available for you to manage at this time.'
                             }
                         </p>
                       </div>
