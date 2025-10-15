@@ -2349,7 +2349,7 @@ const NotifyVendorDialog = ({
     const [deadlineDate, setDeadlineDate] = useState<Date | undefined>();
     const [deadlineTime, setDeadlineTime] = useState('17:00');
 
-    const finalDeadline = useMemo(() => {
+    const finalNewDeadline = useMemo(() => {
         if (!deadlineDate) return undefined;
         const [hours, minutes] = deadlineTime.split(':').map(Number);
         return setMinutes(setHours(deadlineDate, hours), minutes);
@@ -2397,7 +2397,7 @@ const NotifyVendorDialog = ({
                 </div>
                 <DialogFooter>
                     <Button variant="ghost" onClick={onClose}>Cancel</Button>
-                    <Button onClick={() => onConfirm(finalDeadline)}>Confirm & Notify</Button>
+                    <Button onClick={() => onConfirm(finalNewDeadline)}>Confirm & Notify</Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
