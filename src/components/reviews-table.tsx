@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -152,8 +153,8 @@ export function ReviewsTable() {
   }, [requisitions, currentPage]);
 
   const getCommitteeType = (status: string) => {
-    if (status.includes('Committee_A')) return 'Committee A';
-    if (status.includes('Committee_B')) return 'Committee B';
+    if (status.includes('Committee A')) return 'Committee A';
+    if (status.includes('Committee B')) return 'Committee B';
     return 'N/A';
   }
 

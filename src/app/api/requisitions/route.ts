@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { NextResponse } from 'next/server';
@@ -8,7 +7,7 @@ import { prisma } from '@/lib/prisma';
 import { getUserByToken } from '@/lib/auth';
 import { headers } from 'next/headers';
 import { sendEmail } from '@/services/email-service';
-import { differenceInMinutes } from 'date-fns';
+import { differenceInMinutes, format } from 'date-fns';
 
 // This function is exported so it can be called from other routes
 export async function finalizeAndNotifyVendors(requisitionId: string, awardResponseDeadline?: Date) {
@@ -100,12 +99,12 @@ export async function GET(request: Request) {
     const whereClause: any = {};
     
     if (forReview === 'true' && userPayload) {
-        const { role } = userPayload;
-        if (role === 'Committee_A_Member') {
+        const userRole = userPayload.role.replace(/ /g, '_') as UserRole;
+        if (userRole === 'Committee_A_Member') {
             whereClause.status = 'Pending_Committee_A_Recommendation';
-        } else if (role === 'Committee_B_Member') {
+        } else if (userRole === 'Committee_B_Member') {
             whereClause.status = 'Pending_Committee_B_Review';
-        } else if (role === 'Admin' || role === 'Procurement_Officer') {
+        } else if (userRole === 'Admin' || userRole === 'Procurement_Officer') {
             whereClause.status = { in: ['Pending_Committee_A_Recommendation', 'Pending_Committee_B_Review'] };
         } else {
             return NextResponse.json([]);
@@ -506,7 +505,7 @@ export async function DELETE(
   } catch (error) {
      console.error('Failed to delete requisition:', error);
      if (error instanceof Error) {
-        return NextResponse.json({ error: 'Failed to process request', details: error.message }, { status: 400 });
+        return NextResponse.json({ error: 'Failed to process request', details: error.message }, { status: 500 });
     }
     return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
   }
