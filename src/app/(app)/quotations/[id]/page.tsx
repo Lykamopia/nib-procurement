@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
@@ -67,7 +66,7 @@ const quoteFormSchema = z.object({
   notes: z.string().optional(),
   items: z.array(z.object({
     requisitionItemId: z.string(),
-    name: z.string(),
+    name: z.string().min(1, "Item name cannot be empty."),
     quantity: z.number(),
     unitPrice: z.coerce.number().min(0.01, "Price is required."),
     leadTimeDays: z.coerce.number().min(0, "Lead time is required."),
@@ -1843,7 +1842,7 @@ const CumulativeScoringReportDialog = ({ requisition, quotations, isOpen, onClos
                                                         <div className="flex items-center gap-3">
                                                             <Avatar className="h-8 w-8">
                                                                 <AvatarImage src={`https://picsum.photos/seed/${scoreSet.scorerId}/32/32`} />
-                                                                <AvatarFallback>{scoreSet.scorer?.name?.charAt(0) || 'U'}</AvatarFallback>
+                                                                <AvatarFallback>{scoreSet.scorer?.name.charAt(0) || 'U'}</AvatarFallback>
                                                             </Avatar>
                                                             <span className="font-semibold print:text-black">{scoreSet.scorer?.name || 'Unknown User'}</span>
                                                         </div>
@@ -2347,6 +2346,7 @@ export default function QuotationDetailsPage() {
   const [isCommitteeDialogOpen, setCommitteeDialogOpen] = useState(false);
   const [isScoringFormOpen, setScoringFormOpen] = useState(false);
   const [isFinalizing, setIsFinalizing] = useState(false);
+  const [isNotifying, setIsNotifying] = useState(false);
   const [selectedQuoteForScoring, setSelectedQuoteForScoring] = useState<Quotation | null>(null);
   const [hidePricesForScoring, setHidePricesForScoring] = useState(false);
   const [lastPOCreated, setLastPOCreated] = useState<PurchaseOrder | null>(null);
@@ -2474,7 +2474,6 @@ export default function QuotationDetailsPage() {
    const handleFinalizeScores = async (awardStrategy: 'all' | 'item', awards: any, awardResponseDeadline?: Date) => {
         if (!user || !requisition || !quotations) return;
         
-        // Calculate totalAwardValue
         let totalAwardValue = 0;
         const awardedQuoteItems: { [itemId: string]: { price: number, quantity: number } } = {};
 
@@ -2492,6 +2491,7 @@ export default function QuotationDetailsPage() {
                 }
             });
         });
+
 
         setIsFinalizing(true);
         try {
@@ -2547,6 +2547,37 @@ export default function QuotationDetailsPage() {
         });
     } finally {
         setIsChangingAward(false);
+    }
+  }
+
+  const handleNotifyVendor = async () => {
+    if (!user || !requisition) return;
+    setIsNotifying(true);
+    try {
+      const response = await fetch(`/api/requisitions/${requisition.id}/notify-vendor`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to notify vendor.");
+      }
+
+      toast({
+        title: "Vendor Notified",
+        description: "The winning vendor has been notified and the award is pending their response."
+      });
+      fetchRequisitionAndQuotes();
+    } catch (error) {
+        toast({
+            variant: 'destructive',
+            title: 'Error',
+            description: error instanceof Error ? error.message : 'An unknown error occurred.',
+        });
+    } finally {
+        setIsNotifying(false);
     }
   }
 
@@ -2832,6 +2863,21 @@ export default function QuotationDetailsPage() {
                 quotations={quotations}
                 onFinalScoresSubmitted={fetchRequisitionAndQuotes}
              />
+        )}
+
+        {requisition.status === 'Approved' && isAwarded && role === 'Procurement Officer' && (
+            <Card className="mt-6 border-amber-500">
+                 <CardHeader>
+                    <CardTitle>Action Required: Notify Vendor</CardTitle>
+                    <CardDescription>The award has passed committee review. You may now notify the winning vendor.</CardDescription>
+                </CardHeader>
+                <CardFooter>
+                    <Button onClick={handleNotifyVendor} disabled={isNotifying}>
+                        {isNotifying && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Send Award Notification
+                    </Button>
+                </CardFooter>
+            </Card>
         )}
         
         {isAccepted && requisition.status !== 'PO Created' && role !== 'Committee Member' && (

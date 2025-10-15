@@ -5,7 +5,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { User } from '@/lib/types';
-import { finalizeAndNotifyVendors } from '../../route';
 
 
 export async function POST(
@@ -75,18 +74,18 @@ export async function POST(
                 nextStatus = 'Pending_Committee_B_Review';
                 auditDetails = `Award finalized. Total value ${totalAwardValue.toLocaleString()} ETB. Routing to Committee B for final review.`;
             } else {
-                nextStatus = 'Approved'; // Auto-approved for low value
-                auditDetails = `Award finalized. Total value ${totalAwardValue.toLocaleString()} ETB. Auto-approved due to low value. Notifying vendor.`;
-                // If auto-approved, we can call the notification logic directly.
-                await finalizeAndNotifyVendors(requisitionId, awardResponseDeadline ? new Date(awardResponseDeadline) : undefined);
+                nextStatus = 'Approved'; // Auto-approved for low value, ready for notification
+                auditDetails = `Award finalized. Total value ${totalAwardValue.toLocaleString()} ETB. Auto-approved due to low value. Ready for vendor notification.`;
             }
+            
+            const awardedItemIds = Object.values(awards).flatMap((a: any) => a.items.map((i: any) => i.quoteItemId))
             
             // 4. Update the requisition
             const updatedRequisition = await tx.purchaseRequisition.update({
                 where: { id: requisitionId },
                 data: {
                     status: nextStatus as any,
-                    awardedQuoteItemIds: Object.values(awards).flatMap((a: any) => a.items.map((i: any) => i.quoteItemId)),
+                    awardedQuoteItemIds: awardedItemIds,
                     awardResponseDeadline: awardResponseDeadline ? new Date(awardResponseDeadline) : undefined,
                 }
             });
