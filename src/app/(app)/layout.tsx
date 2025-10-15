@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -85,6 +84,7 @@ export default function AppLayout({
 
   useEffect(() => {
     if (!loading && !user) {
+      console.log("APP_LAYOUT: Not loading and no user. Redirecting to /login.");
       router.push('/login');
     }
   }, [user, loading, router]);
@@ -97,17 +97,25 @@ export default function AppLayout({
       
       const isAllowed = allowedPaths.includes(currentPath);
 
-      if (!isAllowed && allowedPaths.length > 0) {
-        console.log(`Redirecting: User with role ${role} not allowed to access ${currentPath}. Allowed:`, allowedPaths);
+      console.log(`APP_LAYOUT (Access Check):
+        - User: ${user?.name}
+        - Role: ${role}
+        - Path: ${currentPath}
+        - Is Allowed? ${isAllowed}
+        - Allowed Paths:`, allowedPaths);
+
+      if (!isAllowed && allowedPaths.length > 0 && currentPath !== '/') {
+        console.warn(`APP_LAYOUT: Redirecting! User with role ${role} not allowed to access ${currentPath}.`);
         const defaultPath = allowedPaths.includes('/dashboard') ? '/dashboard' : allowedPaths[0];
         if(defaultPath) {
           router.push(defaultPath);
         } else {
+           console.error("APP_LAYOUT: No default path found for role. Redirecting to login.");
            router.push('/login');
         }
       }
     }
-  }, [pathname, loading, role, router, rolePermissions]);
+  }, [pathname, loading, role, router, rolePermissions, user]);
 
   const pageTitle = useMemo(() => {
      const currentNavItem = navItems.find(item => {

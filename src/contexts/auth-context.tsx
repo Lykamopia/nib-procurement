@@ -90,27 +90,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const initializeAuth = async () => {
+      console.log("AUTH_CONTEXT: Initializing authentication state...");
       setLoading(true);
       const users = await fetchAllUsers();
+      console.log(`AUTH_CONTEXT: Fetched ${users.length} total users.`);
       try {
           const storedToken = localStorage.getItem('authToken');
+          console.log(`AUTH_CONTEXT: Found token in localStorage: ${!!storedToken}`);
           
           if (storedToken) {
               const decoded = jwtDecode<{ exp: number, iat: number, id: string } & User>(storedToken);
+              console.log("AUTH_CONTEXT: Decoded token payload:", decoded);
+
               if (decoded && decoded.exp * 1000 > Date.now()) {
-                  // Wait for the full user list to be available, then find the full user object.
-                  // This ensures all relations (like department) are correctly populated.
                   const fullUser = users.find((u: User) => u.id === decoded.id);
+                  console.log("AUTH_CONTEXT: Found full user object from allUsers list:", fullUser);
 
                   if (fullUser) {
+                    console.log("AUTH_CONTEXT: Setting user state with full user object:", {user: fullUser.name, role: fullUser.role});
                     setUser(fullUser);
                     setToken(storedToken);
                     setRole(fullUser.role);
                   } else {
-                    // If user from token not in DB, treat as logged out
-                     localStorage.removeItem('authToken');
+                    console.warn("AUTH_CONTEXT: User from token not found in database. Logging out.");
+                    localStorage.removeItem('authToken');
                   }
               } else {
+                  console.log("AUTH_CONTEXT: Token is expired. Clearing localStorage.");
                   localStorage.removeItem('authToken');
               }
           }
@@ -124,15 +130,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (storedCommitteeConfig) setCommitteeConfig(JSON.parse(storedCommitteeConfig));
 
       } catch (error) {
-          console.error("Failed to initialize auth from localStorage", error);
+          console.error("AUTH_CONTEXT: Failed to initialize auth from localStorage", error);
           localStorage.clear();
       }
       setLoading(false);
+      console.log("AUTH_CONTEXT: Initialization complete.");
     };
     initializeAuth();
   }, [fetchAllUsers]);
 
   const login = (newToken: string, loggedInUser: User, loggedInRole: UserRole) => {
+    console.log("AUTH_CONTEXT: login() called. Setting token and user state:", {user: loggedInUser.name, role: loggedInRole});
     localStorage.setItem('authToken', newToken);
     setToken(newToken);
     setUser(loggedInUser);
@@ -140,6 +148,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
+    console.log("AUTH_CONTEXT: logout() called. Clearing user state and localStorage.");
     localStorage.removeItem('authToken');
     setToken(null);
     setUser(null);
@@ -150,7 +159,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const switchUser = async (userId: string) => {
       const targetUser = allUsers.find(u => u.id === userId);
       if (targetUser) {
-          // Use a dummy password as the backend validates it.
           const response = await fetch('/api/auth/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -188,11 +196,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             body: JSON.stringify({ ...userToUpdate, role: newRole, actorUserId: user?.id })
         });
         if (!response.ok) throw new Error("Failed to update role");
-        await fetchAllUsers(); // re-fetch all users to get the updated list
+        await fetchAllUsers();
     } catch (e) {
         console.error(e);
-        // In a real app, you'd use a toast notification here
-        // toast({variant: 'destructive', title: "Error", description: "Failed to update user role."})
     }
   }
 
