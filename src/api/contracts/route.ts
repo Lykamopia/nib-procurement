@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { NextResponse } from 'next/server';
@@ -71,6 +72,7 @@ export async function POST(request: Request) {
             data: {
                 requisition: { connect: { id: requisitionId } },
                 vendor: { connect: { id: vendorId } },
+                sender: { connect: { id: userId } },
                 startDate: new Date(startDate),
                 endDate: new Date(endDate),
                 status: 'Draft',
@@ -97,3 +99,4 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
     }
 }
+

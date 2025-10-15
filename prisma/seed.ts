@@ -178,7 +178,6 @@ async function main() {
           technicalCommitteeMemberIds,
           department,
           departmentId,
-          requesterName,
           ...reqData 
       } = requisition;
 
