@@ -47,24 +47,24 @@ async function main() {
   const allRoles = [
       { name: 'Requester', description: 'Can create purchase requisitions.' },
       { name: 'Approver', description: 'Can approve or reject requisitions.' },
-      { name: 'Procurement_Officer', description: 'Manages the RFQ and PO process.' },
+      { name: 'ProcurementOfficer', description: 'Manages the RFQ and PO process.' },
       { name: 'Finance', description: 'Manages invoices and payments.' },
       { name: 'Admin', description: 'System administrator with all permissions.' },
       { name: 'Receiving', description: 'Manages goods receipt notes.' },
       { name: 'Vendor', description: 'External supplier of goods/services.' },
-      { name: 'Committee_Member', description: 'Scores and evaluates vendor quotations.' },
-      { name: 'Committee_A_Member', description: 'Reviews high-value procurements.' },
-      { name: 'Committee_B_Member', description: 'Reviews mid-value procurements.' },
+      { name: 'CommitteeMember', description: 'Scores and evaluates vendor quotations.' },
+      { name: 'CommitteeAMember', description: 'Reviews high-value procurements.' },
+      { name: 'CommitteeBMember', description: 'Reviews mid-value procurements.' },
       { name: 'Committee', description: 'Manages evaluation committees.' },
-      { name: 'Manager_Procurement_Division', description: 'Approves low-value awards.' },
-      { name: 'Director_Supply_Chain_and_Property_Management', description: 'Approves mid-value awards.' },
-      { name: 'VP_Resources_and_Facilities', description: 'Approves high-value awards.' },
+      { name: 'ManagerProcurement', description: 'Approves low-value awards.' },
+      { name: 'DirectorSupplyChain', description: 'Approves mid-value awards.' },
+      { name: 'VPResources', description: 'Approves high-value awards.' },
       { name: 'President', description: 'Approves very-high-value awards.' },
   ];
 
   // Seed Roles
   for (const role of allRoles) {
-      await prisma.role.create({ data: { name: role.name.replace(/ /g, '_'), description: role.description } });
+      await prisma.role.create({ data: { name: role.name, description: role.description } });
   }
   console.log('Seeded roles.');
 
@@ -86,7 +86,7 @@ async function main() {
       data: {
           ...userData,
           password: hashedPassword,
-          role: userData.role.replace(/ /g, '_'), // Pass role as a string
+          role: userData.role, // Pass role as a string
           departmentId: user.departmentId,
       },
     });
@@ -136,7 +136,7 @@ async function main() {
               email: vendorUser.email,
               password: hashedPassword,
               approvalLimit: vendorUser.approvalLimit,
-              role: vendorUser.role.replace(/ /g, '_'), // Pass role as a string
+              role: vendorUser.role, // Pass role as a string
           }
       });
       
@@ -394,5 +394,3 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
-
-    

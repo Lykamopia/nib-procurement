@@ -4,6 +4,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
+import { UserRole } from '@/lib/types';
 
 export async function GET() {
   try {
@@ -15,7 +16,7 @@ export async function GET() {
     });
     const formattedUsers = users.map(u => ({
         ...u,
-        role: u.role,
+        role: u.role as UserRole,
         department: u.department?.name || 'N/A'
     }));
     return NextResponse.json(formattedUsers);
@@ -51,7 +52,7 @@ export async function POST(request: Request) {
             name,
             email,
             password: hashedPassword,
-            role: role.replace(/ /g, '_'),
+            role: role,
             department: { connect: { id: departmentId } },
             approvalLimit,
             manager: managerId && managerId !== 'null' ? { connect: { id: managerId } } : undefined,
@@ -101,7 +102,7 @@ export async function PATCH(request: Request) {
     const updateData: any = {
         name,
         email,
-        role: role.replace(/ /g, '_'),
+        role: role,
         department: { connect: { id: departmentId } },
         approvalLimit: approvalLimit,
     };
@@ -128,7 +129,7 @@ export async function PATCH(request: Request) {
             action: 'UPDATE_USER',
             entity: 'User',
             entityId: id,
-            details: `Updated user "${oldUser.name}". Name: ${oldUser.name} -> ${name}. Role: ${oldUser.role.replace(/_/g, ' ')} -> ${role}.`,
+            details: `Updated user "${oldUser.name}". Name: ${oldUser.name} -> ${name}. Role: ${oldUser.role} -> ${role}.`,
         }
     });
 

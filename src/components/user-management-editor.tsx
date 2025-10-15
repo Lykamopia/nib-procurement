@@ -94,8 +94,8 @@ export function UserManagementEditor() {
   const selectedRole = form.watch('role');
   const currentApprovalLimit = form.watch('approvalLimit');
   
-  const managerRoles: UserRole[] = ['Approver', 'Procurement_Officer', 'Admin', 'Finance', 'Manager_Procurement_Division', 'Director_Supply_Chain_and_Property_Management', 'VP_Resources_and_Facilities', 'President'];
-  const approvalRoles: UserRole[] = ['Approver', 'Procurement_Officer', 'Admin', 'Finance', 'Committee_Member', 'Manager_Procurement_Division', 'Director_Supply_Chain_and_Property_Management', 'VP_Resources_and_Facilities', 'President'];
+  const managerRoles: UserRole[] = ['Approver', 'ProcurementOfficer', 'Admin', 'Finance', 'ManagerProcurement', 'DirectorSupplyChain', 'VPResources', 'President'];
+  const approvalRoles: UserRole[] = ['Approver', 'ProcurementOfficer', 'Admin', 'Finance', 'CommitteeMember', 'ManagerProcurement', 'DirectorSupplyChain', 'VPResources', 'President'];
   const showApprovalFields = approvalRoles.includes(selectedRole as UserRole);
 
   const potentialManagers = users.filter(
@@ -104,6 +104,10 @@ export function UserManagementEditor() {
       managerRoles.includes(u.role) &&
       (u.approvalLimit || 0) > (currentApprovalLimit || 0)
   );
+
+  const formatRoleForDisplay = (role: string) => {
+    return role.replace(/([A-Z])/g, ' $1').trim();
+  }
 
 
   const fetchData = async () => {
@@ -258,7 +262,7 @@ export function UserManagementEditor() {
                                 <TableCell className="text-muted-foreground">{index + 1}</TableCell>
                                 <TableCell className="font-semibold">{user.name}</TableCell>
                                 <TableCell>{user.email}</TableCell>
-                                <TableCell>{user.role.replace(/_/g, ' ')}</TableCell>
+                                <TableCell>{formatRoleForDisplay(user.role)}</TableCell>
                                 <TableCell>{user.department}</TableCell>
                                 <TableCell className="text-right">
                                     <div className="flex gap-2 justify-end">
@@ -319,7 +323,7 @@ export function UserManagementEditor() {
                 <FormField control={form.control} name="name" render={({ field }) => ( <FormItem className="col-span-2"><FormLabel>Full Name</FormLabel><FormControl><Input placeholder="e.g. John Doe" {...field} /></FormControl><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name="email" render={({ field }) => ( <FormItem className="col-span-2"><FormLabel>Email</FormLabel><FormControl><Input type="email" placeholder="e.g. john.doe@example.com" {...field} /></FormControl><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name="password" render={({ field }) => ( <FormItem className="col-span-2"><FormLabel>Password</FormLabel><FormControl><Input type="password" placeholder={userToEdit ? "Leave blank to keep current password" : ""} {...field} /></FormControl><FormMessage /></FormItem> )} />
-                <FormField control={form.control} name="role" render={({ field }) => ( <FormItem><FormLabel>Role</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select a role" /></SelectTrigger></FormControl><SelectContent>{availableRoles.map(role => <SelectItem key={role} value={role}>{role.replace(/_/g, ' ')}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)} />
+                <FormField control={form.control} name="role" render={({ field }) => ( <FormItem><FormLabel>Role</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select a role" /></SelectTrigger></FormControl><SelectContent>{availableRoles.map(role => <SelectItem key={role} value={role}>{formatRoleForDisplay(role)}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)} />
                 <FormField control={form.control} name="departmentId" render={({ field }) => ( <FormItem><FormLabel>Department</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select a department" /></SelectTrigger></FormControl><SelectContent>{departments.map(dept => <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)} />
                 
                 {showApprovalFields && (
