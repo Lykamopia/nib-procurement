@@ -64,6 +64,7 @@ The schema is the single source of truth for the database structure. It defines 
     -   It has a **one-to-many** relationship with `RequisitionItem`, meaning one requisition can have many line items.
     -   It has a **one-to-many** relationship with `Quotation`, as multiple vendors can submit a quote for a single requisition.
     -   It has a **many-to-many** relationship with `User` to define the evaluation committees (`financialCommitteeMembers` and `technicalCommitteeMembers`).
+    -   It has a **one-to-many** relationship with `Review` to track the final decisions of high-level committees (Committee A and B).
 
 -   **Quotation & Scoring**:
     -   A `Quotation` is submitted by a `Vendor` for a `PurchaseRequisition`.
