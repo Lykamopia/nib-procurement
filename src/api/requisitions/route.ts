@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { NextResponse } from 'next/server';
@@ -104,26 +105,34 @@ export async function GET(request: Request) {
     const whereClause: any = {};
     
     if (forReview === 'true' && userPayload) {
-        const userRole = userPayload.role;
+        const userRole = userPayload.role.replace(/ /g, '_');
         const reviewStatuses = [
             'Pending_Committee_A_Recommendation',
             'Pending_Committee_B_Review',
-            'Pending Managerial Review',
-            'Pending Director Approval',
-            'Pending VP Approval',
-            'Pending President Approval',
-            'Pending Managerial Approval'
+            'Pending_Managerial_Review',
+            'Pending_Director_Approval',
+            'Pending_VP_Approval',
+            'Pending_President_Approval',
+            'Pending_Managerial_Approval'
         ];
+
+        const isHierarchicalApprover = [
+            'Manager_Procurement',
+            'Director_Supply_Chain',
+            'VP_Resources',
+            'President'
+        ].includes(userRole);
 
         if (userRole === 'Committee_A_Member') {
              whereClause.status = 'Pending_Committee_A_Recommendation';
         } else if (userRole === 'Committee_B_Member') {
             whereClause.status = 'Pending_Committee_B_Review';
+        } else if (isHierarchicalApprover) {
+            whereClause.currentApproverId = userPayload.user.id;
         } else if (userRole === 'Admin' || userRole === 'Procurement_Officer') {
              whereClause.status = { in: reviewStatuses.map(s => s.replace(/ /g, '_')) };
         } else {
-            // For hierarchical approvers
-            whereClause.currentApproverId = userPayload.user.id;
+             return NextResponse.json([]);
         }
 
     } else if (statusParam) {
@@ -176,7 +185,6 @@ export async function GET(request: Request) {
 
     const formattedRequisitions = requisitions.map(req => ({
         ...req,
-        status: req.status.replace(/_/g, ' '),
         department: req.department?.name || 'N/A',
         requesterName: req.requester.name,
         financialCommitteeMemberIds: req.financialCommitteeMembers.map(m => m.id),
@@ -249,7 +257,7 @@ export async function POST(request: Request) {
                         create: body.evaluationCriteria.technicalCriteria.map((c:any) => ({ name: c.name, weight: c.weight }))
                     }
                 }
-            }
+            },
         },
         include: { items: true, customQuestions: true, evaluationCriteria: true }
     });
@@ -362,7 +370,9 @@ export async function PATCH(
         
         if (status === 'Pending Approval') {
             const department = await prisma.department.findUnique({ where: { id: requisition.departmentId! } });
-            if (department?.headId) { dataToUpdate.currentApprover = { connect: { id: department.headId } }; }
+            if (department?.headId) { 
+                dataToUpdate.currentApprover = { connect: { id: department.headId } };
+            }
             auditAction = 'SUBMIT_FOR_APPROVAL';
             auditDetails = `Requisition ${id} ("${updateData.title}") was edited and submitted for approval.`;
         }
@@ -381,46 +391,39 @@ export async function PATCH(
             // This is a committee or hierarchical approval
             if (requisition.status.startsWith('Pending')) {
                 const totalValue = requisition.totalPrice;
-                 switch (requisition.status) {
-                    // Step 1: Committee Reviews
+                switch (requisition.status) {
                     case 'Pending_Committee_A_Recommendation':
-                         // After Committee A, it always goes to hierarchical review based on value.
-                        if (totalValue > 1000000) {
-                            nextApproverId = await findApproverId('VP_Resources_and_Facilities');
-                            nextStatus = 'Pending VP Approval';
-                        } else { // 200,001 to 1,000,000
-                            nextApproverId = await findApproverId('Director_Supply_Chain_and_Property_Management');
-                            nextStatus = 'Pending Director Approval';
-                        }
+                        nextApproverId = await findApproverId('VPResources');
+                        nextStatus = 'Pending_VP_Approval';
                         break;
                     case 'Pending_Committee_B_Review':
-                         // After Committee B, it goes to Managerial Review
-                        nextApproverId = await findApproverId('Manager_Procurement_Division');
-                        nextStatus = 'Pending Managerial Review';
+                         if (totalValue > 200000) { 
+                            nextApproverId = await findApproverId('DirectorSupplyChain');
+                            nextStatus = 'Pending_Director_Approval';
+                        } else {
+                            nextApproverId = await findApproverId('ManagerProcurement');
+                            nextStatus = 'Pending_Managerial_Approval';
+                        }
                         break;
-
-                    // Step 2: Hierarchical Reviews
-                    case 'Pending Managerial Review': // From 10,001 to 200,000
-                        nextApproverId = await findApproverId('Director_Supply_Chain_and_Property_Management');
-                        nextStatus = 'Pending Director Approval';
+                    case 'Pending_Managerial_Review':
+                        nextApproverId = await findApproverId('DirectorSupplyChain');
+                        nextStatus = 'Pending_Director_Approval';
                         break;
-                    case 'Pending Director Approval': // From 200,001 to 1M
-                        nextApproverId = await findApproverId('VP_Resources_and_Facilities');
-                        nextStatus = 'Pending VP Approval';
+                    case 'Pending_Director_Approval': 
+                        nextApproverId = await findApproverId('VPResources');
+                        nextStatus = 'Pending_VP_Approval';
                         break;
-                    case 'Pending VP Approval': // > 1M
+                    case 'Pending_VP_Approval': 
                         nextApproverId = await findApproverId('President');
-                        nextStatus = 'Pending President Approval';
+                        nextStatus = 'Pending_President_Approval';
                         break;
-                    
-                    // Final Approvals in the chain
-                    case 'Pending Managerial Approval': // <=10k - Final approval
-                    case 'Pending President Approval': // >1M - Final approval
-                        nextStatus = 'Approved'; // Final state before vendor notification
+                    case 'Pending_Managerial_Approval':
+                    case 'Pending_President_Approval': 
+                        nextStatus = 'Approved';
                         nextApproverId = null;
+                        await finalizeAndNotifyVendors(requisition.id, requisition.awardResponseDeadline || undefined);
                         break;
-                    
-                    default: // Initial departmental approval
+                    default: 
                         nextStatus = 'Approved';
                         nextApproverId = null;
                 }
@@ -430,18 +433,24 @@ export async function PATCH(
             }
 
             dataToUpdate.status = nextStatus?.replace(/ /g, '_');
-            dataToUpdate.currentApproverId = nextApproverId;
+            if (nextApproverId) {
+                dataToUpdate.currentApprover = { connect: { id: nextApproverId } };
+            } else {
+                dataToUpdate.currentApprover = { disconnect: true };
+            }
 
 
         } else if (status === 'Rejected') {
-            dataToUpdate.currentApproverId = null;
+            dataToUpdate.currentApprover = { disconnect: true };
             auditAction = 'REJECT_REQUISITION';
             auditDetails = `Requisition ${id} was rejected with comment: "${comment}".`;
         } else if (status === 'Pending Approval') {
             auditAction = 'SUBMIT_FOR_APPROVAL';
             auditDetails = `Draft requisition ${id} was submitted for approval.`;
             const department = await prisma.department.findUnique({ where: { id: requisition.departmentId! } });
-            if (department?.headId) { dataToUpdate.currentApproverId = department.headId; }
+            if (department?.headId) { 
+                dataToUpdate.currentApprover = { connect: { id: department.headId } };
+            }
         }
 
     } else {
@@ -469,7 +478,7 @@ export async function PATCH(
   } catch (error) {
     console.error('Failed to update requisition:', error);
     if (error instanceof Error) {
-        return NextResponse.json({ error: 'Failed to process request', details: error.message }, { status: 400 });
+        return NextResponse.json({ error: 'Failed to process request', details: error.message }, { status: 500 });
     }
     return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
   }

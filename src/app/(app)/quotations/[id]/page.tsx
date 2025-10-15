@@ -1,7 +1,8 @@
 
+
 'use client';
 
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   Card,
@@ -326,7 +327,7 @@ const QuoteComparison = ({ quotes, requisition, onScore, user, isDeadlinePassed,
                              )}
                         </CardContent>
                         <CardFooter className="flex flex-col gap-2">
-                            {user.role === 'Committee Member' && (
+                            {user.role === 'CommitteeMember' && (
                                 <Button className="w-full" variant={hasUserScored ? "secondary" : "outline"} onClick={() => onScore(quote, hidePrices)} disabled={isScoringDeadlinePassed && !hasUserScored}>
                                     {hasUserScored ? <Check className="mr-2 h-4 w-4"/> : <Edit2 className="mr-2 h-4 w-4" />}
                                     {hasUserScored ? 'View Your Score' : 'Score this Quote'}
@@ -929,7 +930,7 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent, isAuthorized }: { re
     const { user } = useAuth();
     const { toast } = useToast();
     
-    const isSent = requisition.status === 'RFQ In Progress' || requisition.status === 'PO Created';
+    const isSent = requisition.status === 'RFQ_In_Progress' || requisition.status === 'PO_Created';
 
      useEffect(() => {
         if (requisition.deadline) {
@@ -1041,7 +1042,7 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent, isAuthorized }: { re
                         }
                     </CardDescription>
                 </div>
-                 {isSent && requisition.status !== 'PO Created' && isAuthorized && (
+                 {isSent && requisition.status !== 'PO_Created' && isAuthorized && (
                     <div className="flex gap-2">
                         <Button variant="outline" size="sm" onClick={() => setActionDialog({isOpen: true, type: 'update'})}><Settings2 className="mr-2"/> Update RFQ</Button>
                         <Button variant="destructive" size="sm" onClick={() => setActionDialog({isOpen: true, type: 'cancel'})}><Ban className="mr-2"/> Cancel RFQ</Button>
@@ -2397,7 +2398,7 @@ export default function QuotationDetailsPage() {
   const router = useRouter();
   const params = useParams();
   const { toast } = useToast();
-  const { user, allUsers, role, rfqSenderSetting, login } = useAuth();
+  const { user, allUsers, role, rfqSenderSetting } = useAuth();
   const id = params.id as string;
   
   const [requisition, setRequisition] = useState<PurchaseRequisition | null>(null);
@@ -2475,8 +2476,7 @@ export default function QuotationDetailsPage() {
         ...(requisition.technicalCommitteeMemberIds || [])
     ];
     if (allMemberIds.length === 0) return false;
-    return allMemberIds.every(memberId => {
-        const member = allUsers.find(u => u.id === memberId);
+    return allUsers.filter(u => allMemberIds.includes(u.id)).every(member => {
         return member?.committeeAssignments?.some(a => a.requisitionId === requisition.id && a.scoresSubmitted) || false;
     });
   }, [requisition, quotations, allUsers]);
@@ -2635,27 +2635,18 @@ export default function QuotationDetailsPage() {
   }
 
   const getCurrentStep = (): 'rfq' | 'committee' | 'award' | 'finalize' | 'completed' => {
-      if (!requisition) return 'rfq'; // Default before data loads
-      
-      const status = requisition.status.replace(/_/g, ' ');
+    if (!requisition) return 'rfq';
+    
+    const status = requisition.status;
+    const deadlinePassed = requisition.deadline ? isPast(new Date(requisition.deadline)) : false;
 
-      if (status === 'Approved') {
-          return 'rfq';
-      }
-      if (status === 'RFQ In Progress' && isDeadlinePassed) {
-          return 'committee';
-      }
-      if (status === 'RFQ In Progress' && !isDeadlinePassed) {
-          return 'rfq';
-      }
-      if (status.startsWith('Pending') || isAwarded) {
-          return 'award';
-      }
-      if (status === 'PO Created' || status === 'Closed' || isAccepted) {
-          return 'completed';
-      }
+    if (status === 'Approved') return 'rfq';
+    if (status === 'RFQ_In_Progress' && deadlinePassed) return 'committee';
+    if (status === 'RFQ_In_Progress' && !deadlinePassed) return 'rfq'; // Still in quoting phase
+    if (status.startsWith('Pending_') || isAwarded) return 'award';
+    if (status === 'PO_Created' || status === 'Closed' || isAccepted) return 'completed';
 
-      return 'rfq'; // Fallback
+    return 'rfq'; // Fallback for any other state
   };
   
   const formatEvaluationCriteria = (criteria?: EvaluationCriteria) => {
@@ -2759,9 +2750,9 @@ export default function QuotationDetailsPage() {
         )}
 
 
-        {(currentStep === 'award' || currentStep === 'finalize' || currentStep === 'completed') && (
+        {(currentStep === 'award' || currentStep === 'finalize' || currentStep === 'completed' || currentStep === 'committee') && (
             <>
-                {role === 'ProcurementOfficer' && (
+                {role === 'ProcurementOfficer' && currentStep !== 'committee' && (
                      <div className="hidden">
                         <CommitteeManagement
                             requisition={requisition}
@@ -2800,7 +2791,7 @@ export default function QuotationDetailsPage() {
                                     <FileBarChart2 className="mr-2 h-4 w-4" /> View Cumulative Report
                                 </Button>
                             )}
-                            {isAwarded && requisition.status !== 'PO Created' && role === 'ProcurementOfficer' && (
+                            {isAwarded && requisition.status !== 'PO_Created' && role === 'ProcurementOfficer' && (
                                 <AlertDialog>
                                     <AlertDialogTrigger asChild>
                                         <Button variant="outline" disabled={isChangingAward} className="w-full">
@@ -2891,7 +2882,7 @@ export default function QuotationDetailsPage() {
             />
         )}
         
-        {user.role === 'CommitteeMember' && currentStep === 'award' && (
+        {user.role === 'CommitteeMember' && (currentStep === 'committee' || currentStep === 'award') && (
              <CommitteeActions 
                 user={user}
                 requisition={requisition}
@@ -2923,11 +2914,11 @@ export default function QuotationDetailsPage() {
                             }}
                         />
                     </Dialog>
-                </CardFooter>
+                </DialogFooter>
             </Card>
         )}
         
-        {isAccepted && requisition.status !== 'PO Created' && role !== 'Committee Member' && (
+        {isAccepted && requisition.status !== 'PO_Created' && role !== 'CommitteeMember' && (
             <ContractManagement requisition={requisition} onContractFinalized={handleContractFinalized} />
         )}
          {requisition && (
