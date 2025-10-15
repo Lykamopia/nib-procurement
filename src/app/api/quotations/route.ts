@@ -24,6 +24,7 @@ export async function GET(request: Request) {
         answers: true,
         scores: {
           include: {
+            scorer: true, // Include the scorer relation
             itemScores: {
               include: {
                 scores: true,
