@@ -1,10 +1,9 @@
 
-
 'use server';
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { EvaluationCriterion, ItemScore } from '@/lib/types';
+import { EvaluationCriterion, ItemScore, User } from '@/lib/types';
 
 function calculateFinalItemScore(itemScore: any, criteria: any): { finalScore: number, allScores: any[] } {
     let totalScore = 0;
@@ -28,7 +27,7 @@ function calculateFinalItemScore(itemScore: any, criteria: any): { finalScore: n
         }
     });
 
-    return { finalScore: totalScore, allScores: allScores.map(s => ({...s, type: undefined})) }; // Return score and combined list
+    return { finalScore: totalScore, allScores };
 }
 
 
@@ -41,7 +40,7 @@ export async function POST(
     const body = await request.json();
     const { scores, userId } = body;
 
-    const user = await prisma.user.findUnique({ where: { id: userId } });
+    const user: User | null = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
@@ -73,6 +72,7 @@ export async function POST(
         create: {
             quotation: { connect: { id: quoteId } },
             scorer: { connect: { id: user.id } },
+            scorerName: user.name,
             committeeComment: scores.committeeComment,
             finalScore: 0, // Will be updated later
         }
@@ -92,6 +92,11 @@ export async function POST(
             data: {
                 scoreSet: { connect: { id: scoreSet.id } },
                 quoteItemId: itemScore.quoteItemId,
+                quoteItem: {
+                    connect: {
+                        id: itemScore.quoteItemId,
+                    }
+                },
                 finalScore: finalScore,
                 scores: {
                     create: allScores.map((s: any) => ({
