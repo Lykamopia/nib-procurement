@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
@@ -2429,97 +2430,35 @@ export default function QuotationDetailsPage() {
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isReportOpen, setReportOpen] = useState(false);
 
-  const isAwarded = useMemo(() => quotations.some(q => ['Awarded', 'Accepted', 'Declined', 'Failed', 'Partially_Awarded'].includes(q.status)), [quotations]);
-  const isAccepted = useMemo(() => quotations.some(q => q.status === 'Accepted' || q.status === 'Partially_Awarded'), [quotations]);
-  const secondStandby = useMemo(() => quotations.find(q => q.rank === 2), [quotations]);
-  const thirdStandby = useMemo(() => quotations.find(q => q.rank === 3), [quotations]);
-  const prevAwardedFailed = useMemo(() => quotations.some(q => q.status === 'Failed'), [quotations]);
-  
-  const isDeadlinePassed = useMemo(() => {
-    if (!requisition) return false;
-    return requisition.deadline ? isPast(new Date(requisition.deadline)) : false;
-  }, [requisition]);
+  const fetchRequisitionAndQuotes = async () => {
+      if (!id) return;
+      setLoading(true);
+      setLastPOCreated(null);
+      try {
+          const [reqResponse, venResponse, quoResponse] = await Promise.all([
+              fetch(`/api/requisitions/${id}`),
+              fetch('/api/vendors'),
+              fetch(`/api/quotations?requisitionId=${id}`),
+          ]);
+          const currentReq = await reqResponse.json();
+          const venData = await venResponse.json();
+          const quoData = await quoResponse.json();
 
-  const isScoringDeadlinePassed = useMemo(() => {
-    if (!requisition || !requisition.scoringDeadline) return false;
-    return isPast(new Date(requisition.scoringDeadline));
-  }, [requisition]);
+          if (currentReq) {
+              setRequisition(currentReq);
+              setQuotations(quoData);
+          } else {
+              toast({ variant: 'destructive', title: 'Error', description: 'Requisition not found.' });
+          }
+          
+          setVendors(venData || []);
 
-  const isScoringComplete = useMemo(() => {
-    if (!requisition) return false;
-    const allMemberIds = [
-        ...(requisition.financialCommitteeMemberIds || []),
-        ...(requisition.technicalCommitteeMemberIds || [])
-    ];
-    if (allMemberIds.length === 0) return false;
-    if (quotations.length === 0) return false;
-
-    // Check if every assigned member has finalized their scores.
-    return allMemberIds.every(memberId => {
-        const member = allUsers.find(u => u.id === memberId);
-        return member?.committeeAssignments?.some(a => a.requisitionId === requisition.id && a.scoresSubmitted) || false;
-    });
-  }, [requisition, quotations, allUsers]);
-
-  const isAuthorizedToManageRFQ = useMemo(() => {
-    if (!user) return false;
-    if (user.role === 'Admin') return true;
-    if (rfqSenderSetting.type === 'all') {
-        return user.role === 'ProcurementOfficer';
-    }
-    if (rfqSenderSetting.type === 'specific') {
-        return user.id === rfqSenderSetting.userId;
-    }
-    return false;
-  }, [user, rfqSenderSetting]);
-
-    const fetchRequisitionAndQuotes = async () => {
-        if (!id) return;
-        setLoading(true);
-        setLastPOCreated(null);
-        try {
-            const [reqResponse, venResponse, quoResponse] = await Promise.all([
-                fetch(`/api/requisitions/${id}`),
-                fetch('/api/vendors'),
-                fetch(`/api/quotations?requisitionId=${id}`),
-            ]);
-            const currentReq = await reqResponse.json();
-            const venData = await venResponse.json();
-            const quoData = await quoResponse.json();
-
-            if (currentReq) {
-                // Check for expired award and auto-promote if necessary
-                const awardedQuote = quoData.find((q: Quotation) => q.status === 'Awarded');
-                if (awardedQuote && currentReq.awardResponseDeadline && isPast(new Date(currentReq.awardResponseDeadline))) {
-                    toast({
-                        title: 'Deadline Missed',
-                        description: `Vendor ${awardedQuote.vendorName} missed the response deadline. Promoting next vendor.`,
-                        variant: 'destructive',
-                    });
-                    await handleAwardChange(secondStandby ? 'promote_second' : 'restart_rfq');
-                    // Refetch after the change
-                    const [refetchedReqRes, refetchedQuoRes] = await Promise.all([
-                        fetch(`/api/requisitions/${id}`),
-                        fetch(`/api/quotations?requisitionId=${id}`)
-                    ]);
-                    setRequisition(await refetchedReqRes.json());
-                    setQuotations(await refetchedQuoRes.json());
-                } else {
-                    setRequisition(currentReq);
-                    setQuotations(quoData);
-                }
-            } else {
-                toast({ variant: 'destructive', title: 'Error', description: 'Requisition not found.' });
-            }
-            
-            setVendors(venData || []);
-
-        } catch (error) {
-            toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch data.' });
-        } finally {
-            setLoading(false);
-        }
-    };
+      } catch (error) {
+          toast({ variant: 'destructive', title: 'Error', description: 'Could not fetch data.' });
+      } finally {
+          setLoading(false);
+      }
+  };
 
 
   useEffect(() => {
@@ -2669,44 +2608,90 @@ export default function QuotationDetailsPage() {
   }
 
   const getCurrentStep = (): 'rfq' | 'committee' | 'award' | 'finalize' | 'completed' => {
-    if (!requisition) return 'rfq';
-    
-    const status = requisition.status.replace(/_/g, ' ');
-
-    if (status === 'Approved') {
-        return 'rfq';
-    }
-
-    if (status === 'RFQ In Progress') {
-        if (isDeadlinePassed) {
-            const hasCommittee = (requisition.financialCommitteeMemberIds?.length || 0) > 0 || (requisition.technicalCommitteeMemberIds?.length || 0) > 0;
-            if (!hasCommittee) return 'committee';
-            if (!isScoringComplete) return 'award';
-        } else {
-            return 'rfq'; // Still accepting quotes
-        }
-    }
-
-    if (isAccepted || status === 'PO Created' || status === 'Closed') {
-        if (status === 'PO Created' || status === 'Closed') {
-            return 'completed';
-        }
-        return 'finalize';
-    }
-
-    if (isAwarded || status.startsWith('Pending')) {
-        return 'award';
-    }
-    
-    // Default fallback if no other condition is met, assuming it's ready for RFQ if approved.
-    if (status === 'Approved') {
-        return 'rfq';
-    }
-
-    return 'award'; // Default to award step if in an intermediate state
-};
-  const currentStep = getCurrentStep();
+      if (!requisition) return 'rfq';
+      
+      const status = requisition.status.replace(/_/g, ' ');
   
+      if (status === 'Approved') {
+          return 'rfq';
+      }
+  
+      const isAwarded = quotations.some(q => ['Awarded', 'Accepted', 'Declined', 'Failed', 'Partially Awarded'].includes(q.status.replace(/_/g, ' ')));
+      const isAccepted = quotations.some(q => ['Accepted', 'Partially Awarded'].includes(q.status.replace(/_/g, ' ')));
+  
+      if (isAccepted || status === 'PO Created' || status === 'Closed') {
+          return 'completed';
+      }
+      if (status.startsWith('Pending') || isAwarded) {
+          return 'award';
+      }
+      
+      if (status === 'RFQ In Progress') {
+          const deadlinePassed = requisition.deadline ? isPast(new Date(requisition.deadline)) : false;
+          if (deadlinePassed) {
+              return 'award';
+          }
+          return 'rfq';
+      }
+  
+      return 'rfq';
+  };
+  
+  const isAwarded = useMemo(() => quotations.some(q => ['Awarded', 'Accepted', 'Declined', 'Failed', 'Partially_Awarded'].includes(q.status)), [quotations]);
+  const isAccepted = useMemo(() => quotations.some(q => q.status === 'Accepted' || q.status === 'Partially_Awarded'), [quotations]);
+  const secondStandby = useMemo(() => quotations.find(q => q.rank === 2), [quotations]);
+  const thirdStandby = useMemo(() => quotations.find(q => q.rank === 3), [quotations]);
+  const prevAwardedFailed = useMemo(() => quotations.some(q => q.status === 'Failed'), [quotations]);
+  
+  const isDeadlinePassed = useMemo(() => {
+    if (!requisition) return false;
+    return requisition.deadline ? isPast(new Date(requisition.deadline)) : false;
+  }, [requisition]);
+
+  const isScoringDeadlinePassed = useMemo(() => {
+    if (!requisition || !requisition.scoringDeadline) return false;
+    return isPast(new Date(requisition.scoringDeadline));
+  }, [requisition]);
+
+  const isScoringComplete = useMemo(() => {
+    if (!requisition) return false;
+    const allMemberIds = [
+        ...(requisition.financialCommitteeMemberIds || []),
+        ...(requisition.technicalCommitteeMemberIds || [])
+    ];
+    if (allMemberIds.length === 0) return false;
+    if (quotations.length === 0) return false;
+
+    // Check if every assigned member has finalized their scores.
+    return allMemberIds.every(memberId => {
+        const member = allUsers.find(u => u.id === memberId);
+        return member?.committeeAssignments?.some(a => a.requisitionId === requisition.id && a.scoresSubmitted) || false;
+    });
+  }, [requisition, quotations, allUsers]);
+
+  const isAuthorizedToManageRFQ = useMemo(() => {
+    if (!user) return false;
+    if (user.role === 'Admin') return true;
+    if (rfqSenderSetting.type === 'all') {
+        return user.role === 'ProcurementOfficer';
+    }
+    if (rfqSenderSetting.type === 'specific') {
+        return user.id === rfqSenderSetting.userId;
+    }
+    return false;
+  }, [user, rfqSenderSetting]);
+
+
+  if (loading || !user) {
+     return <div className="flex items-center justify-center p-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+  }
+  
+  if (!requisition) {
+     return <div className="text-center p-8">Requisition not found.</div>;
+  }
+
+  const currentStep = getCurrentStep();
+
   const formatEvaluationCriteria = (criteria?: EvaluationCriteria) => {
       if (!criteria) return "No specific criteria defined.";
 
@@ -2731,13 +2716,6 @@ export default function QuotationDetailsPage() {
       return `${financialPart}\n\n${technicalPart}`;
   };
 
-  if (loading || !user) {
-     return <div className="flex items-center justify-center p-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
-  }
-  
-  if (!requisition) {
-     return <div className="text-center p-8">Requisition not found.</div>;
-  }
   
   return (
     <div className="space-y-6">
