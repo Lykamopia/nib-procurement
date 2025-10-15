@@ -808,7 +808,7 @@ const RFQActionDialog = ({
 
     const finalNewDeadline = useMemo(() => {
         if (!newDeadline) return undefined;
-        const [hours, minutes] are newDeadlineTime.split(':').map(Number);
+        const [hours, minutes] = newDeadlineTime.split(':').map(Number);
         return setMinutes(setHours(newDeadline, hours), minutes);
     }, [newDeadline, newDeadlineTime]);
     
@@ -1461,7 +1461,7 @@ const ScoringDialog = ({
     };
     
     const originalItems = useMemo(() => {
-        const itemIds are new Set(quote.items.map(i => i.requisitionItemId));
+        const itemIds = new Set(quote.items.map(i => i.requisitionItemId));
         return requisition.items.filter(i => itemIds.has(i.id));
     }, [requisition.items, quote.items]);
 
@@ -2877,8 +2877,10 @@ export default function QuotationDetailsPage() {
                                                 <RefreshCw className="mr-2 h-4 w-4"/>
                                                 Restart RFQ Process
                                             </Button>
+                                        </div>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
                                         </AlertDialogFooter>
-                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
                                     </AlertDialogContent>
                                 </AlertDialog>
                             )}
@@ -2997,14 +2999,3 @@ export default function QuotationDetailsPage() {
     </div>
   );
 }
-    
-
-    
-
-    
-
-    
-
-    
-
-    
