@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { NextResponse } from 'next/server';
@@ -29,42 +28,57 @@ export async function POST(
 
         // Start transaction
         const result = await prisma.$transaction(async (tx) => {
-            // 1. Update quote statuses based on awards
-            const vendorIds = Object.keys(awards);
-            for (const vendorId of vendorIds) {
-                const award = awards[vendorId];
-                const quote = await tx.quotation.findFirst({
-                    where: { vendorId: vendorId, requisitionId: requisitionId }
+            
+            const allQuotes = await tx.quotation.findMany({ 
+                where: { requisitionId: requisitionId }, 
+                orderBy: { finalAverageScore: 'desc' } 
+            });
+
+            if (allQuotes.length === 0) {
+                throw new Error("No quotes found to process for this requisition.");
+            }
+
+            const awardedVendorIds = Object.keys(awards);
+            const winnerQuotes = allQuotes.filter(q => awardedVendorIds.includes(q.vendorId));
+            const otherQuotes = allQuotes.filter(q => !awardedVendorIds.includes(q.vendorId));
+
+            // 1. Update winning quotes
+            for (const quote of winnerQuotes) {
+                const award = awards[quote.vendorId];
+                 await tx.quotation.update({
+                    where: { id: quote.id },
+                    data: {
+                        status: award.items.length > 0 ? (awardStrategy === 'all' ? 'Awarded' : 'Partially_Awarded') : 'Rejected',
+                        rank: 1 // All winners get rank 1
+                    }
                 });
-                if (quote) {
+            }
+            
+            // 2. Update standby and rejected quotes
+            const standbyQuotes = otherQuotes.slice(0, 2);
+            const rejectedQuotes = otherQuotes.slice(2);
+            
+            if (standbyQuotes.length > 0) {
+                 await tx.quotation.updateMany({
+                    where: { id: { in: standbyQuotes.map(q => q.id) } },
+                    data: { status: 'Standby' }
+                });
+                // Set ranks for standby quotes individually
+                for (let i = 0; i < standbyQuotes.length; i++) {
                     await tx.quotation.update({
-                        where: { id: quote.id },
-                        data: {
-                            status: award.items.length > 0 ? (awardStrategy === 'all' ? 'Awarded' : 'Partially_Awarded') : 'Rejected'
-                        }
+                        where: { id: standbyQuotes[i].id },
+                        data: { rank: (i + 2) as 2 | 3 }
                     });
                 }
             }
-
-            // Reject all other vendors
-            await tx.quotation.updateMany({
-                where: {
-                    requisitionId: requisitionId,
-                    vendorId: { notIn: vendorIds }
-                },
-                data: { status: 'Rejected' }
-            });
-
-            // 2. Set ranks for winners and standby
-            const allQuotes = await tx.quotation.findMany({ where: { requisitionId: requisitionId }, orderBy: { finalAverageScore: 'desc' } });
-            let rank = 1;
-            for (const quote of allQuotes) {
-                if (vendorIds.includes(quote.vendorId)) {
-                    await tx.quotation.update({ where: { id: quote.id }, data: { rank: rank++ } });
-                } else if (rank <= 3) {
-                     await tx.quotation.update({ where: { id: quote.id }, data: { status: 'Standby', rank: rank++ } });
-                }
+            
+            if (rejectedQuotes.length > 0) {
+                await tx.quotation.updateMany({
+                    where: { id: { in: rejectedQuotes.map(q => q.id) } },
+                    data: { status: 'Rejected', rank: null }
+                });
             }
+
             
             // 3. Determine next status based on award value
             if (totalAwardValue >= committeeA_Min) {
@@ -102,6 +116,8 @@ export async function POST(
             });
             
             return updatedRequisition;
+        }, {
+            timeout: 15000 // Set timeout to 15 seconds for this complex transaction
         });
 
 

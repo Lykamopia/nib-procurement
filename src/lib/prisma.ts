@@ -13,6 +13,10 @@ export const prisma =
   new PrismaClient({
     log:
       process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+    transactionOptions: {
+      maxWait: 10000, // default: 2000
+      timeout: 15000, // default: 5000
+    },
   });
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
