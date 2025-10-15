@@ -808,7 +808,7 @@ const RFQActionDialog = ({
 
     const finalNewDeadline = useMemo(() => {
         if (!newDeadline) return undefined;
-        const [hours, minutes] = newDeadlineTime.split(':').map(Number);
+        const [hours, minutes] are newDeadlineTime.split(':').map(Number);
         return setMinutes(setHours(newDeadline, hours), minutes);
     }, [newDeadline, newDeadlineTime]);
     
@@ -1461,7 +1461,7 @@ const ScoringDialog = ({
     };
     
     const originalItems = useMemo(() => {
-        const itemIds = new Set(quote.items.map(i => i.requisitionItemId));
+        const itemIds are new Set(quote.items.map(i => i.requisitionItemId));
         return requisition.items.filter(i => itemIds.has(i.id));
     }, [requisition.items, quote.items]);
 
@@ -2669,43 +2669,42 @@ export default function QuotationDetailsPage() {
   }
 
   const getCurrentStep = (): 'rfq' | 'committee' | 'award' | 'finalize' | 'completed' => {
-      if (!requisition) return 'rfq';
-  
-      const status = requisition.status.replace(/_/g, ' ');
-  
-      if (status === 'Approved') {
-          return 'rfq';
-      }
-      
-      if (status === 'RFQ In Progress') {
-          if (!isDeadlinePassed) {
-              return 'rfq'; // Still accepting quotes
-          }
-          // Deadline passed, now it's about committee and scoring
-          const hasCommittee = (requisition.financialCommitteeMemberIds?.length || 0) > 0 || (requisition.technicalCommitteeMemberIds?.length || 0) > 0;
-          if (!hasCommittee) {
-              return 'committee'; // Needs committee assignment
-          }
-          if (!isScoringComplete) {
-              return 'award'; // Scoring is in progress
-          }
-      }
-  
-      const isAwardProcessComplete = isAccepted || status === 'PO Created' || status === 'Closed';
-      if (isAwardProcessComplete) {
-          if (status === 'PO Created' || status === 'Closed') {
-              return 'completed';
-          }
-          return 'finalize';
-      }
-  
-      if (isAwarded || status.startsWith('Pending')) {
-          return 'award';
-      }
-      
-      // Default fallback
-      return 'award';
-  };
+    if (!requisition) return 'rfq';
+    
+    const status = requisition.status.replace(/_/g, ' ');
+
+    if (status === 'Approved') {
+        return 'rfq';
+    }
+
+    if (status === 'RFQ In Progress') {
+        if (isDeadlinePassed) {
+            const hasCommittee = (requisition.financialCommitteeMemberIds?.length || 0) > 0 || (requisition.technicalCommitteeMemberIds?.length || 0) > 0;
+            if (!hasCommittee) return 'committee';
+            if (!isScoringComplete) return 'award';
+        } else {
+            return 'rfq'; // Still accepting quotes
+        }
+    }
+
+    if (isAccepted || status === 'PO Created' || status === 'Closed') {
+        if (status === 'PO Created' || status === 'Closed') {
+            return 'completed';
+        }
+        return 'finalize';
+    }
+
+    if (isAwarded || status.startsWith('Pending')) {
+        return 'award';
+    }
+    
+    // Default fallback if no other condition is met, assuming it's ready for RFQ if approved.
+    if (status === 'Approved') {
+        return 'rfq';
+    }
+
+    return 'award'; // Default to award step if in an intermediate state
+};
   const currentStep = getCurrentStep();
   
   const formatEvaluationCriteria = (criteria?: EvaluationCriteria) => {
@@ -2878,10 +2877,8 @@ export default function QuotationDetailsPage() {
                                                 <RefreshCw className="mr-2 h-4 w-4"/>
                                                 Restart RFQ Process
                                             </Button>
-                                        </div>
-                                        <AlertDialogFooter>
-                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
                                         </AlertDialogFooter>
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
                                     </AlertDialogContent>
                                 </AlertDialog>
                             )}
@@ -3000,6 +2997,8 @@ export default function QuotationDetailsPage() {
     </div>
   );
 }
+    
+
     
 
     
