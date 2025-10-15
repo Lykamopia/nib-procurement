@@ -8,7 +8,7 @@ import { User, UserRole } from '@/lib/types';
 
 async function findApproverId(role: UserRole): Promise<string | null> {
     const user = await prisma.user.findFirst({
-        where: { role: role.replace(/ /g, '_') }
+        where: { role: role }
     });
     return user?.id || null;
 }
@@ -23,7 +23,7 @@ export async function POST(
         const { userId, awards, awardStrategy, awardResponseDeadline, totalAwardValue } = body;
 
         const user: User | null = await prisma.user.findUnique({ where: { id: userId } });
-        if (!user || (user.role !== 'Procurement_Officer' && user.role !== 'Admin')) {
+        if (!user || (user.role !== 'ProcurementOfficer' && user.role !== 'Admin')) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
         }
         
@@ -32,9 +32,9 @@ export async function POST(
         const committeeB_Min = 10001;
         const managerProc_Min = 0; // <= 10,000
 
-        const managerProcId = await findApproverId('Manager_Procurement_Division');
-        const directorId = await findApproverId('Director_Supply_Chain_and_Property_Management');
-        const vpId = await findApproverId('VP_Resources_and_Facilities');
+        const managerProcId = await findApproverId('ManagerProcurementDivision');
+        const directorId = await findApproverId('DirectorSupplyChainandPropertyManagement');
+        const vpId = await findApproverId('VPResourcesandFacilities');
         const presidentId = await findApproverId('President');
 
         // Start transaction

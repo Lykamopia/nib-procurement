@@ -18,7 +18,7 @@ export async function POST(
     const { userId, awardResponseDeadline } = body;
 
     const user: User | null = await prisma.user.findUnique({ where: { id: userId } });
-    if (!user || user.role !== 'Procurement_Officer') {
+    if (!user || user.role !== 'ProcurementOfficer') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 

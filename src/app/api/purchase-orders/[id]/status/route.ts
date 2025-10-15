@@ -20,7 +20,7 @@ export async function PATCH(
       return NextResponse.json({ error: 'Invalid or unsupported status for manual update.' }, { status: 400 });
     }
     
-    const user = users.find(u => u.id === userId);
+    const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
