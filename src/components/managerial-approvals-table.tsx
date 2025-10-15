@@ -18,7 +18,7 @@ import {
   CardDescription,
 } from './ui/card';
 import { Button } from './ui/button';
-import { PurchaseRequisition, UserRole } from '@/lib/types';
+import { PurchaseRequisition } from '@/lib/types';
 import { format } from 'date-fns';
 import {
   Check,
@@ -47,14 +47,13 @@ import { RequisitionDetailsDialog } from './requisition-details-dialog';
 import { Badge } from './ui/badge';
 import Link from 'next/link';
 
-
 const PAGE_SIZE = 10;
 
-export function ReviewsTable() {
+export function ManagerialApprovalsTable() {
   const [requisitions, setRequisitions] = useState<PurchaseRequisition[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { user, role, token } = useAuth();
+  const { user, token } = useAuth();
   const { toast } = useToast();
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -69,19 +68,14 @@ export function ReviewsTable() {
     if (!user || !token) {
       setLoading(false);
       return;
-    };
+    }
     try {
       setLoading(true);
-      
       const response = await fetch(`/api/requisitions?forReview=true`, {
-        headers: {
-            'Authorization': `Bearer ${token}`
-        }
+        headers: { 'Authorization': `Bearer ${token}` }
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch requisitions for review');
-      }
+      if (!response.ok) throw new Error('Failed to fetch requisitions for approval');
+      
       const data: PurchaseRequisition[] = await response.json();
       setRequisitions(data);
     } catch (e) {
@@ -125,7 +119,7 @@ export function ReviewsTable() {
       if (!response.ok) throw new Error(`Failed to ${actionType} requisition`);
       toast({
         title: "Success",
-        description: `Requisition award for ${selectedRequisition.id} has been ${actionType === 'approve' ? 'approved' : 'rejected'}.`,
+        description: `Requisition ${selectedRequisition.id} has been ${actionType === 'approve' ? 'processed' : 'rejected'}.`,
       });
       fetchRequisitions();
     } catch (error) {
@@ -157,9 +151,9 @@ export function ReviewsTable() {
     <>
     <Card>
       <CardHeader>
-        <CardTitle>Award Recommendations for Committee Review</CardTitle>
+        <CardTitle>Managerial Approvals</CardTitle>
         <CardDescription>
-          Review and act on award recommendations that require your committee's approval.
+          Review and act on award recommendations that require your final approval.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -171,7 +165,7 @@ export function ReviewsTable() {
                 <TableHead>Req. ID</TableHead>
                 <TableHead>Title</TableHead>
                 <TableHead>Award Value</TableHead>
-                <TableHead>Required Review</TableHead>
+                <TableHead>Required Approval</TableHead>
                 <TableHead>Created At</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
@@ -217,8 +211,8 @@ export function ReviewsTable() {
                     <div className="flex flex-col items-center gap-4">
                       <Inbox className="h-16 w-16 text-muted-foreground/50" />
                       <div className="space-y-1">
-                        <p className="font-semibold">All Caught Up!</p>
-                        <p className="text-muted-foreground">No award recommendations are currently pending your review.</p>
+                        <p className="font-semibold">All caught up!</p>
+                        <p className="text-muted-foreground">No items are currently pending your approval.</p>
                       </div>
                     </div>
                   </TableCell>
@@ -246,10 +240,10 @@ export function ReviewsTable() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {actionType === 'approve' ? 'Approve Recommendation' : 'Reject Recommendation'} for {selectedRequisition?.id}
+              {actionType === 'approve' ? 'Approve Award' : 'Reject Award'} for {selectedRequisition?.id}
             </DialogTitle>
             <DialogDescription>
-                You are about to {actionType} this award recommendation. Please provide a comment for this action.
+                You are about to {actionType} this award. Please provide a comment for your decision.
             </DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-4">

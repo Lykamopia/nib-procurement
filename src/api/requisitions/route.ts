@@ -2,30 +2,136 @@
 'use server';
 
 import { NextResponse } from 'next/server';
-import type { PurchaseRequisition } from '@/lib/types';
+import type { PurchaseRequisition, User, UserRole, Vendor } from '@/lib/types';
 import { prisma } from '@/lib/prisma';
 import { getUserByToken } from '@/lib/auth';
 import { headers } from 'next/headers';
+import { sendEmail } from '@/services/email-service';
+import { differenceInMinutes, format } from 'date-fns';
+
+async function findApproverId(role: UserRole): Promise<string | null> {
+    const user = await prisma.user.findFirst({
+        where: { role: role.replace(/ /g, '_') }
+    });
+    return user?.id || null;
+}
+
+export async function finalizeAndNotifyVendors(requisitionId: string, awardResponseDeadline?: Date) {
+    const allQuotesForReq = await prisma.quotation.findMany({
+        where: { requisitionId },
+        include: { items: true }
+    });
+
+    const sortedByScore = allQuotesForReq.sort((a, b) => (b.finalAverageScore || 0) - (a.finalAverageScore || 0));
+
+    if (sortedByScore.length === 0) {
+        throw new Error("No quotes available to award.");
+    }
+    
+    const winner = sortedByScore[0];
+    
+    await prisma.quotation.updateMany({
+        where: { requisitionId: requisitionId, NOT: { id: winner.id } },
+        data: { status: 'Rejected', rank: null }
+    });
+    
+    await prisma.quotation.update({
+        where: { id: winner.id },
+        data: { status: 'Awarded', rank: 1 }
+    });
+
+    const standbyCandidates = sortedByScore.slice(1, 3);
+    for (let i = 0; i < standbyCandidates.length; i++) {
+        await prisma.quotation.update({
+            where: { id: standbyCandidates[i].id },
+            data: { status: 'Standby', rank: (i + 2) as 2 | 3 }
+        });
+    }
+
+    const awardResponseDurationMinutes = awardResponseDeadline
+        ? differenceInMinutes(awardResponseDeadline, new Date())
+        : undefined;
+
+    await prisma.purchaseRequisition.update({
+      where: { id: requisitionId },
+      data: {
+        status: 'RFQ_In_Progress', // Stays in this status until vendor accepts
+        awardResponseDeadline: awardResponseDeadline,
+        awardResponseDurationMinutes,
+        awardedQuoteItemIds: winner.items.map(item => item.id), // Store IDs of awarded items from the winning quote
+        currentApproverId: null, // Clear current approver
+      }
+    });
+
+    const requisition = await prisma.purchaseRequisition.findUnique({where: { id: requisitionId }});
+    const vendor = await prisma.vendor.findUnique({ where: { id: winner.vendorId }});
+
+    if (vendor && requisition) {
+        const emailHtml = `
+            <h1>Congratulations, ${vendor.name}!</h1>
+            <p>You have been awarded the contract for requisition <strong>${requisition.title}</strong>.</p>
+            <p>Please log in to the vendor portal to review the award and respond.</p>
+            ${awardResponseDeadline ? `<p><strong>This award must be accepted by ${format(awardResponseDeadline, 'PPpp')}.</strong></p>` : ''}
+            <a href="${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:9002'}/vendor/dashboard">Go to Vendor Portal</a>
+            <p>Thank you,</p>
+            <p>Nib InternationalBank Procurement</p>
+        `;
+
+        await sendEmail({
+            to: vendor.email,
+            subject: `Contract Awarded: ${requisition.title}`,
+            html: emailHtml
+        });
+    }
+}
+
 
 export async function GET(request: Request) {
-  console.log('GET /api/requisitions - Fetching requisitions from DB.');
   const { searchParams } = new URL(request.url);
-  const status = searchParams.get('status');
+  const statusParam = searchParams.get('status');
   const forVendor = searchParams.get('forVendor');
+  const approverId = searchParams.get('approverId');
+  const forReview = searchParams.get('forReview');
+
+  const authHeader = request.headers.get('Authorization');
+  const token = authHeader?.split(' ')[1];
+  let userPayload: { user: User, role: UserRole } | null = null;
+  if(token) {
+    userPayload = await getUserByToken(token);
+  }
 
   try {
     const whereClause: any = {};
-    if (status) {
-        whereClause.status = status.replace(/ /g, '_');
+    
+    if (forReview === 'true' && userPayload) {
+        const userRole = userPayload.role;
+        const reviewStatuses = [
+            'Pending_Committee_A_Recommendation',
+            'Pending_Committee_B_Review',
+            'Pending Managerial Review',
+            'Pending Director Approval',
+            'Pending VP Approval',
+            'Pending President Approval',
+            'Pending Managerial Approval'
+        ];
+
+        if (userRole === 'Committee_A_Member') {
+             whereClause.status = 'Pending_Committee_A_Recommendation';
+        } else if (userRole === 'Committee_B_Member') {
+            whereClause.status = 'Pending_Committee_B_Review';
+        } else if (userRole === 'Admin' || userRole === 'Procurement_Officer') {
+             whereClause.status = { in: reviewStatuses.map(s => s.replace(/ /g, '_')) };
+        } else {
+            // For hierarchical approvers
+            whereClause.currentApproverId = userPayload.user.id;
+        }
+
+    } else if (statusParam) {
+        const statuses = statusParam.split(',').map(s => s.trim().replace(/ /g, '_'));
+        whereClause.status = { in: statuses };
     }
 
     if (forVendor === 'true') {
-        const authHeader = request.headers.get('Authorization');
-        const token = authHeader?.split(' ')[1];
-        if (!token) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
-        const userPayload = await getUserByToken(token);
         if (!userPayload || !userPayload.user.vendorId) {
              return NextResponse.json({ error: 'Unauthorized: No valid vendor found for this user.' }, { status: 403 });
         }
@@ -35,6 +141,10 @@ export async function GET(request: Request) {
           { allowedVendorIds: { isEmpty: true } }, // 'all' vendors
           { allowedVendorIds: { has: userPayload.user.vendorId } },
         ];
+    }
+    
+    if (approverId) {
+        whereClause.currentApproverId = approverId;
     }
 
 
@@ -57,7 +167,7 @@ export async function GET(request: Request) {
             include: {
                 vendor: true
             }
-        }, // Include quotations to check vendor status
+        },
       },
       orderBy: {
         createdAt: 'desc',
@@ -84,12 +194,10 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  console.log('POST /api/requisitions - Creating new requisition in DB.');
   try {
     const body = await request.json();
-    console.log('Request body:', body);
     
-    const user = await prisma.user.findUnique({where: {name: body.requesterName}});
+    const user = await prisma.user.findFirst({where: {name: body.requesterName}});
     if (!user) {
         return NextResponse.json({ error: 'Requester user not found' }, { status: 404 });
     }
@@ -100,12 +208,17 @@ export async function POST(request: Request) {
         return acc + (price * quantity);
     }, 0);
     
+    const department = await prisma.department.findUnique({ where: { name: body.department } });
+    if (!department) {
+        return NextResponse.json({ error: 'Department not found' }, { status: 404 });
+    }
+
     const newRequisition = await prisma.purchaseRequisition.create({
         data: {
             requester: { connect: { id: user.id } },
-            requesterName: user.name,
-            department: { connect: { name: body.department } },
+            department: { connect: { id: department.id } },
             title: body.title,
+            urgency: body.urgency,
             justification: body.justification,
             status: 'Draft',
             totalPrice: totalPrice,
@@ -120,7 +233,8 @@ export async function POST(request: Request) {
             customQuestions: {
                 create: body.customQuestions?.map((q: any) => ({
                     questionText: q.questionText,
-                    questionType: q.questionType,
+                    questionType: q.questionType.replace(/-/g, '_'),
+                    isRequired: q.isRequired,
                     options: q.options || [],
                 }))
             },
@@ -140,14 +254,10 @@ export async function POST(request: Request) {
         include: { items: true, customQuestions: true, evaluationCriteria: true }
     });
 
-    // Set the transactionId to be its own ID after creation
     const finalRequisition = await prisma.purchaseRequisition.update({
         where: { id: newRequisition.id },
         data: { transactionId: newRequisition.id }
     });
-
-
-    console.log('Created new requisition in DB:', finalRequisition);
 
     await prisma.auditLog.create({
         data: {
@@ -175,17 +285,21 @@ export async function POST(request: Request) {
 export async function PATCH(
   request: Request,
 ) {
-  console.log('PATCH /api/requisitions - Updating requisition status or content in DB.');
   try {
     const body = await request.json();
-    const { id, status, userId, comment, ...updateData } = body;
+    const { id, status, userId, comment } = body;
+    const updateData = body;
+
 
     const user = await prisma.user.findUnique({where: {id: userId}});
     if (!user) {
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    const requisition = await prisma.purchaseRequisition.findUnique({ where: { id }});
+    const requisition = await prisma.purchaseRequisition.findUnique({ 
+        where: { id },
+        include: { department: true }
+    });
     if (!requisition) {
       return NextResponse.json({ error: 'Requisition not found' }, { status: 404 });
     }
@@ -205,13 +319,12 @@ export async function PATCH(
         dataToUpdate = {
             title: updateData.title,
             justification: updateData.justification,
+            urgency: updateData.urgency,
             department: { connect: { name: updateData.department } },
             totalPrice: totalPrice,
-            // When editing, it always goes back to Pending Approval if a status is provided
             status: status ? status.replace(/ /g, '_') : requisition.status,
             approver: { disconnect: true },
             approverComment: null,
-            // We need to delete old items and create new ones
             items: {
                 deleteMany: {},
                 create: updateData.items.map((item: any) => ({
@@ -221,20 +334,17 @@ export async function PATCH(
                     description: item.description || ''
                 })),
             },
-            // Same for questions and criteria
             customQuestions: {
                 deleteMany: {},
                 create: updateData.customQuestions?.map((q: any) => ({
                     questionText: q.questionText,
-                    questionType: q.questionType,
+                    questionType: q.questionType.replace(/-/g, '_'),
+                    isRequired: q.isRequired,
                     options: q.options || [],
                 })),
             },
         };
-        // Handle evaluation criteria update by deleting old and creating new
-         const oldCriteria = await prisma.evaluationCriteria.findUnique({
-            where: { requisitionId: id },
-         });
+         const oldCriteria = await prisma.evaluationCriteria.findUnique({ where: { requisitionId: id } });
          if (oldCriteria) {
              await prisma.financialCriterion.deleteMany({ where: { evaluationCriteriaId: oldCriteria.id } });
              await prisma.technicalCriterion.deleteMany({ where: { evaluationCriteriaId: oldCriteria.id } });
@@ -245,31 +355,95 @@ export async function PATCH(
             create: {
                 financialWeight: updateData.evaluationCriteria.financialWeight,
                 technicalWeight: updateData.evaluationCriteria.technicalWeight,
-                financialCriteria: {
-                    create: updateData.evaluationCriteria.financialCriteria.map((c:any) => ({ name: c.name, weight: c.weight }))
-                },
-                technicalCriteria: {
-                    create: updateData.evaluationCriteria.technicalCriteria.map((c:any) => ({ name: c.name, weight: c.weight }))
-                }
+                financialCriteria: { create: updateData.evaluationCriteria.financialCriteria.map((c:any) => ({ name: c.name, weight: c.weight })) },
+                technicalCriteria: { create: updateData.evaluationCriteria.technicalCriteria.map((c:any) => ({ name: c.name, weight: c.weight })) }
             }
         };
         
-        if (status) {
+        if (status === 'Pending Approval') {
+            const department = await prisma.department.findUnique({ where: { id: requisition.departmentId! } });
+            if (department?.headId) { dataToUpdate.currentApprover = { connect: { id: department.headId } }; }
             auditAction = 'SUBMIT_FOR_APPROVAL';
             auditDetails = `Requisition ${id} ("${updateData.title}") was edited and submitted for approval.`;
         }
 
     } else if (status) { // This handles normal status changes (approve, reject, submit)
         dataToUpdate.status = status.replace(/ /g, '_');
-        if (status === 'Approved' || status === 'Rejected') {
-            dataToUpdate.approver = { connect: { id: userId } };
-            dataToUpdate.approverComment = comment;
-            auditAction = status === 'Approved' ? 'APPROVE_REQUISITION' : 'REJECT_REQUISITION';
-            auditDetails = `Requisition ${id} was ${status.toLowerCase()} with comment: "${comment}".`
+        dataToUpdate.approver = { connect: { id: userId } };
+        dataToUpdate.approverComment = comment;
+
+        if (status === 'Approved') {
+            auditAction = 'APPROVE_REQUISITION';
+            auditDetails = `Requisition ${id} was approved with comment: "${comment}".`;
+            let nextApproverId: string | null = null;
+            let nextStatus: string | null = null;
+
+            // This is a committee or hierarchical approval
+            if (requisition.status.startsWith('Pending')) {
+                const totalValue = requisition.totalPrice;
+                 switch (requisition.status) {
+                    // Step 1: Committee Reviews
+                    case 'Pending_Committee_A_Recommendation':
+                         // After Committee A, it always goes to hierarchical review based on value.
+                        if (totalValue > 1000000) {
+                            nextApproverId = await findApproverId('VP_Resources_and_Facilities');
+                            nextStatus = 'Pending VP Approval';
+                        } else { // 200,001 to 1,000,000
+                            nextApproverId = await findApproverId('Director_Supply_Chain_and_Property_Management');
+                            nextStatus = 'Pending Director Approval';
+                        }
+                        break;
+                    case 'Pending_Committee_B_Review':
+                         // After Committee B, it goes to Managerial Review
+                        nextApproverId = await findApproverId('Manager_Procurement_Division');
+                        nextStatus = 'Pending Managerial Review';
+                        break;
+
+                    // Step 2: Hierarchical Reviews
+                    case 'Pending Managerial Review': // From 10,001 to 200,000
+                        nextApproverId = await findApproverId('Director_Supply_Chain_and_Property_Management');
+                        nextStatus = 'Pending Director Approval';
+                        break;
+                    case 'Pending Director Approval': // From 200,001 to 1M
+                        nextApproverId = await findApproverId('VP_Resources_and_Facilities');
+                        nextStatus = 'Pending VP Approval';
+                        break;
+                    case 'Pending VP Approval': // > 1M
+                        nextApproverId = await findApproverId('President');
+                        nextStatus = 'Pending President Approval';
+                        break;
+                    
+                    // Final Approvals in the chain
+                    case 'Pending Managerial Approval': // <=10k - Final approval
+                    case 'Pending President Approval': // >1M - Final approval
+                        nextStatus = 'Approved'; // Final state before vendor notification
+                        nextApproverId = null;
+                        break;
+                    
+                    default: // Initial departmental approval
+                        nextStatus = 'Approved';
+                        nextApproverId = null;
+                }
+            } else { // Initial departmental approval
+                 nextStatus = 'Approved';
+                 nextApproverId = null;
+            }
+
+            dataToUpdate.status = nextStatus?.replace(/ /g, '_');
+            dataToUpdate.currentApproverId = nextApproverId;
+
+
+        } else if (status === 'Rejected') {
+            dataToUpdate.currentApproverId = null;
+            auditAction = 'REJECT_REQUISITION';
+            auditDetails = `Requisition ${id} was rejected with comment: "${comment}".`;
         } else if (status === 'Pending Approval') {
             auditAction = 'SUBMIT_FOR_APPROVAL';
             auditDetails = `Draft requisition ${id} was submitted for approval.`;
+            const department = await prisma.department.findUnique({ where: { id: requisition.departmentId! } });
+            if (department?.headId) { dataToUpdate.currentApproverId = department.headId; }
         }
+
     } else {
         return NextResponse.json({ error: 'No valid update action specified.' }, { status: 400 });
     }
@@ -327,7 +501,6 @@ export async function DELETE(
       return NextResponse.json({ error: `Cannot delete a requisition with status "${requisition.status}".` }, { status: 403 });
     }
     
-    // Need to perform cascading deletes manually if not handled by the database schema
     await prisma.requisitionItem.deleteMany({ where: { requisitionId: id } });
     await prisma.customQuestion.deleteMany({ where: { requisitionId: id } });
     
