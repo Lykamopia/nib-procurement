@@ -11,7 +11,7 @@ import { differenceInMinutes, format } from 'date-fns';
 
 async function findApproverId(role: UserRole): Promise<string | null> {
     const user = await prisma.user.findFirst({
-        where: { role: role.replace(/ /g, '_') }
+        where: { role: role }
     });
     return user?.id || null;
 }
@@ -59,7 +59,7 @@ export async function finalizeAndNotifyVendors(requisitionId: string, awardRespo
         awardResponseDeadline: awardResponseDeadline,
         awardResponseDurationMinutes,
         awardedQuoteItemIds: winner.items.map(item => item.id), // Store IDs of awarded items from the winning quote
-        currentApproverId: null, // Clear current approver
+        currentApprover: { disconnect: true },
       }
     });
 
@@ -104,32 +104,32 @@ export async function GET(request: Request) {
     const whereClause: any = {};
     
     if (forReview === 'true' && userPayload) {
-        const userRole = userPayload.role.replace(/ /g, '_');
+        const userRole = userPayload.role;
         const reviewStatuses = [
             'Pending_Committee_A_Recommendation',
             'Pending_Committee_B_Review',
-            'Pending Managerial Review',
-            'Pending Director Approval',
-            'Pending VP Approval',
-            'Pending President Approval',
-            'Pending Managerial Approval'
+            'Pending_Managerial_Review',
+            'Pending_Director_Approval',
+            'Pending_VP_Approval',
+            'Pending_President_Approval',
+            'Pending_Managerial_Approval'
         ];
 
         const isHierarchicalApprover = [
-            'Manager_Procurement_Division',
-            'Director_Supply_Chain_and_Property_Management',
-            'VP_Resources_and_Facilities',
+            'ManagerProcurement',
+            'DirectorSupplyChain',
+            'VPResources',
             'President'
         ].includes(userRole);
 
-        if (userRole === 'Committee_A_Member') {
+        if (userRole === 'CommitteeAMember') {
              whereClause.status = 'Pending_Committee_A_Recommendation';
-        } else if (userRole === 'Committee_B_Member') {
+        } else if (userRole === 'CommitteeBMember') {
             whereClause.status = 'Pending_Committee_B_Review';
         } else if (isHierarchicalApprover) {
             whereClause.currentApproverId = userPayload.user.id;
-        } else if (userRole === 'Admin' || userRole === 'Procurement_Officer') {
-             whereClause.status = { in: reviewStatuses.map(s => s.replace(/ /g, '_')) };
+        } else if (userRole === 'Admin' || userRole === 'ProcurementOfficer') {
+             whereClause.status = { in: reviewStatuses };
         } else {
              return NextResponse.json([]);
         }
@@ -184,7 +184,7 @@ export async function GET(request: Request) {
 
     const formattedRequisitions = requisitions.map(req => ({
         ...req,
-        status: req.status.replace(/_/g, ' '),
+        status: req.status.replace(/ /g, '_'),
         department: req.department?.name || 'N/A',
         requesterName: req.requester.name,
         financialCommitteeMemberIds: req.financialCommitteeMembers.map(m => m.id),
@@ -241,7 +241,7 @@ export async function POST(request: Request) {
             customQuestions: {
                 create: body.customQuestions?.map((q: any) => ({
                     questionText: q.questionText,
-                    questionType: q.questionType.replace(/-/g, '_'),
+                    questionType: q.questionType,
                     isRequired: q.isRequired,
                     options: q.options || [],
                 }))
@@ -346,7 +346,7 @@ export async function PATCH(
                 deleteMany: {},
                 create: updateData.customQuestions?.map((q: any) => ({
                     questionText: q.questionText,
-                    questionType: q.questionType.replace(/-/g, '_'),
+                    questionType: q.questionType,
                     isRequired: q.isRequired,
                     options: q.options || [],
                 })),
@@ -393,32 +393,32 @@ export async function PATCH(
                 const totalValue = requisition.totalPrice;
                 switch (requisition.status) {
                     case 'Pending_Committee_A_Recommendation':
-                        nextApproverId = await findApproverId('VP_Resources_and_Facilities');
-                        nextStatus = 'Pending VP Approval';
+                        nextApproverId = await findApproverId('VPResources');
+                        nextStatus = 'Pending_VP_Approval';
                         break;
                     case 'Pending_Committee_B_Review':
                          if (totalValue > 200000) { // Should not happen but as a safeguard
-                            nextApproverId = await findApproverId('Director_Supply_Chain_and_Property_Management');
-                            nextStatus = 'Pending Director Approval';
+                            nextApproverId = await findApproverId('DirectorSupplyChain');
+                            nextStatus = 'Pending_Director_Approval';
                         } else {
-                            nextApproverId = await findApproverId('Manager_Procurement_Division');
-                            nextStatus = 'Pending Managerial Approval';
+                            nextApproverId = await findApproverId('ManagerProcurement');
+                            nextStatus = 'Pending_Managerial_Approval';
                         }
                         break;
-                     case 'Pending Managerial Review': // From 10k to 200k
-                        nextApproverId = await findApproverId('Director_Supply_Chain_and_Property_Management');
-                        nextStatus = 'Pending Director Approval';
+                     case 'Pending_Managerial_Review': // From 10k to 200k
+                        nextApproverId = await findApproverId('DirectorSupplyChain');
+                        nextStatus = 'Pending_Director_Approval';
                         break;
-                    case 'Pending Director Approval': // From 200k to 1M
-                        nextApproverId = await findApproverId('VP_Resources_and_Facilities');
-                        nextStatus = 'Pending VP Approval';
+                    case 'Pending_Director_Approval': // From 200k to 1M
+                        nextApproverId = await findApproverId('VPResources');
+                        nextStatus = 'Pending_VP_Approval';
                         break;
-                    case 'Pending VP Approval': // > 1M
+                    case 'Pending_VP_Approval': // > 1M
                         nextApproverId = await findApproverId('President');
-                        nextStatus = 'Pending President Approval';
+                        nextStatus = 'Pending_President_Approval';
                         break;
-                    case 'Pending Managerial Approval': // <=10k - Final approval
-                    case 'Pending President Approval': // Final approval
+                    case 'Pending_Managerial_Approval': // <=10k - Final approval
+                    case 'Pending_President_Approval': // Final approval
                         nextStatus = 'Approved'; // Final state before vendor notification
                         nextApproverId = null;
                         break;
@@ -431,7 +431,7 @@ export async function PATCH(
                  nextApproverId = null;
             }
 
-            dataToUpdate.status = nextStatus?.replace(/ /g, '_');
+            dataToUpdate.status = nextStatus;
             if (nextApproverId) {
                 dataToUpdate.currentApprover = { connect: { id: nextApproverId } };
             } else {
@@ -477,7 +477,7 @@ export async function PATCH(
   } catch (error) {
     console.error('Failed to update requisition:', error);
     if (error instanceof Error) {
-        return NextResponse.json({ error: 'Failed to process request', details: error.message }, { status: 400 });
+        return NextResponse.json({ error: 'Failed to process request', details: error.message }, { status: 500 });
     }
     return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
   }
