@@ -3,18 +3,18 @@
 export type UserRole =
   | 'Requester'
   | 'Approver'
-  | 'Procurement Officer'
+  | 'ProcurementOfficer'
   | 'Finance'
   | 'Admin'
   | 'Receiving'
   | 'Vendor'
-  | 'Committee Member'
+  | 'CommitteeMember'
   | 'Committee'
-  | 'Committee_A_Member'
-  | 'Committee_B_Member'
-  | 'Manager_Procurement_Division'
-  | 'Director_Supply_Chain_and_Property_Management'
-  | 'VP_Resources_and_Facilities'
+  | 'CommitteeAMember'
+  | 'CommitteeBMember'
+  | 'ManagerProcurementDivision'
+  | 'DirectorSupplyChainandPropertyManagement'
+  | 'VPResourcesandFacilities'
   | 'President';
 
 export type CommitteeAssignment = {
@@ -121,6 +121,7 @@ export type PurchaseRequisition = {
   id:string; // Will be UUID
   transactionId: string;
   requesterId: string; // User ID
+  requesterName?: string;
   title: string;
   department: string;
   departmentId: string;

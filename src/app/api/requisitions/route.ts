@@ -11,7 +11,7 @@ import { differenceInMinutes, format } from 'date-fns';
 
 async function findApproverId(role: UserRole): Promise<string | null> {
     const user = await prisma.user.findFirst({
-        where: { role: role.replace(/ /g, '_') }
+        where: { role: role }
     });
     return user?.id || null;
 }
@@ -104,7 +104,7 @@ export async function GET(request: Request) {
     const whereClause: any = {};
     
     if (forReview === 'true' && userPayload) {
-        const userRole = userPayload.role.replace(/ /g, '_');
+        const userRole = userPayload.role;
         const reviewStatuses = [
             'Pending_Committee_A_Recommendation',
             'Pending_Committee_B_Review',
@@ -116,20 +116,20 @@ export async function GET(request: Request) {
         ];
 
         const isHierarchicalApprover = [
-            'Manager_Procurement_Division',
-            'Director_Supply_Chain_and_Property_Management',
-            'VP_Resources_and_Facilities',
+            'ManagerProcurementDivision',
+            'DirectorSupplyChainandPropertyManagement',
+            'VPResourcesandFacilities',
             'President'
         ].includes(userRole);
 
-        if (userRole === 'Committee_A_Member') {
+        if (userRole === 'CommitteeAMember') {
              whereClause.status = 'Pending_Committee_A_Recommendation';
-        } else if (userRole === 'Committee_B_Member') {
+        } else if (userRole === 'CommitteeBMember') {
             whereClause.status = 'Pending_Committee_B_Review';
         } else if (isHierarchicalApprover) {
             whereClause.currentApproverId = userPayload.user.id;
-        } else if (userRole === 'Admin' || userRole === 'Procurement_Officer') {
-             whereClause.status = { in: reviewStatuses.map(s => s.replace(/ /g, '_')) };
+        } else if (userRole === 'Admin' || userRole === 'ProcurementOfficer') {
+             whereClause.status = { in: reviewStatuses };
         } else {
              return NextResponse.json([]);
         }
@@ -184,7 +184,6 @@ export async function GET(request: Request) {
 
     const formattedRequisitions = requisitions.map(req => ({
         ...req,
-        status: req.status.replace(/_/g, ' '),
         department: req.department?.name || 'N/A',
         requesterName: req.requester.name,
         financialCommitteeMemberIds: req.financialCommitteeMembers.map(m => m.id),
@@ -393,24 +392,24 @@ export async function PATCH(
                 const totalValue = requisition.totalPrice;
                 switch (requisition.status) {
                     case 'Pending_Committee_A_Recommendation':
-                        nextApproverId = await findApproverId('VP_Resources_and_Facilities');
+                        nextApproverId = await findApproverId('VPResourcesandFacilities');
                         nextStatus = 'Pending VP Approval';
                         break;
                     case 'Pending_Committee_B_Review':
                          if (totalValue > 200000) { // Should not happen but as a safeguard
-                            nextApproverId = await findApproverId('Director_Supply_Chain_and_Property_Management');
+                            nextApproverId = await findApproverId('DirectorSupplyChainandPropertyManagement');
                             nextStatus = 'Pending Director Approval';
                         } else {
-                            nextApproverId = await findApproverId('Manager_Procurement_Division');
+                            nextApproverId = await findApproverId('ManagerProcurementDivision');
                             nextStatus = 'Pending Managerial Approval';
                         }
                         break;
                      case 'Pending Managerial Review': // From 10k to 200k
-                        nextApproverId = await findApproverId('Director_Supply_Chain_and_Property_Management');
+                        nextApproverId = await findApproverId('DirectorSupplyChainandPropertyManagement');
                         nextStatus = 'Pending Director Approval';
                         break;
                     case 'Pending Director Approval': // From 200k to 1M
-                        nextApproverId = await findApproverId('VP_Resources_and_Facilities');
+                        nextApproverId = await findApproverId('VPResourcesandFacilities');
                         nextStatus = 'Pending VP Approval';
                         break;
                     case 'Pending VP Approval': // > 1M
