@@ -2629,7 +2629,7 @@ export default function QuotationDetailsPage() {
       if (status === 'RFQ In Progress') {
           const deadlinePassed = requisition.deadline ? isPast(new Date(requisition.deadline)) : false;
           if (deadlinePassed) {
-              return 'award';
+              return 'committee';
           }
           return 'rfq';
       }
@@ -2682,14 +2682,10 @@ export default function QuotationDetailsPage() {
   }, [user, rfqSenderSetting]);
 
 
-  if (loading || !user) {
+  if (loading || !user || !requisition) {
      return <div className="flex items-center justify-center p-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
   
-  if (!requisition) {
-     return <div className="text-center p-8">Requisition not found.</div>;
-  }
-
   const currentStep = getCurrentStep();
 
   const formatEvaluationCriteria = (criteria?: EvaluationCriteria) => {
@@ -2787,11 +2783,11 @@ export default function QuotationDetailsPage() {
         )}
 
 
-        {(currentStep === 'award' || currentStep === 'finalize' || currentStep === 'completed') && (
+        {(currentStep === 'award' || currentStep === 'finalize' || currentStep === 'completed' || currentStep === 'committee') && (
             <>
                 {/* Always render committee management when in award step so dialog can open */}
-                {(currentStep === 'award' || currentStep === 'finalize' || currentStep === 'completed') && (role === 'ProcurementOfficer' || role === 'Admin') && (
-                     <div className="hidden">
+                {(currentStep !== 'rfq') && (role === 'ProcurementOfficer' || role === 'Admin') && (
+                     <div className={currentStep === 'committee' ? '' : 'hidden'}>
                         <CommitteeManagement
                             requisition={requisition}
                             onCommitteeUpdated={fetchRequisitionAndQuotes}

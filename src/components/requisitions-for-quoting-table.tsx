@@ -55,9 +55,8 @@ export function RequisitionsForQuotingTable() {
                 const assignedReqs = allUsers.find(u => u.id === user.id)?.committeeAssignments?.map(a => a.requisitionId) || [];
                 relevantRequisitions = allRequisitions.filter(r => assignedReqs.includes(r.id));
             } else if (role === 'ProcurementOfficer' || role === 'Committee') {
-                // Show all requisitions that are approved or beyond.
                 const excludedStatuses = ['Draft', 'Pending_Approval', 'Rejected'];
-                relevantRequisitions = allRequisitions.filter(r => !excludedStatuses.includes(r.status.replace(/ /g, '_')));
+                relevantRequisitions = allRequisitions.filter(r => !excludedStatuses.includes(r.status));
             }
 
             setRequisitions(relevantRequisitions);
@@ -90,29 +89,28 @@ export function RequisitionsForQuotingTable() {
     const isAccepted = req.quotations?.some(q => q.status === 'Accepted' || q.status === 'Partially_Awarded');
     const isPartiallyAwarded = req.quotations?.some(q => q.status === 'Partially_Awarded');
     
-    // Convert status from underscore to space for easier matching
-    const status = req.status.replace(/_/g, ' ');
+    const status = req.status;
 
-    if (status.startsWith('Pending')) {
-        return <Badge variant="destructive">{status}</Badge>;
+    if (status === 'Approved') {
+        return <Badge variant="default" className="bg-blue-500 hover:bg-blue-600 text-white">Ready for RFQ</Badge>;
     }
-    if (isAccepted || status === 'PO Created') {
+    if (status.startsWith('Pending')) {
+        return <Badge variant="destructive">{status.replace(/_/g, ' ')}</Badge>;
+    }
+    if (isAccepted || status === 'PO_Created') {
         return <Badge variant="default">PO Created</Badge>;
     }
      if (isAwarded || isPartiallyAwarded) {
         return <Badge variant="secondary">Vendor Awarded</Badge>;
     }
-    if (status === 'RFQ In Progress' && !deadlinePassed) {
+    if (status === 'RFQ_In_Progress' && !deadlinePassed) {
         return <Badge variant="outline">Accepting Quotes</Badge>;
     }
-     if (status === 'RFQ In Progress' && deadlinePassed) {
+     if (status === 'RFQ_In_Progress' && deadlinePassed) {
         return <Badge variant="secondary">Scoring in Progress</Badge>;
     }
-    if (status === 'Approved') {
-        return <Badge variant="default" className="bg-blue-500 hover:bg-blue-600 text-white">Ready for RFQ</Badge>;
-    }
     
-    return <Badge variant="outline">{status}</Badge>;
+    return <Badge variant="outline">{status.replace(/_/g, ' ')}</Badge>;
   }
 
   if (loading) return <div className="flex h-64 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
