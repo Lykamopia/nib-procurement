@@ -11,7 +11,11 @@ export type UserRole =
   | 'Committee Member'
   | 'Committee'
   | 'Committee_A_Member'
-  | 'Committee_B_Member';
+  | 'Committee_B_Member'
+  | 'Manager_Procurement_Division'
+  | 'Director_Supply_Chain_and_Property_Management'
+  | 'VP_Resources_and_Facilities'
+  | 'President';
 
 export type CommitteeAssignment = {
   requisitionId: string;
@@ -53,7 +57,11 @@ export type RequisitionStatus =
   | 'Closed'
   | 'Pending Managerial Approval'
   | 'Pending_Committee_B_Review'
-  | 'Pending_Committee_A_Recommendation';
+  | 'Pending_Committee_A_Recommendation'
+  | 'Pending Managerial Review'
+  | 'Pending Director Approval'
+  | 'Pending VP Approval'
+  | 'Pending President Approval';
 
 export type Urgency = 'Low' | 'Medium' | 'High' | 'Critical';
 
@@ -85,6 +93,8 @@ export type Contract = {
   requisition: { title: string };
   vendorId: string;
   vendor: { name: string };
+  senderId: string;
+  sender: User;
   startDate: Date;
   endDate: Date;
   filePath?: string;
@@ -111,7 +121,6 @@ export type PurchaseRequisition = {
   id:string; // Will be UUID
   transactionId: string;
   requesterId: string; // User ID
-  requesterName: string;
   title: string;
   department: string;
   departmentId: string;
@@ -204,9 +213,11 @@ export type QuoteAnswer = {
 export type QuotationStatus = 'Submitted' | 'Awarded' | 'Partially_Awarded' | 'Rejected' | 'Standby' | 'Invoice Submitted' | 'Failed' | 'Accepted' | 'Declined';
 
 export type Score = {
+  id: string;
   criterionId: string;
   score: number; // 0-100
   comment?: string;
+  type: 'FINANCIAL' | 'TECHNICAL';
 }
 
 export type ItemScore = {
@@ -219,7 +230,7 @@ export type ItemScore = {
 export type CommitteeScoreSet = {
     id: string;
     scorerId: string;
-    scorerName: string;
+    scorer: { name?: string };
     itemScores: ItemScore[];
     finalScore: number;
     committeeComment?: string;
@@ -291,8 +302,8 @@ export type GoodsReceiptNote = {
     id: string;
     transactionId: string;
     purchaseOrderId: string;
-    receivedBy: User; 
-    receivedById: string; 
+    receivedBy: User;
+    receivedById: string;
     receivedDate: Date;
     items: ReceiptItem[];
     photos?: { name: string; url: string }[];

@@ -56,6 +56,10 @@ async function main() {
       { name: 'Committee_A_Member', description: 'Reviews high-value procurements.' },
       { name: 'Committee_B_Member', description: 'Reviews mid-value procurements.' },
       { name: 'Committee', description: 'Manages evaluation committees.' },
+      { name: 'Manager_Procurement_Division', description: 'Approves low-value awards.' },
+      { name: 'Director_Supply_Chain_and_Property_Management', description: 'Approves mid-value awards.' },
+      { name: 'VP_Resources_and_Facilities', description: 'Approves high-value awards.' },
+      { name: 'President', description: 'Approves very-high-value awards.' },
   ];
 
   // Seed Roles
@@ -166,7 +170,7 @@ async function main() {
 
   // Seed Requisitions
   for (const requisition of seedData.requisitions) {
-      const { 
+      const {
           items, 
           customQuestions, 
           evaluationCriteria, 
@@ -186,6 +190,7 @@ async function main() {
               ...reqData,
               status: reqData.status.replace(/ /g, '_') as any,
               urgency: reqData.urgency || 'Low',
+              totalPrice: items.reduce((acc, item) => acc + (item.unitPrice || 0) * item.quantity, 0),
               requester: { connect: { id: requesterId } },
               approver: approverId ? { connect: { id: approverId } } : undefined,
               currentApprover: currentApproverId ? { connect: { id: currentApproverId } } : undefined,

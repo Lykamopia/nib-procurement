@@ -59,7 +59,7 @@ export const rolePermissions: Record<UserRole, string[]> = {
     '/records',
     '/audit-log',
     '/settings',
-    '/reviews', // Add reviews to PO
+    '/reviews',
   ],
   'Committee': [
     '/dashboard',
@@ -96,10 +96,10 @@ export const rolePermissions: Record<UserRole, string[]> = {
     '/records'
   ],
   'Committee_A_Member': [
-    '/dashboard',
-    '/reviews',
-    '/quotations',
-    '/records',
+      '/dashboard',
+      '/reviews',
+      '/quotations',
+      '/records',
   ],
   'Committee_B_Member': [
       '/dashboard',
@@ -107,4 +107,8 @@ export const rolePermissions: Record<UserRole, string[]> = {
       '/quotations',
       '/records',
   ],
+  'Manager_Procurement_Division': ['/dashboard', '/reviews', '/records'],
+  'Director_Supply_Chain_and_Property_Management': ['/dashboard', '/reviews', '/records'],
+  'VP_Resources_and_Facilities': ['/dashboard', '/reviews', '/records'],
+  'President': ['/dashboard', '/reviews', '/records'],
 };

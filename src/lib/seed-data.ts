@@ -82,7 +82,7 @@ const seedData: AppData = {
                 { id: 'ITEM-1', name: 'MacBook Pro 16-inch', quantity: 5, unitPrice: 2499, description: '' },
                 { id: 'ITEM-2', name: '4K Monitor', quantity: 5, unitPrice: 799, description: '' }
             ],
-            totalPrice: 0,
+            totalPrice: 16490,
             justification: 'Current laptops are over 5 years old and struggling with new design software.',
             status: 'Approved',
             urgency: 'Low',
@@ -103,7 +103,7 @@ const seedData: AppData = {
                 { id: 'ITEM-3', name: 'Printer Paper (Case)', quantity: 10, unitPrice: 45, description: '' },
                 { id: 'ITEM-4', name: 'Toner Cartridge', quantity: 4, unitPrice: 150, description: '' }
             ],
-            totalPrice: 0,
+            totalPrice: 1050,
             justification: 'Standard quarterly replenishment of office supplies.',
             status: 'Pending Approval',
             urgency: 'Low',
@@ -120,7 +120,7 @@ const seedData: AppData = {
             items: [
               { id: 'ITEM-5', name: 'Project Management Tool (Annual)', quantity: 20, unitPrice: 240, description: '' },
             ],
-            totalPrice: 0,
+            totalPrice: 4800,
             justification: 'Annual renewal for critical project management software.',
             status: 'PO Created',
             urgency: 'Medium',
@@ -224,7 +224,7 @@ const seedData: AppData = {
     users: [
         { id: '1', name: 'Alice', email: 'alice@example.com', password: 'password123', role: 'Requester', departmentId: 'DEPT-1', department: 'Design', approvalLimit: 0 },
         { id: '2', name: 'Bob', email: 'bob@example.com', password: 'password123', role: 'Approver', departmentId: 'DEPT-2', department: 'Operations', approvalLimit: 10000, managerId: '12' },
-        { id: '3', name: 'Charlie', email: 'charlie@example.com', password: 'password123', role: 'Procurement_Officer', departmentId: 'DEPT-2', department: 'Operations', approvalLimit: 50000, managerId: '12' },
+        { id: '3', name: 'Charlie', email: 'charlie@example.com', password: 'password123', role: 'Procurement_Officer', departmentId: 'DEPT-2', department: 'Operations', approvalLimit: 0, managerId: '15' },
         { id: '4', name: 'David', email: 'david@example.com', password: 'password123', role: 'Receiving', departmentId: 'DEPT-2', department: 'Operations', approvalLimit: 0 },
         { id: '5', name: 'Eve', email: 'eve@example.com', password: 'password123', role: 'Finance', departmentId: 'DEPT-5', department: 'Finance', approvalLimit: 0 },
         { id: '6', name: 'Apple Inc.', email: 'tade2024bdugit@gmail.com', password: 'password123', role: 'Vendor', vendorId: 'VENDOR-001', approvalLimit: 0 },
@@ -233,9 +233,13 @@ const seedData: AppData = {
         { id: '9', name: 'Fiona', email: 'fiona@example.com', password: 'password123', role: 'Committee_Member', departmentId: 'DEPT-1', department: 'Design', approvalLimit: 0 },
         { id: '10', name: 'George', email: 'george@example.com', password: 'password123', role: 'Committee_Member', departmentId: 'DEPT-3', department: 'IT', approvalLimit: 0 },
         { id: '11', name: 'Hannah', email: 'hannah@example.com', password: 'password123', role: 'Committee', departmentId: 'DEPT-2', department: 'Operations', approvalLimit: 0 },
-        { id: '12', name: 'Diana', email: 'diana@example.com', password: 'password123', role: 'Admin', departmentId: 'DEPT-2', department: 'Operations', approvalLimit: 1000000 },
+        { id: '12', name: 'Diana', email: 'diana@example.com', password: 'password123', role: 'Admin', departmentId: 'DEPT-2', department: 'Operations', approvalLimit: 10000000 },
         { id: '13', name: 'Irene', email: 'irene@example.com', password: 'password123', role: 'Committee_A_Member', departmentId: 'DEPT-5', department: 'Finance', approvalLimit: 0 },
         { id: '14', name: 'Jack', email: 'jack@example.com', password: 'password123', role: 'Committee_B_Member', departmentId: 'DEPT-4', department: 'Marketing', approvalLimit: 0 },
+        { id: '15', name: 'Procurement Manager', email: 'manager.proc@example.com', password: 'password123', role: 'Manager_Procurement_Division', departmentId: 'DEPT-2', department: 'Operations', approvalLimit: 200000 },
+        { id: '16', name: 'Supply Chain Director', email: 'director.supply@example.com', password: 'password123', role: 'Director_Supply_Chain_and_Property_Management', departmentId: 'DEPT-2', department: 'Operations', approvalLimit: 1000000 },
+        { id: '17', name: 'VP of Resources', email: 'vp.resources@example.com', password: 'password123', role: 'VP_Resources_and_Facilities', departmentId: 'DEPT-2', department: 'Operations', approvalLimit: 5000000 },
+        { id: '18', name: 'President', email: 'president@example.com', password: 'password123', role: 'President', departmentId: 'DEPT-2', department: 'Operations', approvalLimit: 100000000 },
     ],
     departments: [
         { id: 'DEPT-1', name: 'Design', description: 'Handles all creative and design tasks.', headId: '1' },

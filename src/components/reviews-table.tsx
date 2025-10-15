@@ -19,7 +19,7 @@ import {
   CardDescription,
 } from './ui/card';
 import { Button } from './ui/button';
-import { PurchaseRequisition } from '@/lib/types';
+import { PurchaseRequisition, UserRole } from '@/lib/types';
 import { format } from 'date-fns';
 import {
   Check,
@@ -111,7 +111,6 @@ export function ReviewsTable() {
     if (!selectedRequisition || !actionType || !user) return;
     
     setActiveActionId(selectedRequisition.id);
-    const isCommitteeApproval = selectedRequisition.status.includes('Committee');
 
     try {
       const response = await fetch(`/api/requisitions`, {
@@ -122,7 +121,6 @@ export function ReviewsTable() {
             status: actionType === 'approve' ? 'Approved' : 'Rejected', 
             userId: user.id, 
             comment,
-            isCommitteeApproval,
         }),
       });
       if (!response.ok) throw new Error(`Failed to ${actionType} requisition`);
@@ -130,7 +128,7 @@ export function ReviewsTable() {
         title: "Success",
         description: `Requisition award for ${selectedRequisition.id} has been ${actionType === 'approve' ? 'approved' : 'rejected'}.`,
       });
-      fetchRequisitions(); // Re-fetch data to update the table
+      fetchRequisitions();
     } catch (error) {
       toast({
         variant: 'destructive',
@@ -152,12 +150,6 @@ export function ReviewsTable() {
     return requisitions.slice(startIndex, startIndex + PAGE_SIZE);
   }, [requisitions, currentPage]);
 
-  const getCommitteeType = (status: string) => {
-    if (status.includes('Committee A')) return 'Committee A';
-    if (status.includes('Committee B')) return 'Committee B';
-    return 'N/A';
-  }
-
 
   if (loading) return <div className="flex h-64 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   if (error) return <div className="text-destructive text-center p-8">{error}</div>;
@@ -168,7 +160,7 @@ export function ReviewsTable() {
       <CardHeader>
         <CardTitle>Award Recommendations for Review</CardTitle>
         <CardDescription>
-          Review and act on high-value award recommendations that require your committee's approval.
+          Review and act on high-value award recommendations that require your approval.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -180,7 +172,7 @@ export function ReviewsTable() {
                 <TableHead>Req. ID</TableHead>
                 <TableHead>Title</TableHead>
                 <TableHead>Award Value</TableHead>
-                <TableHead>Committee</TableHead>
+                <TableHead>Required Review</TableHead>
                 <TableHead>Created At</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
@@ -195,7 +187,7 @@ export function ReviewsTable() {
                         <TableCell className="font-medium text-primary">{req.id}</TableCell>
                         <TableCell>{req.title}</TableCell>
                         <TableCell className="font-semibold">{req.totalPrice.toLocaleString()} ETB</TableCell>
-                        <TableCell><Badge variant="secondary">{getCommitteeType(req.status)}</Badge></TableCell>
+                        <TableCell><Badge variant="secondary">{req.status.replace(/_/g, ' ')}</Badge></TableCell>
                         <TableCell>{format(new Date(req.createdAt), 'PP')}</TableCell>
                         <TableCell>
                         <div className="flex gap-2">
@@ -209,7 +201,7 @@ export function ReviewsTable() {
                               </Button>
                               <Button variant="default" size="sm" onClick={() => handleAction(req, 'approve')} disabled={isLoadingAction}>
                                 {isLoadingAction && actionType === 'approve' ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Check className="mr-2 h-4 w-4" />} 
-                                Approve & Recommend
+                                Approve
                             </Button>
                             <Button variant="destructive" size="sm" onClick={() => handleAction(req, 'reject')} disabled={isLoadingAction}>
                                 {isLoadingAction && actionType === 'reject' ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <X className="mr-2 h-4 w-4" />} 

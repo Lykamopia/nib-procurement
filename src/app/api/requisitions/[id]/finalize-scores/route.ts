@@ -3,8 +3,15 @@
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { User } from '@/lib/types';
+import { User, UserRole } from '@/lib/types';
 
+
+async function findApproverId(role: UserRole): Promise<string | null> {
+    const user = await prisma.user.findFirst({
+        where: { role: role.replace(/ /g, '_') }
+    });
+    return user?.id || null;
+}
 
 export async function POST(
   request: Request,
@@ -20,11 +27,15 @@ export async function POST(
             return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
         }
         
+        // Define approval chain thresholds and roles
         const committeeA_Min = 200001;
-        const committeeB_Min = 10000;
+        const committeeB_Min = 10001;
+        const managerProc_Min = 0; // <= 10,000
 
-        let nextStatus: string;
-        let auditDetails: string;
+        const managerProcId = await findApproverId('Manager_Procurement_Division');
+        const directorId = await findApproverId('Director_Supply_Chain_and_Property_Management');
+        const vpId = await findApproverId('VP_Resources_and_Facilities');
+        const presidentId = await findApproverId('President');
 
         // Start transaction
         const result = await prisma.$transaction(async (tx) => {
@@ -54,57 +65,52 @@ export async function POST(
                 });
             }
             
-            // 2. Update standby and rejected quotes
             const standbyQuotes = otherQuotes.slice(0, 2);
-            const rejectedQuotes = otherQuotes.slice(2);
-            
             if (standbyQuotes.length > 0) {
-                 await tx.quotation.updateMany({
-                    where: { id: { in: standbyQuotes.map(q => q.id) } },
-                    data: { status: 'Standby' }
-                });
-                // Set ranks for standby quotes individually
                 for (let i = 0; i < standbyQuotes.length; i++) {
-                    await tx.quotation.update({
-                        where: { id: standbyQuotes[i].id },
-                        data: { rank: (i + 2) as 2 | 3 }
-                    });
+                    await tx.quotation.update({ where: { id: standbyQuotes[i].id }, data: { status: 'Standby', rank: (i + 2) as 2 | 3 } });
                 }
             }
             
-            if (rejectedQuotes.length > 0) {
-                await tx.quotation.updateMany({
-                    where: { id: { in: rejectedQuotes.map(q => q.id) } },
-                    data: { status: 'Rejected', rank: null }
-                });
+            const rejectedQuoteIds = otherQuotes.slice(2).map(q => q.id);
+            if (rejectedQuoteIds.length > 0) {
+                await tx.quotation.updateMany({ where: { id: { in: rejectedQuoteIds } }, data: { status: 'Rejected', rank: null } });
             }
 
-            
-            // 3. Determine next status based on award value
+            let nextStatus: string;
+            let nextApproverId: string | null = null;
+            let auditDetails: string;
+
+            // STEP 1: Initial Committee A/B routing
             if (totalAwardValue >= committeeA_Min) {
                 nextStatus = 'Pending_Committee_A_Recommendation';
-                auditDetails = `Award finalized. Total value ${totalAwardValue.toLocaleString()} ETB. Routing to Committee A for final review.`;
+                auditDetails = `Award finalized. Total value ${totalAwardValue.toLocaleString()} ETB. Routing to Committee A.`;
             } else if (totalAwardValue >= committeeB_Min) {
                 nextStatus = 'Pending_Committee_B_Review';
-                auditDetails = `Award finalized. Total value ${totalAwardValue.toLocaleString()} ETB. Routing to Committee B for final review.`;
-            } else {
-                nextStatus = 'Approved'; // Auto-approved for low value, ready for notification
-                auditDetails = `Award finalized. Total value ${totalAwardValue.toLocaleString()} ETB. Auto-approved due to low value. Ready for vendor notification.`;
+                auditDetails = `Award finalized. Total value ${totalAwardValue.toLocaleString()} ETB. Routing to Committee B.`;
+            } else { // <= 10,000, skip to step 2
+                if (managerProcId) {
+                    nextStatus = 'Pending Managerial Approval';
+                    nextApproverId = managerProcId;
+                    auditDetails = `Award finalized. Total value ${totalAwardValue.toLocaleString()} ETB. Routing for Managerial Approval.`;
+                } else {
+                     throw new Error("Manager, Procurement Division role not found.");
+                }
             }
+
+            const awardedItemIds = Object.values(awards).flatMap((a: any) => a.items.map((i: any) => i.quoteItemId));
             
-            const awardedItemIds = Object.values(awards).flatMap((a: any) => a.items.map((i: any) => i.quoteItemId))
-            
-            // 4. Update the requisition
             const updatedRequisition = await tx.purchaseRequisition.update({
                 where: { id: requisitionId },
                 data: {
                     status: nextStatus as any,
+                    currentApproverId: nextApproverId,
                     awardedQuoteItemIds: awardedItemIds,
                     awardResponseDeadline: awardResponseDeadline ? new Date(awardResponseDeadline) : undefined,
+                    totalPrice: totalAwardValue
                 }
             });
 
-            // 5. Create Audit Log
             await tx.auditLog.create({
                 data: {
                     user: { connect: { id: userId } },
@@ -117,9 +123,9 @@ export async function POST(
             
             return updatedRequisition;
         }, {
-            timeout: 15000 // Set timeout to 15 seconds for this complex transaction
+            maxWait: 10000,
+            timeout: 20000,
         });
-
 
         return NextResponse.json({ message: 'Award process finalized.', requisition: result });
 
