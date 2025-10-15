@@ -114,11 +114,22 @@ export async function GET(request: Request) {
             'Pending President Approval',
             'Pending Managerial Approval'
         ];
-        
-        const user = await prisma.user.findUnique({ where: { id: userPayload.user.id }});
-        if (user) {
-            whereClause.currentApproverId = user.id;
-            whereClause.status = { in: reviewStatuses.map(s => s.replace(/ /g, '_')) };
+
+        const isHierarchicalApprover = [
+            'Manager_Procurement_Division',
+            'Director_Supply_Chain_and_Property_Management',
+            'VP_Resources_and_Facilities',
+            'President'
+        ].includes(userRole);
+
+        if (userRole === 'Committee_A_Member') {
+             whereClause.status = 'Pending_Committee_A_Recommendation';
+        } else if (userRole === 'Committee_B_Member') {
+            whereClause.status = 'Pending_Committee_B_Review';
+        } else if (isHierarchicalApprover) {
+            whereClause.currentApproverId = userPayload.user.id;
+        } else if (userRole === 'Admin' || userRole === 'Procurement_Officer') {
+             whereClause.status = { in: reviewStatuses.map(s => s.replace(/ /g, '_')) };
         } else {
              return NextResponse.json([]);
         }
@@ -246,7 +257,7 @@ export async function POST(request: Request) {
                         create: body.evaluationCriteria.technicalCriteria.map((c:any) => ({ name: c.name, weight: c.weight }))
                     }
                 }
-            }
+            },
         },
         include: { items: true, customQuestions: true, evaluationCriteria: true }
     });
@@ -359,7 +370,9 @@ export async function PATCH(
         
         if (status === 'Pending Approval') {
             const department = await prisma.department.findUnique({ where: { id: requisition.departmentId! } });
-            if (department?.headId) { dataToUpdate.currentApprover = { connect: { id: department.headId } }; }
+            if (department?.headId) { 
+                dataToUpdate.currentApprover = { connect: { id: department.headId } };
+            }
             auditAction = 'SUBMIT_FOR_APPROVAL';
             auditDetails = `Requisition ${id} ("${updateData.title}") was edited and submitted for approval.`;
         }
@@ -419,18 +432,24 @@ export async function PATCH(
             }
 
             dataToUpdate.status = nextStatus?.replace(/ /g, '_');
-            dataToUpdate.currentApproverId = nextApproverId;
+            if (nextApproverId) {
+                dataToUpdate.currentApprover = { connect: { id: nextApproverId } };
+            } else {
+                dataToUpdate.currentApprover = { disconnect: true };
+            }
 
 
         } else if (status === 'Rejected') {
-            dataToUpdate.currentApproverId = null;
+            dataToUpdate.currentApprover = { disconnect: true };
             auditAction = 'REJECT_REQUISITION';
             auditDetails = `Requisition ${id} was rejected with comment: "${comment}".`;
         } else if (status === 'Pending Approval') {
             auditAction = 'SUBMIT_FOR_APPROVAL';
             auditDetails = `Draft requisition ${id} was submitted for approval.`;
             const department = await prisma.department.findUnique({ where: { id: requisition.departmentId! } });
-            if (department?.headId) { dataToUpdate.currentApproverId = department.headId; }
+            if (department?.headId) { 
+                dataToUpdate.currentApprover = { connect: { id: department.headId } };
+            }
         }
 
     } else {
@@ -458,7 +477,7 @@ export async function PATCH(
   } catch (error) {
     console.error('Failed to update requisition:', error);
     if (error instanceof Error) {
-        return NextResponse.json({ error: 'Failed to process request', details: error.message }, { status: 500 });
+        return NextResponse.json({ error: 'Failed to process request', details: error.message }, { status: 400 });
     }
     return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
   }
@@ -518,7 +537,7 @@ export async function DELETE(
   } catch (error) {
      console.error('Failed to delete requisition:', error);
      if (error instanceof Error) {
-        return NextResponse.json({ error: 'Failed to process request', details: error.message }, { status: 500 });
+        return NextResponse.json({ error: 'Failed to process request', details: error.message }, { status: 400 });
     }
     return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
   }
