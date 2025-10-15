@@ -96,14 +96,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const storedToken = localStorage.getItem('authToken');
           
           if (storedToken) {
-              const decoded = jwtDecode<{ exp: number, iat: number } & User>(storedToken);
+              const decoded = jwtDecode<{ exp: number, iat: number, id: string } & User>(storedToken);
               if (decoded && decoded.exp * 1000 > Date.now()) {
-                  // Attempt to find the full, most up-to-date user object from the fetched list
-                  // This ensures we have relations like 'department' populated correctly
-                  const fullUser = users.find((u: User) => u.id === decoded.id) || decoded;
-                  setUser(fullUser);
-                  setToken(storedToken);
-                  setRole(fullUser.role);
+                  // Wait for the full user list to be available, then find the full user object.
+                  // This ensures all relations (like department) are correctly populated.
+                  const fullUser = users.find((u: User) => u.id === decoded.id);
+
+                  if (fullUser) {
+                    setUser(fullUser);
+                    setToken(storedToken);
+                    setRole(fullUser.role);
+                  } else {
+                    // If user from token not in DB, treat as logged out
+                     localStorage.removeItem('authToken');
+                  }
               } else {
                   localStorage.removeItem('authToken');
               }

@@ -95,8 +95,7 @@ export default function AppLayout({
       const currentPath = pathname.split('?')[0];
       const allowedPaths = rolePermissions[role] || [];
       
-      const isAllowed = allowedPaths.includes(currentPath) || 
-                        allowedPaths.some(p => p.includes('[') && currentPath.startsWith(p.split('/[')[0]));
+      const isAllowed = allowedPaths.includes(currentPath);
 
       if (!isAllowed && allowedPaths.length > 0) {
         console.log(`Redirecting: User with role ${role} not allowed to access ${currentPath}. Allowed:`, allowedPaths);
