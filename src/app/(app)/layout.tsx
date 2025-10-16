@@ -91,35 +91,40 @@ export default function AppLayout({
   
   // Page-level access check
   useEffect(() => {
-    if (!loading && role) {
-      const currentPath = pathname.split('?')[0];
-      const allowedPaths = rolePermissions[role] || [];
-      
-      const isAllowed = allowedPaths.includes(currentPath) || 
-                        allowedPaths.some(p => p !== '/' && currentPath.startsWith(p) && p.includes('[') === currentPath.includes('['));
+    if (loading || !role) return;
 
-      if (!isAllowed && allowedPaths.length > 0) {
-        console.log(`Redirecting: User with role ${role} not allowed to access ${currentPath}. Allowed:`, allowedPaths);
-        const defaultPath = allowedPaths.includes('/dashboard') ? '/dashboard' : allowedPaths[0];
-        if(defaultPath) {
-          router.push(defaultPath);
-        } else {
-           router.push('/login');
+    const allowedPaths = rolePermissions[role] || [];
+    if (allowedPaths.length === 0 && role !== 'Admin') { // Admin might have implicit access
+        // No paths are allowed for this role, redirect to login
+        router.push('/login');
+        return;
+    }
+    
+    const currentPath = pathname.split('?')[0];
+
+    // Check if the current path is either directly in the allowed list
+    // or is a sub-path of an allowed route (e.g., /requisitions/[id] is a sub-path of /requisitions)
+    const isAllowed = allowedPaths.some(p => {
+        if (p === currentPath) return true;
+        // Check for dynamic routes. e.g. if allowed is '/requisitions' and current is '/requisitions/123'
+        if (p.endsWith('s')) { // A simple heuristic
+             return currentPath.startsWith(p + '/');
         }
-      }
+        return false;
+    });
+
+    if (!isAllowed) {
+        // If not allowed, redirect to the first available path for that role.
+        const defaultPath = allowedPaths[0];
+        if (defaultPath) {
+            router.push(defaultPath);
+        } else {
+            // Fallback if somehow a role has no default path
+            router.push('/login');
+        }
     }
   }, [pathname, loading, role, router, rolePermissions]);
 
-  const pageTitle = useMemo(() => {
-     const currentNavItem = navItems.find(item => {
-      if (item.path.includes('[')) {
-        const basePath = item.path.split('/[')[0];
-        return pathname.startsWith(basePath);
-      }
-      return pathname === item.path;
-    });
-    return currentNavItem?.label || 'Nib InternationalBank';
-  }, [pathname]);
 
   if (loading || !user || !role) {
     return (
