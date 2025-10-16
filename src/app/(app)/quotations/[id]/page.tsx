@@ -445,7 +445,7 @@ const committeeFormSchema = z.object({
 
 type CommitteeFormValues = z.infer<typeof committeeFormSchema>;
 
-const CommitteeManagement = ({ requisition, onCommitteeUpdated, open, onOpenChange, isAuthorized }: { requisition: PurchaseRequisition; onCommitteeUpdated: () => void; open: boolean; onOpenChange: (open: boolean) => void; isAuthorized: boolean; }) => {
+const CommitteeManagement = ({ requisition, onCommitteeUpdated, open, onOpenChange, isAuthorized, isEnabled }: { requisition: PurchaseRequisition; onCommitteeUpdated: () => void; open: boolean; onOpenChange: (open: boolean) => void; isAuthorized: boolean; isEnabled: boolean }) => {
     const { user, allUsers } = useAuth();
     const { toast } = useToast();
     const [isSubmitting, setSubmitting] = useState(false);
@@ -644,7 +644,7 @@ const CommitteeManagement = ({ requisition, onCommitteeUpdated, open, onOpenChan
     }
 
     const triggerButton = (
-        <Button variant="outline" className="w-full sm:w-auto" disabled={!isAuthorized}>
+        <Button variant="outline" className="w-full sm:w-auto" disabled={!isAuthorized || !isEnabled}>
             {allAssignedMemberIds.length > 0 ? (
                 <><Edit2 className="mr-2 h-4 w-4" /> Edit Committee</>
             ) : (
@@ -655,18 +655,25 @@ const CommitteeManagement = ({ requisition, onCommitteeUpdated, open, onOpenChan
 
 
     return (
-        <Card className="border-dashed">
+        <Card className={cn("border-dashed", !isEnabled && "bg-muted/30")}>
             <CardHeader className="flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
                 <div>
                     <CardTitle>Evaluation Committee</CardTitle>
                      <CardDescription>
-                         {requisition.committeePurpose ? `Purpose: ${requisition.committeePurpose}` : 'Assign a committee to evaluate quotations.'}
+                         {isEnabled ? (requisition.committeePurpose ? `Purpose: ${requisition.committeePurpose}` : 'Assign a committee to evaluate quotations.') : 'Committee assignment is available after the vendor quotation deadline passes.'}
                     </CardDescription>
                 </div>
                  <Dialog open={open} onOpenChange={onOpenChange}>
                     <DialogTrigger asChild>
                          {isAuthorized ? (
-                            triggerButton
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <span tabIndex={0}>{triggerButton}</span>
+                                    </TooltipTrigger>
+                                    {!isEnabled && <TooltipContent><p>You must wait for the RFQ deadline to pass.</p></TooltipContent>}
+                                </Tooltip>
+                            </TooltipProvider>
                         ) : (
                             <TooltipProvider>
                                 <Tooltip>
@@ -772,17 +779,24 @@ const CommitteeManagement = ({ requisition, onCommitteeUpdated, open, onOpenChan
                     </DialogContent>
                 </Dialog>
             </CardHeader>
-            <CardContent className="space-y-6">
-                 <MemberList title="Financial Committee" description="Responsible for evaluating cost and financial stability." members={assignedFinancialMembers} />
-                 <MemberList title="Technical Committee" description="Responsible for assessing technical specs and compliance." members={assignedTechnicalMembers} />
-                 {requisition.scoringDeadline && (
-                    <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground border-t pt-4">
-                        <Timer className="h-4 w-4"/>
-                        <span className="font-semibold">Scoring Deadline:</span>
-                        <span>{format(new Date(requisition.scoringDeadline), 'PPpp')}</span>
-                    </div>
-                )}
-            </CardContent>
+             {!isEnabled ? (
+                 <CardContent className="flex flex-col items-center justify-center text-center text-muted-foreground h-48">
+                    <Users className="h-12 w-12 mb-4" />
+                    <p>Waiting for vendor quotes...</p>
+                </CardContent>
+            ) : (
+                <CardContent className="space-y-6">
+                    <MemberList title="Financial Committee" description="Responsible for evaluating cost and financial stability." members={assignedFinancialMembers} />
+                    <MemberList title="Technical Committee" description="Responsible for assessing technical specs and compliance." members={assignedTechnicalMembers} />
+                    {requisition.scoringDeadline && (
+                        <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground border-t pt-4">
+                            <Timer className="h-4 w-4"/>
+                            <span className="font-semibold">Scoring Deadline:</span>
+                            <span>{format(new Date(requisition.scoringDeadline), 'PPpp')}</span>
+                        </div>
+                    )}
+                </CardContent>
+            )}
         </Card>
     );
 };
@@ -930,7 +944,7 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent, isAuthorized }: { re
     const { user } = useAuth();
     const { toast } = useToast();
     
-    const isSent = requisition.status === 'RFQ_In_Progress' || requisition.status === 'PO_Created';
+    const isSent = requisition.status === 'RFQ_In_Progress' || requisition.status === 'PO_Created' || isPast(requisition.deadline || 0);
 
      useEffect(() => {
         if (requisition.deadline) {
@@ -2659,28 +2673,24 @@ export default function QuotationDetailsPage() {
 
   const getCurrentStep = (): 'rfq' | 'committee' | 'award' | 'finalize' | 'completed' => {
     if (!requisition) return 'rfq';
-    if (requisition.status === 'Approved') {
-        return 'rfq';
-    }
-    if (requisition.status === 'RFQ_In_Progress' && !isDeadlinePassed) {
-        return 'rfq';
-    }
-     if (requisition.status === 'RFQ_In_Progress' && isDeadlinePassed) {
-        const anyCommittee = (requisition.financialCommitteeMemberIds && requisition.financialCommitteeMemberIds.length > 0) || 
-                             (requisition.technicalCommitteeMemberIds && requisition.technicalCommitteeMemberIds.length > 0);
-        if (!anyCommittee) {
-            return 'committee';
+    if (requisition.status === 'Approved') return 'rfq';
+    if (requisition.status === 'RFQ_In_Progress' && !isDeadlinePassed) return 'rfq';
+    
+    // After RFQ deadline, it's committee time
+    if (isDeadlinePassed) {
+        if (isAccepted || requisition.status === 'PO_Created') {
+             return 'completed';
         }
-        return 'award';
+        if (isAwarded) {
+             return 'finalize';
+        }
+        if (isScoringComplete) {
+            return 'award';
+        }
+        return 'committee';
     }
-    if (isAccepted) {
-        if (requisition.status === 'PO_Created') return 'completed';
-        return 'finalize';
-    }
-    if (isAwarded) {
-        return 'award';
-    }
-    return 'award';
+    
+    return 'rfq'; // Fallback
   };
   const currentStep = getCurrentStep();
   
@@ -2755,7 +2765,7 @@ export default function QuotationDetailsPage() {
             </Card>
         )}
 
-        {currentStep === 'rfq' && (role === 'ProcurementOfficer' || role === 'Committee') && (
+        {(currentStep === 'rfq' || currentStep === 'committee') && (role === 'ProcurementOfficer' || role === 'Committee') && (
             <div className="grid md:grid-cols-2 gap-6 items-start">
                 <RFQDistribution 
                     requisition={requisition} 
@@ -2763,34 +2773,22 @@ export default function QuotationDetailsPage() {
                     onRfqSent={fetchRequisitionAndQuotes}
                     isAuthorized={isAuthorized}
                 />
-                 <Card className="border-dashed h-full">
-                    <CardHeader>
-                        <CardTitle>Committee Selection</CardTitle>
-                        <CardDescription>Committee assignment will be available after the quotation deadline has passed.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="flex flex-col items-center justify-center text-center text-muted-foreground h-4/5">
-                        <Users className="h-12 w-12 mb-4" />
-                        <p>Waiting for vendor quotes...</p>
-                    </CardContent>
-                </Card>
+                 <CommitteeManagement
+                    requisition={requisition} 
+                    onCommitteeUpdated={fetchRequisitionAndQuotes}
+                    open={isCommitteeDialogOpen}
+                    onOpenChange={setCommitteeDialogOpen}
+                    isAuthorized={isAuthorized}
+                    isEnabled={currentStep === 'committee'}
+                />
             </div>
         )}
         
-        {currentStep === 'committee' && (role === 'ProcurementOfficer' || role === 'Committee') && (
-            <CommitteeManagement
-                requisition={requisition} 
-                onCommitteeUpdated={fetchRequisitionAndQuotes}
-                open={isCommitteeDialogOpen}
-                onOpenChange={setCommitteeDialogOpen}
-                isAuthorized={isAuthorized}
-            />
-        )}
 
-
-        {(currentStep === 'award' || currentStep === 'finalize' || currentStep === 'completed') && (
+        {(currentStep === 'committee' || currentStep === 'award' || currentStep === 'finalize' || currentStep === 'completed') && (
             <>
                 {/* Always render committee management when in award step so dialog can open */}
-                {(currentStep === 'award' || currentStep === 'finalize' || currentStep === 'completed') && role === 'ProcurementOfficer' && (
+                {(role === 'ProcurementOfficer' || role === 'Committee') && (
                      <div className="hidden">
                         <CommitteeManagement
                             requisition={requisition}
@@ -2798,6 +2796,7 @@ export default function QuotationDetailsPage() {
                             open={isCommitteeDialogOpen}
                             onOpenChange={setCommitteeDialogOpen}
                             isAuthorized={isAuthorized}
+                            isEnabled={currentStep === 'committee'}
                         />
                     </div>
                 )}
