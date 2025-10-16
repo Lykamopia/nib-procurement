@@ -42,7 +42,7 @@ export async function POST(request: Request) {
                     id: finalUser.id, 
                     name: finalUser.name,
                     email: finalUser.email,
-                    role: finalUser.role,
+                    role: finalUser.role, // This will have underscores, e.g., 'Procurement_Officer'
                     vendorId: finalUser.vendorId,
                     department: finalUser.department,
                 }, 

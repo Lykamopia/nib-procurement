@@ -144,16 +144,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const switchUser = async (userId: string) => {
       const targetUser = allUsers.find(u => u.id === userId);
       if (targetUser) {
-          // Use a dummy password as the backend validates it.
+          // Simulate a new login for the target user
+          // This ensures a new token is generated with the correct role
           const response = await fetch('/api/auth/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: targetUser.email, password: 'password123' }),
+            body: JSON.stringify({ email: targetUser.email, password: 'password123' }), // Assumes a generic password for seeding
           });
           
           if(response.ok) {
               const result = await response.json();
+              // Use the login function to set the new user's state and token
               login(result.token, result.user, result.role);
+              // Force a full page reload to ensure all state is reset correctly
               window.location.href = '/';
           } else {
               console.error("Failed to switch user.")
