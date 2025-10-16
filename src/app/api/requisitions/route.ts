@@ -59,7 +59,7 @@ export async function finalizeAndNotifyVendors(requisitionId: string, awardRespo
         awardResponseDeadline: awardResponseDeadline,
         awardResponseDurationMinutes,
         awardedQuoteItemIds: winner.items.map(item => item.id), // Store IDs of awarded items from the winning quote
-        currentApproverId: null, // Clear current approver
+        currentApprover: { disconnect: true } // Clear current approver
       }
     });
 
@@ -404,8 +404,9 @@ export async function PATCH(
                         nextStatus = 'Pending_Managerial_Review';
                         auditDetails += ` Committee B approved. Routing to Manager for review.`;
                         break;
-
+                    
                     case 'Pending_Committee_A_Recommendation':
+                         // High-value items have a two-step executive approval after Committee A
                         if (totalValue > 1000000) {
                             nextApproverId = await findApproverId('VP_Resources_and_Facilities');
                             nextStatus = 'Pending_VP_Approval';
@@ -413,7 +414,7 @@ export async function PATCH(
                         } else { // 200,001 to 1,000,000
                             nextApproverId = await findApproverId('Director_Supply_Chain_and_Property_Management');
                             nextStatus = 'Pending_Director_Approval';
-                            auditDetails += ` Committee A recommended. Routing to Director for review.`;
+                             auditDetails += ` Committee A recommended. Routing to Director for review.`;
                         }
                         break;
 
@@ -459,12 +460,12 @@ export async function PATCH(
             if (nextApproverId) {
                 dataToUpdate.currentApprover = { connect: { id: nextApproverId } };
             } else {
-                dataToUpdate.currentApproverId = null;
+                dataToUpdate.currentApprover = { disconnect: true };
             }
 
 
         } else if (status === 'Rejected') {
-            dataToUpdate.currentApproverId = null;
+            dataToUpdate.currentApprover = { disconnect: true };
             auditAction = 'REJECT_REQUISITION';
             auditDetails = `Requisition ${id} was rejected with comment: "${comment}".`;
         } else if (status === 'Pending Approval') {
@@ -566,5 +567,3 @@ export async function DELETE(
     return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
   }
 }
-
-    
