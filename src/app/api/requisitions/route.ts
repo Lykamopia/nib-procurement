@@ -402,7 +402,7 @@ export async function PATCH(
                             nextStatus = 'Pending_Director_Approval';
                         } else {
                             nextApproverId = await findApproverId('Manager_Procurement_Division');
-                            nextStatus = 'Pending_Managerial_Approval';
+                            nextStatus = 'Pending_Managerial_Review'; // Corrected from Managerial_Approval
                         }
                         break;
                      case 'Pending_Managerial_Review':
