@@ -390,65 +390,72 @@ export async function PATCH(
             let nextApproverId: string | null = null;
             let nextStatus: string | null = null;
 
+            // This is the main approval escalation logic
             if (requisition.status.startsWith('Pending')) {
                 const totalValue = requisition.totalPrice;
-                switch (requisition.status) {
-                    // Departmental Head Approval
+                 switch (requisition.status) {
+                    // Departmental Head Approval (First step for most)
                     case 'Pending_Approval':
                         nextStatus = 'Approved';
                         nextApproverId = null;
-                        auditDetails += ` Department Head approved. Final approval before RFQ.`;
+                        auditDetails += ` Department Head approved. Ready for RFQ.`;
                         break;
                     
-                    // Committee B has already reviewed, now Manager is reviewing
+                    // After Committee B, it goes to Manager for REVIEW
+                    case 'Pending_Committee_B_Review':
+                        nextApproverId = await findApproverId('Manager_Procurement_Division');
+                        nextStatus = 'Pending_Managerial_Review';
+                        auditDetails += ` Committee B approved. Routing to Manager for review.`;
+                        break;
+
+                    // After Committee A, it goes to VP for REVIEW
+                    case 'Pending_Committee_A_Recommendation':
+                        nextApproverId = await findApproverId('VP_Resources_and_Facilities');
+                        nextStatus = 'Pending_VP_Approval';
+                        auditDetails += ` Committee A recommended. Routing to VP for review.`;
+                        break;
+
+                    // Manager has REVIEWED a mid-value item, now it goes to Director for final APPROVAL
                     case 'Pending_Managerial_Review':
                         nextApproverId = await findApproverId('Director_Supply_Chain_and_Property_Management');
                         nextStatus = 'Pending_Director_Approval';
-                        auditDetails += ` Manager reviewed. Escalating to Director.`;
+                        auditDetails += ` Manager reviewed. Escalating to Director for final approval.`;
                         break;
 
-                    // Managerial Approval (for low-value items, this is final)
-                    case 'Pending_Managerial_Approval':
-                        nextStatus = 'Approved';
-                        nextApproverId = null;
-                        auditDetails += ` Manager approved. Final approval.`;
-                        break;
-
-                    // Director Approval (can be first review or second)
+                    // Director has REVIEWED a high-value item, now it goes to VP for final APPROVAL
                     case 'Pending_Director_Approval':
                         // If it came from Managerial review (10k-200k), this is final.
                         // If it's first review (200k-1M), escalate to VP.
                         if (totalValue > 200000) {
                             nextApproverId = await findApproverId('VP_Resources_and_Facilities');
                             nextStatus = 'Pending_VP_Approval';
-                            auditDetails += ` Director reviewed. Escalating to VP.`;
+                            auditDetails += ` Director reviewed. Escalating to VP for final approval.`;
                         } else {
                             nextStatus = 'Approved';
                             nextApproverId = null;
-                            auditDetails += ` Director approved. Final approval.`;
+                            auditDetails += ` Director approved. Final approval for mid-value item.`;
                         }
                         break;
                     
-                    // VP Approval
+                    // VP has REVIEWED a very-high-value item, now it goes to President for final APPROVAL
                     case 'Pending_VP_Approval':
-                        // If it came from Director review (200k-1M), this is final.
-                        // If it's first review (>1M), escalate to President.
                          if (totalValue > 1000000) {
                             nextApproverId = await findApproverId('President');
                             nextStatus = 'Pending_President_Approval';
-                            auditDetails += ` VP reviewed. Escalating to President.`;
+                            auditDetails += ` VP reviewed. Escalating to President for final approval.`;
                         } else {
                             nextStatus = 'Approved';
                             nextApproverId = null;
-                            auditDetails += ` VP approved. Final approval.`;
+                            auditDetails += ` VP approved. Final approval for high-value item.`;
                         }
                         break;
                     
-                    // President Approval (Final)
-                    case 'Pending_President_Approval':
+                    // These are FINAL approval steps in their respective chains
+                    case 'Pending_Managerial_Approval': // Low-value final approval
+                    case 'Pending_President_Approval': // Very-high-value final approval
                         nextStatus = 'Approved';
                         nextApproverId = null;
-                        auditDetails += ` President approved. Final approval.`;
+                        auditDetails += ` Final approval received. Ready for vendor notification.`;
                         break;
                 }
             } else { // Initial departmental approval for values that don't need committee
@@ -460,12 +467,13 @@ export async function PATCH(
             if (nextApproverId) {
                 dataToUpdate.currentApprover = { connect: { id: nextApproverId } };
             } else {
-                dataToUpdate.currentApprover = { disconnect: true };
+                // Ensure we clear the approver on final approval or rejection
+                dataToUpdate.currentApproverId = null;
             }
 
 
         } else if (status === 'Rejected') {
-            dataToUpdate.currentApprover = { disconnect: true };
+            dataToUpdate.currentApproverId = null;
             auditAction = 'REJECT_REQUISITION';
             auditDetails = `Requisition ${id} was rejected with comment: "${comment}".`;
         } else if (status === 'Pending Approval') {
@@ -502,7 +510,7 @@ export async function PATCH(
   } catch (error) {
     console.error('Failed to update requisition:', error);
     if (error instanceof Error) {
-        return NextResponse.json({ error: 'Failed to process request', details: error.message }, { status: 500 });
+        return NextResponse.json({ error: 'Failed to process request', details: error.message }, { status: 400 });
     }
     return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
   }

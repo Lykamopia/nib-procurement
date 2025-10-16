@@ -28,9 +28,8 @@ export async function POST(
         }
         
         // Define approval chain thresholds
-        const presidentMin = 1000001;
-        const vpMin = 200001;
-        const directorMin = 10001;
+        const committeeAMin = 200001;
+        const committeeBMin = 10001;
         const managerMin = 0; // <= 10,000
 
         // Start transaction
@@ -79,27 +78,26 @@ export async function POST(
             let nextApproverId: string | null = null;
             let auditDetails: string;
 
-            // 4. Determine initial routing based on value
-            if (totalAwardValue >= presidentMin) { // Above 1M -> Reviewed by VP
-                nextApproverId = await findApproverId('VP_Resources_and_Facilities');
-                nextStatus = 'Pending_VP_Approval';
-                auditDetails = `Award value ${totalAwardValue.toLocaleString()} ETB. Routing to VP for review.`;
-            } else if (totalAwardValue >= vpMin) { // 200k to 1M -> Reviewed by Director
-                nextApproverId = await findApproverId('Director_Supply_Chain_and_Property_Management');
-                nextStatus = 'Pending_Director_Approval';
-                auditDetails = `Award value ${totalAwardValue.toLocaleString()} ETB. Routing to Director for review.`;
-            } else if (totalAwardValue >= directorMin) { // 10k to 200k -> Reviewed by Manager
-                nextApproverId = await findApproverId('Manager_Procurement_Division');
-                nextStatus = 'Pending_Managerial_Review';
-                auditDetails = `Award value ${totalAwardValue.toLocaleString()} ETB. Routing to Manager for review.`;
-            } else { // <= 10k -> Final approval by Manager
+            // 4. CORRECTED: Determine initial routing based on value, starting with committee review where applicable.
+            if (totalAwardValue >= committeeAMin) {
+                // High-Value items go to Committee A first
+                nextStatus = 'Pending_Committee_A_Recommendation';
+                auditDetails = `Award value ${totalAwardValue.toLocaleString()} ETB. Routing to Committee A for recommendation.`;
+            } else if (totalAwardValue >= committeeBMin) {
+                // Mid-Value items go to Committee B first
+                nextStatus = 'Pending_Committee_B_Review';
+                auditDetails = `Award value ${totalAwardValue.toLocaleString()} ETB. Routing to Committee B for review.`;
+            } else {
+                // Low-Value items go directly to Manager for final approval
                 nextApproverId = await findApproverId('Manager_Procurement_Division');
                 nextStatus = 'Pending_Managerial_Approval';
                 auditDetails = `Award value ${totalAwardValue.toLocaleString()} ETB. Routing for final Managerial Approval.`;
             }
             
-            if(!nextApproverId) {
-                throw new Error(`Could not find a user for the required approval role. Status was set to ${nextStatus}`);
+            // For committee routes, currentApproverId is null as it's a group review.
+            // For direct manager approval, we found the ID.
+            if(nextStatus === 'Pending_Managerial_Approval' && !nextApproverId) {
+                throw new Error(`Could not find a user for the Manager, Procurement Division role.`);
             }
 
             const awardedItemIds = Object.values(awards).flatMap((a: any) => a.items.map((i: any) => i.quoteItemId));
@@ -108,7 +106,7 @@ export async function POST(
                 where: { id: requisitionId },
                 data: {
                     status: nextStatus as any,
-                    currentApproverId: nextApproverId,
+                    currentApproverId: nextApproverId, // This will be null for committee reviews, which is correct
                     awardedQuoteItemIds: awardedItemIds,
                     awardResponseDeadline: awardResponseDeadline ? new Date(awardResponseDeadline) : undefined,
                     totalPrice: totalAwardValue
