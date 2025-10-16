@@ -108,11 +108,11 @@ export async function GET(request: Request) {
         const reviewStatuses = [
             'Pending_Committee_A_Recommendation',
             'Pending_Committee_B_Review',
-            'Pending Managerial Review',
-            'Pending Director Approval',
-            'Pending VP Approval',
-            'Pending President Approval',
-            'Pending Managerial Approval'
+            'Pending_Managerial_Review',
+            'Pending_Director_Approval',
+            'Pending_VP_Approval',
+            'Pending_President_Approval',
+            'Pending_Managerial_Approval'
         ];
 
         const isHierarchicalApprover = [
@@ -405,7 +405,7 @@ export async function PATCH(
                             nextStatus = 'Pending_Managerial_Approval';
                         }
                         break;
-                     case 'Pending_Managerial_Review': // From 10k to 200k
+                     case 'Pending_Managerial_Review':
                         nextApproverId = await findApproverId('Director_Supply_Chain_and_Property_Management');
                         nextStatus = 'Pending_Director_Approval';
                         break;
@@ -542,5 +542,7 @@ export async function DELETE(
     return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
   }
 }
+
+    
 
     
