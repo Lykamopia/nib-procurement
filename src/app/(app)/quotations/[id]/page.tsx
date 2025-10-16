@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
@@ -1032,15 +1033,13 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent, isAuthorized }: { re
         <>
         <Card className={cn(isSent && "bg-muted/30")}>
             <CardHeader>
-                <div>
-                    <CardTitle>RFQ Distribution</CardTitle>
-                    <CardDescription>
-                        {isSent
-                        ? "The RFQ has been distributed to vendors."
-                        : "Send the Request for Quotation to vendors to begin receiving bids."
-                        }
-                    </CardDescription>
-                </div>
+                <CardTitle>RFQ Distribution</CardTitle>
+                <CardDescription>
+                    {isSent
+                    ? "The RFQ has been distributed to vendors."
+                    : "Send the Request for Quotation to vendors to begin receiving bids."
+                    }
+                </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
                  {!isAuthorized && !isSent && (
@@ -1200,10 +1199,10 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent, isAuthorized }: { re
                     </Card>
                 )}
             </CardContent>
-            <CardFooter className="flex-wrap gap-2">
-                {!isSent && (
+            <CardFooter className="flex flex-wrap gap-2">
+                {!isSent && isAuthorized && (
                     <>
-                        <Button onClick={handleSendRFQ} disabled={isSubmitting || !deadline || !isAuthorized}>
+                        <Button onClick={handleSendRFQ} disabled={isSubmitting || !deadline}>
                             {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
                             Send RFQ
                         </Button>
@@ -1212,25 +1211,20 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent, isAuthorized }: { re
                         )}
                     </>
                 )}
-
-                {isSent && isAuthorized && requisition.status !== 'PO_Created' && (
+                {isSent && (
                     <>
                         <Badge variant="default" className="gap-2">
                             <CheckCircle className="h-4 w-4" />
                             RFQ Distributed on {format(new Date(requisition.updatedAt), 'PP')}
                         </Badge>
-                        <div className="flex gap-2 ml-auto">
-                            <Button variant="outline" size="sm" onClick={() => setActionDialog({isOpen: true, type: 'update'})}><Settings2 className="mr-2"/> Update Deadline</Button>
-                            <Button variant="destructive" size="sm" onClick={() => setActionDialog({isOpen: true, type: 'cancel'})}><Ban className="mr-2"/> Cancel RFQ</Button>
-                        </div>
+                        {isAuthorized && requisition.status !== 'PO_Created' && (
+                            <div className="flex gap-2 ml-auto">
+                                <Button variant="outline" size="sm" onClick={() => setActionDialog({isOpen: true, type: 'update'})}><Settings2 className="mr-2 h-4 w-4"/> Update Deadline</Button>
+                                <Button variant="destructive" size="sm" onClick={() => setActionDialog({isOpen: true, type: 'cancel'})}><Ban className="mr-2 h-4 w-4"/> Cancel RFQ</Button>
+                            </div>
+                        )}
                     </>
                 )}
-                 {isSent && !isAuthorized && (
-                     <Badge variant="default" className="gap-2">
-                        <CheckCircle className="h-4 w-4" />
-                        RFQ Distributed
-                    </Badge>
-                 )}
             </CardFooter>
         </Card>
         {isSent && (
@@ -1816,7 +1810,7 @@ const CumulativeScoringReportDialog = ({ requisition, quotations, isOpen, onClos
                             {/* Header for PDF */}
                             <div className="hidden print:block text-center mb-8 pt-4">
                                 <Image src="/logo.png" alt="Logo" width={40} height={40} className="mx-auto mb-2" />
-                                <h1 className="text-2xl font-bold text-black">Scoring & Award Justification Report</h1>
+                                <h1 className="text-2xl font-bold text-black">Scoring &amp; Award Justification Report</h1>
                                 <p className="text-gray-600">{requisition.title}</p>
                                 <p className="text-sm text-gray-500">{requisition.id}</p>
                                 <p className="text-sm text-gray-500">Report Generated: {format(new Date(), 'PPpp')}</p>
@@ -2393,7 +2387,7 @@ const NotifyVendorDialog = ({
                 </div>
                 <DialogFooter>
                     <Button variant="ghost" onClick={onClose}>Cancel</Button>
-                    <Button onClick={() => onConfirm(finalDeadline)}>Confirm & Notify</Button>
+                    <Button onClick={() => onConfirm(finalDeadline)}>Confirm &amp; Notify</Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
@@ -2984,4 +2978,6 @@ export default function QuotationDetailsPage() {
     </div>
   );
 }
+    
+
     
