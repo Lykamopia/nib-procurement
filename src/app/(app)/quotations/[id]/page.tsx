@@ -1031,22 +1031,18 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent, isAuthorized }: { re
     return (
         <>
         <Card className={cn(isSent && "bg-muted/30")}>
-            <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                    <CardTitle>RFQ Distribution</CardTitle>
-                    <CardDescription>
-                        {isSent
-                        ? "The RFQ has been distributed to vendors."
-                        : "Send the Request for Quotation to vendors to begin receiving bids."
-                        }
-                    </CardDescription>
-                </div>
-                 {isSent && requisition.status !== 'PO_Created' && isAuthorized && (
-                    <div className="flex gap-2">
-                        <Button variant="outline" size="sm" onClick={() => setActionDialog({isOpen: true, type: 'update'})}><Settings2 className="mr-2"/> Update RFQ</Button>
-                        <Button variant="destructive" size="sm" onClick={() => setActionDialog({isOpen: true, type: 'cancel'})}><Ban className="mr-2"/> Cancel RFQ</Button>
+            <CardHeader>
+                <div className="flex flex-row items-center justify-between">
+                    <div>
+                        <CardTitle>RFQ Distribution</CardTitle>
+                        <CardDescription>
+                            {isSent
+                            ? "The RFQ has been distributed to vendors."
+                            : "Send the Request for Quotation to vendors to begin receiving bids."
+                            }
+                        </CardDescription>
                     </div>
-                )}
+                </div>
             </CardHeader>
             <CardContent className="space-y-4">
                  {!isAuthorized && !isSent && (
@@ -1208,10 +1204,18 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent, isAuthorized }: { re
             </CardContent>
             <CardFooter>
                  {isSent ? (
-                    <Badge variant="default" className="gap-2">
-                        <CheckCircle className="h-4 w-4" />
-                        RFQ Distributed on {format(new Date(requisition.updatedAt), 'PP')}
-                    </Badge>
+                    <div className="flex w-full items-center justify-between">
+                        <Badge variant="default" className="gap-2">
+                            <CheckCircle className="h-4 w-4" />
+                            RFQ Distributed on {format(new Date(requisition.updatedAt), 'PP')}
+                        </Badge>
+                        {isAuthorized && requisition.status !== 'PO_Created' && (
+                            <div className="flex gap-2">
+                                <Button variant="outline" size="sm" onClick={() => setActionDialog({isOpen: true, type: 'update'})}><Settings2 className="mr-2"/> Update RFQ</Button>
+                                <Button variant="destructive" size="sm" onClick={() => setActionDialog({isOpen: true, type: 'cancel'})}><Ban className="mr-2"/> Cancel RFQ</Button>
+                            </div>
+                        )}
+                    </div>
                 ) : (
                     <>
                     <Button onClick={handleSendRFQ} disabled={isSubmitting || !deadline || !isAuthorized}>
