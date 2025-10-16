@@ -238,7 +238,7 @@ const QuoteComparison = ({ quotes, requisition, onScore, user, isDeadlinePassed,
         }
     }
     
-    const isTechnicalOnlyScorer = user.role === 'Committee_Member' && requisition.technicalCommitteeMemberIds?.includes(user.id) && !requisition.financialCommitteeMemberIds?.includes(user.id);
+    const isTechnicalOnlyScorer = user.role === 'Committee Member' && requisition.technicalCommitteeMemberIds?.includes(user.id) && !requisition.financialCommitteeMemberIds?.includes(user.id);
     const hidePrices = isTechnicalOnlyScorer && !requisition.rfqSettings?.technicalEvaluatorSeesPrices;
 
 
