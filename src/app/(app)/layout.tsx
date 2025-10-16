@@ -83,33 +83,37 @@ export default function AppLayout({
   }, [user, handleLogout]);
 
   useEffect(() => {
-    if (!loading && !user) {
-      router.push('/login');
+    if (loading) {
+      return; // Do nothing while auth state is loading
     }
-  }, [user, loading, router]);
   
-  // Page-level access check
-  useEffect(() => {
-    if (!loading && role) {
+    if (!user) {
+      router.push('/login');
+      return;
+    }
+  
+    if (role) {
       const currentPath = pathname.split('?')[0];
       const allowedPaths = rolePermissions[role] || [];
       
-      // Allow access if the current path starts with an allowed path.
-      // This handles dynamic routes like /requisitions/[id].
-      // The check `p !== '/'` prevents the root path from matching everything.
-      const isAllowed = allowedPaths.some(p => p !== '/' && currentPath.startsWith(p)) || allowedPaths.includes(currentPath);
-
-      if (!isAllowed && allowedPaths.length > 0) {
+      // Allow access if the current path starts with an allowed path (for dynamic routes)
+      // or if it's an exact match.
+      const isAllowed = allowedPaths.some(p => p !== '/' && (currentPath.startsWith(p) || currentPath === p));
+  
+      if (!isAllowed) {
         console.log(`Redirecting: User with role ${role} not allowed to access ${currentPath}. Allowed:`, allowedPaths);
         const defaultPath = allowedPaths.includes('/dashboard') ? '/dashboard' : allowedPaths[0];
-        if(defaultPath) {
+        
+        if (defaultPath) {
           router.push(defaultPath);
         } else {
+           // If no default path, it might be a role with no UI access, or an error.
+           // Redirecting to login is a safe fallback.
            router.push('/login');
         }
       }
     }
-  }, [pathname, loading, role, router, rolePermissions]);
+  }, [pathname, loading, user, role, router, rolePermissions]);
 
   const pageTitle = useMemo(() => {
      const currentNavItem = navItems.find(item => {

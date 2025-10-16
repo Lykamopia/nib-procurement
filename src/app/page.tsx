@@ -34,7 +34,9 @@ export default function HomePage() {
       router.push(defaultPath);
     } else {
       console.error(`User role ${role} has no default path defined. Logging out.`);
-      router.push('/login');
+      // If no default path is found (which shouldn't happen for valid roles),
+      // logout to prevent loops.
+      logout();
     }
     
   }, [user, loading, role, router, permissions]);
