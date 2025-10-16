@@ -239,7 +239,7 @@ const QuoteComparison = ({ quotes, requisition, onScore, user, isDeadlinePassed,
         }
     }
     
-    const isTechnicalOnlyScorer = user.role === 'Committee Member' && requisition.technicalCommitteeMemberIds?.includes(user.id) && !requisition.financialCommitteeMemberIds?.includes(user.id);
+    const isTechnicalOnlyScorer = user.role === 'Committee_Member' && requisition.technicalCommitteeMemberIds?.includes(user.id) && !requisition.financialCommitteeMemberIds?.includes(user.id);
     const hidePrices = isTechnicalOnlyScorer && !requisition.rfqSettings?.technicalEvaluatorSeesPrices;
 
 
@@ -327,7 +327,7 @@ const QuoteComparison = ({ quotes, requisition, onScore, user, isDeadlinePassed,
                              )}
                         </CardContent>
                         <CardFooter className="flex flex-col gap-2">
-                            {user.role === 'Committee Member' && (
+                            {user.role === 'Committee_Member' && (
                                 <Button className="w-full" variant={hasUserScored ? "secondary" : "outline"} onClick={() => onScore(quote, hidePrices)} disabled={isScoringDeadlinePassed && !hasUserScored}>
                                     {hasUserScored ? <Check className="mr-2 h-4 w-4"/> : <Edit2 className="mr-2 h-4 w-4" />}
                                     {hasUserScored ? 'View Your Score' : 'Score this Quote'}
@@ -2957,7 +2957,7 @@ export default function QuotationDetailsPage() {
             </Card>
         )}
         
-        {isAccepted && requisition.status !== 'PO Created' && role !== 'Committee Member' && (
+        {isAccepted && requisition.status !== 'PO_Created' && role !== 'Committee_Member' && (
             <ContractManagement requisition={requisition} onContractFinalized={handleContractFinalized} />
         )}
          {requisition && (
