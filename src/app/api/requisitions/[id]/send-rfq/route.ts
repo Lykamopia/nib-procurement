@@ -26,8 +26,11 @@ export async function POST(
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    if (requisition.status !== 'Approved') {
-        return NextResponse.json({ error: 'Requisition must be approved before sending RFQ.' }, { status: 400 });
+    // This check is too restrictive. A PO can reset the RFQ process.
+    // The main protection should be that only an authorized user can trigger this.
+    // A check for "Closed" or "Fulfilled" might be better.
+    if (requisition.status === 'Closed' || requisition.status === 'Fulfilled') {
+        return NextResponse.json({ error: `Cannot start RFQ for a requisition that is already ${requisition.status}.` }, { status: 400 });
     }
     
     let finalVendorIds = vendorIds;
@@ -106,4 +109,3 @@ export async function POST(
     return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
   }
 }
-
