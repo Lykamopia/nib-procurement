@@ -105,16 +105,7 @@ export async function GET(request: Request) {
     
     if (forReview === 'true' && userPayload) {
         const userRole = userPayload.role.replace(/ /g, '_');
-        const reviewStatuses = [
-            'Pending_Committee_A_Recommendation',
-            'Pending_Committee_B_Review',
-            'Pending_Managerial_Review',
-            'Pending_Director_Approval',
-            'Pending_VP_Approval',
-            'Pending_President_Approval',
-            'Pending_Managerial_Approval'
-        ];
-
+        
         const isHierarchicalApprover = [
             'Manager_Procurement_Division',
             'Director_Supply_Chain_and_Property_Management',
@@ -122,14 +113,25 @@ export async function GET(request: Request) {
             'President'
         ].includes(userRole);
 
-        if (userRole === 'Committee_A_Member') {
-             whereClause.status = 'Pending_Committee_A_Recommendation';
-        } else if (userRole === 'Committee_B_Member') {
-            whereClause.status = 'Pending_Committee_B_Review';
+        if (userRole === 'Committee_A_Member' || userRole === 'Committee_B_Member') {
+             // Committees see items pending their specific review
+             whereClause.status = userRole === 'Committee_A_Member' 
+                ? 'Pending_Committee_A_Recommendation'
+                : 'Pending_Committee_B_Review';
         } else if (isHierarchicalApprover) {
+            // Managers, Directors, VPs, President see items assigned to them
             whereClause.currentApproverId = userPayload.user.id;
         } else if (userRole === 'Admin' || userRole === 'Procurement_Officer') {
-             whereClause.status = { in: reviewStatuses.map(s => s.replace(/ /g, '_')) };
+             // PO and Admin can see all items currently in any review state
+             whereClause.status = { in: [
+                'Pending_Committee_A_Recommendation',
+                'Pending_Committee_B_Review',
+                'Pending_Managerial_Review',
+                'Pending_Director_Approval',
+                'Pending_VP_Approval',
+                'Pending_President_Approval',
+                'Pending_Managerial_Approval'
+             ]};
         } else {
              return NextResponse.json([]);
         }
@@ -388,45 +390,68 @@ export async function PATCH(
             let nextApproverId: string | null = null;
             let nextStatus: string | null = null;
 
-            // This is a committee or hierarchical approval
             if (requisition.status.startsWith('Pending')) {
                 const totalValue = requisition.totalPrice;
                 switch (requisition.status) {
-                    case 'Pending_Committee_A_Recommendation':
-                        nextApproverId = await findApproverId('VP_Resources_and_Facilities');
-                        nextStatus = 'Pending_VP_Approval';
-                        break;
-                    case 'Pending_Committee_B_Review':
-                         if (totalValue > 200000) { // Should not happen but as a safeguard
-                            nextApproverId = await findApproverId('Director_Supply_Chain_and_Property_Management');
-                            nextStatus = 'Pending_Director_Approval';
-                        } else {
-                            nextApproverId = await findApproverId('Manager_Procurement_Division');
-                            nextStatus = 'Pending_Managerial_Review'; // Corrected from Managerial_Approval
-                        }
-                        break;
-                     case 'Pending_Managerial_Review':
-                        nextApproverId = await findApproverId('Director_Supply_Chain_and_Property_Management');
-                        nextStatus = 'Pending_Director_Approval';
-                        break;
-                    case 'Pending_Director_Approval': // From 200k to 1M
-                        nextApproverId = await findApproverId('VP_Resources_and_Facilities');
-                        nextStatus = 'Pending_VP_Approval';
-                        break;
-                    case 'Pending_VP_Approval': // > 1M
-                        nextApproverId = await findApproverId('President');
-                        nextStatus = 'Pending_President_Approval';
-                        break;
-                    case 'Pending_Managerial_Approval': // <=10k - Final approval
-                    case 'Pending_President_Approval': // Final approval
-                        nextStatus = 'Approved'; // Final state before vendor notification
-                        nextApproverId = null;
-                        break;
-                    default: // Initial departmental approval
+                    // Departmental Head Approval
+                    case 'Pending_Approval':
                         nextStatus = 'Approved';
                         nextApproverId = null;
+                        auditDetails += ` Department Head approved. Final approval before RFQ.`;
+                        break;
+                    
+                    // Committee B has already reviewed, now Manager is reviewing
+                    case 'Pending_Managerial_Review':
+                        nextApproverId = await findApproverId('Director_Supply_Chain_and_Property_Management');
+                        nextStatus = 'Pending_Director_Approval';
+                        auditDetails += ` Manager reviewed. Escalating to Director.`;
+                        break;
+
+                    // Managerial Approval (for low-value items, this is final)
+                    case 'Pending_Managerial_Approval':
+                        nextStatus = 'Approved';
+                        nextApproverId = null;
+                        auditDetails += ` Manager approved. Final approval.`;
+                        break;
+
+                    // Director Approval (can be first review or second)
+                    case 'Pending_Director_Approval':
+                        // If it came from Managerial review (10k-200k), this is final.
+                        // If it's first review (200k-1M), escalate to VP.
+                        if (totalValue > 200000) {
+                            nextApproverId = await findApproverId('VP_Resources_and_Facilities');
+                            nextStatus = 'Pending_VP_Approval';
+                            auditDetails += ` Director reviewed. Escalating to VP.`;
+                        } else {
+                            nextStatus = 'Approved';
+                            nextApproverId = null;
+                            auditDetails += ` Director approved. Final approval.`;
+                        }
+                        break;
+                    
+                    // VP Approval
+                    case 'Pending_VP_Approval':
+                        // If it came from Director review (200k-1M), this is final.
+                        // If it's first review (>1M), escalate to President.
+                         if (totalValue > 1000000) {
+                            nextApproverId = await findApproverId('President');
+                            nextStatus = 'Pending_President_Approval';
+                            auditDetails += ` VP reviewed. Escalating to President.`;
+                        } else {
+                            nextStatus = 'Approved';
+                            nextApproverId = null;
+                            auditDetails += ` VP approved. Final approval.`;
+                        }
+                        break;
+                    
+                    // President Approval (Final)
+                    case 'Pending_President_Approval':
+                        nextStatus = 'Approved';
+                        nextApproverId = null;
+                        auditDetails += ` President approved. Final approval.`;
+                        break;
                 }
-            } else { // Initial departmental approval
+            } else { // Initial departmental approval for values that don't need committee
                  nextStatus = 'Approved';
                  nextApproverId = null;
             }
@@ -542,5 +567,3 @@ export async function DELETE(
     return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
   }
 }
-
-    

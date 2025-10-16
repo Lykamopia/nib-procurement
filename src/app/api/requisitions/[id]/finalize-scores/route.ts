@@ -27,15 +27,11 @@ export async function POST(
             return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
         }
         
-        // Define approval chain thresholds and roles
-        const committeeA_Min = 200001;
-        const committeeB_Min = 10001;
-        const managerProc_Min = 0; // <= 10,000
-
-        const managerProcId = await findApproverId('Manager_Procurement_Division');
-        const directorId = await findApproverId('Director_Supply_Chain_and_Property_Management');
-        const vpId = await findApproverId('VP_Resources_and_Facilities');
-        const presidentId = await findApproverId('President');
+        // Define approval chain thresholds
+        const presidentMin = 1000001;
+        const vpMin = 200001;
+        const directorMin = 10001;
+        const managerMin = 0; // <= 10,000
 
         // Start transaction
         const result = await prisma.$transaction(async (tx) => {
@@ -65,6 +61,7 @@ export async function POST(
                 });
             }
             
+            // 2. Update standby quotes
             const standbyQuotes = otherQuotes.slice(0, 2);
             if (standbyQuotes.length > 0) {
                 for (let i = 0; i < standbyQuotes.length; i++) {
@@ -72,6 +69,7 @@ export async function POST(
                 }
             }
             
+            // 3. Reject all other quotes
             const rejectedQuoteIds = otherQuotes.slice(2).map(q => q.id);
             if (rejectedQuoteIds.length > 0) {
                 await tx.quotation.updateMany({ where: { id: { in: rejectedQuoteIds } }, data: { status: 'Rejected', rank: null } });
@@ -81,21 +79,27 @@ export async function POST(
             let nextApproverId: string | null = null;
             let auditDetails: string;
 
-            // STEP 1: Initial Committee A/B routing
-            if (totalAwardValue >= committeeA_Min) {
-                nextStatus = 'Pending_Committee_A_Recommendation';
-                auditDetails = `Award finalized. Total value ${totalAwardValue.toLocaleString()} ETB. Routing to Committee A.`;
-            } else if (totalAwardValue >= committeeB_Min) {
-                nextStatus = 'Pending_Committee_B_Review';
-                auditDetails = `Award finalized. Total value ${totalAwardValue.toLocaleString()} ETB. Routing to Committee B.`;
-            } else { // <= 10,000, skip to step 2
-                if (managerProcId) {
-                    nextStatus = 'Pending Managerial Approval';
-                    nextApproverId = managerProcId;
-                    auditDetails = `Award finalized. Total value ${totalAwardValue.toLocaleString()} ETB. Routing for Managerial Approval.`;
-                } else {
-                     throw new Error("Manager, Procurement Division role not found.");
-                }
+            // 4. Determine initial routing based on value
+            if (totalAwardValue >= presidentMin) { // Above 1M -> Reviewed by VP
+                nextApproverId = await findApproverId('VP_Resources_and_Facilities');
+                nextStatus = 'Pending_VP_Approval';
+                auditDetails = `Award value ${totalAwardValue.toLocaleString()} ETB. Routing to VP for review.`;
+            } else if (totalAwardValue >= vpMin) { // 200k to 1M -> Reviewed by Director
+                nextApproverId = await findApproverId('Director_Supply_Chain_and_Property_Management');
+                nextStatus = 'Pending_Director_Approval';
+                auditDetails = `Award value ${totalAwardValue.toLocaleString()} ETB. Routing to Director for review.`;
+            } else if (totalAwardValue >= directorMin) { // 10k to 200k -> Reviewed by Manager
+                nextApproverId = await findApproverId('Manager_Procurement_Division');
+                nextStatus = 'Pending_Managerial_Review';
+                auditDetails = `Award value ${totalAwardValue.toLocaleString()} ETB. Routing to Manager for review.`;
+            } else { // <= 10k -> Final approval by Manager
+                nextApproverId = await findApproverId('Manager_Procurement_Division');
+                nextStatus = 'Pending_Managerial_Approval';
+                auditDetails = `Award value ${totalAwardValue.toLocaleString()} ETB. Routing for final Managerial Approval.`;
+            }
+            
+            if(!nextApproverId) {
+                throw new Error(`Could not find a user for the required approval role. Status was set to ${nextStatus}`);
             }
 
             const awardedItemIds = Object.values(awards).flatMap((a: any) => a.items.map((i: any) => i.quoteItemId));
@@ -127,7 +131,7 @@ export async function POST(
             timeout: 20000,
         });
 
-        return NextResponse.json({ message: 'Award process finalized.', requisition: result });
+        return NextResponse.json({ message: 'Award process finalized and routed for review.', requisition: result });
 
     } catch (error) {
         console.error("Failed to finalize scores and award:", error);
