@@ -26,8 +26,14 @@ export async function POST(
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    if (requisition.status !== 'Approved') {
-        return NextResponse.json({ error: 'Requisition must be approved before sending RFQ.' }, { status: 400 });
+    // This is the main fix: Allow sending RFQ if status is Approved OR if an award process was reset.
+    if (requisition.status !== 'Approved' && requisition.status !== 'RFQ_In_Progress') {
+        // A more flexible check can be implemented if there are other states
+        // from which an RFQ should be re-sent.
+        const isRestartable = !requisition.deadline; // Example: if deadline is null, it can be restarted.
+        if (requisition.status !== 'Approved' && !isRestartable) {
+            return NextResponse.json({ error: 'Requisition must be in a state where an RFQ can be sent.' }, { status: 400 });
+        }
     }
     
     let finalVendorIds = vendorIds;
@@ -106,4 +112,3 @@ export async function POST(
     return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
   }
 }
-

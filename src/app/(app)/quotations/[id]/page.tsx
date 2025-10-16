@@ -2672,25 +2672,26 @@ export default function QuotationDetailsPage() {
   }
 
   const getCurrentStep = (): 'rfq' | 'committee' | 'award' | 'finalize' | 'completed' => {
-    if (!requisition) return 'rfq';
-    if (requisition.status === 'Approved') return 'rfq';
-    if (requisition.status === 'RFQ_In_Progress' && !isDeadlinePassed) return 'rfq';
-    
-    // After RFQ deadline, it's committee time
-    if (isDeadlinePassed) {
-        if (isAccepted || requisition.status === 'PO_Created') {
-             return 'completed';
-        }
-        if (isAwarded) {
-             return 'finalize';
-        }
-        if (isScoringComplete) {
-            return 'award';
-        }
-        return 'committee';
-    }
-    
-    return 'rfq'; // Fallback
+      if (!requisition) return 'rfq';
+      const status = requisition.status.replace(/_/g, ' ');
+
+      if (status === 'Approved') return 'rfq';
+
+      if (status === 'RFQ In Progress') {
+          if (!isDeadlinePassed) return 'rfq';
+          if (!isScoringComplete) return 'committee';
+          return 'award';
+      }
+
+      if (status === 'PO Created' || isAccepted) return 'completed';
+      if (isAwarded) return 'finalize';
+      
+      // Fallback for other states like committee reviews
+      if (status.includes('Committee') || status.includes('Managerial') || status.includes('Director') || status.includes('VP') || status.includes('President')) {
+          return 'award';
+      }
+      
+      return 'rfq'; // Default fallback
   };
   const currentStep = getCurrentStep();
   
@@ -2765,7 +2766,7 @@ export default function QuotationDetailsPage() {
             </Card>
         )}
 
-        {(currentStep === 'rfq' || currentStep === 'committee') && (role === 'ProcurementOfficer' || role === 'Committee') && (
+        {currentStep === 'rfq' && (role === 'ProcurementOfficer' || role === 'Committee') && (
             <div className="grid md:grid-cols-2 gap-6 items-start">
                 <RFQDistribution 
                     requisition={requisition} 
@@ -2788,17 +2789,15 @@ export default function QuotationDetailsPage() {
         {(currentStep === 'committee' || currentStep === 'award' || currentStep === 'finalize' || currentStep === 'completed') && (
             <>
                 {/* Always render committee management when in award step so dialog can open */}
-                {(role === 'ProcurementOfficer' || role === 'Committee') && (
-                     <div className="hidden">
-                        <CommitteeManagement
-                            requisition={requisition}
-                            onCommitteeUpdated={fetchRequisitionAndQuotes}
-                            open={isCommitteeDialogOpen}
-                            onOpenChange={setCommitteeDialogOpen}
-                            isAuthorized={isAuthorized}
-                            isEnabled={currentStep === 'committee'}
-                        />
-                    </div>
+                {(role === 'ProcurementOfficer' || role === 'Committee') && currentStep !== 'rfq' && (
+                    <CommitteeManagement
+                        requisition={requisition} 
+                        onCommitteeUpdated={fetchRequisitionAndQuotes}
+                        open={isCommitteeDialogOpen}
+                        onOpenChange={setCommitteeDialogOpen}
+                        isAuthorized={isAuthorized}
+                        isEnabled={currentStep === 'committee'}
+                    />
                 )}
                 <Card>
                     <CardHeader className="flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -2985,3 +2984,4 @@ export default function QuotationDetailsPage() {
     
 
     
+
