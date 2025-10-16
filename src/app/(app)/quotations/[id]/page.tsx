@@ -326,7 +326,7 @@ const QuoteComparison = ({ quotes, requisition, onScore, user, isDeadlinePassed,
                              )}
                         </CardContent>
                         <CardFooter className="flex flex-col gap-2">
-                            {user.role === 'Committee_Member' && (
+                            {user.role === 'Committee Member' && (
                                 <Button className="w-full" variant={hasUserScored ? "secondary" : "outline"} onClick={() => onScore(quote, hidePrices)} disabled={isScoringDeadlinePassed && !hasUserScored}>
                                     {hasUserScored ? <Check className="mr-2 h-4 w-4"/> : <Edit2 className="mr-2 h-4 w-4" />}
                                     {hasUserScored ? 'View Your Score' : 'Score this Quote'}
@@ -1031,7 +1031,7 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent, isAuthorized }: { re
     return (
         <>
         <Card className={cn(isSent && "bg-muted/30")}>
-            <CardHeader className="flex flex-row items-center justify-between">
+            <CardHeader>
                 <div>
                     <CardTitle>RFQ Distribution</CardTitle>
                     <CardDescription>
@@ -1041,12 +1041,6 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent, isAuthorized }: { re
                         }
                     </CardDescription>
                 </div>
-                 {isSent && requisition.status !== 'PO_Created' && isAuthorized && (
-                    <div className="flex gap-2">
-                        <Button variant="outline" size="sm" onClick={() => setActionDialog({isOpen: true, type: 'update'})}><Settings2 className="mr-2"/> Update RFQ</Button>
-                        <Button variant="destructive" size="sm" onClick={() => setActionDialog({isOpen: true, type: 'cancel'})}><Ban className="mr-2"/> Cancel RFQ</Button>
-                    </div>
-                )}
             </CardHeader>
             <CardContent className="space-y-4">
                  {!isAuthorized && !isSent && (
@@ -1206,23 +1200,37 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent, isAuthorized }: { re
                     </Card>
                 )}
             </CardContent>
-            <CardFooter>
-                 {isSent ? (
-                    <Badge variant="default" className="gap-2">
-                        <CheckCircle className="h-4 w-4" />
-                        RFQ Distributed on {format(new Date(requisition.updatedAt), 'PP')}
-                    </Badge>
-                ) : (
+            <CardFooter className="flex-wrap gap-2">
+                {!isSent && (
                     <>
-                    <Button onClick={handleSendRFQ} disabled={isSubmitting || !deadline || !isAuthorized}>
-                        {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-                        Send RFQ
-                    </Button>
-                    {!deadline && (
-                        <p className="text-xs text-muted-foreground ml-4">A quotation deadline must be set before sending the RFQ.</p>
-                    )}
+                        <Button onClick={handleSendRFQ} disabled={isSubmitting || !deadline || !isAuthorized}>
+                            {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                            Send RFQ
+                        </Button>
+                        {!deadline && (
+                            <p className="text-xs text-muted-foreground ml-4">A quotation deadline must be set before sending the RFQ.</p>
+                        )}
                     </>
                 )}
+
+                {isSent && isAuthorized && requisition.status !== 'PO_Created' && (
+                    <>
+                        <Badge variant="default" className="gap-2">
+                            <CheckCircle className="h-4 w-4" />
+                            RFQ Distributed on {format(new Date(requisition.updatedAt), 'PP')}
+                        </Badge>
+                        <div className="flex gap-2 ml-auto">
+                            <Button variant="outline" size="sm" onClick={() => setActionDialog({isOpen: true, type: 'update'})}><Settings2 className="mr-2"/> Update Deadline</Button>
+                            <Button variant="destructive" size="sm" onClick={() => setActionDialog({isOpen: true, type: 'cancel'})}><Ban className="mr-2"/> Cancel RFQ</Button>
+                        </div>
+                    </>
+                )}
+                 {isSent && !isAuthorized && (
+                     <Badge variant="default" className="gap-2">
+                        <CheckCircle className="h-4 w-4" />
+                        RFQ Distributed
+                    </Badge>
+                 )}
             </CardFooter>
         </Card>
         {isSent && (
@@ -2279,7 +2287,7 @@ const CommitteeActions = ({
         }
     };
 
-    if (user.role !== 'Committee_Member') {
+    if (user.role !== 'Committee Member') {
         return null;
     }
 
@@ -2919,7 +2927,7 @@ export default function QuotationDetailsPage() {
             />
         )}
         
-        {user.role === 'Committee_Member' && currentStep === 'award' && (
+        {user.role === 'Committee Member' && currentStep === 'award' && (
              <CommitteeActions 
                 user={user}
                 requisition={requisition}
@@ -2977,4 +2985,3 @@ export default function QuotationDetailsPage() {
   );
 }
     
-
