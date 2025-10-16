@@ -394,31 +394,31 @@ export async function PATCH(
                 switch (requisition.status) {
                     case 'Pending_Committee_A_Recommendation':
                         nextApproverId = await findApproverId('VP_Resources_and_Facilities');
-                        nextStatus = 'Pending VP Approval';
+                        nextStatus = 'Pending_VP_Approval';
                         break;
                     case 'Pending_Committee_B_Review':
                          if (totalValue > 200000) { // Should not happen but as a safeguard
                             nextApproverId = await findApproverId('Director_Supply_Chain_and_Property_Management');
-                            nextStatus = 'Pending Director Approval';
+                            nextStatus = 'Pending_Director_Approval';
                         } else {
                             nextApproverId = await findApproverId('Manager_Procurement_Division');
-                            nextStatus = 'Pending Managerial Approval';
+                            nextStatus = 'Pending_Managerial_Approval';
                         }
                         break;
-                     case 'Pending Managerial Review': // From 10k to 200k
+                     case 'Pending_Managerial_Review': // From 10k to 200k
                         nextApproverId = await findApproverId('Director_Supply_Chain_and_Property_Management');
-                        nextStatus = 'Pending Director Approval';
+                        nextStatus = 'Pending_Director_Approval';
                         break;
-                    case 'Pending Director Approval': // From 200k to 1M
+                    case 'Pending_Director_Approval': // From 200k to 1M
                         nextApproverId = await findApproverId('VP_Resources_and_Facilities');
-                        nextStatus = 'Pending VP Approval';
+                        nextStatus = 'Pending_VP_Approval';
                         break;
-                    case 'Pending VP Approval': // > 1M
+                    case 'Pending_VP_Approval': // > 1M
                         nextApproverId = await findApproverId('President');
-                        nextStatus = 'Pending President Approval';
+                        nextStatus = 'Pending_President_Approval';
                         break;
-                    case 'Pending Managerial Approval': // <=10k - Final approval
-                    case 'Pending President Approval': // Final approval
+                    case 'Pending_Managerial_Approval': // <=10k - Final approval
+                    case 'Pending_President_Approval': // Final approval
                         nextStatus = 'Approved'; // Final state before vendor notification
                         nextApproverId = null;
                         break;
@@ -542,3 +542,5 @@ export async function DELETE(
     return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
   }
 }
+
+    
