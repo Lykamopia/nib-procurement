@@ -2666,11 +2666,6 @@ export default function QuotationDetailsPage() {
         return 'rfq';
     }
      if (isDeadlinePassed) {
-        const anyCommittee = (requisition.financialCommitteeMemberIds && requisition.financialCommitteeMemberIds.length > 0) || 
-                             (requisition.technicalCommitteeMemberIds && requisition.technicalCommitteeMemberIds.length > 0);
-        if (!anyCommittee) {
-            return 'committee'; // Deadline passed, need to assign committee
-        }
         if (isAccepted) {
             if (requisition.status === 'PO_Created') return 'completed';
             return 'finalize';
@@ -2678,9 +2673,13 @@ export default function QuotationDetailsPage() {
         if (isAwarded) {
             return 'award';
         }
-        return 'award'; // Deadline passed and committee assigned, ready to score/award
+        const anyCommittee = (requisition.financialCommitteeMemberIds && requisition.financialCommitteeMemberIds.length > 0) || 
+                             (requisition.technicalCommitteeMemberIds && requisition.technicalCommitteeMemberIds.length > 0);
+        if (!anyCommittee) {
+            return 'committee';
+        }
+        return 'award';
     }
-
     return 'rfq'; // Default fallback
   };
   const currentStep = getCurrentStep();
@@ -2987,3 +2986,4 @@ export default function QuotationDetailsPage() {
     
 
     
+
