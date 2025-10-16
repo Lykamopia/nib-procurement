@@ -56,8 +56,8 @@ export function RequisitionsForQuotingTable() {
                 setRequisitions(data);
 
             } else if (role === 'Procurement_Officer' || role === 'Committee') {
-                 // For POs, only show requisitions that are approved and ready for RFQ
-                 const relevantStatuses = ['Approved'];
+                 // For POs, fetch requisitions that are approved, in progress, or pending final review
+                 const relevantStatuses = ['Approved', 'RFQ_In_Progress', 'Pending_Committee_B_Review', 'Pending_Committee_A_Recommendation'];
                  apiUrl = `/api/requisitions?status=${relevantStatuses.join(',')}`;
                  const response = await fetch(apiUrl);
                  if (!response.ok) {
