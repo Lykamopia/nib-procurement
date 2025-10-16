@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -44,10 +43,8 @@ export function RequisitionsForQuotingTable() {
             setLoading(true);
             let apiUrl = '/api/requisitions';
             
-            // For Committee Members, only show requisitions they are assigned to.
-            if (role === 'Committee Member') {
+            if (role === 'CommitteeMember') {
                 const assignedReqs = allUsers.find(u => u.id === user.id)?.committeeAssignments?.map(a => a.requisitionId) || [];
-                // This filtering is client side, for a large scale app this would be a specific API endpoint.
                 const response = await fetch(apiUrl);
                  if (!response.ok) {
                     throw new Error('Failed to fetch requisitions');
@@ -56,9 +53,9 @@ export function RequisitionsForQuotingTable() {
                 data = data.filter(r => assignedReqs.includes(r.id));
                 setRequisitions(data);
 
-            } else if (role === 'Procurement Officer' || role === 'Committee') {
-                 // For POs, show requisitions that are approved or in the quotation/award lifecycle
-                 const relevantStatuses = ['Approved', 'RFQ_In_Progress', 'PO_Created', 'Fulfilled', 'Closed', 'Pending_Committee_B_Review', 'Pending_Committee_A_Recommendation'];
+            } else if (role === 'ProcurementOfficer' || role === 'Committee') {
+                 // For POs, show requisitions that are approved and ready for RFQ.
+                 const relevantStatuses = ['Approved'];
                  apiUrl = `/api/requisitions?status=${relevantStatuses.join(',')}`;
                  const response = await fetch(apiUrl);
                  if (!response.ok) {
@@ -128,11 +125,11 @@ export function RequisitionsForQuotingTable() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Requisitions in Quotation</CardTitle>
+        <CardTitle>Requisitions for Quotation</CardTitle>
         <CardDescription>
-          {role === 'Committee Member' 
+          {role === 'CommitteeMember' 
             ? 'Requisitions assigned to you for scoring.'
-            : 'Manage requisitions that are in the quotation, scoring, and award process.'
+            : 'Manage requisitions that are approved and ready for the quotation process.'
           }
         </CardDescription>
       </CardHeader>
@@ -166,7 +163,7 @@ export function RequisitionsForQuotingTable() {
                     </TableCell>
                     <TableCell className="text-right">
                        <Button variant="outline" size="sm">
-                          {role === 'Committee Member' ? 'View & Score' : 'Manage'} <ArrowRight className="ml-2 h-4 w-4" />
+                          {role === 'CommitteeMember' ? 'View & Score' : 'Manage'} <ArrowRight className="ml-2 h-4 w-4" />
                        </Button>
                     </TableCell>
                   </TableRow>
@@ -179,9 +176,9 @@ export function RequisitionsForQuotingTable() {
                       <div className="space-y-1">
                         <p className="font-semibold">No Requisitions Found</p>
                         <p className="text-muted-foreground">
-                            {role === 'Committee Member'
+                            {role === 'CommitteeMember'
                                 ? 'There are no requisitions currently assigned to you for scoring.'
-                                : 'There are no requisitions currently in the RFQ process.'
+                                : 'There are no approved requisitions ready for RFQ.'
                             }
                         </p>
                       </div>
