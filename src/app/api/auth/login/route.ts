@@ -53,7 +53,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ 
                 user: finalUser, 
                 token, 
-                role: finalUser.role
+                role: finalUser.role 
             });
         }
         

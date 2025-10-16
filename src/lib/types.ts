@@ -1,5 +1,4 @@
 
-
 export type UserRole =
   | 'Requester'
   | 'Approver'
@@ -48,20 +47,20 @@ export type Department = {
 
 export type RequisitionStatus =
   | 'Draft'
-  | 'Pending Approval'
+  | 'Pending_Approval'
   | 'Approved'
   | 'Rejected'
-  | 'RFQ In Progress'
-  | 'PO Created'
+  | 'RFQ_In_Progress'
+  | 'PO_Created'
   | 'Fulfilled'
   | 'Closed'
-  | 'Pending Managerial Approval'
+  | 'Pending_Managerial_Approval'
   | 'Pending_Committee_B_Review'
   | 'Pending_Committee_A_Recommendation'
-  | 'Pending Managerial Review'
-  | 'Pending Director Approval'
-  | 'Pending VP Approval'
-  | 'Pending President Approval';
+  | 'Pending_Managerial_Review'
+  | 'Pending_Director_Approval'
+  | 'Pending_VP_Approval'
+  | 'Pending_President_Approval';
 
 export type Urgency = 'Low' | 'Medium' | 'High' | 'Critical';
 
@@ -211,7 +210,7 @@ export type QuoteAnswer = {
   answer: string;
 }
 
-export type QuotationStatus = 'Submitted' | 'Awarded' | 'Partially_Awarded' | 'Rejected' | 'Standby' | 'Invoice Submitted' | 'Failed' | 'Accepted' | 'Declined';
+export type QuotationStatus = 'Submitted' | 'Awarded' | 'Partially_Awarded' | 'Rejected' | 'Standby' | 'Invoice_Submitted' | 'Failed' | 'Accepted' | 'Declined';
 
 export type Score = {
   id: string;
@@ -268,7 +267,7 @@ export type POItem = {
     requisitionItemId: string;
 };
 
-export type PurchaseOrderStatus = 'Issued' | 'Acknowledged' | 'Shipped' | 'Partially Delivered' | 'Delivered' | 'Cancelled' | 'Matched' | 'Mismatched' | 'On Hold';
+export type PurchaseOrderStatus = 'Issued' | 'Acknowledged' | 'Shipped' | 'Partially_Delivered' | 'Delivered' | 'Cancelled' | 'Matched' | 'Mismatched' | 'On_Hold';
 
 export type PurchaseOrder = {
     id: string;
