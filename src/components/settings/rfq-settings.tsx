@@ -35,7 +35,7 @@ export function RfqSettings() {
         }, 500);
     };
 
-    const procurementRoles: UserRole[] = ['Procurement Officer', 'Admin'];
+    const procurementRoles: UserRole[] = ['ProcurementOfficer', 'Admin'];
     const procurementUsers = allUsers.filter(user => procurementRoles.includes(user.role));
 
     return (
