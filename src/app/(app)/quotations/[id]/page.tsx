@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
@@ -1202,7 +1203,7 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent, isAuthorized }: { re
                     </Card>
                 )}
             </CardContent>
-            <CardFooter>
+            <CardFooter className="flex flex-wrap items-center justify-between gap-2">
                  {isSent ? (
                     <div className="flex w-full items-center justify-between">
                         <Badge variant="default" className="gap-2">
@@ -1217,15 +1218,15 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent, isAuthorized }: { re
                         )}
                     </div>
                 ) : (
-                    <>
-                    <Button onClick={handleSendRFQ} disabled={isSubmitting || !deadline || !isAuthorized}>
-                        {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-                        Send RFQ
-                    </Button>
-                    {!deadline && (
-                        <p className="text-xs text-muted-foreground ml-4">A quotation deadline must be set before sending the RFQ.</p>
-                    )}
-                    </>
+                    <div className="flex items-center gap-4">
+                        <Button onClick={handleSendRFQ} disabled={isSubmitting || !deadline || !isAuthorized}>
+                            {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                            Send RFQ
+                        </Button>
+                        {!deadline && (
+                            <p className="text-xs text-muted-foreground">A quotation deadline must be set before sending the RFQ.</p>
+                        )}
+                    </div>
                 )}
             </CardFooter>
         </Card>
@@ -2758,7 +2759,7 @@ export default function QuotationDetailsPage() {
             </Card>
         )}
 
-        {currentStep === 'rfq' && (role === 'Procurement_Officer' || role === 'Committee') && (
+        {currentStep === 'rfq' && (role === 'Procurement_Officer' || role === 'Committee' || role === 'Admin') && (
             <div className="grid md:grid-cols-2 gap-6 items-start">
                 <RFQDistribution 
                     requisition={requisition} 
@@ -2779,7 +2780,7 @@ export default function QuotationDetailsPage() {
             </div>
         )}
         
-        {currentStep === 'committee' && (role === 'Procurement_Officer' || role === 'Committee') && (
+        {currentStep === 'committee' && (role === 'Procurement_Officer' || role === 'Committee' || role === 'Admin') && (
             <CommitteeManagement
                 requisition={requisition} 
                 onCommitteeUpdated={fetchRequisitionAndQuotes}
@@ -2793,7 +2794,7 @@ export default function QuotationDetailsPage() {
         {(currentStep === 'award' || currentStep === 'finalize' || currentStep === 'completed') && (
             <>
                 {/* Always render committee management when in award step so dialog can open */}
-                {(currentStep === 'award' || currentStep === 'finalize' || currentStep === 'completed') && role === 'Procurement_Officer' && (
+                {(currentStep === 'award' || currentStep === 'finalize' || currentStep === 'completed') && (role === 'Procurement_Officer' || role === 'Admin') && (
                      <div className="hidden">
                         <CommitteeManagement
                             requisition={requisition}
@@ -2827,12 +2828,12 @@ export default function QuotationDetailsPage() {
                             </div>
                         </div>
                         <div className="flex items-center gap-2 w-full sm:w-auto">
-                            {isAwarded && isScoringComplete && role === 'Procurement_Officer' && (
+                            {isAwarded && isScoringComplete && (role === 'Procurement_Officer' || role === 'Admin') && (
                                 <Button variant="secondary" onClick={() => setReportOpen(true)}>
                                     <FileBarChart2 className="mr-2 h-4 w-4" /> View Cumulative Report
                                 </Button>
                             )}
-                            {isAwarded && requisition.status !== 'PO Created' && role === 'Procurement_Officer' && (
+                            {isAwarded && requisition.status !== 'PO Created' && (role === 'Procurement_Officer' || role === 'Admin') && (
                                 <AlertDialog>
                                     <AlertDialogTrigger asChild>
                                         <Button variant="outline" disabled={isChangingAward} className="w-full">
@@ -2911,7 +2912,7 @@ export default function QuotationDetailsPage() {
             </>
         )}
         
-        {currentStep === 'award' && (role === 'Procurement_Officer' || role === 'Committee') && quotations.length > 0 && role === 'Procurement_Officer' && (
+        {currentStep === 'award' && (role === 'Procurement_Officer' || role === 'Committee' || role === 'Admin') && quotations.length > 0 && (role === 'Procurement_Officer' || role === 'Admin') && (
              <ScoringProgressTracker 
                 requisition={requisition}
                 quotations={quotations}
@@ -2932,7 +2933,7 @@ export default function QuotationDetailsPage() {
              />
         )}
 
-        {requisition.status === 'Approved' && isAwarded && role === 'Procurement_Officer' && (
+        {requisition.status === 'Approved' && isAwarded && (role === 'Procurement_Officer' || role === 'Admin') && (
             <Card className="mt-6 border-amber-500">
                  <CardHeader>
                     <CardTitle>Action Required: Notify Vendor</CardTitle>
@@ -2981,4 +2982,3 @@ export default function QuotationDetailsPage() {
   );
 }
     
-
