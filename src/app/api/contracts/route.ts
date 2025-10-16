@@ -3,8 +3,8 @@
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { ContractStatus } from '@/lib/types';
-import { users } from '@/lib/auth-store';
+import { ContractStatus, User } from '@/lib/types';
+
 
 export async function GET() {
     try {
@@ -62,7 +62,7 @@ export async function POST(request: Request) {
         const body = await request.json();
         const { requisitionId, vendorId, startDate, endDate, userId } = body;
 
-        const actor = users.find(u => u.id === userId);
+        const actor: User | null = await prisma.user.findUnique({where: {id: userId}});
         if (!actor) {
             return NextResponse.json({ error: 'Action performing user not found' }, { status: 404 });
         }
@@ -71,6 +71,7 @@ export async function POST(request: Request) {
             data: {
                 requisition: { connect: { id: requisitionId } },
                 vendor: { connect: { id: vendorId } },
+                sender: { connect: { id: userId } },
                 startDate: new Date(startDate),
                 endDate: new Date(endDate),
                 status: 'Draft',

@@ -66,7 +66,7 @@ export function CommitteeSettings() {
     }
 
     const renderCommitteeSection = (committee: 'A' | 'B') => {
-        const role: UserRole = `Committee_${committee}_Member`;
+        const role: UserRole = `Committee${committee}Member`;
         const members = allUsers.filter(u => u.role === role);
         const nonMembers = allUsers.filter(u => u.role !== role && u.role !== 'Admin' && u.role !== 'Vendor')
             .filter(u => departmentFilters[committee.toLowerCase() as 'a'|'b'] === 'all' || u.departmentId === departmentFilters[committee.toLowerCase() as 'a'|'b'])
@@ -104,7 +104,7 @@ export function CommitteeSettings() {
                                                 <p className="text-xs text-muted-foreground">{user.department}</p>
                                             </div>
                                         </div>
-                                        <Button size="sm" variant="ghost" onClick={() => handleRoleChange(user, 'Committee Member')}><UserX className="h-4 w-4" /></Button>
+                                        <Button size="sm" variant="ghost" onClick={() => handleRoleChange(user, 'CommitteeMember')}><UserX className="h-4 w-4" /></Button>
                                     </div>
                                 )) : <p className="text-sm text-muted-foreground text-center py-4">No members assigned.</p>}
                              </ScrollArea>
@@ -158,5 +158,3 @@ export function CommitteeSettings() {
         </div>
     );
 }
-
-    

@@ -18,7 +18,7 @@ export async function POST(
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    if (user.role !== 'Committee_Member') {
+    if (user.role !== 'CommitteeMember') {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
     
