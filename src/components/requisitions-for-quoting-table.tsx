@@ -33,40 +33,22 @@ export function RequisitionsForQuotingTable() {
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const router = useRouter();
-  const { user, allUsers, role } = useAuth();
+  const { user, allUsers, role, token } = useAuth();
 
 
   useEffect(() => {
     const fetchRequisitions = async () => {
-        if (!user) return;
+        if (!user || !token) return;
         try {
             setLoading(true);
-            let apiUrl = '/api/requisitions';
-            
-            // For Committee Members, only show requisitions they are assigned to.
-            if (role === 'Committee_Member') {
-                const assignedReqs = allUsers.find(u => u.id === user.id)?.committeeAssignments?.map(a => a.requisitionId) || [];
-                // This filtering is client side, for a large scale app this would be a specific API endpoint.
-                const response = await fetch(apiUrl);
-                 if (!response.ok) {
-                    throw new Error('Failed to fetch requisitions');
-                }
-                let data: PurchaseRequisition[] = await response.json();
-                data = data.filter(r => assignedReqs.includes(r.id));
-                setRequisitions(data);
-
-            } else if (role === 'Procurement_Officer' || role === 'Committee') {
-                 // For POs, fetch requisitions that are approved, in progress, or pending final review
-                 const relevantStatuses = ['Approved', 'RFQ_In_Progress', 'Pending_Committee_B_Review', 'Pending_Committee_A_Recommendation'];
-                 apiUrl = `/api/requisitions?status=${relevantStatuses.join(',')}`;
-                 const response = await fetch(apiUrl);
-                 if (!response.ok) {
-                    throw new Error('Failed to fetch requisitions');
-                }
-                const data: PurchaseRequisition[] = await response.json();
-                setRequisitions(data);
+            const response = await fetch(`/api/requisitions?forQuoting=true`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!response.ok) {
+                throw new Error('Failed to fetch requisitions');
             }
-
+            const data: PurchaseRequisition[] = await response.json();
+            setRequisitions(data);
 
         } catch (e) {
             setError(e instanceof Error ? e.message : 'An unknown error occurred');
@@ -77,7 +59,7 @@ export function RequisitionsForQuotingTable() {
     if (user) {
         fetchRequisitions();
     }
-  }, [user, role, allUsers]);
+  }, [user, role, allUsers, token]);
   
   const totalPages = Math.ceil(requisitions.length / PAGE_SIZE);
   const paginatedData = useMemo(() => {
@@ -180,7 +162,7 @@ export function RequisitionsForQuotingTable() {
                         <p className="text-muted-foreground">
                             {role === 'Committee_Member'
                                 ? 'There are no requisitions currently assigned to you for scoring.'
-                                : 'There are no requisitions currently in the RFQ process.'
+                                : 'There are no requisitions assigned to you in the RFQ process.'
                             }
                         </p>
                       </div>

@@ -92,6 +92,8 @@ export async function GET(request: Request) {
   const forVendor = searchParams.get('forVendor');
   const approverId = searchParams.get('approverId');
   const forReview = searchParams.get('forReview');
+  const forQuoting = searchParams.get('forQuoting');
+
 
   const authHeader = request.headers.get('Authorization');
   const token = authHeader?.split(' ')[1];
@@ -140,6 +142,19 @@ export async function GET(request: Request) {
         const statuses = statusParam.split(',').map(s => s.trim().replace(/ /g, '_'));
         whereClause.status = { in: statuses };
     }
+    
+     if (forQuoting === 'true' && userPayload) {
+        if (userPayload.role === 'Committee_Member') {
+            const assignedReqs = await prisma.committeeAssignment.findMany({
+                where: { userId: userPayload.user.id },
+                select: { requisitionId: true }
+            });
+            whereClause.id = { in: assignedReqs.map(a => a.requisitionId) };
+        } else {
+            whereClause.currentApproverId = userPayload.user.id;
+        }
+    }
+
 
     if (forVendor === 'true') {
         if (!userPayload || !userPayload.user.vendorId) {
@@ -318,7 +333,6 @@ export async function PATCH(
     let auditAction = 'UPDATE_REQUISITION';
     let auditDetails = `Updated requisition ${id}.`;
     
-    // This handles editing a draft or rejected requisition and resubmitting
     if ((requisition.status === 'Draft' || requisition.status === 'Rejected') && updateData.title) {
         const totalPrice = updateData.items.reduce((acc: number, item: any) => {
             const price = item.unitPrice || 0;
@@ -379,7 +393,7 @@ export async function PATCH(
             auditDetails = `Requisition ${id} ("${updateData.title}") was edited and submitted for approval.`;
         }
 
-    } else if (status) { // This handles normal status changes (approve, reject, submit)
+    } else if (status) {
         dataToUpdate.status = status.replace(/ /g, '_');
         dataToUpdate.approver = { connect: { id: userId } };
         dataToUpdate.approverComment = comment;
@@ -389,71 +403,70 @@ export async function PATCH(
             auditDetails = `Requisition ${id} was approved with comment: "${comment}".`;
             let nextApproverId: string | null = null;
             let nextStatus: string | null = null;
-
-            // This is the main approval escalation logic
-            if (requisition.status.startsWith('Pending')) {
-                const totalValue = requisition.totalPrice;
-                 switch (requisition.status) {
-                    case 'Pending_Approval':
-                        nextStatus = 'Approved';
-                        auditDetails += ` Department Head approved. Ready for RFQ.`;
-                        break;
-                    
-                    case 'Pending_Committee_B_Review':
-                        nextApproverId = await findApproverId('Manager_Procurement_Division');
-                        nextStatus = 'Pending_Managerial_Review';
-                        auditDetails += ` Committee B approved. Routing to Manager for review.`;
-                        break;
-                    
-                    case 'Pending_Committee_A_Recommendation':
-                         // High-value items have a two-step executive approval after Committee A
-                        if (totalValue > 1000000) {
-                            nextApproverId = await findApproverId('VP_Resources_and_Facilities');
-                            nextStatus = 'Pending_VP_Approval';
-                            auditDetails += ` Committee A recommended. Routing to VP for review.`;
-                        } else { // 200,001 to 1,000,000
-                            nextApproverId = await findApproverId('Director_Supply_Chain_and_Property_Management');
-                            nextStatus = 'Pending_Director_Approval';
-                             auditDetails += ` Committee A recommended. Routing to Director for review.`;
-                        }
-                        break;
-
-                    case 'Pending_Managerial_Review':
+            
+            const totalValue = requisition.totalPrice;
+            switch (requisition.status) {
+                case 'Pending_Approval':
+                    // This is the departmental approval. Now it's ready for RFQ.
+                    // Find the designated RFQ sender and assign it to them.
+                    // In a real app, this setting would come from a DB.
+                    const rfqSender = await prisma.user.findFirst({where: {role: 'Procurement_Officer'}});
+                    nextApproverId = rfqSender?.id || null;
+                    nextStatus = 'Approved';
+                    auditDetails += ` Department Head approved. Ready for RFQ and assigned to Procurement.`;
+                    break;
+                
+                case 'Pending_Committee_B_Review':
+                    nextApproverId = await findApproverId('Manager_Procurement_Division');
+                    nextStatus = 'Pending_Managerial_Review';
+                    auditDetails += ` Committee B approved. Routing to Manager for review.`;
+                    break;
+                
+                case 'Pending_Committee_A_Recommendation':
+                    if (totalValue > 1000000) {
+                        nextApproverId = await findApproverId('VP_Resources_and_Facilities');
+                        nextStatus = 'Pending_VP_Approval';
+                         auditDetails += ` Committee A recommended. Routing to VP for review.`;
+                    } else { // 200,001 to 1,000,000
                         nextApproverId = await findApproverId('Director_Supply_Chain_and_Property_Management');
                         nextStatus = 'Pending_Director_Approval';
-                        auditDetails += ` Manager reviewed. Escalating to Director for final approval.`;
-                        break;
+                         auditDetails += ` Committee A recommended. Routing to Director for review.`;
+                    }
+                    break;
 
-                    case 'Pending_Director_Approval':
-                        if (totalValue > 200000) {
-                            nextApproverId = await findApproverId('VP_Resources_and_Facilities');
-                            nextStatus = 'Pending_VP_Approval';
-                            auditDetails += ` Director reviewed. Escalating to VP for final approval.`;
-                        } else {
-                            nextStatus = 'Approved';
-                            auditDetails += ` Director approved. Final approval for mid-value item.`;
-                        }
-                        break;
-                    
-                    case 'Pending_VP_Approval':
-                         if (totalValue > 1000000) {
-                            nextApproverId = await findApproverId('President');
-                            nextStatus = 'Pending_President_Approval';
-                            auditDetails += ` VP reviewed. Escalating to President for final approval.`;
-                        } else {
-                            nextStatus = 'Approved';
-                            auditDetails += ` VP approved. Final approval for high-value item.`;
-                        }
-                        break;
-                    
-                    case 'Pending_Managerial_Approval':
-                    case 'Pending_President_Approval': 
+                case 'Pending_Managerial_Review':
+                    nextApproverId = await findApproverId('Director_Supply_Chain_and_Property_Management');
+                    nextStatus = 'Pending_Director_Approval';
+                    auditDetails += ` Manager reviewed. Escalating to Director for final approval.`;
+                    break;
+
+                case 'Pending_Director_Approval':
+                     if (totalValue > 200000) {
+                        nextApproverId = await findApproverId('VP_Resources_and_Facilities');
+                        nextStatus = 'Pending_VP_Approval';
+                        auditDetails += ` Director approved. Escalating to VP for final approval.`;
+                    } else {
                         nextStatus = 'Approved';
-                        auditDetails += ` Final approval received. Ready for vendor notification.`;
-                        break;
-                }
-            } else { 
-                 nextStatus = 'Approved';
+                        auditDetails += ` Director approved. Final approval for mid-value item.`;
+                    }
+                    break;
+                
+                case 'Pending_VP_Approval':
+                     if (totalValue > 1000000) {
+                        nextApproverId = await findApproverId('President');
+                        nextStatus = 'Pending_President_Approval';
+                        auditDetails += ` VP reviewed. Escalating to President for final approval.`;
+                    } else {
+                        nextStatus = 'Approved';
+                        auditDetails += ` VP approved. Final approval for high-value item.`;
+                    }
+                    break;
+                
+                case 'Pending_Managerial_Approval':
+                case 'Pending_President_Approval': 
+                    nextStatus = 'Approved';
+                    auditDetails += ` Final approval received. Ready for vendor notification.`;
+                    break;
             }
 
             dataToUpdate.status = nextStatus?.replace(/ /g, '_');
