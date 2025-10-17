@@ -34,9 +34,16 @@ export interface RfqSenderSetting {
   userId?: string | null;
 }
 
-export interface CommitteeConfig {
-    A: { min: number, max: number },
-    B: { min: number, max: number },
+export interface ApprovalStep {
+    role: UserRole;
+}
+
+export interface ApprovalThreshold {
+    id: string;
+    name: string;
+    min: number;
+    max: number | null; // null for infinity
+    steps: ApprovalStep[];
 }
 
 interface AuthContextType {
@@ -46,7 +53,7 @@ interface AuthContextType {
   allUsers: User[];
   rolePermissions: Record<UserRole, string[]>;
   rfqSenderSetting: RfqSenderSetting;
-  committeeConfig: CommitteeConfig,
+  approvalThresholds: ApprovalThreshold[];
   login: (token: string, user: User, role: UserRole) => void;
   logout: () => void;
   loading: boolean;
@@ -54,10 +61,53 @@ interface AuthContextType {
   updateRolePermissions: (newPermissions: Record<UserRole, string[]>) => void;
   updateRfqSenderSetting: (newSetting: RfqSenderSetting) => void;
   updateUserRole: (userId: string, newRole: UserRole) => void;
-  updateCommitteeConfig: (newConfig: CommitteeConfig) => void;
+  updateApprovalThresholds: (newThresholds: ApprovalThreshold[]) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+const defaultApprovalThresholds: ApprovalThreshold[] = [
+    {
+        id: 'tier-1',
+        name: 'Low Value',
+        min: 0,
+        max: 10000,
+        steps: [{ role: 'Manager_Procurement_Division' }],
+    },
+    {
+        id: 'tier-2',
+        name: 'Mid Value',
+        min: 10001,
+        max: 200000,
+        steps: [
+            { role: 'Committee_B_Member' },
+            { role: 'Manager_Procurement_Division' },
+            { role: 'Director_Supply_Chain_and_Property_Management' },
+        ],
+    },
+    {
+        id: 'tier-3',
+        name: 'High Value',
+        min: 200001,
+        max: 1000000,
+        steps: [
+            { role: 'Committee_A_Member' },
+            { role: 'Director_Supply_Chain_and_Property_Management' },
+            { role: 'VP_Resources_and_Facilities' },
+        ],
+    },
+    {
+        id: 'tier-4',
+        name: 'Very-High Value',
+        min: 1000001,
+        max: null,
+        steps: [
+            { role: 'Committee_A_Member' },
+            { role: 'VP_Resources_and_Facilities' },
+            { role: 'President' },
+        ],
+    },
+];
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -67,10 +117,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [rolePermissions, setRolePermissions] = useState<Record<UserRole, string[]>>(defaultRolePermissions);
   const [rfqSenderSetting, setRfqSenderSetting] = useState<RfqSenderSetting>({ type: 'all' });
-  const [committeeConfig, setCommitteeConfig] = useState<CommitteeConfig>({
-      A: { min: 200001, max: Infinity },
-      B: { min: 10000, max: 200000 },
-  });
+  const [approvalThresholds, setApprovalThresholds] = useState<ApprovalThreshold[]>(defaultApprovalThresholds);
 
 
   const fetchAllUsers = useCallback(async () => {
@@ -98,8 +145,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (storedToken) {
               const decoded = jwtDecode<{ exp: number, iat: number } & User>(storedToken);
               if (decoded && decoded.exp * 1000 > Date.now()) {
-                  // Attempt to find the full, most up-to-date user object from the fetched list
-                  // This ensures we have relations like 'department' populated correctly
                   const fullUser = users.find((u: User) => u.id === decoded.id) || decoded;
                   setUser(fullUser);
                   setToken(storedToken);
@@ -111,11 +156,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           
           const storedPermissions = localStorage.getItem('rolePermissions');
           const storedRfqSetting = localStorage.getItem('rfqSenderSetting');
-          const storedCommitteeConfig = localStorage.getItem('committeeConfig');
+          const storedApprovalThresholds = localStorage.getItem('approvalThresholds');
           
           if (storedPermissions) setRolePermissions(JSON.parse(storedPermissions));
           if (storedRfqSetting) setRfqSenderSetting(JSON.parse(storedRfqSetting));
-          if (storedCommitteeConfig) setCommitteeConfig(JSON.parse(storedCommitteeConfig));
+          if (storedApprovalThresholds) setApprovalThresholds(JSON.parse(storedApprovalThresholds));
 
       } catch (error) {
           console.error("Failed to initialize auth from localStorage", error);
@@ -144,19 +189,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const switchUser = async (userId: string) => {
       const targetUser = allUsers.find(u => u.id === userId);
       if (targetUser) {
-          // Simulate a new login for the target user
-          // This ensures a new token is generated with the correct role
           const response = await fetch('/api/auth/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: targetUser.email, password: 'password123' }), // Assumes a generic password for seeding
+            body: JSON.stringify({ email: targetUser.email, password: 'password123' }),
           });
           
           if(response.ok) {
               const result = await response.json();
-              // Use the login function to set the new user's state and token
               login(result.token, result.user, result.role);
-              // Force a full page reload to ensure all state is reset correctly
               window.location.href = '/';
           } else {
               console.error("Failed to switch user.")
@@ -185,17 +226,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             body: JSON.stringify({ ...userToUpdate, role: newRole, actorUserId: user?.id })
         });
         if (!response.ok) throw new Error("Failed to update role");
-        await fetchAllUsers(); // re-fetch all users to get the updated list
+        await fetchAllUsers();
     } catch (e) {
         console.error(e);
-        // In a real app, you'd use a toast notification here
-        // toast({variant: 'destructive', title: "Error", description: "Failed to update user role."})
     }
   }
 
-  const updateCommitteeConfig = (newConfig: CommitteeConfig) => {
-      localStorage.setItem('committeeConfig', JSON.stringify(newConfig));
-      setCommitteeConfig(newConfig);
+  const updateApprovalThresholds = (newThresholds: ApprovalThreshold[]) => {
+      localStorage.setItem('approvalThresholds', JSON.stringify(newThresholds));
+      setApprovalThresholds(newThresholds);
   }
 
   const authContextValue = useMemo(() => ({
@@ -205,7 +244,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       allUsers,
       rolePermissions,
       rfqSenderSetting,
-      committeeConfig,
+      approvalThresholds,
       login,
       logout,
       loading,
@@ -213,8 +252,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       updateRolePermissions,
       updateRfqSenderSetting,
       updateUserRole,
-      updateCommitteeConfig,
-  }), [user, token, role, loading, allUsers, rolePermissions, rfqSenderSetting, committeeConfig, fetchAllUsers]);
+      updateApprovalThresholds,
+  }), [user, token, role, loading, allUsers, rolePermissions, rfqSenderSetting, approvalThresholds, fetchAllUsers]);
 
 
   return (

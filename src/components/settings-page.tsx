@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import {
@@ -16,11 +15,12 @@ import { DepartmentManagementEditor } from './department-management-editor';
 import { UserManagementEditor } from './user-management-editor';
 import { RfqSettings } from './settings/rfq-settings';
 import { CommitteeSettings } from './settings/committee-settings';
+import { ApprovalMatrixEditor } from './settings/approval-matrix-editor';
 
 
 export function SettingsPage() {
   return (
-    <Tabs defaultValue="permissions" className="space-y-4">
+    <Tabs defaultValue="general" className="space-y-4">
       <TabsList>
         <TabsTrigger value="general">General</TabsTrigger>
         <TabsTrigger value="committees">Committees</TabsTrigger>
@@ -31,7 +31,10 @@ export function SettingsPage() {
         <TabsTrigger value="notifications">Notifications</TabsTrigger>
       </TabsList>
       <TabsContent value="general">
-        <RfqSettings />
+        <div className="space-y-6">
+            <RfqSettings />
+            <ApprovalMatrixEditor />
+        </div>
       </TabsContent>
       <TabsContent value="committees">
         <CommitteeSettings />
