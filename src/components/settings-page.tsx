@@ -20,36 +20,36 @@ import { ApprovalMatrixEditor } from './settings/approval-matrix-editor';
 
 export function SettingsPage() {
   return (
-    <Tabs defaultValue="general" className="space-y-4">
+    <Tabs defaultValue="users" className="space-y-4">
       <TabsList>
-        <TabsTrigger value="general">General</TabsTrigger>
-        <TabsTrigger value="committees">Committees</TabsTrigger>
-        <TabsTrigger value="permissions">Role Permissions</TabsTrigger>
-        <TabsTrigger value="roles">Role Management</TabsTrigger>
         <TabsTrigger value="users">User Management</TabsTrigger>
         <TabsTrigger value="departments">Departments</TabsTrigger>
+        <TabsTrigger value="roles">Role Management</TabsTrigger>
+        <TabsTrigger value="permissions">Role Permissions</TabsTrigger>
+        <TabsTrigger value="approval-flow">Approval Flow</TabsTrigger>
+        <TabsTrigger value="committees">Committees</TabsTrigger>
         <TabsTrigger value="notifications">Notifications</TabsTrigger>
       </TabsList>
-      <TabsContent value="general">
-        <div className="space-y-6">
-            <RfqSettings />
-            <ApprovalMatrixEditor />
-        </div>
-      </TabsContent>
-      <TabsContent value="committees">
-        <CommitteeSettings />
-      </TabsContent>
-      <TabsContent value="permissions">
-        <RolePermissionsEditor />
-      </TabsContent>
-       <TabsContent value="roles">
-        <RoleManagementEditor />
-      </TabsContent>
        <TabsContent value="users">
         <UserManagementEditor />
       </TabsContent>
        <TabsContent value="departments">
         <DepartmentManagementEditor />
+      </TabsContent>
+       <TabsContent value="roles">
+        <RoleManagementEditor />
+      </TabsContent>
+      <TabsContent value="permissions">
+        <div className="space-y-6">
+          <RfqSettings />
+          <RolePermissionsEditor />
+        </div>
+      </TabsContent>
+       <TabsContent value="approval-flow">
+        <ApprovalMatrixEditor />
+      </TabsContent>
+      <TabsContent value="committees">
+        <CommitteeSettings />
       </TabsContent>
       <TabsContent value="notifications">
          <Card>
