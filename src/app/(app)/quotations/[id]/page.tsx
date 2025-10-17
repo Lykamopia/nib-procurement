@@ -2256,7 +2256,7 @@ const CommitteeActions = ({
     
     const userScoredQuotesCount = quotations.filter(q => q.scores?.some(s => s.scorerId === user.id)).length;
     const allQuotesScored = quotations.length > 0 && userScoredQuotesCount === quotations.length;
-    const scoresAlreadyFinalized = user.committeeAssignments?.find(a => a.requisitionId === requisition.id)?.scoresSubmitted || false;
+    const scoresAlreadyFinalized = user.committeeAssignments?.some(a => a.requisitionId === requisition.id && a.scoresSubmitted) || false;
 
     const handleSubmitScores = async () => {
         setIsSubmitting(true);

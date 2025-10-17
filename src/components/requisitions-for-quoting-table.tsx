@@ -73,19 +73,30 @@ export function RequisitionsForQuotingTable() {
   }
 
   const getStatusBadge = (req: PurchaseRequisition) => {
-    const deadlinePassed = req.deadline ? isPast(new Date(req.deadline)) : false;
-    
     if (req.status === 'Approved') {
         return <Badge variant="default" className="bg-blue-500 text-white">Ready for RFQ</Badge>;
     }
-    if (req.status === 'RFQ_In_Progress' && deadlinePassed && !req.committeeName) {
-        return <Badge variant="destructive">Ready for Committee Assignment</Badge>;
-    }
-    if (req.status === 'RFQ_In_Progress' && deadlinePassed) {
+    
+    if (req.status === 'RFQ_In_Progress') {
+        const deadlinePassed = req.deadline ? isPast(new Date(req.deadline)) : false;
+        if (!deadlinePassed) {
+            return <Badge variant="outline">Accepting Quotes</Badge>;
+        }
+
+        const hasCommittee = (req.financialCommitteeMemberIds?.length || 0) > 0 || (req.technicalCommitteeMemberIds?.length || 0) > 0;
+        if (!hasCommittee) {
+            return <Badge variant="destructive">Ready for Committee Assignment</Badge>;
+        }
+        
+        const assignedMemberIds = new Set([...(req.financialCommitteeMemberIds || []), ...(req.technicalCommitteeMemberIds || [])]);
+        const submittedMemberIds = new Set(req.committeeAssignments?.filter(a => a.scoresSubmitted).map(a => a.userId));
+        const allHaveScored = [...assignedMemberIds].every(id => submittedMemberIds.has(id));
+
+        if (allHaveScored) {
+             return <Badge variant="default" className="bg-green-600">Ready to Award</Badge>;
+        }
+
         return <Badge variant="secondary">Scoring in Progress</Badge>;
-    }
-    if (req.status === 'RFQ_In_Progress' && !deadlinePassed) {
-        return <Badge variant="outline">Accepting Quotes</Badge>;
     }
     
     return <Badge variant="outline">{req.status}</Badge>;

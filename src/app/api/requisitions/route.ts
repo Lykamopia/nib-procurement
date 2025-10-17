@@ -103,7 +103,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const whereClause: any = {};
+    let whereClause: any = {};
     
     if (forReview === 'true' && userPayload) {
         const userRole = userPayload.role.replace(/ /g, '_');
@@ -116,15 +116,12 @@ export async function GET(request: Request) {
         ].includes(userRole);
 
         if (userRole === 'Committee_A_Member' || userRole === 'Committee_B_Member') {
-             // Committees see items pending their specific review
              whereClause.status = userRole === 'Committee_A_Member' 
                 ? 'Pending_Committee_A_Recommendation'
                 : 'Pending_Committee_B_Review';
         } else if (isHierarchicalApprover) {
-            // Managers, Directors, VPs, President see items assigned to them
             whereClause.currentApproverId = userPayload.user.id;
         } else if (userRole === 'Admin' || userRole === 'Procurement_Officer') {
-             // PO and Admin can see all items currently in any review state
              whereClause.status = { in: [
                 'Pending_Committee_A_Recommendation',
                 'Pending_Committee_B_Review',
@@ -151,22 +148,57 @@ export async function GET(request: Request) {
             });
             whereClause.id = { in: assignedReqs.map(a => a.requisitionId) };
         } else {
-            // This is for the RFQ Sender to see their queue.
-            // It should include items ready for RFQ and items ready for committee assignment.
-            whereClause.OR = [
-                { // Ready for RFQ
-                    currentApproverId: userPayload.user.id,
-                    status: 'Approved'
+            // For RFQ Senders (Procurement Officer, Admin)
+            const allReqs = await prisma.purchaseRequisition.findMany({
+                where: {
+                    OR: [
+                        { status: 'Approved', currentApproverId: userPayload.user.id },
+                        { status: 'RFQ_In_Progress' }
+                    ]
                 },
-                { // Ready for Committee Assignment
-                    status: 'RFQ_In_Progress',
-                    deadline: {
-                        lt: new Date() // deadline is in the past
-                    },
-                    // And has not yet had a committee assigned
-                    committeeName: null
+                include: {
+                    committeeAssignments: true,
+                    financialCommitteeMembers: { select: { id: true } },
+                    technicalCommitteeMembers: { select: { id: true } },
                 }
-            ]
+            });
+
+            const reqsForQueue = allReqs.filter(req => {
+                // 1. Ready for RFQ
+                if (req.status === 'Approved') {
+                    return true;
+                }
+                
+                if (req.status === 'RFQ_In_Progress') {
+                    const deadlinePassed = req.deadline ? new Date() > new Date(req.deadline) : false;
+                    if (!deadlinePassed) return false; // Still accepting quotes
+
+                    // 2. Ready for Committee Assignment
+                    const hasCommittee = (req.financialCommitteeMembers.length > 0 || req.technicalCommitteeMembers.length > 0);
+                    if (!hasCommittee) {
+                        return true;
+                    }
+                    
+                    // 3. Ready to Award
+                    const assignedMemberIds = new Set([...req.financialCommitteeMembers.map(m => m.id), ...req.technicalCommitteeMembers.map(m => m.id)]);
+                    if (assignedMemberIds.size === 0) return false; // No committee assigned, so not ready to award
+                    
+                    const submittedMemberIds = new Set(req.committeeAssignments.filter(a => a.scoresSubmitted).map(a => a.userId));
+                    
+                    const allHaveScored = [...assignedMemberIds].every(id => submittedMemberIds.has(id));
+
+                    // Only show if it's not already in a final award state
+                    const isAlreadyAwarded = req.status.startsWith('Pending_') || req.status === 'PO_Created' || req.status === 'Closed';
+
+                    return allHaveScored && !isAlreadyAwarded;
+                }
+                return false;
+            });
+
+            whereClause.id = { in: reqsForQueue.map(r => r.id) };
+            if (reqsForQueue.length === 0) {
+                 return NextResponse.json([]); // No results
+            }
         }
     }
 
@@ -203,6 +235,7 @@ export async function GET(request: Request) {
         },
         financialCommitteeMembers: { select: { id: true } },
         technicalCommitteeMembers: { select: { id: true } },
+        committeeAssignments: true,
         quotations: {
             include: {
                 vendor: true
@@ -327,7 +360,7 @@ export async function PATCH(
 ) {
   try {
     const body = await request.json();
-    const { id, status, userId, comment, rfqSenderId } = body;
+    const { id, status, userId, comment } = body;
     const updateData = body;
 
 
@@ -348,6 +381,7 @@ export async function PATCH(
     let auditAction = 'UPDATE_REQUISITION';
     let auditDetails = `Updated requisition ${id}.`;
     
+    // This handles editing a draft or rejected requisition and resubmitting
     if ((requisition.status === 'Draft' || requisition.status === 'Rejected') && updateData.title) {
         const totalPrice = updateData.items.reduce((acc: number, item: any) => {
             const price = item.unitPrice || 0;
@@ -401,14 +435,12 @@ export async function PATCH(
         
         if (status === 'Pending Approval') {
             const department = await prisma.department.findUnique({ where: { id: requisition.departmentId! } });
-            if (department?.headId) { 
-                dataToUpdate.currentApprover = { connect: { id: department.headId } };
-            }
+            if (department?.headId) { dataToUpdate.currentApprover = { connect: { id: department.headId } }; }
             auditAction = 'SUBMIT_FOR_APPROVAL';
             auditDetails = `Requisition ${id} ("${updateData.title}") was edited and submitted for approval.`;
         }
 
-    } else if (status) {
+    } else if (status) { // This handles normal status changes (approve, reject, submit)
         dataToUpdate.status = status.replace(/ /g, '_');
         dataToUpdate.approver = { connect: { id: userId } };
         dataToUpdate.approverComment = comment;
@@ -418,80 +450,87 @@ export async function PATCH(
             auditDetails = `Requisition ${id} was approved with comment: "${comment}".`;
             let nextApproverId: string | null = null;
             let nextStatus: string | null = null;
-            
-            const totalValue = requisition.totalPrice;
-            const settings = await prisma.setting.findMany();
-            const approvalThresholds = settings.find(s => s.key === 'approvalThresholds')?.value as any[] || [];
 
-            if (requisition.status === 'Pending_Approval') { // Initial Departmental Approval
-                nextStatus = 'Approved';
-                // This is the automated handoff to the RFQ sender.
-                 if (rfqSenderId) {
-                    nextApproverId = rfqSenderId;
-                } else {
-                    const rfqSetting = settings.find(s => s.key === 'rfqSenderSetting')?.value as any;
-                    if (rfqSetting?.type === 'specific' && rfqSetting.userId) {
-                        nextApproverId = rfqSetting.userId;
-                    } else {
-                        const firstProcOfficer = await prisma.user.findFirst({ where: { role: 'Procurement_Officer' } });
-                        nextApproverId = firstProcOfficer?.id || null;
-                    }
-                }
-                auditDetails += ` Department Head approved. Ready for RFQ and assigned to designated sender.`;
-            } else {
-                 const applicableThreshold = approvalThresholds
-                    .sort((a,b) => a.min - b.min)
-                    .find(t => totalValue >= t.min && (t.max === null || totalValue <= t.max));
-
-                if (applicableThreshold) {
-                    // Find current step in the chain
-                    const currentStepIndex = applicableThreshold.steps.findIndex((s: any) => `Pending ${s.role.replace(/_/g, ' ')}` === requisition.status.replace(/_/g, ' '));
-                    
-                    if (currentStepIndex !== -1 && currentStepIndex + 1 < applicableThreshold.steps.length) {
-                        // There is a next step
-                        const nextStep = applicableThreshold.steps[currentStepIndex + 1];
-                        const approverRole = nextStep.role.replace(/ /g, '_');
-                        
-                        if (approverRole.includes('Committee')) {
-                            nextApproverId = null; // Committee review is not assigned to a single user
-                            nextStatus = `Pending_${approverRole}_Review`;
-                        } else {
-                            nextApproverId = await findApproverId(approverRole as UserRole);
-                            nextStatus = `Pending_${approverRole}_Approval`;
+            // This is a committee or hierarchical approval
+            if (requisition.status.startsWith('Pending')) {
+                const totalValue = requisition.totalPrice;
+                 switch (requisition.status) {
+                    // Step 1: Committee Reviews
+                    case 'Pending_Committee_A_Recommendation':
+                        if (totalValue > 1000000) {
+                            nextApproverId = await findApproverId('VP_Resources_and_Facilities');
+                            nextStatus = 'Pending VP Approval';
+                        } else { // 200,001 to 1,000,000
+                            nextApproverId = await findApproverId('Director_Supply_Chain_and_Property_Management');
+                            nextStatus = 'Pending Director Approval';
                         }
-                        auditDetails += ` Approved at current stage. Routing to ${nextStatus.replace(/_/g, ' ')}.`;
-                    } else {
-                        // This was the final approval in the chain
+                        break;
+                    case 'Pending_Committee_B_Review':
+                        nextApproverId = await findApproverId('Manager_Procurement_Division');
+                        nextStatus = 'Pending Managerial Review';
+                        break;
+
+                    // Step 2: Hierarchical Reviews
+                    case 'Pending Managerial Review': // From 10,001 to 200,000
+                        nextApproverId = await findApproverId('Director_Supply_Chain_and_Property_Management');
+                        nextStatus = 'Pending Director Approval';
+                        break;
+                    case 'Pending Director Approval': // From 200,001 to 1M
+                        nextApproverId = await findApproverId('VP_Resources_and_Facilities');
+                        nextStatus = 'Pending VP Approval';
+                        break;
+                    case 'Pending VP Approval': // > 1M
+                        nextApproverId = await findApproverId('President');
+                        nextStatus = 'Pending President Approval';
+                        break;
+                    
+                    case 'Pending_Approval': // This is the initial departmental approval
                         nextStatus = 'Approved';
-                        nextApproverId = rfqSenderId; // Assign to RFQ sender after final approval
-                        auditDetails += ` Final approval received. Ready for vendor notification.`;
-                    }
-                } else { // Fallback if no threshold matches
-                     nextStatus = 'Approved';
-                     nextApproverId = rfqSenderId;
-                     auditDetails += ` Final approval fallback. Ready for RFQ.`;
+                        const settings = await prisma.setting.findMany();
+                        const rfqSetting = settings.find(s => s.key === 'rfqSenderSetting')?.value as any;
+                        if (rfqSetting?.type === 'specific' && rfqSetting.userId) {
+                            nextApproverId = rfqSetting.userId;
+                        } else {
+                            const firstProcOfficer = await prisma.user.findFirst({ where: { role: 'Procurement_Officer' } });
+                            nextApproverId = firstProcOfficer?.id || null;
+                        }
+                        auditDetails += ` Department Head approved. Ready for RFQ and assigned to designated sender.`;
+                        break;
+                    
+                    // Final Approvals in the chain
+                    case 'Pending Managerial Approval': // <=10k - Final approval
+                    case 'Pending President Approval': // >1M - Final approval
+                        nextStatus = 'Approved'; 
+                        nextApproverId = null; // To be handled by final notification step
+                        auditDetails += ' Final approval received. Ready for vendor notification.'
+                        break;
+                    
+                    default: 
+                        nextStatus = 'Approved';
+                        nextApproverId = null;
                 }
+            } else { // Should not happen if status starts with Pending
+                 nextStatus = 'Approved';
+                 nextApproverId = null;
             }
 
             dataToUpdate.status = nextStatus?.replace(/ /g, '_');
-            if (nextApproverId) {
-                dataToUpdate.currentApprover = { connect: { id: nextApproverId } };
+            if(nextApproverId) {
+                 dataToUpdate.currentApproverId = nextApproverId;
             } else {
-                dataToUpdate.currentApprover = { disconnect: true };
+                dataToUpdate.currentApproverId = null;
             }
 
 
         } else if (status === 'Rejected') {
-            dataToUpdate.currentApprover = { disconnect: true };
+            dataToUpdate.currentApproverId = null;
             auditAction = 'REJECT_REQUISITION';
             auditDetails = `Requisition ${id} was rejected with comment: "${comment}".`;
         } else if (status === 'Pending Approval') {
             auditAction = 'SUBMIT_FOR_APPROVAL';
             auditDetails = `Draft requisition ${id} was submitted for approval.`;
             const department = await prisma.department.findUnique({ where: { id: requisition.departmentId! } });
-            if (department?.headId) { 
-                dataToUpdate.currentApprover = { connect: { id: department.headId } };
-            }
+            if (department?.headId) { dataToUpdate.currentApproverId = department.headId; }
         }
 
     } else {
@@ -519,9 +558,6 @@ export async function PATCH(
   } catch (error) {
     console.error('Failed to update requisition:', error);
     if (error instanceof Error) {
-      if ((error as any).code === 'P2025') {
-         return NextResponse.json({ error: 'An entity required for this update was not found. It may have been deleted.'}, { status: 404 });
-      }
         return NextResponse.json({ error: 'Failed to process request', details: error.message }, { status: 500 });
     }
     return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
