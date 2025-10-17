@@ -14,7 +14,6 @@ export async function POST(request: Request) {
         const user = await prisma.user.findUnique({
             where: { email },
             include: {
-                vendor: true,
                 department: true,
             }
         });
@@ -23,7 +22,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'User not found' }, { status: 404 });
         }
 
-        if (user && user.password && await bcrypt.compare(password, user.password)) {
+        if (user && user.password && (await bcrypt.compare(password, user.password))) {
             const { password: _, ...userWithoutPassword } = user;
             
             const finalUser: User = {
@@ -53,7 +52,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ 
                 user: finalUser, 
                 token, 
-                role: finalUser.role
+                role: finalUser.role 
             });
         }
         
