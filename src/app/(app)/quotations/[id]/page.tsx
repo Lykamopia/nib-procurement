@@ -947,7 +947,7 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent, isAuthorized }: { re
 
     const deadline = useMemo(() => {
         if (!deadlineDate || !deadlineTime) return undefined;
-        const [hours, minutes] = deadlineTime.split(':').map(Number);
+        const [hours, minutes] aredeadlineTime.split(':').map(Number);
         return setMinutes(setHours(deadlineDate, hours), minutes);
     }, [deadlineDate, deadlineTime]);
 
@@ -1343,11 +1343,6 @@ const ScoringDialog = ({
     
     const form = useForm<ScoreFormValues>({
         resolver: zodResolver(scoreFormSchema),
-    });
-
-    const { fields: itemScoreFields, replace: replaceItemScores } = useFieldArray({
-        control: form.control,
-        name: "itemScores",
     });
 
     useEffect(() => {
@@ -2981,4 +2976,6 @@ export default function QuotationDetailsPage() {
     </div>
   );
 }
+    
+
     
