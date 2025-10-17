@@ -2,7 +2,7 @@
 'use server';
 
 import { NextResponse } from 'next/server';
-import type { PurchaseRequisition, User, UserRole, Vendor } from '@/lib/types';
+import type { PurchaseRequisition, User, UserRole, Vendor, ApprovalStep, ApprovalThreshold } from '@/lib/types';
 import { prisma } from '@/lib/prisma';
 import { getUserByToken } from '@/lib/auth';
 import { headers } from 'next/headers';
@@ -14,75 +14,6 @@ async function findApproverId(role: UserRole): Promise<string | null> {
         where: { role: role.replace(/ /g, '_') }
     });
     return user?.id || null;
-}
-
-export async function finalizeAndNotifyVendors(requisitionId: string, awardResponseDeadline?: Date) {
-    const allQuotesForReq = await prisma.quotation.findMany({
-        where: { requisitionId },
-        include: { items: true }
-    });
-
-    const sortedByScore = allQuotesForReq.sort((a, b) => (b.finalAverageScore || 0) - (a.finalAverageScore || 0));
-
-    if (sortedByScore.length === 0) {
-        throw new Error("No quotes available to award.");
-    }
-    
-    const winner = sortedByScore[0];
-    
-    await prisma.quotation.updateMany({
-        where: { requisitionId: requisitionId, NOT: { id: winner.id } },
-        data: { status: 'Rejected', rank: null }
-    });
-    
-    await prisma.quotation.update({
-        where: { id: winner.id },
-        data: { status: 'Awarded', rank: 1 }
-    });
-
-    const standbyCandidates = sortedByScore.slice(1, 3);
-    for (let i = 0; i < standbyCandidates.length; i++) {
-        await prisma.quotation.update({
-            where: { id: standbyCandidates[i].id },
-            data: { status: 'Standby', rank: (i + 2) as 2 | 3 }
-        });
-    }
-
-    const awardResponseDurationMinutes = awardResponseDeadline
-        ? differenceInMinutes(awardResponseDeadline, new Date())
-        : undefined;
-
-    await prisma.purchaseRequisition.update({
-      where: { id: requisitionId },
-      data: {
-        status: 'RFQ_In_Progress', // Stays in this status until vendor accepts
-        awardResponseDeadline: awardResponseDeadline,
-        awardResponseDurationMinutes,
-        awardedQuoteItemIds: winner.items.map(item => item.id), // Store IDs of awarded items from the winning quote
-        currentApprover: { disconnect: true } // Clear current approver
-      }
-    });
-
-    const requisition = await prisma.purchaseRequisition.findUnique({where: { id: requisitionId }});
-    const vendor = await prisma.vendor.findUnique({ where: { id: winner.vendorId }});
-
-    if (vendor && requisition) {
-        const emailHtml = `
-            <h1>Congratulations, ${vendor.name}!</h1>
-            <p>You have been awarded the contract for requisition <strong>${requisition.title}</strong>.</p>
-            <p>Please log in to the vendor portal to review the award and respond.</p>
-            ${awardResponseDeadline ? `<p><strong>This award must be accepted by ${format(awardResponseDeadline, 'PPpp')}.</strong></p>` : ''}
-            <a href="${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:9002'}/vendor/dashboard">Go to Vendor Portal</a>
-            <p>Thank you,</p>
-            <p>Nib InternationalBank Procurement</p>
-        `;
-
-        await sendEmail({
-            to: vendor.email,
-            subject: `Contract Awarded: ${requisition.title}`,
-            html: emailHtml
-        });
-    }
 }
 
 
@@ -106,7 +37,7 @@ export async function GET(request: Request) {
     const whereClause: any = {};
     
     if (forReview === 'true' && userPayload) {
-        const userRole = userPayload.role.replace(/ /g, '_');
+        const userRole = userPayload.role.replace(/ /g, '_') as UserRole;
         
         const isHierarchicalApprover = [
             'Manager_Procurement_Division',
@@ -405,73 +336,48 @@ export async function PATCH(
             let nextStatus: string | null = null;
             
             const totalValue = requisition.totalPrice;
+             // Here we use the hardcoded settings as a fallback. In a real app, this would come from a DB.
+            const approvalThresholds: ApprovalThreshold[] = [
+                { id: 'tier-1', name: 'Low Value', min: 0, max: 10000, steps: [{ role: 'Manager_Procurement_Division' }] },
+                { id: 'tier-2', name: 'Mid Value', min: 10001, max: 200000, steps: [{ role: 'Committee_B_Member' }, { role: 'Manager_Procurement_Division' }, { role: 'Director_Supply_Chain_and_Property_Management' }] },
+                { id: 'tier-3', name: 'High Value', min: 200001, max: 1000000, steps: [{ role: 'Committee_A_Member' }, { role: 'Director_Supply_Chain_and_Property_Management' }, { role: 'VP_Resources_and_Facilities' }] },
+                { id: 'tier-4', name: 'Very-High Value', min: 1000001, max: null, steps: [{ role: 'Committee_A_Member' }, { role: 'VP_Resources_and_Facilities' }, { role: 'President' }] }
+            ];
+
+            const relevantThreshold = approvalThresholds.find(t => totalValue >= t.min && (t.max === null || totalValue <= t.max));
+            const currentStepIndex = relevantThreshold?.steps.findIndex(s => s.role.replace(/ /g, '_') === requisition.status.replace('Pending ', '').replace(/ /g, '_')) ?? -1;
+
             switch (requisition.status) {
                 case 'Pending_Approval':
                     nextStatus = 'Approved';
-                    // This is where the automated handoff happens.
-                    // The client provides the ID of the authorized RFQ sender.
                     if (rfqSenderId) {
                         nextApproverId = rfqSenderId;
                     } else {
-                        // Fallback if no ID is provided (should not happen with client changes)
                         const firstProcOfficer = await prisma.user.findFirst({ where: { role: 'Procurement_Officer' } });
                         nextApproverId = firstProcOfficer?.id || null;
                     }
                     auditDetails += ` Department Head approved. Ready for RFQ and assigned to designated sender.`;
                     break;
-                
-                case 'Pending_Committee_B_Review':
-                    nextApproverId = await findApproverId('Manager_Procurement_Division');
-                    nextStatus = 'Pending_Managerial_Review';
-                    auditDetails += ` Committee B approved. Routing to Manager for review.`;
-                    break;
-                
-                case 'Pending_Committee_A_Recommendation':
-                    if (totalValue > 1000000) {
-                        nextApproverId = await findApproverId('VP_Resources_and_Facilities');
-                        nextStatus = 'Pending_VP_Approval';
-                         auditDetails += ` Committee A recommended. Routing to VP for review.`;
-                    } else { // 200,001 to 1,000,000
-                        nextApproverId = await findApproverId('Director_Supply_Chain_and_Property_Management');
-                        nextStatus = 'Pending_Director_Approval';
-                         auditDetails += ` Committee A recommended. Routing to Director for review.`;
-                    }
-                    break;
-
-                case 'Pending_Managerial_Review':
-                    nextApproverId = await findApproverId('Director_Supply_Chain_and_Property_Management');
-                    nextStatus = 'Pending_Director_Approval';
-                    auditDetails += ` Manager reviewed. Escalating to Director for final approval.`;
-                    break;
-
-                case 'Pending_Director_Approval':
-                     if (totalValue > 200000) {
-                        nextApproverId = await findApproverId('VP_Resources_and_Facilities');
-                        nextStatus = 'Pending_VP_Approval';
-                        auditDetails += ` Director approved. Escalating to VP for final approval.`;
+                default:
+                    // This handles all dynamic steps from the approval matrix
+                    if (relevantThreshold && currentStepIndex !== -1) {
+                        const isFinalStep = currentStepIndex === relevantThreshold.steps.length - 1;
+                        if (isFinalStep) {
+                            nextStatus = 'Approved'; // Final approval in the chain
+                             auditDetails += ` Final approval received from ${user.role.replace(/_/g, ' ')}. Ready for vendor notification.`;
+                        } else {
+                            const nextStep = relevantThreshold.steps[currentStepIndex + 1];
+                            nextApproverId = await findApproverId(nextStep.role);
+                            nextStatus = `Pending ${nextStep.role.replace(/_/g, ' ')}`;
+                             auditDetails += ` Approved by ${user.role.replace(/_/g, ' ')}. Escalating to ${nextStep.role.replace(/_/g, ' ')}.`;
+                        }
                     } else {
-                        nextStatus = 'Approved';
-                        auditDetails += ` Director approved. Final approval for mid-value item.`;
+                        // Fallback for initial departmental approval if not covered
+                         nextStatus = 'Approved';
+                         auditDetails += ` Departmental approval received.`;
                     }
-                    break;
-                
-                case 'Pending_VP_Approval':
-                     if (totalValue > 1000000) {
-                        nextApproverId = await findApproverId('President');
-                        nextStatus = 'Pending_President_Approval';
-                        auditDetails += ` VP reviewed. Escalating to President for final approval.`;
-                    } else {
-                        nextStatus = 'Approved';
-                        auditDetails += ` VP approved. Final approval for high-value item.`;
-                    }
-                    break;
-                
-                case 'Pending_Managerial_Approval':
-                case 'Pending_President_Approval': 
-                    nextStatus = 'Approved';
-                    auditDetails += ` Final approval received. Ready for vendor notification.`;
-                    break;
             }
+
 
             dataToUpdate.status = nextStatus?.replace(/ /g, '_');
             if (nextApproverId) {
@@ -587,3 +493,5 @@ export async function DELETE(
     return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
   }
 }
+
+    

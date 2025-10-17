@@ -2720,6 +2720,8 @@ export default function QuotationDetailsPage() {
      return <div className="text-center p-8">Requisition not found.</div>;
   }
   
+  const isAwaitingFinalApproval = requisition.status.startsWith('Pending');
+
   return (
     <div className="space-y-6">
         <Button variant="outline" onClick={() => router.push('/quotations')}>
@@ -2727,6 +2729,44 @@ export default function QuotationDetailsPage() {
             Back to All Requisitions
         </Button>
         
+        {isAwaitingFinalApproval && isAuthorized && (
+            <Card className="border-amber-500">
+                <CardHeader>
+                    <CardTitle className="text-amber-600">Pending Final Approval</CardTitle>
+                    <CardDescription>
+                        This award is currently being reviewed by the designated approvers. The current status is: <Badge variant="secondary">{requisition.status.replace(/_/g, ' ')}</Badge>
+                    </CardDescription>
+                </CardHeader>
+            </Card>
+        )}
+
+        {requisition.status === 'Approved' && isAwarded && isAuthorized && (
+            <Card className="border-green-500">
+                 <CardHeader>
+                    <CardTitle className="text-green-600">Action Required: Notify Vendor</CardTitle>
+                    <CardDescription>The award has passed all reviews. You may now notify the winning vendor.</CardDescription>
+                </CardHeader>
+                <CardFooter>
+                    <Dialog open={isNotifyDialogOpen} onOpenChange={setIsNotifyDialogOpen}>
+                        <DialogTrigger asChild>
+                            <Button disabled={isNotifying}>
+                                {isNotifying && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                Send Award Notification
+                            </Button>
+                        </DialogTrigger>
+                        <NotifyVendorDialog
+                            isOpen={isNotifyDialogOpen}
+                            onClose={() => setIsNotifyDialogOpen(false)}
+                            onConfirm={(deadline) => {
+                                handleNotifyVendor(deadline);
+                                setIsNotifyDialogOpen(false);
+                            }}
+                        />
+                    </Dialog>
+                </CardFooter>
+            </Card>
+        )}
+
         <Card className="p-4 sm:p-6">
             <WorkflowStepper step={currentStep} />
         </Card>
@@ -2933,33 +2973,6 @@ export default function QuotationDetailsPage() {
              />
         )}
 
-        {requisition.status === 'Approved' && isAwarded && (role === 'Procurement_Officer' || role === 'Admin') && (
-            <Card className="mt-6 border-amber-500">
-                 <CardHeader>
-                    <CardTitle>Action Required: Notify Vendor</CardTitle>
-                    <CardDescription>The award has passed committee review. You may now notify the winning vendor.</CardDescription>
-                </CardHeader>
-                <CardFooter>
-                     <Dialog open={isNotifyDialogOpen} onOpenChange={setIsNotifyDialogOpen}>
-                        <DialogTrigger asChild>
-                            <Button disabled={isNotifying}>
-                                {isNotifying && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                Send Award Notification
-                            </Button>
-                        </DialogTrigger>
-                        <NotifyVendorDialog
-                            isOpen={isNotifyDialogOpen}
-                            onClose={() => setIsNotifyDialogOpen(false)}
-                            onConfirm={(deadline) => {
-                                handleNotifyVendor(deadline);
-                                setIsNotifyDialogOpen(false);
-                            }}
-                        />
-                    </Dialog>
-                </CardFooter>
-            </Card>
-        )}
-        
         {isAccepted && requisition.status !== 'PO_Created' && role !== 'Committee_Member' && (
             <ContractManagement requisition={requisition} onContractFinalized={handleContractFinalized} />
         )}
@@ -2981,4 +2994,6 @@ export default function QuotationDetailsPage() {
     </div>
   );
 }
+    
+
     
