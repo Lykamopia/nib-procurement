@@ -31,6 +31,7 @@ async function main() {
   await prisma.review.deleteMany({});
   await prisma.purchaseRequisition.deleteMany({});
   await prisma.kYC_Document.deleteMany({});
+  await prisma.setting.deleteMany({});
   
   // Manually manage order of user/vendor deletion to avoid foreign key issues
   await prisma.user.updateMany({ data: { managerId: null } });
@@ -67,6 +68,29 @@ async function main() {
       await prisma.role.create({ data: { name: role.name.replace(/ /g, '_'), description: role.description } });
   }
   console.log('Seeded roles.');
+  
+  // Seed Settings
+  await prisma.setting.create({
+    data: {
+      key: 'rfqSenderSetting',
+      value: {
+        type: 'all' // or 'specific'
+        // userId: 'some-user-id' // if type is 'specific'
+      }
+    }
+  });
+
+  await prisma.setting.create({
+      data: {
+          key: 'committeeConfig',
+          value: {
+              A: { min: 200001, max: 1000000 },
+              B: { min: 10001, max: 200000 }
+          }
+      }
+  });
+  console.log('Seeded settings.');
+
 
   // Seed Departments without heads first
   for (const department of seedData.departments) {
@@ -145,7 +169,8 @@ async function main() {
       data: {
           ...vendorData,
           kycStatus: vendorData.kycStatus.replace(/ /g, '_') as any,
-          user: { connect: { id: createdUser.id } }
+          user: { connect: { id: createdUser.id } },
+          userId: createdUser.id, // Explicitly set userId
       },
     });
 
