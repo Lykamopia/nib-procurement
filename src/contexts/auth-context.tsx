@@ -36,6 +36,8 @@ export interface RfqSenderSetting {
 
 export interface ApprovalStep {
     role: UserRole;
+    id?: string;
+    order?: number;
 }
 
 export interface ApprovalThreshold {
@@ -66,49 +68,6 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const defaultApprovalThresholds: ApprovalThreshold[] = [
-    {
-        id: 'tier-1',
-        name: 'Low Value',
-        min: 0,
-        max: 10000,
-        steps: [{ role: 'Manager_Procurement_Division' }],
-    },
-    {
-        id: 'tier-2',
-        name: 'Mid Value',
-        min: 10001,
-        max: 200000,
-        steps: [
-            { role: 'Committee_B_Member' },
-            { role: 'Manager_Procurement_Division' },
-            { role: 'Director_Supply_Chain_and_Property_Management' },
-        ],
-    },
-    {
-        id: 'tier-3',
-        name: 'High Value',
-        min: 200001,
-        max: 1000000,
-        steps: [
-            { role: 'Committee_A_Member' },
-            { role: 'Director_Supply_Chain_and_Property_Management' },
-            { role: 'VP_Resources_and_Facilities' },
-        ],
-    },
-    {
-        id: 'tier-4',
-        name: 'Very-High Value',
-        min: 1000001,
-        max: null,
-        steps: [
-            { role: 'Committee_A_Member' },
-            { role: 'VP_Resources_and_Facilities' },
-            { role: 'President' },
-        ],
-    },
-];
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
@@ -117,7 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [rolePermissions, setRolePermissions] = useState<Record<UserRole, string[]>>(defaultRolePermissions);
   const [rfqSenderSetting, setRfqSenderSetting] = useState<RfqSenderSetting>({ type: 'all' });
-  const [approvalThresholds, setApprovalThresholds] = useState<ApprovalThreshold[]>(defaultApprovalThresholds);
+  const [approvalThresholds, setApprovalThresholds] = useState<ApprovalThreshold[]>([]);
 
 
   const fetchAllUsers = useCallback(async () => {
@@ -134,11 +93,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return [];
     }
   }, []);
+  
+  const fetchSettings = useCallback(async () => {
+    try {
+      const settingsRes = await fetch('/api/settings');
+      if (settingsRes.ok) {
+        const settings = await settingsRes.json();
+        const rfqSetting = settings.find((s:any) => s.key === 'rfqSenderSetting');
+        const committeeConfig = settings.find((s:any) => s.key === 'committeeConfig');
+        
+        if (rfqSetting) setRfqSenderSetting(rfqSetting.value);
+      }
+      
+      const approvalMatrixRes = await fetch('/api/settings/approval-matrix');
+      if (approvalMatrixRes.ok) {
+        const matrixData = await approvalMatrixRes.json();
+        setApprovalThresholds(matrixData);
+      }
+
+    } catch (error) {
+        console.error("Failed to fetch settings", error);
+    }
+  }, []);
 
   useEffect(() => {
     const initializeAuth = async () => {
       setLoading(true);
       const users = await fetchAllUsers();
+      await fetchSettings();
       try {
           const storedToken = localStorage.getItem('authToken');
           
@@ -155,12 +137,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
           
           const storedPermissions = localStorage.getItem('rolePermissions');
-          const storedRfqSetting = localStorage.getItem('rfqSenderSetting');
-          const storedApprovalThresholds = localStorage.getItem('approvalThresholds');
-          
           if (storedPermissions) setRolePermissions(JSON.parse(storedPermissions));
-          if (storedRfqSetting) setRfqSenderSetting(JSON.parse(storedRfqSetting));
-          if (storedApprovalThresholds) setApprovalThresholds(JSON.parse(storedApprovalThresholds));
 
       } catch (error) {
           console.error("Failed to initialize auth from localStorage", error);
@@ -169,7 +146,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     };
     initializeAuth();
-  }, [fetchAllUsers]);
+  }, [fetchAllUsers, fetchSettings]);
 
   const login = (newToken: string, loggedInUser: User, loggedInRole: UserRole) => {
     localStorage.setItem('authToken', newToken);
@@ -211,6 +188,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
   
   const updateRfqSenderSetting = (newSetting: RfqSenderSetting) => {
+      // In a real app, this would be an API call
       localStorage.setItem('rfqSenderSetting', JSON.stringify(newSetting));
       setRfqSenderSetting(newSetting);
   }
@@ -232,9 +210,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const updateApprovalThresholds = (newThresholds: ApprovalThreshold[]) => {
-      localStorage.setItem('approvalThresholds', JSON.stringify(newThresholds));
-      setApprovalThresholds(newThresholds);
+  const updateApprovalThresholds = async (newThresholds: ApprovalThreshold[]) => {
+      try {
+          const response = await fetch('/api/settings/approval-matrix', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(newThresholds)
+          });
+          if (!response.ok) throw new Error("Failed to save approval matrix");
+          const data = await response.json();
+          setApprovalThresholds(data);
+      } catch (e) {
+          console.error("Failed to update approval thresholds", e);
+      }
   }
 
   const authContextValue = useMemo(() => ({

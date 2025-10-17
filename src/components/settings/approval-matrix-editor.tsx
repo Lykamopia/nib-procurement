@@ -13,6 +13,7 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Reorder } from 'framer-motion';
+import { produce } from 'immer';
 
 export function ApprovalMatrixEditor() {
     const { approvalThresholds, updateApprovalThresholds } = useAuth();
@@ -24,7 +25,7 @@ export function ApprovalMatrixEditor() {
         setLocalThresholds(JSON.parse(JSON.stringify(approvalThresholds)));
     }, [approvalThresholds]);
 
-    const handleSave = () => {
+    const handleSave = async () => {
         setIsSaving(true);
         // Basic validation
         for (const threshold of localThresholds) {
@@ -34,23 +35,28 @@ export function ApprovalMatrixEditor() {
                 return;
             }
         }
-        updateApprovalThresholds(localThresholds);
-        setTimeout(() => {
-            toast({
-                title: 'Settings Saved',
-                description: 'Approval matrix has been updated.',
-            });
-            setIsSaving(false);
-        }, 500);
+        await updateApprovalThresholds(localThresholds);
+        toast({
+            title: 'Settings Saved',
+            description: 'Approval matrix has been updated.',
+        });
+        setIsSaving(false);
     };
 
     const handleThresholdChange = (id: string, field: 'min' | 'max' | 'name', value: string | number | null) => {
-        setLocalThresholds(prev => prev.map(t => t.id === id ? {...t, [field]: value} : t));
+        setLocalThresholds(produce(draft => {
+            const threshold = draft.find(t => t.id === id);
+            if (threshold) {
+                (threshold as any)[field] = value;
+            }
+        }));
     };
 
     const addThreshold = () => {
         const newId = `tier-${Date.now()}`;
-        setLocalThresholds(prev => [...prev, { id: newId, name: 'New Tier', min: 0, max: null, steps: [] }]);
+        setLocalThresholds(produce(draft => {
+            draft.push({ id: newId, name: 'New Tier', min: 0, max: null, steps: [] });
+        }));
     };
 
     const removeThreshold = (id: string) => {
@@ -58,41 +64,38 @@ export function ApprovalMatrixEditor() {
     };
 
     const handleStepChange = (thresholdId: string, stepIndex: number, newRole: UserRole) => {
-        setLocalThresholds(prev => prev.map(t => {
-            if (t.id === thresholdId) {
-                const newSteps = [...t.steps];
-                newSteps[stepIndex] = { ...newSteps[stepIndex], role: newRole };
-                return { ...t, steps: newSteps };
+         setLocalThresholds(produce(draft => {
+            const threshold = draft.find(t => t.id === thresholdId);
+            if (threshold) {
+                threshold.steps[stepIndex].role = newRole;
             }
-            return t;
         }));
     };
 
     const addStep = (thresholdId: string) => {
-        setLocalThresholds(prev => prev.map(t => {
-            if (t.id === thresholdId) {
-                return { ...t, steps: [...t.steps, { role: 'Approver' }] };
+        setLocalThresholds(produce(draft => {
+            const threshold = draft.find(t => t.id === thresholdId);
+            if (threshold) {
+                threshold.steps.push({ role: 'Approver' });
             }
-            return t;
         }));
     };
 
     const removeStep = (thresholdId: string, stepIndex: number) => {
-        setLocalThresholds(prev => prev.map(t => {
-            if (t.id === thresholdId) {
-                const newSteps = t.steps.filter((_, i) => i !== stepIndex);
-                return { ...t, steps: newSteps };
+        setLocalThresholds(produce(draft => {
+            const threshold = draft.find(t => t.id === thresholdId);
+            if (threshold) {
+                threshold.steps.splice(stepIndex, 1);
             }
-            return t;
         }));
     };
     
     const reorderSteps = (thresholdId: string, newOrder: ApprovalStep[]) => {
-        setLocalThresholds(prev => prev.map(t => {
-            if (t.id === thresholdId) {
-                return { ...t, steps: newOrder };
+       setLocalThresholds(produce(draft => {
+            const threshold = draft.find(t => t.id === thresholdId);
+            if (threshold) {
+                threshold.steps = newOrder.map((step, index) => ({...step, order: index}));
             }
-            return t;
         }));
     };
 
@@ -130,7 +133,7 @@ export function ApprovalMatrixEditor() {
                              <h4 className="mb-2 font-medium text-sm">Approval Steps</h4>
                              <Reorder.Group axis="y" values={threshold.steps} onReorder={(newOrder) => reorderSteps(threshold.id, newOrder)} className="space-y-2">
                                 {threshold.steps.map((step, index) => (
-                                    <Reorder.Item key={`${threshold.id}-${index}`} value={step} className="flex items-center gap-2 p-2 rounded-md bg-muted/50">
+                                    <Reorder.Item key={step.id || `step-${index}`} value={step} className="flex items-center gap-2 p-2 rounded-md bg-muted/50">
                                         <GripVertical className="cursor-grab text-muted-foreground" />
                                         <span className="font-mono text-xs">{index + 1}.</span>
                                         <Select value={step.role} onValueChange={(role: UserRole) => handleStepChange(threshold.id, index, role)}>

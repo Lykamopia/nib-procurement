@@ -8,6 +8,8 @@ const prisma = new PrismaClient();
 async function main() {
   console.log(`Clearing existing data...`);
   // Manually manage order of deletion to avoid foreign key constraint violations
+  await prisma.approvalStep.deleteMany({});
+  await prisma.approvalThreshold.deleteMany({});
   await prisma.score.deleteMany({});
   await prisma.auditLog.deleteMany({});
   await prisma.receiptItem.deleteMany({});
@@ -90,6 +92,35 @@ async function main() {
       }
   });
   console.log('Seeded settings.');
+
+  // Seed Approval Matrix
+  const defaultApprovalThresholds = [
+    { name: 'Low Value', min: 0, max: 10000, steps: ['Manager_Procurement_Division'] },
+    { name: 'Mid Value', min: 10001, max: 200000, steps: ['Committee_B_Member', 'Manager_Procurement_Division', 'Director_Supply_Chain_and_Property_Management'] },
+    { name: 'High Value', min: 200001, max: 1000000, steps: ['Committee_A_Member', 'Director_Supply_Chain_and_Property_Management', 'VP_Resources_and_Facilities'] },
+    { name: 'Very-High Value', min: 1000001, max: null, steps: ['Committee_A_Member', 'VP_Resources_and_Facilities', 'President'] },
+  ];
+
+  for (const tier of defaultApprovalThresholds) {
+    const createdThreshold = await prisma.approvalThreshold.create({
+      data: {
+        name: tier.name,
+        min: tier.min,
+        max: tier.max,
+      },
+    });
+
+    for (let i = 0; i < tier.steps.length; i++) {
+      await prisma.approvalStep.create({
+        data: {
+          thresholdId: createdThreshold.id,
+          role: tier.steps[i],
+          order: i,
+        },
+      });
+    }
+  }
+  console.log('Seeded approval matrix.');
 
 
   // Seed Departments without heads first
