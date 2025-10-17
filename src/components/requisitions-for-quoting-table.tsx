@@ -74,30 +74,18 @@ export function RequisitionsForQuotingTable() {
 
   const getStatusBadge = (req: PurchaseRequisition) => {
     const deadlinePassed = req.deadline ? isPast(new Date(req.deadline)) : false;
-    const scoringDeadlinePassed = req.scoringDeadline ? isPast(new Date(req.scoringDeadline)) : false;
-    const isAwarded = req.quotations?.some(q => q.status === 'Awarded');
-    const isAccepted = req.quotations?.some(q => q.status === 'Accepted');
-
-     if (req.status === 'Pending_Committee_B_Review' || req.status === 'Pending_Committee_A_Recommendation') {
-        return <Badge variant="destructive">Pending Committee Review</Badge>;
-    }
-    if (req.status === 'PO Created' || isAccepted) {
-        return <Badge variant="default">PO Created</Badge>;
-    }
-    if (isAwarded) {
-        return <Badge variant="secondary">Vendor Awarded</Badge>;
-    }
-    if (deadlinePassed && !scoringDeadlinePassed && req.committeeName) {
-         return <Badge variant="secondary">Scoring in Progress</Badge>;
-    }
-    if (deadlinePassed && !req.committeeName) {
-        return <Badge variant="destructive">Needs Committee</Badge>;
-    }
-    if (req.status === 'RFQ In Progress' && !deadlinePassed) {
-        return <Badge variant="outline">Accepting Quotes</Badge>;
-    }
+    
     if (req.status === 'Approved') {
         return <Badge variant="default" className="bg-blue-500 text-white">Ready for RFQ</Badge>;
+    }
+    if (req.status === 'RFQ_In_Progress' && deadlinePassed && !req.committeeName) {
+        return <Badge variant="destructive">Ready for Committee Assignment</Badge>;
+    }
+    if (req.status === 'RFQ_In_Progress' && deadlinePassed) {
+        return <Badge variant="secondary">Scoring in Progress</Badge>;
+    }
+    if (req.status === 'RFQ_In_Progress' && !deadlinePassed) {
+        return <Badge variant="outline">Accepting Quotes</Badge>;
     }
     
     return <Badge variant="outline">{req.status}</Badge>;
@@ -184,5 +172,3 @@ export function RequisitionsForQuotingTable() {
     </Card>
   );
 }
-
-    

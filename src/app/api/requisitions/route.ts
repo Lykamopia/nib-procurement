@@ -151,9 +151,22 @@ export async function GET(request: Request) {
             });
             whereClause.id = { in: assignedReqs.map(a => a.requisitionId) };
         } else {
-            // This is for the RFQ Sender to see their queue
-            whereClause.currentApproverId = userPayload.user.id;
-            whereClause.status = 'Approved';
+            // This is for the RFQ Sender to see their queue.
+            // It should include items ready for RFQ and items ready for committee assignment.
+            whereClause.OR = [
+                { // Ready for RFQ
+                    currentApproverId: userPayload.user.id,
+                    status: 'Approved'
+                },
+                { // Ready for Committee Assignment
+                    status: 'RFQ_In_Progress',
+                    deadline: {
+                        lt: new Date() // deadline is in the past
+                    },
+                    // And has not yet had a committee assigned
+                    committeeName: null
+                }
+            ]
         }
     }
 
@@ -409,11 +422,6 @@ export async function PATCH(
             const totalValue = requisition.totalPrice;
             const settings = await prisma.setting.findMany();
             const approvalThresholds = settings.find(s => s.key === 'approvalThresholds')?.value as any[] || [];
-            const committeeAConfig = settings.find(s => s.key === 'committeeConfig')?.value as any;
-
-            const applicableThreshold = approvalThresholds
-                .sort((a,b) => a.min - b.min)
-                .find(t => totalValue >= t.min && (t.max === null || totalValue <= t.max));
 
             if (requisition.status === 'Pending_Approval') { // Initial Departmental Approval
                 nextStatus = 'Approved';
@@ -430,33 +438,39 @@ export async function PATCH(
                     }
                 }
                 auditDetails += ` Department Head approved. Ready for RFQ and assigned to designated sender.`;
-            } else if (applicableThreshold) {
-                // Find current step in the chain
-                const currentStepIndex = applicableThreshold.steps.findIndex((s: any) => `Pending ${s.role.replace(/_/g, ' ')}` === requisition.status.replace(/_/g, ' '));
-                
-                if (currentStepIndex !== -1 && currentStepIndex + 1 < applicableThreshold.steps.length) {
-                    // There is a next step
-                    const nextStep = applicableThreshold.steps[currentStepIndex + 1];
-                    const approverRole = nextStep.role.replace(/ /g, '_');
+            } else {
+                 const applicableThreshold = approvalThresholds
+                    .sort((a,b) => a.min - b.min)
+                    .find(t => totalValue >= t.min && (t.max === null || totalValue <= t.max));
+
+                if (applicableThreshold) {
+                    // Find current step in the chain
+                    const currentStepIndex = applicableThreshold.steps.findIndex((s: any) => `Pending ${s.role.replace(/_/g, ' ')}` === requisition.status.replace(/_/g, ' '));
                     
-                    if (approverRole.includes('Committee')) {
-                        nextApproverId = null; // Committee review is not assigned to a single user
-                        nextStatus = `Pending_${approverRole}_Review`;
+                    if (currentStepIndex !== -1 && currentStepIndex + 1 < applicableThreshold.steps.length) {
+                        // There is a next step
+                        const nextStep = applicableThreshold.steps[currentStepIndex + 1];
+                        const approverRole = nextStep.role.replace(/ /g, '_');
+                        
+                        if (approverRole.includes('Committee')) {
+                            nextApproverId = null; // Committee review is not assigned to a single user
+                            nextStatus = `Pending_${approverRole}_Review`;
+                        } else {
+                            nextApproverId = await findApproverId(approverRole as UserRole);
+                            nextStatus = `Pending_${approverRole}_Approval`;
+                        }
+                        auditDetails += ` Approved at current stage. Routing to ${nextStatus.replace(/_/g, ' ')}.`;
                     } else {
-                        nextApproverId = await findApproverId(approverRole);
-                        nextStatus = `Pending_${approverRole}_Approval`;
+                        // This was the final approval in the chain
+                        nextStatus = 'Approved';
+                        nextApproverId = rfqSenderId; // Assign to RFQ sender after final approval
+                        auditDetails += ` Final approval received. Ready for vendor notification.`;
                     }
-                    auditDetails += ` Approved at current stage. Routing to ${nextStatus.replace(/_/g, ' ')}.`;
-                } else {
-                    // This was the final approval in the chain
-                    nextStatus = 'Approved';
-                    nextApproverId = rfqSenderId; // Assign to RFQ sender after final approval
-                    auditDetails += ` Final approval received. Ready for vendor notification.`;
+                } else { // Fallback if no threshold matches
+                     nextStatus = 'Approved';
+                     nextApproverId = rfqSenderId;
+                     auditDetails += ` Final approval fallback. Ready for RFQ.`;
                 }
-            } else { // Fallback if no threshold matches
-                 nextStatus = 'Approved';
-                 nextApproverId = rfqSenderId;
-                 auditDetails += ` Final approval fallback. Ready for RFQ.`;
             }
 
             dataToUpdate.status = nextStatus?.replace(/ /g, '_');
@@ -573,5 +587,3 @@ export async function DELETE(
     return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
   }
 }
-
-    
