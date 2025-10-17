@@ -1,5 +1,5 @@
 
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, UserRole } from '@prisma/client';
 import { getInitialData } from '../src/lib/seed-data';
 import bcrypt from 'bcryptjs';
 
@@ -8,6 +8,7 @@ const prisma = new PrismaClient();
 async function main() {
   console.log(`Clearing existing data...`);
   // Manually manage order of deletion to avoid foreign key constraint violations
+  await prisma.setting.deleteMany({});
   await prisma.score.deleteMany({});
   await prisma.auditLog.deleteMany({});
   await prisma.receiptItem.deleteMany({});
@@ -25,7 +26,6 @@ async function main() {
   await prisma.financialCriterion.deleteMany({});
   await prisma.evaluationCriteria.deleteMany({});
   await prisma.customQuestion.deleteMany({});
-  await prisma.requisitionItem.deleteMany({});
   await prisma.committeeAssignment.deleteMany({});
   await prisma.contract.deleteMany({});
   await prisma.review.deleteMany({});
@@ -44,7 +44,7 @@ async function main() {
   console.log(`Start seeding ...`);
 
   const seedData = getInitialData();
-  const allRoles = [
+  const allRoles: { name: UserRole, description: string }[] = [
       { name: 'Requester', description: 'Can create purchase requisitions.' },
       { name: 'Approver', description: 'Can approve or reject requisitions.' },
       { name: 'Procurement_Officer', description: 'Manages the RFQ and PO process.' },
@@ -64,9 +64,69 @@ async function main() {
 
   // Seed Roles
   for (const role of allRoles) {
-      await prisma.role.create({ data: { name: role.name.replace(/ /g, '_'), description: role.description } });
+      await prisma.role.create({ data: { name: role.name.replace(/ /g, '_') as UserRole, description: role.description } });
   }
   console.log('Seeded roles.');
+  
+  // Seed Default Application Settings
+  const defaultApprovalThresholds = [
+    {
+        id: 'tier-1',
+        name: 'Low Value',
+        min: 0,
+        max: 10000,
+        steps: [{ role: 'Manager_Procurement_Division' }],
+    },
+    {
+        id: 'tier-2',
+        name: 'Mid Value',
+        min: 10001,
+        max: 200000,
+        steps: [
+            { role: 'Committee_B_Member' },
+            { role: 'Manager_Procurement_Division' },
+            { role: 'Director_Supply_Chain_and_Property_Management' },
+        ],
+    },
+    {
+        id: 'tier-3',
+        name: 'High Value',
+        min: 200001,
+        max: 1000000,
+        steps: [
+            { role: 'Committee_A_Member' },
+            { role: 'Director_Supply_Chain_and_Property_Management' },
+            { role: 'VP_Resources_and_Facilities' },
+        ],
+    },
+    {
+        id: 'tier-4',
+        name: 'Very-High Value',
+        min: 1000001,
+        max: null,
+        steps: [
+            { role: 'Committee_A_Member' },
+            { role: 'VP_Resources_and_Facilities' },
+            { role: 'President' },
+        ],
+    },
+  ];
+  
+  const defaultRfqSenderSetting = { type: 'all', userId: null };
+
+  await Promise.all([
+      prisma.setting.upsert({
+          where: { key: 'approvalThresholds' },
+          update: { value: defaultApprovalThresholds },
+          create: { key: 'approvalThresholds', value: defaultApprovalThresholds },
+      }),
+      prisma.setting.upsert({
+          where: { key: 'rfqSenderSetting' },
+          update: { value: defaultRfqSenderSetting },
+          create: { key: 'rfqSenderSetting', value: defaultRfqSenderSetting },
+      }),
+  ]);
+  console.log('Seeded default application settings.');
 
   // Seed Departments without heads first
   for (const department of seedData.departments) {
@@ -86,7 +146,7 @@ async function main() {
       data: {
           ...userData,
           password: hashedPassword,
-          role: userData.role.replace(/ /g, '_'), // Pass role as a string
+          role: userData.role.replace(/ /g, '_') as UserRole,
           departmentId: user.departmentId,
       },
     });
@@ -136,7 +196,7 @@ async function main() {
               email: vendorUser.email,
               password: hashedPassword,
               approvalLimit: vendorUser.approvalLimit,
-              role: vendorUser.role.replace(/ /g, '_'), // Pass role as a string
+              role: vendorUser.role.replace(/ /g, '_') as UserRole,
           }
       });
       

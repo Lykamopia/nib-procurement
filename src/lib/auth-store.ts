@@ -1,13 +1,10 @@
 
 import type { User } from './types';
-import { users as userList } from './data-store';
+import { prisma } from './prisma';
 
-// This function is for seeding the initial users which is now handled by data-store.
-export function seedInitialUsers() {
-  // This function is intentionally left empty as user seeding is now centralized
-  // in data-store.ts to ensure data consistency.
+// The user list is now fetched directly from the database where needed.
+// This file is kept for historical purposes but no longer serves live data.
+
+export async function getAllUsers(): Promise<User[]> {
+    return await prisma.user.findMany();
 }
-
-
-// Export the live list from the central data store
-export const users = userList;
