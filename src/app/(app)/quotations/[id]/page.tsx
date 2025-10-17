@@ -239,7 +239,7 @@ const QuoteComparison = ({ quotes, requisition, onScore, user, isDeadlinePassed,
         }
     }
     
-    const isTechnicalOnlyScorer = user.role === 'Committee Member' && requisition.technicalCommitteeMemberIds?.includes(user.id) && !requisition.financialCommitteeMemberIds?.includes(user.id);
+    const isTechnicalOnlyScorer = user.role === 'Committee_Member' && requisition.technicalCommitteeMemberIds?.includes(user.id) && !requisition.financialCommitteeMemberIds?.includes(user.id);
     const hidePrices = isTechnicalOnlyScorer && !requisition.rfqSettings?.technicalEvaluatorSeesPrices;
 
 
@@ -947,7 +947,7 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent, isAuthorized }: { re
 
     const deadline = useMemo(() => {
         if (!deadlineDate || !deadlineTime) return undefined;
-        const [hours, minutes] aredeadlineTime.split(':').map(Number);
+        const [hours, minutes] = deadlineTime.split(':').map(Number);
         return setMinutes(setHours(deadlineDate, hours), minutes);
     }, [deadlineDate, deadlineTime]);
 
