@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -54,7 +53,7 @@ export function ApprovalsTable() {
   const [requisitions, setRequisitions] = useState<PurchaseRequisition[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { user } = useAuth();
+  const { user, rfqSenderSetting, allUsers } = useAuth();
   const { toast } = useToast();
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -68,7 +67,7 @@ export function ApprovalsTable() {
     if (!user) return;
     try {
       setLoading(true);
-      let apiUrl = `/api/requisitions?status=Pending Approval&approverId=${user.id}`;
+      let apiUrl = `/api/requisitions?status=Pending_Approval&approverId=${user.id}`;
       
       const response = await fetch(apiUrl);
       if (!response.ok) {
@@ -105,7 +104,16 @@ export function ApprovalsTable() {
   const submitAction = async () => {
     if (!selectedRequisition || !actionType || !user) return;
     
-    const isManagerialApproval = false; // This screen is only for departmental approvals
+    let rfqSenderId: string | null = null;
+    if (actionType === 'approve') {
+      if (rfqSenderSetting.type === 'specific' && rfqSenderSetting.userId) {
+        rfqSenderId = rfqSenderSetting.userId;
+      } else {
+        // Fallback to the first available Procurement Officer if 'all' is selected or specific user not found
+        const firstProcOfficer = allUsers.find(u => u.role === 'Procurement_Officer');
+        rfqSenderId = firstProcOfficer?.id || null;
+      }
+    }
 
     try {
       const response = await fetch(`/api/requisitions`, {
@@ -116,7 +124,7 @@ export function ApprovalsTable() {
             status: actionType === 'approve' ? 'Approved' : 'Rejected', 
             userId: user.id, 
             comment,
-            isManagerialApproval,
+            rfqSenderId, // Pass the designated RFQ sender ID to the API
         }),
       });
       if (!response.ok) throw new Error(`Failed to ${actionType} requisition`);
@@ -165,9 +173,9 @@ export function ApprovalsTable() {
     <>
     <Card>
       <CardHeader>
-        <CardTitle>Pending Approvals</CardTitle>
+        <CardTitle>Pending Departmental Approvals</CardTitle>
         <CardDescription>
-          Review and act on items waiting for your approval.
+          Review and act on items waiting for your approval from your department.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -179,7 +187,6 @@ export function ApprovalsTable() {
                 <TableHead>Req. ID</TableHead>
                 <TableHead>Title</TableHead>
                 <TableHead>Requester</TableHead>
-                <TableHead>Type</TableHead>
                 <TableHead>Urgency</TableHead>
                 <TableHead>Created At</TableHead>
                 <TableHead>Actions</TableHead>
@@ -193,9 +200,6 @@ export function ApprovalsTable() {
                       <TableCell className="font-medium text-primary">{req.id}</TableCell>
                       <TableCell>{req.title}</TableCell>
                       <TableCell>{req.requesterName}</TableCell>
-                      <TableCell>
-                          <Badge variant="secondary">Requisition Approval</Badge>
-                      </TableCell>
                        <TableCell>
                         <Badge variant={getUrgencyVariant(req.urgency)}>{req.urgency}</Badge>
                       </TableCell>
@@ -217,7 +221,7 @@ export function ApprovalsTable() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={8} className="h-48 text-center">
+                  <TableCell colSpan={7} className="h-48 text-center">
                     <div className="flex flex-col items-center gap-4">
                       <Inbox className="h-16 w-16 text-muted-foreground/50" />
                       <div className="space-y-1">

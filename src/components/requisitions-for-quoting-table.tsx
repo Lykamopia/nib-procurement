@@ -113,7 +113,7 @@ export function RequisitionsForQuotingTable() {
         <CardDescription>
           {role === 'Committee_Member' 
             ? 'Requisitions assigned to you for scoring.'
-            : 'Manage requisitions that are in the quotation, scoring, and award process.'
+            : 'Manage requisitions that are ready for the RFQ process, are in scoring, or have been awarded.'
           }
         </CardDescription>
       </CardHeader>
@@ -126,7 +126,6 @@ export function RequisitionsForQuotingTable() {
                 <TableHead>Req. ID</TableHead>
                 <TableHead>Title</TableHead>
                 <TableHead>Department</TableHead>
-                <TableHead>Quote Deadline</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead></TableHead>
               </TableRow>
@@ -139,9 +138,6 @@ export function RequisitionsForQuotingTable() {
                     <TableCell className="font-medium text-primary">{req.id}</TableCell>
                     <TableCell>{req.title}</TableCell>
                     <TableCell>{req.department}</TableCell>
-                    <TableCell>
-                        {req.deadline ? format(new Date(req.deadline), 'PP') : 'N/A'}
-                    </TableCell>
                     <TableCell>
                       {getStatusBadge(req)}
                     </TableCell>

@@ -59,7 +59,7 @@ export async function finalizeAndNotifyVendors(requisitionId: string, awardRespo
         awardResponseDeadline: awardResponseDeadline,
         awardResponseDurationMinutes,
         awardedQuoteItemIds: winner.items.map(item => item.id), // Store IDs of awarded items from the winning quote
-        currentApprover: { disconnect: true } // Clear current approver
+        currentApproverId: null, // Clear current approver
       }
     });
 
@@ -151,7 +151,9 @@ export async function GET(request: Request) {
             });
             whereClause.id = { in: assignedReqs.map(a => a.requisitionId) };
         } else {
+            // This is for the RFQ Sender to see their queue
             whereClause.currentApproverId = userPayload.user.id;
+            whereClause.status = 'Approved';
         }
     }
 
@@ -408,8 +410,7 @@ export async function PATCH(
             switch (requisition.status) {
                 case 'Pending_Approval':
                     nextStatus = 'Approved';
-                    // This is where the automated handoff happens.
-                    // The client provides the ID of the authorized RFQ sender.
+                    // This is the automated handoff to the RFQ sender.
                     if (rfqSenderId) {
                         nextApproverId = rfqSenderId;
                     } else {
