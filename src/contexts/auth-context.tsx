@@ -100,7 +100,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (settingsRes.ok) {
         const settings = await settingsRes.json();
         const rfqSetting = settings.find((s:any) => s.key === 'rfqSenderSetting');
-        const committeeConfig = settings.find((s:any) => s.key === 'committeeConfig');
         
         if (rfqSetting) setRfqSenderSetting(rfqSetting.value);
       }
@@ -119,8 +118,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const initializeAuth = async () => {
       setLoading(true);
-      const users = await fetchAllUsers();
       await fetchSettings();
+      const users = await fetchAllUsers();
       try {
           const storedToken = localStorage.getItem('authToken');
           

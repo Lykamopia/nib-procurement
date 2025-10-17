@@ -77,7 +77,7 @@ export function RequisitionsForQuotingTable() {
         return <Badge variant="default" className="bg-blue-500 text-white">Ready for RFQ</Badge>;
     }
     
-    if (req.status === 'RFQ_In_Progress') {
+    if (req.status === 'RFQ In Progress') {
         const deadlinePassed = req.deadline ? isPast(new Date(req.deadline)) : false;
         if (!deadlinePassed) {
             return <Badge variant="outline">Accepting Quotes</Badge>;
@@ -90,7 +90,7 @@ export function RequisitionsForQuotingTable() {
         
         const assignedMemberIds = new Set([...(req.financialCommitteeMemberIds || []), ...(req.technicalCommitteeMemberIds || [])]);
         const submittedMemberIds = new Set(req.committeeAssignments?.filter(a => a.scoresSubmitted).map(a => a.userId));
-        const allHaveScored = [...assignedMemberIds].every(id => submittedMemberIds.has(id));
+        const allHaveScored = assignedMemberIds.size > 0 && [...assignedMemberIds].every(id => submittedMemberIds.has(id));
 
         if (allHaveScored) {
              return <Badge variant="default" className="bg-green-600">Ready to Award</Badge>;

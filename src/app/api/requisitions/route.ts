@@ -59,7 +59,7 @@ export async function finalizeAndNotifyVendors(requisitionId: string, awardRespo
         awardResponseDeadline: awardResponseDeadline,
         awardResponseDurationMinutes,
         awardedQuoteItemIds: winner.items.map(item => item.id), // Store IDs of awarded items from the winning quote
-        currentApprover: { disconnect: true }, // Clear current approver
+        currentApprover: { disconnect: true },
       }
     });
 
@@ -149,77 +149,13 @@ export async function GET(request: Request) {
                 select: { requisitionId: true }
             });
             whereClause.id = { in: assignedReqs.map(a => a.requisitionId) };
+             whereClause.status = 'RFQ_In_Progress'
         } else if (isProcurementStaff) {
-             const settings = await prisma.setting.findMany();
-             const rfqSetting = settings.find(s => s.key === 'rfqSenderSetting')?.value as any;
-             const isDesignatedSender = rfqSetting?.type === 'specific' && rfqSetting.userId === userPayload.user.id;
-             const isGeneralSender = rfqSetting?.type === 'all' && userPayload.role === 'Procurement_Officer';
-
-             if (isDesignatedSender || isGeneralSender || userPayload.role === 'Admin') {
-                 // Fetch all requisitions that might be in this queue
-                 const allReqsForUser = await prisma.purchaseRequisition.findMany({
-                    where: {
-                        OR: [
-                           { status: 'Approved', currentApproverId: userPayload.user.id }, // Directly assigned for RFQ
-                           { status: 'RFQ_In_Progress' }, // Could be ready for committee or award
-                           { status: { startsWith: 'Pending_' } }, // For visibility of items in review
-                        ]
-                    },
-                    include: {
-                        committeeAssignments: true,
-                        financialCommitteeMembers: { select: { id: true } },
-                        technicalCommitteeMembers: { select: { id: true } },
-                        quotations: {
-                           select: {
-                                status: true
-                           }
-                        }
-                    }
-                });
-
-                const reqsForQueue = allReqsForUser.filter(req => {
-                    // 1. Directly assigned and ready for RFQ
-                    if (req.status === 'Approved' && req.currentApproverId === userPayload.user.id) return true;
-
-                    if (req.status === 'RFQ_In_Progress') {
-                        const deadlinePassed = req.deadline ? new Date() > new Date(req.deadline) : false;
-                        if (!deadlinePassed) return false; // Still accepting quotes, not actionable yet
-
-                        // Check if it's already awarded and accepted, if so, it's done for this queue
-                        if (req.quotations.some(q => q.status === 'Accepted')) return false;
-
-                        // 2. Ready for Committee Assignment (deadline passed, no committee assigned)
-                        const hasCommittee = (req.financialCommitteeMembers.length > 0 || req.technicalCommitteeMembers.length > 0);
-                        if (!hasCommittee) return true;
-                        
-                        // 3. Ready to Award (deadline passed, committee assigned, all have scored)
-                        const assignedMemberIds = new Set([...req.financialCommitteeMembers.map(m => m.id), ...req.technicalCommitteeMembers.map(m => m.id)]);
-                        if (assignedMemberIds.size === 0) return false; // Should not happen if hasCommittee is true
-                        
-                        const submittedMemberIds = new Set(req.committeeAssignments.filter(a => a.scoresSubmitted).map(a => a.userId));
-                        const allHaveScored = [...assignedMemberIds].every(id => submittedMemberIds.has(id));
-
-                        return allHaveScored;
-                    }
-                    
-                    // 4. In Managerial/Committee review, keep it in the list for visibility
-                    if (req.status.startsWith('Pending_')) {
-                        return true;
-                    }
-
-                    return false;
-                });
-
-                const reqIdsForQueue = reqsForQueue.map(r => r.id);
-                if (reqIdsForQueue.length > 0) {
-                    whereClause.id = { in: reqIdsForQueue };
-                } else {
-                    return NextResponse.json([]); // No results to prevent fetching everything
-                }
-
-             } else {
-                 return NextResponse.json([]); // Not an authorized RFQ sender
-             }
+             whereClause.OR = [
+                { status: 'Approved', currentApproverId: userPayload.user.id },
+                { status: 'RFQ_In_Progress' },
+                { status: { startsWith: 'Pending_' } }
+            ]
         } else {
             return NextResponse.json([]); // Other roles don't see this queue
         }
