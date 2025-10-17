@@ -99,6 +99,11 @@ export function RequisitionsForQuotingTable() {
         return <Badge variant="secondary">Scoring in Progress</Badge>;
     }
     
+    // For pending review statuses
+    if (req.status.startsWith('Pending ')) {
+        return <Badge variant="outline" className="border-amber-500 text-amber-600">{req.status}</Badge>;
+    }
+    
     return <Badge variant="outline">{req.status}</Badge>;
   }
 

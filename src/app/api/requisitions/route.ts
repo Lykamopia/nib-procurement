@@ -141,64 +141,81 @@ export async function GET(request: Request) {
     }
     
      if (forQuoting === 'true' && userPayload) {
-        if (userPayload.role.replace(/ /g, '_') === 'Committee_Member') {
+        const isProcurementStaff = userPayload.role === 'Procurement_Officer' || userPayload.role === 'Admin';
+        
+        if (userPayload.role === 'Committee_Member') {
             const assignedReqs = await prisma.committeeAssignment.findMany({
                 where: { userId: userPayload.user.id },
                 select: { requisitionId: true }
             });
             whereClause.id = { in: assignedReqs.map(a => a.requisitionId) };
-        } else {
-            // For RFQ Senders (Procurement Officer, Admin)
-            const allReqs = await prisma.purchaseRequisition.findMany({
-                where: {
-                    OR: [
-                        { status: 'Approved', currentApproverId: userPayload.user.id },
-                        { status: 'RFQ_In_Progress' }
-                    ]
-                },
-                include: {
-                    committeeAssignments: true,
-                    financialCommitteeMembers: { select: { id: true } },
-                    technicalCommitteeMembers: { select: { id: true } },
-                }
-            });
+        } else if (isProcurementStaff) {
+             const settings = await prisma.setting.findMany();
+             const rfqSetting = settings.find(s => s.key === 'rfqSenderSetting')?.value as any;
+             const isDesignatedSender = rfqSetting?.type === 'specific' && rfqSetting.userId === userPayload.user.id;
+             const isGeneralSender = rfqSetting?.type === 'all' && userPayload.role === 'Procurement_Officer';
 
-            const reqsForQueue = allReqs.filter(req => {
-                // 1. Ready for RFQ
-                if (req.status === 'Approved') {
-                    return true;
-                }
-                
-                if (req.status === 'RFQ_In_Progress') {
-                    const deadlinePassed = req.deadline ? new Date() > new Date(req.deadline) : false;
-                    if (!deadlinePassed) return false; // Still accepting quotes
+             if (isDesignatedSender || isGeneralSender || userPayload.role === 'Admin') {
+                const allReqs = await prisma.purchaseRequisition.findMany({
+                    where: {
+                        OR: [
+                            { status: 'Approved', currentApproverId: userPayload.user.id },
+                            { status: 'RFQ_In_Progress' },
+                            { status: { startsWith: 'Pending_' } }, // Keep visibility during approval chain
+                        ]
+                    },
+                    include: {
+                        committeeAssignments: true,
+                        financialCommitteeMembers: { select: { id: true } },
+                        technicalCommitteeMembers: { select: { id: true } },
+                        quotations: {
+                            where: { status: { in: ['Awarded', 'Partially_Awarded'] } }
+                        }
+                    }
+                });
 
-                    // 2. Ready for Committee Assignment
-                    const hasCommittee = (req.financialCommitteeMembers.length > 0 || req.technicalCommitteeMembers.length > 0);
-                    if (!hasCommittee) {
+                const reqsForQueue = allReqs.filter(req => {
+                    // 1. Ready for RFQ
+                    if (req.status === 'Approved') return true;
+                    
+                    if (req.status === 'RFQ_In_Progress') {
+                        const deadlinePassed = req.deadline ? new Date() > new Date(req.deadline) : false;
+                        if (!deadlinePassed) return false;
+
+                        // Don't show if it's already awarded and accepted
+                        if (req.quotations.length > 0) return false;
+
+                        // 2. Ready for Committee Assignment
+                        const hasCommittee = (req.financialCommitteeMembers.length > 0 || req.technicalCommitteeMembers.length > 0);
+                        if (!hasCommittee) return true;
+                        
+                        // 3. Ready to Award
+                        const assignedMemberIds = new Set([...req.financialCommitteeMembers.map(m => m.id), ...req.technicalCommitteeMembers.map(m => m.id)]);
+                        if (assignedMemberIds.size === 0) return false;
+                        
+                        const submittedMemberIds = new Set(req.committeeAssignments.filter(a => a.scoresSubmitted).map(a => a.userId));
+                        const allHaveScored = [...assignedMemberIds].every(id => submittedMemberIds.has(id));
+
+                        return allHaveScored;
+                    }
+
+                    // 4. In Managerial/Committee review, keep it in the list for visibility
+                    if (req.status.startsWith('Pending_')) {
                         return true;
                     }
-                    
-                    // 3. Ready to Award
-                    const assignedMemberIds = new Set([...req.financialCommitteeMembers.map(m => m.id), ...req.technicalCommitteeMembers.map(m => m.id)]);
-                    if (assignedMemberIds.size === 0) return false; // No committee assigned, so not ready to award
-                    
-                    const submittedMemberIds = new Set(req.committeeAssignments.filter(a => a.scoresSubmitted).map(a => a.userId));
-                    
-                    const allHaveScored = [...assignedMemberIds].every(id => submittedMemberIds.has(id));
 
-                    // Only show if it's not already in a final award state
-                    const isAlreadyAwarded = req.status.startsWith('Pending_') || req.status === 'PO_Created' || req.status === 'Closed';
+                    return false;
+                });
 
-                    return allHaveScored && !isAlreadyAwarded;
+                whereClause.id = { in: reqsForQueue.map(r => r.id) };
+                if (reqsForQueue.length === 0) {
+                     return NextResponse.json([]); // No results
                 }
-                return false;
-            });
-
-            whereClause.id = { in: reqsForQueue.map(r => r.id) };
-            if (reqsForQueue.length === 0) {
-                 return NextResponse.json([]); // No results
-            }
+             } else {
+                 return NextResponse.json([]); // Not an authorized RFQ sender
+             }
+        } else {
+            return NextResponse.json([]); // Other roles don't see this queue
         }
     }
 
@@ -459,29 +476,29 @@ export async function PATCH(
                     case 'Pending_Committee_A_Recommendation':
                         if (totalValue > 1000000) {
                             nextApproverId = await findApproverId('VP_Resources_and_Facilities');
-                            nextStatus = 'Pending VP Approval';
+                            nextStatus = 'Pending_VP_Approval';
                         } else { // 200,001 to 1,000,000
                             nextApproverId = await findApproverId('Director_Supply_Chain_and_Property_Management');
-                            nextStatus = 'Pending Director Approval';
+                            nextStatus = 'Pending_Director_Approval';
                         }
                         break;
                     case 'Pending_Committee_B_Review':
                         nextApproverId = await findApproverId('Manager_Procurement_Division');
-                        nextStatus = 'Pending Managerial Review';
+                        nextStatus = 'Pending_Managerial_Review';
                         break;
 
                     // Step 2: Hierarchical Reviews
                     case 'Pending Managerial Review': // From 10,001 to 200,000
                         nextApproverId = await findApproverId('Director_Supply_Chain_and_Property_Management');
-                        nextStatus = 'Pending Director Approval';
+                        nextStatus = 'Pending_Director_Approval';
                         break;
                     case 'Pending Director Approval': // From 200,001 to 1M
                         nextApproverId = await findApproverId('VP_Resources_and_Facilities');
-                        nextStatus = 'Pending VP Approval';
+                        nextStatus = 'Pending_VP_Approval';
                         break;
                     case 'Pending VP Approval': // > 1M
                         nextApproverId = await findApproverId('President');
-                        nextStatus = 'Pending President Approval';
+                        nextStatus = 'Pending_President_Approval';
                         break;
                     
                     case 'Pending_Approval': // This is the initial departmental approval
@@ -498,8 +515,8 @@ export async function PATCH(
                         break;
                     
                     // Final Approvals in the chain
-                    case 'Pending Managerial Approval': // <=10k - Final approval
-                    case 'Pending President Approval': // >1M - Final approval
+                    case 'Pending_Managerial_Approval': // <=10k - Final approval
+                    case 'Pending_President_Approval': // >1M - Final approval
                         nextStatus = 'Approved'; 
                         nextApproverId = null; // To be handled by final notification step
                         auditDetails += ' Final approval received. Ready for vendor notification.'
@@ -558,7 +575,7 @@ export async function PATCH(
   } catch (error) {
     console.error('Failed to update requisition:', error);
     if (error instanceof Error) {
-        return NextResponse.json({ error: 'Failed to process request', details: error.message }, { status: 500 });
+        return NextResponse.json({ error: 'Failed to process request', details: error.message }, { status: 400 });
     }
     return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
   }
