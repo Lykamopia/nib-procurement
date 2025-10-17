@@ -201,7 +201,6 @@ async function main() {
           ...vendorData,
           kycStatus: vendorData.kycStatus.replace(/ /g, '_') as any,
           user: { connect: { id: createdUser.id } },
-          userId: createdUser.id, // Explicitly set userId
       },
     });
 
