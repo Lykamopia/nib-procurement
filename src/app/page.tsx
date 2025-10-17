@@ -23,17 +23,19 @@ export default function HomePage() {
 
     if (role === 'Vendor') {
       router.push('/vendor/dashboard');
-    } else {
-      const allowedPaths = permissions[role] || [];
-      // Prefer dashboard if available, otherwise take the first available path.
-      const defaultPath = allowedPaths.includes('/dashboard') ? '/dashboard' : allowedPaths[0];
+      return;
+    }
 
-      if (defaultPath) {
+    const allowedPaths = permissions[role] || [];
+    // Prefer dashboard if available, otherwise take the first available path.
+    const defaultPath = allowedPaths.includes('/dashboard') ? '/dashboard' : allowedPaths[0];
+
+    if (defaultPath && defaultPath !== '/') {
         router.push(defaultPath);
-      } else {
+    } else {
         console.error(`User role ${role} has no default path defined. Logging out.`);
+        // As a fallback, redirect to login if no valid path is found to prevent loops
         router.push('/login');
-      }
     }
   }, [user, loading, role, router, permissions]);
 

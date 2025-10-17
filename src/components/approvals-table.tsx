@@ -54,7 +54,7 @@ export function ApprovalsTable() {
   const [requisitions, setRequisitions] = useState<PurchaseRequisition[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { user } = useAuth();
+  const { user, rfqSenderSetting, allUsers } = useAuth();
   const { toast } = useToast();
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -63,12 +63,13 @@ export function ApprovalsTable() {
   const [isActionDialogOpen, setActionDialogOpen] = useState(false);
   const [isDetailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [actionType, setActionType] = useState<'approve' | 'reject' | null>(null);
+  const [activeActionId, setActiveActionId] = useState<string | null>(null);
 
   const fetchRequisitions = async () => {
     if (!user) return;
     try {
       setLoading(true);
-      let apiUrl = `/api/requisitions?status=Pending Approval&approverId=${user.id}`;
+      let apiUrl = `/api/requisitions?status=Pending_Approval&approverId=${user.id}`;
       
       const response = await fetch(apiUrl);
       if (!response.ok) {
@@ -105,7 +106,19 @@ export function ApprovalsTable() {
   const submitAction = async () => {
     if (!selectedRequisition || !actionType || !user) return;
     
-    const isManagerialApproval = false; // This screen is only for departmental approvals
+    setActiveActionId(selectedRequisition.id);
+
+    let rfqSenderId: string | null = null;
+    if (actionType === 'approve') {
+        if (rfqSenderSetting.type === 'specific' && rfqSenderSetting.userId) {
+            rfqSenderId = rfqSenderSetting.userId;
+        } else {
+            // Fallback to the first available Procurement Officer if 'all' is selected or specific user not found
+            const firstProcOfficer = allUsers.find(u => u.role === 'Procurement_Officer');
+            rfqSenderId = firstProcOfficer?.id || null;
+        }
+    }
+
 
     try {
       const response = await fetch(`/api/requisitions`, {
@@ -116,7 +129,7 @@ export function ApprovalsTable() {
             status: actionType === 'approve' ? 'Approved' : 'Rejected', 
             userId: user.id, 
             comment,
-            isManagerialApproval,
+            rfqSenderId, // Pass the designated RFQ sender ID to the API
         }),
       });
       if (!response.ok) throw new Error(`Failed to ${actionType} requisition`);
@@ -132,6 +145,7 @@ export function ApprovalsTable() {
         description: error instanceof Error ? error.message : "An unknown error occurred.",
       });
     } finally {
+        setActiveActionId(null);
         setActionDialogOpen(false);
         setComment('');
         setSelectedRequisition(null);
@@ -165,9 +179,9 @@ export function ApprovalsTable() {
     <>
     <Card>
       <CardHeader>
-        <CardTitle>Pending Approvals</CardTitle>
+        <CardTitle>Departmental Approvals</CardTitle>
         <CardDescription>
-          Review and act on items waiting for your approval.
+          Review and act on requisitions submitted by users in your department.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -179,7 +193,6 @@ export function ApprovalsTable() {
                 <TableHead>Req. ID</TableHead>
                 <TableHead>Title</TableHead>
                 <TableHead>Requester</TableHead>
-                <TableHead>Type</TableHead>
                 <TableHead>Urgency</TableHead>
                 <TableHead>Created At</TableHead>
                 <TableHead>Actions</TableHead>
@@ -187,15 +200,14 @@ export function ApprovalsTable() {
             </TableHeader>
             <TableBody>
               {paginatedRequisitions.length > 0 ? (
-                paginatedRequisitions.map((req, index) => (
+                paginatedRequisitions.map((req, index) => {
+                  const isLoadingAction = activeActionId === req.id;
+                  return (
                   <TableRow key={req.id}>
                       <TableCell className="text-muted-foreground">{index + 1}</TableCell>
                       <TableCell className="font-medium text-primary">{req.id}</TableCell>
                       <TableCell>{req.title}</TableCell>
                       <TableCell>{req.requesterName}</TableCell>
-                      <TableCell>
-                          <Badge variant="secondary">Requisition Approval</Badge>
-                      </TableCell>
                        <TableCell>
                         <Badge variant={getUrgencyVariant(req.urgency)}>{req.urgency}</Badge>
                       </TableCell>
@@ -203,26 +215,28 @@ export function ApprovalsTable() {
                       <TableCell>
                       <div className="flex gap-2">
                           <Button variant="outline" size="sm" onClick={() => handleShowDetails(req)}>
-                              <Eye className="mr-2 h-4 w-4" /> View Details
+                              <Eye className="mr-2 h-4 w-4" /> View
                           </Button>
-                          <Button variant="default" size="sm" onClick={() => handleAction(req, 'approve')}>
-                              <Check className="mr-2 h-4 w-4" /> Approve
+                          <Button variant="default" size="sm" onClick={() => handleAction(req, 'approve')} disabled={isLoadingAction}>
+                              {isLoadingAction && actionType === 'approve' ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Check className="mr-2 h-4 w-4" />} 
+                              Approve
                           </Button>
-                          <Button variant="destructive" size="sm" onClick={() => handleAction(req, 'reject')}>
-                              <X className="mr-2 h-4 w-4" /> Reject
+                          <Button variant="destructive" size="sm" onClick={() => handleAction(req, 'reject')} disabled={isLoadingAction}>
+                              {isLoadingAction && actionType === 'reject' ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <X className="mr-2 h-4 w-4" />} 
+                              Reject
                           </Button>
                       </div>
                       </TableCell>
                   </TableRow>
-                ))
+                )})
               ) : (
                 <TableRow>
-                  <TableCell colSpan={8} className="h-48 text-center">
+                  <TableCell colSpan={7} className="h-48 text-center">
                     <div className="flex flex-col items-center gap-4">
                       <Inbox className="h-16 w-16 text-muted-foreground/50" />
                       <div className="space-y-1">
                         <p className="font-semibold">All caught up!</p>
-                        <p className="text-muted-foreground">No items are currently pending your approval.</p>
+                        <p className="text-muted-foreground">No requisitions are currently pending your approval.</p>
                       </div>
                     </div>
                   </TableCell>
@@ -280,10 +294,10 @@ export function ApprovalsTable() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {actionType === 'approve' ? 'Approve' : 'Reject'} Item: {selectedRequisition?.id}
+              {actionType === 'approve' ? 'Approve' : 'Reject'} Requisition: {selectedRequisition?.id}
             </DialogTitle>
             <DialogDescription>
-                You are about to {actionType} this item. Please provide a comment for this action.
+                You are about to {actionType} this requisition. Please provide a comment for this action.
             </DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-4">

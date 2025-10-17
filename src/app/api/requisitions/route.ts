@@ -59,7 +59,7 @@ export async function finalizeAndNotifyVendors(requisitionId: string, awardRespo
         awardResponseDeadline: awardResponseDeadline,
         awardResponseDurationMinutes,
         awardedQuoteItemIds: winner.items.map(item => item.id), // Store IDs of awarded items from the winning quote
-        currentApprover: { disconnect: true } // Clear current approver
+        currentApproverId: null, // Clear current approver
       }
     });
 
@@ -347,7 +347,7 @@ export async function PATCH(
             department: { connect: { name: updateData.department } },
             totalPrice: totalPrice,
             status: status ? status.replace(/ /g, '_') : requisition.status,
-            approver: { disconnect: true },
+            approverId: null,
             approverComment: null,
             items: {
                 deleteMany: {},
@@ -395,7 +395,7 @@ export async function PATCH(
 
     } else if (status) {
         dataToUpdate.status = status.replace(/ /g, '_');
-        dataToUpdate.approver = { connect: { id: userId } };
+        dataToUpdate.approverId = userId;
         dataToUpdate.approverComment = comment;
 
         if (status === 'Approved') {
@@ -477,12 +477,12 @@ export async function PATCH(
             if (nextApproverId) {
                 dataToUpdate.currentApprover = { connect: { id: nextApproverId } };
             } else {
-                dataToUpdate.currentApprover = { disconnect: true };
+                dataToUpdate.currentApproverId = null;
             }
 
 
         } else if (status === 'Rejected') {
-            dataToUpdate.currentApprover = { disconnect: true };
+            dataToUpdate.currentApproverId = null;
             auditAction = 'REJECT_REQUISITION';
             auditDetails = `Requisition ${id} was rejected with comment: "${comment}".`;
         } else if (status === 'Pending Approval') {
