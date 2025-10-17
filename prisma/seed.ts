@@ -113,6 +113,10 @@ async function main() {
   ];
 
   const defaultRfqSenderSetting = { type: 'all', userId: null };
+  const defaultCommitteeConfig = {
+      A: { min: 200001, max: 1000000000 },
+      B: { min: 10001, max: 200000 }
+  }
 
   await Promise.all([
       prisma.setting.upsert({
@@ -124,6 +128,11 @@ async function main() {
           where: { key: 'rfqSenderSetting' },
           update: { value: defaultRfqSenderSetting },
           create: { key: 'rfqSenderSetting', value: defaultRfqSenderSetting },
+      }),
+      prisma.setting.upsert({
+          where: { key: 'committeeConfig' },
+          update: { value: defaultCommitteeConfig },
+          create: { key: 'committeeConfig', value: defaultCommitteeConfig },
       }),
   ]);
   console.log('Seeded default application settings.');

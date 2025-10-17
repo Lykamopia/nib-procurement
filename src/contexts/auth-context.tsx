@@ -2,8 +2,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, ReactNode, useEffect, useMemo, useCallback } from 'react';
-import { User, UserRole } from '@/lib/types';
-import { rolePermissions as defaultRolePermissions } from '@/lib/roles';
+import { User, UserRole, ApprovalThreshold, RfqSenderSetting, CommitteeConfig } from '@/lib/types';
 
 // Custom JWT decoding function to avoid dependency issues
 function jwtDecode<T>(token: string): T | null {
@@ -28,24 +27,6 @@ function jwtDecode<T>(token: string): T | null {
   }
 }
 
-
-export interface RfqSenderSetting {
-  type: 'all' | 'specific';
-  userId?: string | null;
-}
-
-export interface ApprovalStep {
-    role: UserRole;
-}
-
-export interface ApprovalThreshold {
-    id: string;
-    name: string;
-    min: number;
-    max: number | null; // null for infinity
-    steps: ApprovalStep[];
-}
-
 interface AuthContextType {
   user: User | null;
   token: string | null;
@@ -54,6 +35,7 @@ interface AuthContextType {
   rolePermissions: Record<UserRole, string[]>;
   rfqSenderSetting: RfqSenderSetting;
   approvalThresholds: ApprovalThreshold[];
+  committeeConfig: CommitteeConfig;
   login: (token: string, user: User, role: UserRole) => void;
   logout: () => void;
   loading: boolean;
@@ -62,52 +44,10 @@ interface AuthContextType {
   updateRfqSenderSetting: (newSetting: RfqSenderSetting) => void;
   updateUserRole: (userId: string, newRole: UserRole) => void;
   updateApprovalThresholds: (newThresholds: ApprovalThreshold[]) => void;
+  updateCommitteeConfig: (newConfig: CommitteeConfig) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-const defaultApprovalThresholds: ApprovalThreshold[] = [
-    {
-        id: 'tier-1',
-        name: 'Low Value',
-        min: 0,
-        max: 10000,
-        steps: [{ role: 'Manager_Procurement_Division' }],
-    },
-    {
-        id: 'tier-2',
-        name: 'Mid Value',
-        min: 10001,
-        max: 200000,
-        steps: [
-            { role: 'Committee_B_Member' },
-            { role: 'Manager_Procurement_Division' },
-            { role: 'Director_Supply_Chain_and_Property_Management' },
-        ],
-    },
-    {
-        id: 'tier-3',
-        name: 'High Value',
-        min: 200001,
-        max: 1000000,
-        steps: [
-            { role: 'Committee_A_Member' },
-            { role: 'Director_Supply_Chain_and_Property_Management' },
-            { role: 'VP_Resources_and_Facilities' },
-        ],
-    },
-    {
-        id: 'tier-4',
-        name: 'Very-High Value',
-        min: 1000001,
-        max: null,
-        steps: [
-            { role: 'Committee_A_Member' },
-            { role: 'VP_Resources_and_Facilities' },
-            { role: 'President' },
-        ],
-    },
-];
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -115,9 +55,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [role, setRole] = useState<UserRole | null>(null);
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
-  const [rolePermissions, setRolePermissions] = useState<Record<UserRole, string[]>>(defaultRolePermissions);
+  const [rolePermissions, setRolePermissions] = useState<Record<UserRole, string[]>>({} as Record<UserRole, string[]>);
   const [rfqSenderSetting, setRfqSenderSetting] = useState<RfqSenderSetting>({ type: 'all' });
-  const [approvalThresholds, setApprovalThresholds] = useState<ApprovalThreshold[]>(defaultApprovalThresholds);
+  const [approvalThresholds, setApprovalThresholds] = useState<ApprovalThreshold[]>([]);
+  const [committeeConfig, setCommitteeConfig] = useState<CommitteeConfig>({ A: { min: 0, max: 0 }, B: { min: 0, max: 0 }});
 
 
   const fetchAllUsers = useCallback(async () => {
@@ -135,10 +76,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const fetchSettings = useCallback(async () => {
+      try {
+        const response = await fetch('/api/settings');
+        if(response.ok) {
+            const settings = await response.json();
+            const approvalThresholdsSetting = settings.find((s:any) => s.key === 'approvalThresholds');
+            const rfqSenderSettingItem = settings.find((s:any) => s.key === 'rfqSenderSetting');
+            const rolePermissionsSetting = settings.find((s:any) => s.key === 'rolePermissions');
+            const committeeConfigSetting = settings.find((s:any) => s.key === 'committeeConfig');
+
+            if (approvalThresholdsSetting) setApprovalThresholds(approvalThresholdsSetting.value);
+            if (rfqSenderSettingItem) setRfqSenderSetting(rfqSenderSettingItem.value);
+            if (rolePermissionsSetting) setRolePermissions(rolePermissionsSetting.value);
+            if (committeeConfigSetting) setCommitteeConfig(committeeConfigSetting.value);
+        }
+      } catch (error) {
+        console.error("Failed to fetch settings", error);
+      }
+  }, []);
+
   useEffect(() => {
     const initializeAuth = async () => {
       setLoading(true);
       const users = await fetchAllUsers();
+      await fetchSettings();
       try {
           const storedToken = localStorage.getItem('authToken');
           
@@ -153,15 +115,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                   localStorage.removeItem('authToken');
               }
           }
-          
-          const storedPermissions = localStorage.getItem('rolePermissions');
-          const storedRfqSetting = localStorage.getItem('rfqSenderSetting');
-          const storedApprovalThresholds = localStorage.getItem('approvalThresholds');
-          
-          if (storedPermissions) setRolePermissions(JSON.parse(storedPermissions));
-          if (storedRfqSetting) setRfqSenderSetting(JSON.parse(storedRfqSetting));
-          if (storedApprovalThresholds) setApprovalThresholds(JSON.parse(storedApprovalThresholds));
-
       } catch (error) {
           console.error("Failed to initialize auth from localStorage", error);
           localStorage.clear();
@@ -169,7 +122,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     };
     initializeAuth();
-  }, [fetchAllUsers]);
+  }, [fetchAllUsers, fetchSettings]);
 
   const login = (newToken: string, loggedInUser: User, loggedInRole: UserRole) => {
     localStorage.setItem('authToken', newToken);
@@ -205,14 +158,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
   };
 
+  const updateSettings = async (key: string, value: any) => {
+      try {
+        await fetch('/api/settings', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ key, value }),
+        });
+      } catch (error) {
+        console.error(`Failed to update setting ${key}`, error);
+      }
+  }
+
   const updateRolePermissions = (newPermissions: Record<UserRole, string[]>) => {
-      localStorage.setItem('rolePermissions', JSON.stringify(newPermissions));
       setRolePermissions(newPermissions);
+      updateSettings('rolePermissions', newPermissions);
   }
   
   const updateRfqSenderSetting = (newSetting: RfqSenderSetting) => {
-      localStorage.setItem('rfqSenderSetting', JSON.stringify(newSetting));
       setRfqSenderSetting(newSetting);
+      updateSettings('rfqSenderSetting', newSetting);
+  }
+
+  const updateApprovalThresholds = (newThresholds: ApprovalThreshold[]) => {
+      setApprovalThresholds(newThresholds);
+      updateSettings('approvalThresholds', newThresholds);
+  }
+
+   const updateCommitteeConfig = (newConfig: CommitteeConfig) => {
+      setCommitteeConfig(newConfig);
+      updateSettings('committeeConfig', newConfig);
   }
 
   const updateUserRole = async (userId: string, newRole: UserRole) => {
@@ -232,11 +207,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const updateApprovalThresholds = (newThresholds: ApprovalThreshold[]) => {
-      localStorage.setItem('approvalThresholds', JSON.stringify(newThresholds));
-      setApprovalThresholds(newThresholds);
-  }
-
   const authContextValue = useMemo(() => ({
       user,
       token,
@@ -245,6 +215,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       rolePermissions,
       rfqSenderSetting,
       approvalThresholds,
+      committeeConfig,
       login,
       logout,
       loading,
@@ -253,7 +224,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       updateRfqSenderSetting,
       updateUserRole,
       updateApprovalThresholds,
-  }), [user, token, role, loading, allUsers, rolePermissions, rfqSenderSetting, approvalThresholds, fetchAllUsers]);
+      updateCommitteeConfig,
+  }), [user, token, role, loading, allUsers, rolePermissions, rfqSenderSetting, approvalThresholds, committeeConfig, fetchAllUsers, fetchSettings]);
 
 
   return (

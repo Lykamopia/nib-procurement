@@ -7,17 +7,12 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Button } from '../ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Save, Users, Search, UserX, UserCheck } from 'lucide-react';
-import { User, UserRole, Department } from '@/lib/types';
+import { User, UserRole, Department, CommitteeConfig } from '@/lib/types';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { ScrollArea } from '../ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
-
-interface CommitteeConfig {
-    min: number;
-    max: number;
-}
 
 export function CommitteeSettings() {
     const { allUsers, updateUserRole, committeeConfig, updateCommitteeConfig } = useAuth();
@@ -26,10 +21,12 @@ export function CommitteeSettings() {
     const [departments, setDepartments] = useState<Department[]>([]);
     const [searchTerms, setSearchTerms] = useState({ a: '', b: '' });
     const [departmentFilters, setDepartmentFilters] = useState({ a: 'all', b: 'all' });
-    const [localConfig, setLocalConfig] = useState(committeeConfig);
+    const [localConfig, setLocalConfig] = useState<CommitteeConfig>({ A: { min: 0, max: 0 }, B: { min: 0, max: 0 }});
 
     useEffect(() => {
-        setLocalConfig(committeeConfig);
+        if(committeeConfig) {
+            setLocalConfig(committeeConfig);
+        }
     }, [committeeConfig]);
 
     useEffect(() => {
@@ -71,6 +68,10 @@ export function CommitteeSettings() {
         const nonMembers = allUsers.filter(u => u.role !== role && u.role !== 'Admin' && u.role !== 'Vendor')
             .filter(u => departmentFilters[committee.toLowerCase() as 'a'|'b'] === 'all' || u.departmentId === departmentFilters[committee.toLowerCase() as 'a'|'b'])
             .filter(u => u.name.toLowerCase().includes(searchTerms[committee.toLowerCase() as 'a'|'b'].toLowerCase()));
+        
+        if (!localConfig || !localConfig[committee]) {
+            return <Card><CardContent><Loader2 className="animate-spin" /></CardContent></Card>;
+        }
 
         return (
             <Card>
@@ -104,7 +105,7 @@ export function CommitteeSettings() {
                                                 <p className="text-xs text-muted-foreground">{user.department}</p>
                                             </div>
                                         </div>
-                                        <Button size="sm" variant="ghost" onClick={() => handleRoleChange(user, 'Committee Member')}><UserX className="h-4 w-4" /></Button>
+                                        <Button size="sm" variant="ghost" onClick={() => handleRoleChange(user, 'Committee_Member')}><UserX className="h-4 w-4" /></Button>
                                     </div>
                                 )) : <p className="text-sm text-muted-foreground text-center py-4">No members assigned.</p>}
                              </ScrollArea>
@@ -158,5 +159,3 @@ export function CommitteeSettings() {
         </div>
     );
 }
-
-    
