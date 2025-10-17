@@ -55,6 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [role, setRole] = useState<UserRole | null>(null);
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [rolePermissions, setRolePermissions] = useState<Record<UserRole, string[]>>({} as Record<UserRole, string[]>);
   const [rfqSenderSetting, setRfqSenderSetting] = useState<RfqSenderSetting>({ type: 'all' });
   const [approvalThresholds, setApprovalThresholds] = useState<ApprovalThreshold[]>([]);
@@ -98,6 +99,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const initializeAuth = async () => {
+      // Only run this on the initial application load
+      if (!isInitialLoad) return;
+
       setLoading(true);
       const users = await fetchAllUsers();
       await fetchSettings();
@@ -118,11 +122,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch (error) {
           console.error("Failed to initialize auth from localStorage", error);
           localStorage.clear();
+      } finally {
+        setLoading(false);
+        setIsInitialLoad(false); // Mark initial load as complete
       }
-      setLoading(false);
     };
     initializeAuth();
-  }, [fetchAllUsers, fetchSettings]);
+  }, [isInitialLoad, fetchAllUsers, fetchSettings]);
 
   const login = (newToken: string, loggedInUser: User, loggedInRole: UserRole) => {
     localStorage.setItem('authToken', newToken);
@@ -142,6 +148,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const switchUser = async (userId: string) => {
       const targetUser = allUsers.find(u => u.id === userId);
       if (targetUser) {
+          // Temporarily use a known good password for switching.
           const response = await fetch('/api/auth/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
