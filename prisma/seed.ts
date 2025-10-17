@@ -31,7 +31,7 @@ async function main() {
   await prisma.review.deleteMany({});
   await prisma.purchaseRequisition.deleteMany({});
   await prisma.kYC_Document.deleteMany({});
-  
+
   // Manually manage order of user/vendor deletion to avoid foreign key issues
   await prisma.user.updateMany({ data: { managerId: null } });
   await prisma.department.updateMany({data: { headId: null }});
@@ -67,7 +67,7 @@ async function main() {
       await prisma.role.create({ data: { name: role.name.replace(/ /g, '_') as UserRole, description: role.description } });
   }
   console.log('Seeded roles.');
-  
+
   // Seed Default Application Settings
   const defaultApprovalThresholds = [
     {
@@ -111,7 +111,7 @@ async function main() {
         ],
     },
   ];
-  
+
   const defaultRfqSenderSetting = { type: 'all', userId: null };
 
   await Promise.all([
@@ -152,7 +152,7 @@ async function main() {
     });
   }
   console.log('Seeded non-vendor users.');
-  
+
   // Second pass to link managers
   for (const user of seedData.users.filter(u => u.role !== 'Vendor' && u.managerId)) {
       await prisma.user.update({
@@ -163,7 +163,7 @@ async function main() {
       });
   }
   console.log('Linked managers to users.');
-  
+
   // Third pass to link department heads
   for (const dept of seedData.departments) {
     if (dept.headId) {
@@ -185,9 +185,9 @@ async function main() {
           console.warn(`Skipping vendor ${vendor.name} because its user was not found.`);
           continue;
       }
-      
+
       const hashedPassword = await bcrypt.hash(vendorUser.password || 'password123', 10);
-      
+
       // Create user for the vendor first
       const createdUser = await prisma.user.create({
           data: {
@@ -199,11 +199,12 @@ async function main() {
               role: vendorUser.role.replace(/ /g, '_') as UserRole,
           }
       });
-      
+
       // Then create the vendor and link it to the user
     const createdVendor = await prisma.vendor.create({
       data: {
           ...vendorData,
+          userId: createdUser.id, // Explicitly provide the userId
           kycStatus: vendorData.kycStatus.replace(/ /g, '_') as any,
           user: { connect: { id: createdUser.id } }
       },
@@ -231,10 +232,10 @@ async function main() {
   // Seed Requisitions
   for (const requisition of seedData.requisitions) {
       const {
-          items, 
-          customQuestions, 
-          evaluationCriteria, 
-          quotations, 
+          items,
+          customQuestions,
+          evaluationCriteria,
+          quotations,
           requesterId,
           approverId,
           currentApproverId,
@@ -242,7 +243,7 @@ async function main() {
           technicalCommitteeMemberIds,
           department,
           departmentId,
-          ...reqData 
+          ...reqData
       } = requisition;
 
       const createdRequisition = await prisma.purchaseRequisition.create({
@@ -262,7 +263,7 @@ async function main() {
               awardResponseDeadline: reqData.awardResponseDeadline ? new Date(reqData.awardResponseDeadline) : undefined,
           }
       });
-      
+
       // Seed RequisitionItems
       if (items) {
           for (const item of items) {
@@ -372,7 +373,7 @@ async function main() {
         });
     }
     console.log('Seeded purchase orders and related items.');
-    
+
     // Seed Invoices
     for (const invoice of seedData.invoices) {
         const { items, ...invoiceData } = invoice;
