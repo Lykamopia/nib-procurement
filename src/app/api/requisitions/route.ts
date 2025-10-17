@@ -144,7 +144,7 @@ export async function GET(request: Request) {
     }
     
      if (forQuoting === 'true' && userPayload) {
-        if (userPayload.role === 'Committee_Member') {
+        if (userPayload.role.replace(/ /g, '_') === 'Committee_Member') {
             const assignedReqs = await prisma.committeeAssignment.findMany({
                 where: { userId: userPayload.user.id },
                 select: { requisitionId: true }
@@ -312,7 +312,7 @@ export async function PATCH(
 ) {
   try {
     const body = await request.json();
-    const { id, status, userId, comment } = body;
+    const { id, status, userId, comment, rfqSenderId } = body;
     const updateData = body;
 
 
@@ -407,13 +407,17 @@ export async function PATCH(
             const totalValue = requisition.totalPrice;
             switch (requisition.status) {
                 case 'Pending_Approval':
-                    // This is the departmental approval. Now it's ready for RFQ.
-                    // Find the designated RFQ sender and assign it to them.
-                    // In a real app, this setting would come from a DB.
-                    const rfqSender = await prisma.user.findFirst({where: {role: 'Procurement_Officer'}});
-                    nextApproverId = rfqSender?.id || null;
                     nextStatus = 'Approved';
-                    auditDetails += ` Department Head approved. Ready for RFQ and assigned to Procurement.`;
+                    // This is where the automated handoff happens.
+                    // The client provides the ID of the authorized RFQ sender.
+                    if (rfqSenderId) {
+                        nextApproverId = rfqSenderId;
+                    } else {
+                        // Fallback if no ID is provided (should not happen with client changes)
+                        const firstProcOfficer = await prisma.user.findFirst({ where: { role: 'Procurement_Officer' } });
+                        nextApproverId = firstProcOfficer?.id || null;
+                    }
+                    auditDetails += ` Department Head approved. Ready for RFQ and assigned to designated sender.`;
                     break;
                 
                 case 'Pending_Committee_B_Review':
@@ -515,6 +519,9 @@ export async function PATCH(
   } catch (error) {
     console.error('Failed to update requisition:', error);
     if (error instanceof Error) {
+      if ((error as any).code === 'P2025') {
+         return NextResponse.json({ error: 'An entity required for this update was not found. It may have been deleted.'}, { status: 404 });
+      }
         return NextResponse.json({ error: 'Failed to process request', details: error.message }, { status: 500 });
     }
     return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });

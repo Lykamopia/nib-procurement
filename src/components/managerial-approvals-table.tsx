@@ -53,7 +53,7 @@ export function ManagerialApprovalsTable() {
   const [requisitions, setRequisitions] = useState<PurchaseRequisition[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { user, token } = useAuth();
+  const { user, token, rfqSenderSetting, allUsers } = useAuth();
   const { toast } = useToast();
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -105,6 +105,18 @@ export function ManagerialApprovalsTable() {
     
     setActiveActionId(selectedRequisition.id);
 
+    let rfqSenderId: string | null = null;
+    if (actionType === 'approve' && selectedRequisition.status.replace(/_/g, ' ') === 'Pending Approval') {
+      if (rfqSenderSetting.type === 'specific' && rfqSenderSetting.userId) {
+        rfqSenderId = rfqSenderSetting.userId;
+      } else {
+        // Fallback to the first available Procurement Officer if 'all' is selected or specific user not found
+        const firstProcOfficer = allUsers.find(u => u.role === 'Procurement_Officer');
+        rfqSenderId = firstProcOfficer?.id || null;
+      }
+    }
+
+
     try {
       const response = await fetch(`/api/requisitions`, {
         method: 'PATCH',
@@ -114,6 +126,7 @@ export function ManagerialApprovalsTable() {
             status: actionType === 'approve' ? 'Approved' : 'Rejected', 
             userId: user.id, 
             comment,
+            rfqSenderId, // Pass the designated RFQ sender ID to the API
         }),
       });
       if (!response.ok) throw new Error(`Failed to ${actionType} requisition`);
@@ -243,7 +256,7 @@ export function ManagerialApprovalsTable() {
               {actionType === 'approve' ? 'Approve Award' : 'Reject Award'} for {selectedRequisition?.id}
             </DialogTitle>
             <DialogDescription>
-                You are about to {actionType} this award. Please provide a comment for your decision.
+                You are about to {actionType} this award recommendation. Please provide a comment for your decision.
             </DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-4">
