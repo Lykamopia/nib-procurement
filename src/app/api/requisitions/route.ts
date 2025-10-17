@@ -407,71 +407,56 @@ export async function PATCH(
             let nextStatus: string | null = null;
             
             const totalValue = requisition.totalPrice;
-            switch (requisition.status) {
-                case 'Pending_Approval':
-                    nextStatus = 'Approved';
-                    // This is the automated handoff to the RFQ sender.
-                    if (rfqSenderId) {
-                        nextApproverId = rfqSenderId;
+            const settings = await prisma.setting.findMany();
+            const approvalThresholds = settings.find(s => s.key === 'approvalThresholds')?.value as any[] || [];
+            const committeeAConfig = settings.find(s => s.key === 'committeeConfig')?.value as any;
+
+            const applicableThreshold = approvalThresholds
+                .sort((a,b) => a.min - b.min)
+                .find(t => totalValue >= t.min && (t.max === null || totalValue <= t.max));
+
+            if (requisition.status === 'Pending_Approval') { // Initial Departmental Approval
+                nextStatus = 'Approved';
+                // This is the automated handoff to the RFQ sender.
+                 if (rfqSenderId) {
+                    nextApproverId = rfqSenderId;
+                } else {
+                    const rfqSetting = settings.find(s => s.key === 'rfqSenderSetting')?.value as any;
+                    if (rfqSetting?.type === 'specific' && rfqSetting.userId) {
+                        nextApproverId = rfqSetting.userId;
                     } else {
-                        // Fallback if no ID is provided (should not happen with client changes)
                         const firstProcOfficer = await prisma.user.findFirst({ where: { role: 'Procurement_Officer' } });
                         nextApproverId = firstProcOfficer?.id || null;
                     }
-                    auditDetails += ` Department Head approved. Ready for RFQ and assigned to designated sender.`;
-                    break;
+                }
+                auditDetails += ` Department Head approved. Ready for RFQ and assigned to designated sender.`;
+            } else if (applicableThreshold) {
+                // Find current step in the chain
+                const currentStepIndex = applicableThreshold.steps.findIndex((s: any) => `Pending ${s.role.replace(/_/g, ' ')}` === requisition.status.replace(/_/g, ' '));
                 
-                case 'Pending_Committee_B_Review':
-                    nextApproverId = await findApproverId('Manager_Procurement_Division');
-                    nextStatus = 'Pending_Managerial_Review';
-                    auditDetails += ` Committee B approved. Routing to Manager for review.`;
-                    break;
-                
-                case 'Pending_Committee_A_Recommendation':
-                    if (totalValue > 1000000) {
-                        nextApproverId = await findApproverId('VP_Resources_and_Facilities');
-                        nextStatus = 'Pending_VP_Approval';
-                         auditDetails += ` Committee A recommended. Routing to VP for review.`;
-                    } else { // 200,001 to 1,000,000
-                        nextApproverId = await findApproverId('Director_Supply_Chain_and_Property_Management');
-                        nextStatus = 'Pending_Director_Approval';
-                         auditDetails += ` Committee A recommended. Routing to Director for review.`;
-                    }
-                    break;
-
-                case 'Pending_Managerial_Review':
-                    nextApproverId = await findApproverId('Director_Supply_Chain_and_Property_Management');
-                    nextStatus = 'Pending_Director_Approval';
-                    auditDetails += ` Manager reviewed. Escalating to Director for final approval.`;
-                    break;
-
-                case 'Pending_Director_Approval':
-                     if (totalValue > 200000) {
-                        nextApproverId = await findApproverId('VP_Resources_and_Facilities');
-                        nextStatus = 'Pending_VP_Approval';
-                        auditDetails += ` Director approved. Escalating to VP for final approval.`;
+                if (currentStepIndex !== -1 && currentStepIndex + 1 < applicableThreshold.steps.length) {
+                    // There is a next step
+                    const nextStep = applicableThreshold.steps[currentStepIndex + 1];
+                    const approverRole = nextStep.role.replace(/ /g, '_');
+                    
+                    if (approverRole.includes('Committee')) {
+                        nextApproverId = null; // Committee review is not assigned to a single user
+                        nextStatus = `Pending_${approverRole}_Review`;
                     } else {
-                        nextStatus = 'Approved';
-                        auditDetails += ` Director approved. Final approval for mid-value item.`;
+                        nextApproverId = await findApproverId(approverRole);
+                        nextStatus = `Pending_${approverRole}_Approval`;
                     }
-                    break;
-                
-                case 'Pending_VP_Approval':
-                     if (totalValue > 1000000) {
-                        nextApproverId = await findApproverId('President');
-                        nextStatus = 'Pending_President_Approval';
-                        auditDetails += ` VP reviewed. Escalating to President for final approval.`;
-                    } else {
-                        nextStatus = 'Approved';
-                        auditDetails += ` VP approved. Final approval for high-value item.`;
-                    }
-                    break;
-                
-                case 'Pending_Managerial_Approval':
-                case 'Pending_President_Approval': 
+                    auditDetails += ` Approved at current stage. Routing to ${nextStatus.replace(/_/g, ' ')}.`;
+                } else {
+                    // This was the final approval in the chain
                     nextStatus = 'Approved';
+                    nextApproverId = rfqSenderId; // Assign to RFQ sender after final approval
                     auditDetails += ` Final approval received. Ready for vendor notification.`;
-                    break;
+                }
+            } else { // Fallback if no threshold matches
+                 nextStatus = 'Approved';
+                 nextApproverId = rfqSenderId;
+                 auditDetails += ` Final approval fallback. Ready for RFQ.`;
             }
 
             dataToUpdate.status = nextStatus?.replace(/ /g, '_');
@@ -588,3 +573,5 @@ export async function DELETE(
     return NextResponse.json({ error: 'An unknown error occurred' }, { status: 500 });
   }
 }
+
+    
