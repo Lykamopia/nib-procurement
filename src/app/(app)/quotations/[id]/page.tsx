@@ -916,7 +916,7 @@ const RFQActionDialog = ({
     )
 }
 
-const RFQDistribution = ({ requisition, vendors, onRfqSent, isAuthorized }: { requisition: PurchaseRequisition; vendors: Vendor[]; onRfqSent: () => void; isAuthorized: boolean; }) => {
+const RFQDistribution = ({ requisition, vendors, onRfqSent, isAuthorized, isAwarded }: { requisition: PurchaseRequisition; vendors: Vendor[]; onRfqSent: () => void; isAuthorized: boolean; isAwarded: boolean; }) => {
     const [distributionType, setDistributionType] = useState('all');
     const [selectedVendors, setSelectedVendors] = useState<string[]>([]);
     const [vendorSearch, setVendorSearch] = useState("");
@@ -930,7 +930,7 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent, isAuthorized }: { re
     const { user } = useAuth();
     const { toast } = useToast();
     
-    const isSent = requisition.status === 'RFQ_In_Progress' || requisition.status === 'PO_Created' || (requisition.deadline && isPast(new Date(requisition.deadline)));
+    const isSent = requisition.status === 'RFQ_In_Progress' || isAwarded || (requisition.deadline && isPast(new Date(requisition.deadline)));
 
      useEffect(() => {
         if (requisition.deadline) {
@@ -1028,6 +1028,7 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent, isAuthorized }: { re
     }, [vendors, vendorSearch]);
 
     const canTakeAction = !isSent && isAuthorized;
+    const canManageRfq = isSent && isAuthorized && !isAwarded;
 
     return (
         <>
@@ -1204,20 +1205,7 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent, isAuthorized }: { re
                 )}
             </CardContent>
             <CardFooter className="flex flex-wrap items-center justify-between gap-2">
-                 {isSent ? (
-                    <div className="flex w-full items-center justify-between">
-                        <Badge variant="default" className="gap-2">
-                            <CheckCircle className="h-4 w-4" />
-                            RFQ Distributed on {format(new Date(requisition.updatedAt), 'PP')}
-                        </Badge>
-                        {isAuthorized && requisition.status !== 'PO_Created' && (
-                            <div className="flex gap-2">
-                                <Button variant="outline" size="sm" onClick={() => setActionDialog({isOpen: true, type: 'update'})}><Settings2 className="mr-2"/> Update RFQ</Button>
-                                <Button variant="destructive" size="sm" onClick={() => setActionDialog({isOpen: true, type: 'cancel'})}><Ban className="mr-2"/> Cancel RFQ</Button>
-                            </div>
-                        )}
-                    </div>
-                ) : (
+                 {!isSent ? (
                     <div className="flex items-center gap-4">
                         <Button onClick={handleSendRFQ} disabled={isSubmitting || !deadline || !isAuthorized}>
                             {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
@@ -1225,6 +1213,19 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent, isAuthorized }: { re
                         </Button>
                         {!deadline && (
                             <p className="text-xs text-muted-foreground">A quotation deadline must be set before sending the RFQ.</p>
+                        )}
+                    </div>
+                ) : (
+                    <div className="flex w-full items-center justify-between">
+                        <Badge variant="default" className="gap-2">
+                            <CheckCircle className="h-4 w-4" />
+                            RFQ Distributed on {format(new Date(requisition.updatedAt), 'PP')}
+                        </Badge>
+                        {canManageRfq && (
+                            <div className="flex gap-2">
+                                <Button variant="outline" size="sm" onClick={() => setActionDialog({isOpen: true, type: 'update'})}><Settings2 className="mr-2"/> Update RFQ</Button>
+                                <Button variant="destructive" size="sm" onClick={() => setActionDialog({isOpen: true, type: 'cancel'})}><Ban className="mr-2"/> Cancel RFQ</Button>
+                            </div>
                         )}
                     </div>
                 )}
@@ -2417,7 +2418,7 @@ export default function QuotationDetailsPage() {
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isReportOpen, setReportOpen] = useState(false);
 
-  const isAwarded = useMemo(() => quotations.some(q => q.status === 'Awarded' || q.status === 'Accepted' || q.status === 'Declined' || q.status === 'Failed' || q.status === 'Partially_Awarded'), [quotations]);
+  const isAwarded = useMemo(() => quotations.some(q => q.status === 'Awarded' || q.status === 'Accepted' || q.status === 'Declined' || q.status === 'Failed' || q.status === 'Partially_Awarded' || q.status === 'Standby'), [quotations]);
   const isAccepted = useMemo(() => quotations.some(q => q.status === 'Accepted' || q.status === 'Partially_Awarded'), [quotations]);
   const secondStandby = useMemo(() => quotations.find(q => q.rank === 2), [quotations]);
   const thirdStandby = useMemo(() => quotations.find(q => q.rank === 3), [quotations]);
@@ -2761,6 +2762,7 @@ export default function QuotationDetailsPage() {
                     vendors={vendors} 
                     onRfqSent={fetchRequisitionAndQuotes}
                     isAuthorized={isAuthorized}
+                    isAwarded={isAwarded}
                 />
                  <Card className="border-dashed h-full">
                     <CardHeader>
@@ -2979,3 +2981,4 @@ export default function QuotationDetailsPage() {
     
 
     
+
