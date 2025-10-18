@@ -916,7 +916,7 @@ const RFQActionDialog = ({
     )
 }
 
-const RFQDistribution = ({ requisition, vendors, onRfqSent, isAuthorized, isAwarded }: { requisition: PurchaseRequisition; vendors: Vendor[]; onRfqSent: () => void; isAuthorized: boolean; isAwarded: boolean; }) => {
+const RFQDistribution = ({ requisition, vendors, onRfqSent, isAuthorized }: { requisition: PurchaseRequisition; vendors: Vendor[]; onRfqSent: () => void; isAuthorized: boolean; }) => {
     const [distributionType, setDistributionType] = useState('all');
     const [selectedVendors, setSelectedVendors] = useState<string[]>([]);
     const [vendorSearch, setVendorSearch] = useState("");
@@ -930,7 +930,10 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent, isAuthorized, isAwar
     const { user } = useAuth();
     const { toast } = useToast();
     
-    const isSent = requisition.status === 'RFQ_In_Progress' || isAwarded || (requisition.deadline && isPast(new Date(requisition.deadline)));
+    const isSent = requisition.status === 'RFQ_In_Progress';
+    const isDeadlinePassed = requisition.deadline ? isPast(new Date(requisition.deadline)) : false;
+    const isAcceptingQuotes = isSent && !isDeadlinePassed;
+
 
      useEffect(() => {
         if (requisition.deadline) {
@@ -1028,7 +1031,7 @@ const RFQDistribution = ({ requisition, vendors, onRfqSent, isAuthorized, isAwar
     }, [vendors, vendorSearch]);
 
     const canTakeAction = !isSent && isAuthorized;
-    const canManageRfq = isSent && isAuthorized && !isAwarded;
+    const canManageRfq = isAcceptingQuotes && isAuthorized;
 
     return (
         <>
@@ -2762,7 +2765,6 @@ export default function QuotationDetailsPage() {
                     vendors={vendors} 
                     onRfqSent={fetchRequisitionAndQuotes}
                     isAuthorized={isAuthorized}
-                    isAwarded={isAwarded}
                 />
                  <Card className="border-dashed h-full">
                     <CardHeader>
@@ -2981,4 +2983,5 @@ export default function QuotationDetailsPage() {
     
 
     
+
 
