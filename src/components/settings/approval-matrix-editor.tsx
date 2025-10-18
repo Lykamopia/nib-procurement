@@ -110,7 +110,7 @@ export function ApprovalMatrixEditor() {
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-                {localThresholds.sort((a,b) => a.min - b.min).map(threshold => (
+                {[...localThresholds].sort((a,b) => a.min - b.min).map(threshold => (
                     <Card key={threshold.id} className="p-4">
                         <div className="flex justify-between items-start">
                              <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4">
