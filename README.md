@@ -93,7 +93,7 @@ This scenario illustrates the end-to-end journey of a procurement request, invol
 ### 2. **Departmental Approval (Approver)**
 - **Actor**: Bob, the head of the Design department.
 - **Scenario**: Bob logs in, sees the pending request from Alice, and approves it.
-- **System Action**: Bob clicks "Approve." The system recognizes this is the final departmental approval. It immediately sets the requisition's status to **"Approved"** and automatically assigns it to the designated **RFQ Sender** (a specific user or any Procurement Officer, based on system settings). The requisition now appears in the RFQ Sender's "Quotations" queue.
+- **System Action**: Bob clicks "Approve." The system recognizes this is the final departmental approval. It immediately sets the requisition's status to **"Approved"** and automatically assigns it to the designated **RFQ Sender** (a specific user or any Procurement Officer, based on system settings). The requisition now appears in the RFQ Sender's "Quotations" queue with a status of **"Ready for RFQ"**.
 
 ### 3. **RFQ Distribution (Procurement Officer / RFQ Sender)**
 - **Actor**: Charlie, the designated RFQ Sender.
