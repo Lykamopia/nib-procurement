@@ -48,6 +48,13 @@ export interface ApprovalThreshold {
     steps: ApprovalStep[];
 }
 
+interface CommitteeConfig {
+    [key: string]: {
+        min: number;
+        max: number;
+    }
+}
+
 interface AuthContextType {
   user: User | null;
   token: string | null;
@@ -56,6 +63,7 @@ interface AuthContextType {
   rolePermissions: Record<UserRole, string[]>;
   rfqSenderSetting: RfqSenderSetting;
   approvalThresholds: ApprovalThreshold[];
+  committeeConfig: CommitteeConfig;
   login: (token: string, user: User, role: UserRole) => void;
   logout: () => void;
   loading: boolean;
@@ -64,6 +72,7 @@ interface AuthContextType {
   updateRfqSenderSetting: (newSetting: RfqSenderSetting) => void;
   updateUserRole: (userId: string, newRole: UserRole) => void;
   updateApprovalThresholds: (newThresholds: ApprovalThreshold[]) => void;
+  updateCommitteeConfig: (newConfig: any) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -77,6 +86,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [rolePermissions, setRolePermissions] = useState<Record<UserRole, string[]>>(defaultRolePermissions);
   const [rfqSenderSetting, setRfqSenderSetting] = useState<RfqSenderSetting>({ type: 'all' });
   const [approvalThresholds, setApprovalThresholds] = useState<ApprovalThreshold[]>([]);
+  const [committeeConfig, setCommitteeConfig] = useState<CommitteeConfig>({});
 
 
   const fetchAllUsers = useCallback(async () => {
@@ -100,8 +110,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (settingsRes.ok) {
         const settings = await settingsRes.json();
         const rfqSetting = settings.find((s:any) => s.key === 'rfqSenderSetting');
-        
         if (rfqSetting) setRfqSenderSetting(rfqSetting.value);
+        
+        const committeeConf = settings.find((s:any) => s.key === 'committeeConfig');
+        if (committeeConf) setCommitteeConfig(committeeConf.value);
       }
       
       const approvalMatrixRes = await fetch('/api/settings/approval-matrix');
@@ -224,6 +236,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
   }
 
+  const updateCommitteeConfig = (newConfig: any) => {
+      localStorage.setItem('committeeConfig', JSON.stringify(newConfig));
+      setCommitteeConfig(newConfig);
+  }
+
   const authContextValue = useMemo(() => ({
       user,
       token,
@@ -232,6 +249,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       rolePermissions,
       rfqSenderSetting,
       approvalThresholds,
+      committeeConfig,
       login,
       logout,
       loading,
@@ -240,7 +258,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       updateRfqSenderSetting,
       updateUserRole,
       updateApprovalThresholds,
-  }), [user, token, role, loading, allUsers, rolePermissions, rfqSenderSetting, approvalThresholds, fetchAllUsers]);
+      updateCommitteeConfig,
+  }), [user, token, role, loading, allUsers, rolePermissions, rfqSenderSetting, approvalThresholds, committeeConfig, fetchAllUsers]);
 
 
   return (

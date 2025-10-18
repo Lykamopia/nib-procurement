@@ -15,8 +15,10 @@ import { ScrollArea } from '../ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 
 interface CommitteeConfig {
-    min: number;
-    max: number;
+    [key: string]: {
+        min: number;
+        max: number;
+    }
 }
 
 export function CommitteeSettings() {
@@ -26,7 +28,7 @@ export function CommitteeSettings() {
     const [departments, setDepartments] = useState<Department[]>([]);
     const [searchTerms, setSearchTerms] = useState({ a: '', b: '' });
     const [departmentFilters, setDepartmentFilters] = useState({ a: 'all', b: 'all' });
-    const [localConfig, setLocalConfig] = useState(committeeConfig);
+    const [localConfig, setLocalConfig] = useState<CommitteeConfig>(committeeConfig);
 
     useEffect(() => {
         setLocalConfig(committeeConfig);
@@ -66,6 +68,10 @@ export function CommitteeSettings() {
     }
 
     const renderCommitteeSection = (committee: 'A' | 'B') => {
+        if (!localConfig || !localConfig[committee]) {
+            return <Card><CardHeader><CardTitle>Loading Committee {committee}...</CardTitle></CardHeader><CardContent><Loader2 className="animate-spin" /></CardContent></Card>;
+        }
+        
         const role: UserRole = `Committee_${committee}_Member`;
         const members = allUsers.filter(u => u.role === role);
         const nonMembers = allUsers.filter(u => u.role !== role && u.role !== 'Admin' && u.role !== 'Vendor')
@@ -104,7 +110,7 @@ export function CommitteeSettings() {
                                                 <p className="text-xs text-muted-foreground">{user.department}</p>
                                             </div>
                                         </div>
-                                        <Button size="sm" variant="ghost" onClick={() => handleRoleChange(user, 'Committee Member')}><UserX className="h-4 w-4" /></Button>
+                                        <Button size="sm" variant="ghost" onClick={() => handleRoleChange(user, 'Committee_Member')}><UserX className="h-4 w-4" /></Button>
                                     </div>
                                 )) : <p className="text-sm text-muted-foreground text-center py-4">No members assigned.</p>}
                              </ScrollArea>
@@ -158,5 +164,3 @@ export function CommitteeSettings() {
         </div>
     );
 }
-
-    
