@@ -23,16 +23,24 @@ export function RfqSettings() {
         setSetting(rfqSenderSetting);
     }, [rfqSenderSetting]);
 
-    const handleSave = () => {
+    const handleSave = async () => {
         setIsSaving(true);
-        updateRfqSenderSetting(setting);
-        setTimeout(() => {
+        try {
+            await updateRfqSenderSetting(setting);
             toast({
                 title: 'Settings Saved',
                 description: 'RFQ sender configuration has been updated.',
             });
+        } catch (error) {
+             toast({
+                variant: 'destructive',
+                title: 'Error',
+                description: 'Failed to save settings to the database.',
+            });
+        }
+        finally {
             setIsSaving(false);
-        }, 500);
+        }
     };
 
     const procurementRoles: UserRole[] = ['Procurement Officer', 'Admin'];

@@ -69,7 +69,7 @@ interface AuthContextType {
   loading: boolean;
   switchUser: (userId: string) => void;
   updateRolePermissions: (newPermissions: Record<UserRole, string[]>) => void;
-  updateRfqSenderSetting: (newSetting: RfqSenderSetting) => void;
+  updateRfqSenderSetting: (newSetting: RfqSenderSetting) => Promise<void>;
   updateUserRole: (userId: string, newRole: UserRole) => void;
   updateApprovalThresholds: (newThresholds: ApprovalThreshold[]) => void;
   updateCommitteeConfig: (newConfig: any) => void;
@@ -198,10 +198,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setRolePermissions(newPermissions);
   }
   
-  const updateRfqSenderSetting = (newSetting: RfqSenderSetting) => {
-      // In a real app, this would be an API call
-      localStorage.setItem('rfqSenderSetting', JSON.stringify(newSetting));
+  const updateRfqSenderSetting = async (newSetting: RfqSenderSetting) => {
+    try {
+      const response = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: 'rfqSenderSetting', value: newSetting }),
+      });
+      if (!response.ok) throw new Error('Failed to save RFQ sender setting');
       setRfqSenderSetting(newSetting);
+    } catch (e) {
+      console.error(e);
+      // Optionally re-throw or handle error in UI
+    }
   }
 
   const updateUserRole = async (userId: string, newRole: UserRole) => {
