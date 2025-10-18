@@ -151,8 +151,12 @@ export async function GET(request: Request) {
             whereClause.id = { in: assignedReqs.map(a => a.requisitionId) };
              whereClause.status = 'RFQ_In_Progress'
         } else if (isProcurementStaff) {
+            const hasAwardedQuoteCondition = {
+                quotations: { some: { status: { in: ['Awarded', 'Partially_Awarded', 'Standby', 'Declined', 'Accepted', 'Failed'] } } }
+            };
              whereClause.OR = [
-                { status: 'Approved', currentApproverId: userPayload.user.id },
+                { status: 'Approved', currentApproverId: null, ...hasAwardedQuoteCondition }, // For notifying vendors
+                { status: 'Approved', currentApproverId: { not: null } }, // For initial RFQ sending
                 { status: 'RFQ_In_Progress' },
                 { status: { startsWith: 'Pending_' } }
             ]

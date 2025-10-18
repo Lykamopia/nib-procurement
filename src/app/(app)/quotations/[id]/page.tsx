@@ -2662,10 +2662,11 @@ export default function QuotationDetailsPage() {
 
   const getCurrentStep = (): 'rfq' | 'committee' | 'award' | 'finalize' | 'completed' => {
       if (!requisition) return 'rfq';
-      if (requisition.status === 'Approved') return 'rfq';
+      if (requisition.status === 'Approved' && !isAwarded) return 'rfq';
       if (requisition.status === 'RFQ_In_Progress' && !isDeadlinePassed) return 'rfq';
       if (isDeadlinePassed && !isAwarded && !isScoringComplete) return 'committee';
       if (isDeadlinePassed && isScoringComplete && !isAwarded) return 'award';
+      if (requisition.status === 'Approved' && isAwarded) return 'award';
       if (isAccepted) return requisition.status === 'PO_Created' ? 'completed' : 'finalize';
       if (isAwarded) return 'award';
       return 'rfq'; // Default fallback
@@ -2705,6 +2706,7 @@ export default function QuotationDetailsPage() {
   }
   
   const canManageCommittees = (role === 'Procurement_Officer' || role === 'Admin' || role === 'Committee') && isAuthorized;
+  const isReadyForNotification = requisition.status === 'Approved' && isAwarded;
 
   return (
     <div className="space-y-6">
@@ -2928,7 +2930,7 @@ export default function QuotationDetailsPage() {
              />
         )}
 
-        {requisition.status === 'Approved' && isAwarded && (role === 'Procurement_Officer' || role === 'Admin') && (
+        {isReadyForNotification && (role === 'Procurement_Officer' || role === 'Admin') && (
             <Card className="mt-6 border-amber-500">
                  <CardHeader>
                     <CardTitle>Action Required: Notify Vendor</CardTitle>
@@ -2979,6 +2981,7 @@ export default function QuotationDetailsPage() {
     
 
     
+
 
 
 

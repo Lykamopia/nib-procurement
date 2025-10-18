@@ -73,6 +73,12 @@ export function RequisitionsForQuotingTable() {
   }
 
   const getStatusBadge = (req: PurchaseRequisition) => {
+    const hasAwardedQuote = req.quotations?.some(q => ['Awarded', 'Partially_Awarded', 'Standby', 'Declined', 'Accepted', 'Failed'].includes(q.status));
+    
+    if (req.status === 'Approved' && hasAwardedQuote) {
+        return <Badge variant="default" className="bg-amber-500 text-white animate-pulse">Ready to Notify Vendor</Badge>;
+    }
+    
     if (req.status === 'Approved') {
         return <Badge variant="default" className="bg-blue-500 text-white">Ready for RFQ</Badge>;
     }
