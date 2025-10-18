@@ -2662,27 +2662,11 @@ export default function QuotationDetailsPage() {
 
   const getCurrentStep = (): 'rfq' | 'committee' | 'award' | 'finalize' | 'completed' => {
       if (!requisition) return 'rfq';
-      if (requisition.status === 'Approved') {
-          return 'rfq';
-      }
-      if (requisition.status === 'RFQ_In_Progress' && !isDeadlinePassed) {
-          return 'rfq';
-      }
-      if (isDeadlinePassed) {
-          if (isAccepted) {
-              if (requisition.status === 'PO_Created') return 'completed';
-              return 'finalize';
-          }
-          if (isAwarded) {
-              return 'award';
-          }
-          const anyCommittee = (requisition.financialCommitteeMemberIds && requisition.financialCommitteeMemberIds.length > 0) || 
-                              (requisition.technicalCommitteeMemberIds && requisition.technicalCommitteeMemberIds.length > 0);
-          if (!anyCommittee) {
-              return 'committee';
-          }
-          return 'award';
-      }
+      if (requisition.status === 'Approved') return 'rfq';
+      if (requisition.status === 'RFQ_In_Progress' && !isDeadlinePassed) return 'rfq';
+      if (isDeadlinePassed && !isAwarded) return 'committee';
+      if (isAccepted) return requisition.status === 'PO_Created' ? 'completed' : 'finalize';
+      if (isAwarded) return 'award';
       return 'rfq'; // Default fallback
   };
   const currentStep = getCurrentStep();
@@ -2719,6 +2703,8 @@ export default function QuotationDetailsPage() {
      return <div className="text-center p-8">Requisition not found.</div>;
   }
   
+  const canManageCommittees = (role === 'Procurement_Officer' || role === 'Admin' || role === 'Committee') && isAuthorized;
+
   return (
     <div className="space-y-6">
         <Button variant="outline" onClick={() => router.push('/quotations')}>
@@ -2779,7 +2765,7 @@ export default function QuotationDetailsPage() {
             </div>
         )}
         
-        {currentStep === 'committee' && (role === 'Procurement_Officer' || role === 'Committee' || role === 'Admin') && (
+        {currentStep === 'committee' && canManageCommittees && (
             <CommitteeManagement
                 requisition={requisition} 
                 onCommitteeUpdated={fetchRequisitionAndQuotes}
@@ -2793,7 +2779,7 @@ export default function QuotationDetailsPage() {
         {(currentStep === 'award' || currentStep === 'finalize' || currentStep === 'completed') && (
             <>
                 {/* Always render committee management when in award step so dialog can open */}
-                {(currentStep === 'award' || currentStep === 'finalize' || currentStep === 'completed') && (role === 'Procurement_Officer' || role === 'Admin') && (
+                {canManageCommittees && (
                      <div className="hidden">
                         <CommitteeManagement
                             requisition={requisition}
@@ -2832,7 +2818,7 @@ export default function QuotationDetailsPage() {
                                     <FileBarChart2 className="mr-2 h-4 w-4" /> View Cumulative Report
                                 </Button>
                             )}
-                            {isAwarded && requisition.status !== 'PO Created' && (role === 'Procurement_Officer' || role === 'Admin') && (
+                            {isAwarded && requisition.status !== 'PO_Created' && (role === 'Procurement_Officer' || role === 'Admin') && (
                                 <AlertDialog>
                                     <AlertDialogTrigger asChild>
                                         <Button variant="outline" disabled={isChangingAward} className="w-full">
@@ -2983,5 +2969,6 @@ export default function QuotationDetailsPage() {
     
 
     
+
 
 
