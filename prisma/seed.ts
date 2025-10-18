@@ -20,10 +20,9 @@ async function main() {
   await prisma.pOItem.deleteMany({});
   await prisma.purchaseOrder.deleteMany({});
   await prisma.quoteAnswer.deleteMany({});
-  await prisma.quoteItem.deleteMany({});
   await prisma.itemScore.deleteMany({});
   await prisma.committeeScoreSet.deleteMany({});
-  await prisma.quotation.deleteMany({});
+  await prisma.quoteItem.deleteMany({});
   await prisma.technicalCriterion.deleteMany({});
   await prisma.financialCriterion.deleteMany({});
   await prisma.evaluationCriteria.deleteMany({});
@@ -458,5 +457,7 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
+
+    
 
     
