@@ -68,7 +68,7 @@ interface AuthContextType {
   logout: () => void;
   loading: boolean;
   switchUser: (userId: string) => void;
-  updateRolePermissions: (newPermissions: Record<UserRole, string[]>) => void;
+  updateRolePermissions: (newPermissions: Record<UserRole, string[]>) => Promise<void>;
   updateRfqSenderSetting: (newSetting: RfqSenderSetting) => Promise<void>;
   updateUserRole: (userId: string, newRole: UserRole) => void;
   updateApprovalThresholds: (newThresholds: ApprovalThreshold[]) => void;
@@ -94,7 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const response = await fetch('/api/users');
         if (response.ok) {
             const usersData = await response.json();
-            setAllUsers(usersData.map((u: User) => ({...u, role: u.role.replace(/ /g, '_')})));
+            setAllUsers(usersData);
             return usersData;
         }
         return [];
@@ -114,6 +114,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         const committeeConf = settings.find((s:any) => s.key === 'committeeConfig');
         if (committeeConf) setCommitteeConfig(committeeConf.value);
+        
+        const rolePerms = settings.find((s:any) => s.key === 'rolePermissions');
+        if (rolePerms) setRolePermissions(rolePerms.value);
       }
       
       const approvalMatrixRes = await fetch('/api/settings/approval-matrix');
@@ -146,10 +149,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                   localStorage.removeItem('authToken');
               }
           }
-          
-          const storedPermissions = localStorage.getItem('rolePermissions');
-          if (storedPermissions) setRolePermissions(JSON.parse(storedPermissions));
-
       } catch (error) {
           console.error("Failed to initialize auth from localStorage", error);
           localStorage.clear();
@@ -193,9 +192,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
   };
 
-  const updateRolePermissions = (newPermissions: Record<UserRole, string[]>) => {
-      localStorage.setItem('rolePermissions', JSON.stringify(newPermissions));
-      setRolePermissions(newPermissions);
+  const updateRolePermissions = async (newPermissions: Record<UserRole, string[]>) => {
+    try {
+        await fetch('/api/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ key: 'rolePermissions', value: newPermissions }),
+        });
+        setRolePermissions(newPermissions);
+    } catch(e) {
+        console.error(e);
+        throw e;
+    }
   }
   
   const updateRfqSenderSetting = async (newSetting: RfqSenderSetting) => {
@@ -209,7 +217,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setRfqSenderSetting(newSetting);
     } catch (e) {
       console.error(e);
-      // Optionally re-throw or handle error in UI
+      throw e;
     }
   }
 
@@ -227,6 +235,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await fetchAllUsers(); // Re-fetch all users to update the UI state
     } catch (e) {
         console.error(e);
+        throw e;
     }
   }
 
@@ -242,6 +251,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setApprovalThresholds(data);
       } catch (e) {
           console.error("Failed to update approval thresholds", e);
+          throw e;
       }
   }
 
@@ -256,7 +266,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setCommitteeConfig(newConfig);
       } catch(e) {
           console.error(e);
-          throw e; // re-throw to be caught in the component
+          throw e;
       }
   }
 
