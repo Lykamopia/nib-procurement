@@ -72,7 +72,7 @@ interface AuthContextType {
   updateRfqSenderSetting: (newSetting: RfqSenderSetting) => Promise<void>;
   updateUserRole: (userId: string, newRole: UserRole) => void;
   updateApprovalThresholds: (newThresholds: ApprovalThreshold[]) => void;
-  updateCommitteeConfig: (newConfig: any) => void;
+  updateCommitteeConfig: (newConfig: any) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -224,7 +224,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             body: JSON.stringify({ ...userToUpdate, role: newRole, actorUserId: user?.id })
         });
         if (!response.ok) throw new Error("Failed to update role");
-        await fetchAllUsers();
+        await fetchAllUsers(); // Re-fetch all users to update the UI state
     } catch (e) {
         console.error(e);
     }
@@ -245,9 +245,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
   }
 
-  const updateCommitteeConfig = (newConfig: any) => {
-      localStorage.setItem('committeeConfig', JSON.stringify(newConfig));
-      setCommitteeConfig(newConfig);
+  const updateCommitteeConfig = async (newConfig: CommitteeConfig) => {
+      try {
+        const response = await fetch('/api/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ key: 'committeeConfig', value: newConfig }),
+        });
+        if (!response.ok) throw new Error('Failed to save committee configuration');
+        setCommitteeConfig(newConfig);
+      } catch(e) {
+          console.error(e);
+          throw e; // re-throw to be caught in the component
+      }
   }
 
   const authContextValue = useMemo(() => ({

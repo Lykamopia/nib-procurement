@@ -47,16 +47,23 @@ export function CommitteeSettings() {
         fetchDepts();
     }, []);
 
-    const handleSave = () => {
+    const handleSave = async () => {
         setIsSaving(true);
-        updateCommitteeConfig(localConfig);
-        setTimeout(() => {
+        try {
+            await updateCommitteeConfig(localConfig);
             toast({
                 title: 'Settings Saved',
                 description: 'Committee configurations have been updated.',
             });
+        } catch (error) {
+            toast({
+                variant: 'destructive',
+                title: 'Error',
+                description: 'Failed to save committee configurations.',
+            });
+        } finally {
             setIsSaving(false);
-        }, 500);
+        }
     };
 
     const handleRoleChange = (user: User, newRole: UserRole) => {
@@ -104,7 +111,7 @@ export function CommitteeSettings() {
                                 {members.length > 0 ? members.map(user => (
                                     <div key={user.id} className="flex items-center justify-between p-2 rounded-md hover:bg-muted">
                                          <div className="flex items-center gap-3">
-                                            <Avatar className="h-8 w-8"><AvatarImage src={`https://picsum.photos/seed/${user.id}/32/32`} /><AvatarFallback>{user.name.charAt(0)}</AvatarFallback></Avatar>
+                                            <Avatar className="h-8 w-8"><AvatarImage src={`https://picsum.photos/seed/${'user.id'}/32/32`} /><AvatarFallback>{user.name.charAt(0)}</AvatarFallback></Avatar>
                                             <div>
                                                 <p className="text-sm font-medium">{user.name}</p>
                                                 <p className="text-xs text-muted-foreground">{user.department}</p>
@@ -134,7 +141,7 @@ export function CommitteeSettings() {
                                  {nonMembers.map(user => (
                                     <div key={user.id} className="flex items-center justify-between p-2 rounded-md hover:bg-muted">
                                         <div className="flex items-center gap-3">
-                                            <Avatar className="h-8 w-8"><AvatarImage src={`https://picsum.photos/seed/${user.id}/32/32`} /><AvatarFallback>{user.name.charAt(0)}</AvatarFallback></Avatar>
+                                            <Avatar className="h-8 w-8"><AvatarImage src={`https://picsum.photos/seed/${'user.id'}/32/32`} /><AvatarFallback>{user.name.charAt(0)}</AvatarFallback></Avatar>
                                             <div>
                                                 <p className="text-sm font-medium">{user.name}</p>
                                                 <p className="text-xs text-muted-foreground">{user.department}</p>
