@@ -2664,7 +2664,8 @@ export default function QuotationDetailsPage() {
       if (!requisition) return 'rfq';
       if (requisition.status === 'Approved') return 'rfq';
       if (requisition.status === 'RFQ_In_Progress' && !isDeadlinePassed) return 'rfq';
-      if (isDeadlinePassed && !isAwarded) return 'committee';
+      if (isDeadlinePassed && !isAwarded && !isScoringComplete) return 'committee';
+      if (isDeadlinePassed && isScoringComplete && !isAwarded) return 'award';
       if (isAccepted) return requisition.status === 'PO_Created' ? 'completed' : 'finalize';
       if (isAwarded) return 'award';
       return 'rfq'; // Default fallback
@@ -2776,7 +2777,7 @@ export default function QuotationDetailsPage() {
         )}
 
 
-        {(currentStep === 'award' || currentStep === 'finalize' || currentStep === 'completed' || currentStep === 'committee') && (
+        {(currentStep === 'committee' || currentStep === 'award' || currentStep === 'finalize' || currentStep === 'completed') && (
             <>
                 {/* Always render committee management when in award step so dialog can open */}
                 {canManageCommittees && currentStep !== 'committee' && (
@@ -2897,6 +2898,15 @@ export default function QuotationDetailsPage() {
             </>
         )}
         
+        {currentStep === 'committee' && user.role === 'Committee_Member' && (
+             <CommitteeActions 
+                user={user}
+                requisition={requisition}
+                quotations={quotations}
+                onFinalScoresSubmitted={fetchRequisitionAndQuotes}
+             />
+        )}
+        
         {currentStep === 'award' && (role === 'Procurement_Officer' || role === 'Committee' || role === 'Admin') && quotations.length > 0 && (role === 'Procurement_Officer' || role === 'Admin') && (
              <ScoringProgressTracker 
                 requisition={requisition}
@@ -2969,6 +2979,7 @@ export default function QuotationDetailsPage() {
     
 
     
+
 
 
 
