@@ -43,7 +43,7 @@ export function RfqSettings() {
         }
     };
 
-    const procurementRoles: UserRole[] = ['Procurement Officer', 'Admin'];
+    const procurementRoles: UserRole[] = ['Procurement_Officer', 'Admin'];
     const procurementUsers = allUsers.filter(user => procurementRoles.includes(user.role));
 
     return (
@@ -90,7 +90,7 @@ export function RfqSettings() {
                             <SelectContent>
                                 {procurementUsers.map(user => (
                                     <SelectItem key={user.id} value={user.id}>
-                                        {user.name} ({user.role})
+                                        {user.name} ({user.role.replace(/_/g, ' ')})
                                     </SelectItem>
                                 ))}
                             </SelectContent>
