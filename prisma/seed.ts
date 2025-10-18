@@ -2,6 +2,7 @@
 import { PrismaClient } from '@prisma/client';
 import { getInitialData } from '../src/lib/seed-data';
 import bcrypt from 'bcryptjs';
+import { rolePermissions } from '../src/lib/roles';
 
 const prisma = new PrismaClient();
 
@@ -91,6 +92,14 @@ async function main() {
           }
       }
   });
+
+  await prisma.setting.create({
+    data: {
+        key: 'rolePermissions',
+        value: rolePermissions,
+    }
+  });
+
   console.log('Seeded settings.');
 
   // Seed Approval Matrix
@@ -449,3 +458,5 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
+
+    
