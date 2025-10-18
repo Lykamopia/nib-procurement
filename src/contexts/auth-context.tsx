@@ -94,7 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const response = await fetch('/api/users');
         if (response.ok) {
             const usersData = await response.json();
-            setAllUsers(usersData);
+            setAllUsers(usersData.map((u: User) => ({...u, role: u.role.replace(/ /g, '_')})));
             return usersData;
         }
         return [];
@@ -278,7 +278,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       updateUserRole,
       updateApprovalThresholds,
       updateCommitteeConfig,
-  }), [user, token, role, loading, allUsers, rolePermissions, rfqSenderSetting, approvalThresholds, committeeConfig, fetchAllUsers]);
+  }), [user, token, role, loading, allUsers, rolePermissions, rfqSenderSetting, approvalThresholds, committeeConfig, fetchAllUsers, fetchSettings]);
 
 
   return (

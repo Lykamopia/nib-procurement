@@ -15,7 +15,6 @@ export async function GET() {
     });
     const formattedUsers = users.map(u => ({
         ...u,
-        role: u.role.replace(/_/g, ' '),
         department: u.department?.name || 'N/A'
     }));
     return NextResponse.json(formattedUsers);
