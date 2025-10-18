@@ -541,7 +541,7 @@ const CommitteeManagement = ({ requisition, onCommitteeUpdated, open, onOpenChan
         }
     }
     
-    const committeeMembers = allUsers.filter(u => u.role === 'Committee Member');
+    const committeeMembers = allUsers.filter(u => u.role === 'Committee_Member');
     const assignedFinancialMembers = allUsers.filter(u => requisition.financialCommitteeMemberIds?.includes(u.id));
     const assignedTechnicalMembers = allUsers.filter(u => requisition.technicalCommitteeMemberIds?.includes(u.id));
     const allAssignedMemberIds = [...(requisition.financialCommitteeMemberIds || []), ...(requisition.technicalCommitteeMemberIds || [])];
@@ -2776,10 +2776,10 @@ export default function QuotationDetailsPage() {
         )}
 
 
-        {(currentStep === 'award' || currentStep === 'finalize' || currentStep === 'completed') && (
+        {(currentStep === 'award' || currentStep === 'finalize' || currentStep === 'completed' || currentStep === 'committee') && (
             <>
                 {/* Always render committee management when in award step so dialog can open */}
-                {canManageCommittees && (
+                {canManageCommittees && currentStep !== 'committee' && (
                      <div className="hidden">
                         <CommitteeManagement
                             requisition={requisition}
@@ -2969,6 +2969,7 @@ export default function QuotationDetailsPage() {
     
 
     
+
 
 
 
